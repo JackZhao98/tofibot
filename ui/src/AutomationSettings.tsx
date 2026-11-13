@@ -19,6 +19,7 @@ export type AutomationKey =
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "upload_retention_days" | "bots_can_keep_files" | "command_check_minutes" | "computer_idle_off_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
   | "task_fanout_width" | "task_fanout_depth" | "task_part_deadline_minutes" | "task_part_deadline_scheduled_minutes"
   | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine" | "personal_input_review"
+  | "environment_order_web" | "environment_order_app" | "environment_failover"
   | "work_trace" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
 /** Where a row is shown (the server's `group`): the Behavior page's own groups, or beside the setting it belongs with. */
 export type AutomationGroup = "common" | "groups" | "replies" | "reviews" | "tasks" | "computer" | "defaults" | "models" | "remembered" | "permissions" | "environment" | "changes" | "usage";
@@ -27,7 +28,7 @@ const foldedGroups = ["groups", "replies", "reviews", "tasks", "computer"] as co
 /** The common rows, in order. */
 const commonOrder: AutomationKey[] = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
 /** Rows that do nothing without a Bot computer (the whole `computer` group too). */
-const computerOnly = new Set<AutomationKey>(["widget_computer_auto", "computer_idle_off_minutes", "work_trace"]);
+const computerOnly = new Set<AutomationKey>(["widget_computer_auto", "computer_idle_off_minutes", "work_trace", "desktop_idle_seconds"]);
 
 export type AutomationItem = {
   key: AutomationKey;
@@ -62,6 +63,7 @@ function intChoices(item: AutomationItem, current: number): number[] {
 
 function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): string {
   if (item.kind === "bool") return value ? t("automation.on") : t("automation.off");
+  if (item.kind === "enum" && (item.key === "environment_order_web" || item.key === "environment_order_app")) return t(`automation.option.${item.key}.${String(value) as "bot_computer"}`);
   if (item.kind === "enum" && item.key === "browser_engine") return t(`automation.option.browser_engine.${String(value) as "classic" | "playwright"}`);
   if (item.kind === "enum" && item.key === "desktop_engine") return t(`automation.option.desktop_engine.${String(value) as "classic" | "a11y"}`);
   if (item.kind === "enum" && item.key === "personal_input_review") return t(`automation.option.personal_input_review.${String(value) as "declared" | "commands" | "all"}`);
@@ -103,7 +105,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   }
   if (item.kind === "text") return <TextControl id={id} value={typeof item.value === "string" ? item.value : ""} disabled={disabled} label={label} onCommit={value => onChange(value)}/>;
   // The reviewer mode lives in one place, Settings > Permissions; this row shows the value (D15) and links there.
-  if (item.kind === "enum" && (item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review")) {
+  if (item.kind === "enum" && (item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "environment_order_web" || item.key === "environment_order_app")) {
     return <Select id={id} value={String(item.value ?? item.default ?? "")} disabled={disabled} onValueChange={value => onChange(value)}>{(item.options ?? []).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;
   }
   if (item.kind === "enum") {
@@ -134,7 +136,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
   const defaultText = item.key === "background_model" || item.key === "group_triage_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
-  const resettable = changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review");
+  const resettable = changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "environment_order_web" || item.key === "environment_order_app");
   // A value equal to its default says nothing; a changed one reads "Changed · default X · Reset".
   const meta = <span className="auto-meta" data-source={item.source}>
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}
@@ -201,11 +203,11 @@ function Loading({automation}: {automation: Automation}) {
 }
 
 /** The rows of the given groups, as one card (a group that lives beside the setting it belongs with: Models > More, Permissions, ...). */
-export function AutomationRows({groups, flat = false}: {groups: AutomationGroup[]; /** Rows only, for a place that already is a card (a folded group). */ flat?: boolean}) {
+export function AutomationRows({groups, flat = false, hasEnvironment = false}: {groups: AutomationGroup[]; hasEnvironment?: boolean; /** Rows only, for a place that already is a card (a folded group). */ flat?: boolean}) {
   const automation = useAutomation();
   const hasComputer = useHasComputer();
   if (!automation.items) return <Loading automation={automation}/>;
-  const rows = automation.items.filter(item => groups.includes(item.group) && item.key !== "mcp_auto_review" && (hasComputer || (item.group !== "computer" && item.group !== "environment" && !computerOnly.has(item.key))));
+  const rows = automation.items.filter(item => groups.includes(item.group) && item.key !== "mcp_auto_review" && (hasComputer || (item.group !== "computer" && (item.group !== "environment" || hasEnvironment) && !computerOnly.has(item.key))));
   const list = rows.map(item => <Row key={item.key} automation={automation} item={item}/>);
   return !rows.length ? null : flat ? <>{list}</> : <SettingsCard>{list}</SettingsCard>;
 }

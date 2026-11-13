@@ -46,6 +46,10 @@ func IsGateCode(code string) bool {
 }
 
 type Outcome struct {
+	ServedBy   any    `json:"served_by,omitempty"`
+	Next       any    `json:"next,omitempty"`
+	Failover   any    `json:"failover,omitempty"`
+	Features   any    `json:"features,omitempty"`
 	Readiness  string `json:"readiness,omitempty"`
 	Version    int    `json:"version"`
 	Status     string `json:"status"`

@@ -147,6 +147,7 @@ var settingsTabPages = []settingsPage{
 // resolving; ui/src/settings/sections.ts carries the same table (test:settings-registry compares them).
 // "general#primary" is not listed: the app opens the primary Bot's settings for it, or General when there is no Bot.
 var settingsLegacyLinks = map[string]string{
+	"environments":           "computer",
 	"approvals":              "permissions",
 	"devices":                "computer",
 	"allowances":             "permissions",
@@ -313,7 +314,12 @@ func buildSettingsRegistry() []SettingDef {
 		if item.Key == autoMCPReview {
 			continue // the approval mode owns this value
 		}
-		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), automationGroupLinks[item.Group], "settings/advanced", "settings:automation.item."+item.Key+".name")
+		// The environment group is shown on the Computer page (Environments), so its manual entries live there too.
+		manualPage := "settings/advanced"
+		if item.Group == "environment" {
+			manualPage = "settings/computer"
+		}
+		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), automationGroupLinks[item.Group], manualPage, "settings:automation.item."+item.Key+".name")
 		d.DescKey = "settings:automation.item." + item.Key + ".what"
 		d.Options, d.Min, d.Max = item.Options, item.Min, item.Max
 		add(d)

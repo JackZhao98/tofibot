@@ -98,7 +98,7 @@ func TestBrowserEngineSettingChoosesTheTools(t *testing.T) {
 			t.Fatalf("playwright lacks %s", name)
 		}
 	}
-	if !strings.HasPrefix(pw["computer_browser"].Description, computerBrowserFallbackNote) {
+	if !strings.Contains(pw["computer_browser"].Description, browserEngineDescription) {
 		t.Fatal("computer_browser must say it is the fallback while the browser_ tools are offered")
 	}
 	// An explicit choice of classic is kept.
@@ -110,7 +110,7 @@ func TestBrowserEngineSettingChoosesTheTools(t *testing.T) {
 	if _, ok := classic["computer_browser"]; !ok {
 		t.Fatal("classic must keep computer_browser")
 	}
-	if strings.HasPrefix(classic["computer_browser"].Description, computerBrowserFallbackNote) {
+	if strings.Contains(classic["computer_browser"].Description, browserEngineDescription) {
 		t.Fatal("classic computer_browser is the main tool, not a fallback")
 	}
 	for _, name := range browserEngineToolNames() {

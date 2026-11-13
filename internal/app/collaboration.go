@@ -108,6 +108,10 @@ func (s *Store) addUserRuns(conv, content, client string, specs []runSpec, attac
 // already working takes the message as inbox input (queued steering, decision
 // 0062) and gets no new run; the deliveries say which.
 func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpec, attachmentIDs []string, interrupt ...bool) (Message, []Run, []steerDelivery, bool, error) {
+	return s.addUserRunsSteeringOrigin(conv, content, client, specs, attachmentIDs, "", interrupt...)
+}
+
+func (s *Store) addUserRunsSteeringOrigin(conv, content, client string, specs []runSpec, attachmentIDs []string, origin string, interrupt ...bool) (Message, []Run, []steerDelivery, bool, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return Message{}, nil, nil, false, err
@@ -278,7 +282,7 @@ func (s *Store) addUserRunsSteering(conv, content, client string, specs []runSpe
 		return Message{}, nil, nil, false, err
 	}
 	m := Message{ID: newID(), ConversationID: conv, Seq: seq, Role: "user", Content: content, CreatedAt: t, ClientMessageID: client}
-	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client)); err != nil {
+	if _, err = tx.Exec(`INSERT INTO messages(id,conversation_id,seq,role,kind,run_id,content,created_at,client_message_id,origin_computer_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, conv, seq, m.Role, m.Kind, nil, content, t, nullString(client), origin); err != nil {
 		return Message{}, nil, nil, false, err
 	}
 	if _, err = tx.Exec(`INSERT INTO user_message_ingress(message_id,created_at) VALUES(?,?)`, m.ID, t); err != nil {

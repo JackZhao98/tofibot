@@ -106,6 +106,9 @@ type automationItem struct {
 
 // automationItems is the inventory, in display order.
 var automationItems = []automationItem{
+	{Key: "environment_order_web", Group: "environment", Kind: autoKindEnum, Default: "bot_computer", Options: []string{"bot_computer", "mac"}},
+	{Key: "environment_order_app", Group: "environment", Kind: autoKindEnum, Default: "this_mac", Options: []string{"this_mac", "bot_computer"}},
+	{Key: "environment_failover", Group: "environment", Kind: autoKindBool, Default: "true"},
 	{Key: autoConversationModel, Group: "defaults", Kind: autoKindModel, Default: defaultConversationModel},
 	{Key: autoBackgroundModel, Group: "models", Kind: autoKindModel, Env: "TOFI_BACKGROUND_MODEL"},
 	{Key: autoStructuredOutput, Group: "common", Kind: autoKindBool, Default: "true"},

@@ -413,8 +413,8 @@ func TestUncleanLossReleasesTheLock(t *testing.T) {
 	if slot := s.slotFor("mac-a"); slot.holder() != "" {
 		t.Fatalf("lock still held by %s", slot.holder())
 	}
-	// The Bot is told, in run context, that it is offline.
-	if line := s.computersRunContext(context.Background()); !strings.Contains(line, "offline") {
+	// The Bot is told, in run context, that it is disconnected.
+	if line := s.computersRunContext(context.Background()); !strings.Contains(line, "mac-a (Mac, id=mac-a): disconnected") {
 		t.Fatalf("run context: %q", line)
 	}
 	mac.blockOn = map[string]bool{}

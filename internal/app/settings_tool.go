@@ -235,6 +235,9 @@ func settingLinkLabel(d SettingDef, lang string) string {
 		parts = []string{word("settings:shell.title"), word("settings:shell.page.connections.name")}
 	case strings.HasPrefix(path, "/settings/"):
 		tab := strings.TrimPrefix(path, "/settings/")
+		if target, ok := settingsLegacyLinks[tab]; ok {
+			tab, _, _ = strings.Cut(target, "#")
+		}
 		parts = []string{word("settings:shell.title"), word("settings:shell.page." + tab + ".name")}
 	case strings.HasPrefix(path, "/b/{bot}/settings"):
 		parts = []string{word("chat:header.bot_settings"), word("chat:botSettings.section." + section)}

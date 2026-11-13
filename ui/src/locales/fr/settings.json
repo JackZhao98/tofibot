@@ -1431,6 +1431,18 @@
       "monthly_spend_limit_usd": {
         "name": "Plafond de dépenses mensuel",
         "what": "Refuse les appels aux modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation."
+      },
+      "environment_order_web": {
+        "name": "Environnement préféré (web et mobile)",
+        "what": "Choisissez le premier environnement pour les messages du web et du mobile."
+      },
+      "environment_order_app": {
+        "name": "Environnement préféré (app Mac)",
+        "what": "Choisissez le premier environnement pour les messages de l’app Mac."
+      },
+      "environment_failover": {
+        "name": "Basculement automatique d’environnement",
+        "what": "Si un navigateur ne peut pas démarrer, continuer dans le prochain environnement disponible."
       }
     },
     "option": {
@@ -1451,6 +1463,14 @@
         "declared": "Ce que le Bot déclare",
         "commands": "Aussi les raccourcis clavier",
         "all": "Toutes les saisies"
+      },
+      "environment_order_web": {
+        "bot_computer": "Ordinateur du Bot",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "Ce Mac",
+        "bot_computer": "Ordinateur du Bot"
       }
     },
     "auto": "Automatique · {{model}}",

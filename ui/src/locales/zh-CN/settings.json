@@ -1407,6 +1407,18 @@
       "monthly_spend_limit_usd": {
         "name": "月度花费上限",
         "what": "本月花费达到上限后，拒绝对计费模型的调用，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。"
+      },
+      "environment_order_web": {
+        "name": "首选环境（网页与手机）",
+        "what": "选择网页与手机消息的首选环境。"
+      },
+      "environment_order_app": {
+        "name": "首选环境（Mac App）",
+        "what": "选择 Mac App 消息的首选环境。"
+      },
+      "environment_failover": {
+        "name": "自动切换环境",
+        "what": "浏览器无法启动时，继续使用下一个可用环境。"
       }
     },
     "option": {
@@ -1427,6 +1439,14 @@
         "declared": "仅 Bot 声明有影响的",
         "commands": "再加上快捷键",
         "all": "全部输入"
+      },
+      "environment_order_web": {
+        "bot_computer": "Bot 电脑",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "这台 Mac",
+        "bot_computer": "Bot 电脑"
       }
     },
     "auto": "自动 · {{model}}",

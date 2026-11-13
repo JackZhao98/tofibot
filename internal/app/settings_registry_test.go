@@ -40,6 +40,9 @@ func linkTarget(link string) (ok bool, why string) {
 		return true, ""
 	case strings.HasPrefix(path, "/settings/"):
 		tab := strings.TrimPrefix(path, "/settings/")
+		if target, ok := settingsLegacyLinks[tab]; ok {
+			tab, _, _ = strings.Cut(target, "#")
+		}
 		for _, p := range settingsTabPages {
 			if p.ID == tab {
 				if section != "" && !inList(p.Sections, section) {

@@ -1407,6 +1407,18 @@
       "monthly_spend_limit_usd": {
         "name": "月間支出上限",
         "what": "今月の支出が上限に達すると、課金モデルの呼び出しを拒否し、80%で一度通知します。単位は整数のドル、0でオフです。使用量ページで設定します。"
+      },
+      "environment_order_web": {
+        "name": "優先環境（ウェブ・モバイル）",
+        "what": "ウェブとモバイルからのメッセージで最初に使う環境を選びます。"
+      },
+      "environment_order_app": {
+        "name": "優先環境（Mac アプリ）",
+        "what": "Mac アプリからのメッセージで最初に使う環境を選びます。"
+      },
+      "environment_failover": {
+        "name": "環境の自動切り替え",
+        "what": "ブラウザを起動できない場合、次の利用可能な環境で続けます。"
       }
     },
     "option": {
@@ -1427,6 +1439,14 @@
         "declared": "Bot の申告分のみ",
         "commands": "キーコマンドも対象",
         "all": "すべての入力"
+      },
+      "environment_order_web": {
+        "bot_computer": "Bot コンピュータ",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "この Mac",
+        "bot_computer": "Bot コンピュータ"
       }
     },
     "auto": "自動 · {{model}}",

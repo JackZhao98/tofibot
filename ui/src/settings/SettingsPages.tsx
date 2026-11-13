@@ -103,7 +103,6 @@ function ComputerPage({openTab,bots}:{openTab:(tab:SettingsTab)=>void;bots:Bot[]
  return <>
   <Hidden when={keys}><div className="settings-stack">
    <SectionAnchor id="resources"><EnvironmentsPage openTab={openTab}/></SectionAnchor>
-   {hasComputer&&<AutomationRows groups={["environment"]}/>}
    {hasComputer&&<SettingsCard><SettingsRow label={t("computer.keys_row")} link={{label:t("computer.keys_row"),onOpen:()=>setSub("keys")}}/></SettingsCard>}
   </div></Hidden>
   {keys&&<SettingsSubpage title={t("computer.keys_row")} onBack={()=>setSub(null)}><SectionAnchor id="keys"><ComputerCredentials bots={bots}/></SectionAnchor></SettingsSubpage>}

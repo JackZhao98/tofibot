@@ -56,7 +56,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const json = (route, status, body) => route.fulfill({status, contentType: "application/json", body: JSON.stringify(body)});
   const vm = (extra = {}) => ({id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["configure"], ...extra});
   const e2b = (extra = {}) => ({id: "e2b", kind: "e2b", name: "", state: "asleep", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"], ...extra});
-  const mac = (extra = {}) => ({id: "mac_ab12", kind: "mac", name: "Jack's MacBook Pro", state: "online", error_code: "", platform: "darwin", last_seen: "2026-11-05T08:01:02Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"], ...extra});
+  const features = [{key:"browser",status:"connected"},{key:"desktop",status:"disconnected",code:"computer_offline"},{key:"files",status:"off"},{key:"shell",status:"off"}];
+  const routingSettings = [
+    {key:"environment_order_web",group:"environment",kind:"enum",default:"bot_computer",value:"bot_computer",source:"default",options:["bot_computer","mac"]},
+    {key:"environment_order_app",group:"environment",kind:"enum",default:"this_mac",value:"this_mac",source:"default",options:["this_mac","bot_computer"]},
+    {key:"environment_failover",group:"environment",kind:"bool",default:true,value:true,source:"default"},
+  ];
+  const mac = (extra = {}) => ({features,id: "mac_ab12", kind: "mac", name: "Jack's MacBook Pro", state: "online", error_code: "", platform: "darwin", last_seen: "2026-11-05T08:01:02Z", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"], ...extra});
   const body = (environments, add = {e2b: true, mac: true, vm_command: ""}, e2bState = null, policy = null) => ({environments, add, e2b: e2bState, ...(policy ? {policy} : {})});
 
   async function open(params = {}, {width = 1280, height = 800, theme = "light", desktop = false, bridgeless = false, state, member = false, rc} = {}) {
@@ -95,7 +101,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const page = await context.newPage();
     page.on("pageerror", error => errors.push(`pageerror: ${error.message}`));
     const calls = [];
-    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, policy: state?.policy, upgrade: state?.upgrade ?? "ok", afterUpgrade: state?.afterUpgrade, pairing: {status: "pending"}};
+    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, policy: state?.policy, upgrade: state?.upgrade ?? "ok", afterUpgrade: state?.afterUpgrade, pairing: {status: "pending"}, settings: structuredClone(routingSettings)};
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url()), method = request.method(), path = url.pathname;
       if (url.origin !== origin) { await route.abort(); return; }
@@ -105,6 +111,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (path === "/api/auth/session") return json(route, 200, {enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, multi_account: member, owner: {id: "acct_sample", username: "Ada Sample", email: "ada@example.test", role: member ? "user" : "owner"}});
       if (path === "/api/server-info") return json(route, 200, {service: "tofi", protocol_version: 1, instance_id: "0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d", auth: {mode: "owner"}});
       if (path === "/api/bots") return json(route, 200, {bots: [{id: "bot_research", name: "Research Bot", archived: false}]});
+      if (path === "/api/automation-settings") {
+        if (method === "PUT") { const values = JSON.parse(text).values; for (const item of scenario.settings) if (Object.hasOwn(values,item.key)) {item.value=values[item.key] ?? item.default;item.source=values[item.key] == null ? "default" : "stored";} }
+        return json(route,200,{items:scenario.settings});
+      }
       if (path === "/api/preferences") return json(route, 200, {timezone: "America/Los_Angeles", timezone_configured: true});
       if (path === "/api/environments" && method === "GET") return json(route, 200, body(scenario.environments, scenario.add, scenario.e2bState, scenario.policy));
       if (path === "/api/environments/e2b" && method === "PUT") {
@@ -141,6 +151,28 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const names = page => page.$$eval(".environments-page .env-row .env-name-text", items => items.map(item => item.textContent));
   const buttons = (locator) => locator.locator("button[data-action]").evaluateAll(list => list.map(item => item.dataset.action));
 
+  // Feature status and routing controls use the real badges, selects and switch.
+  {
+    const {page, calls, close} = await open({tab:"computer"});
+    const macRow = row(page,"mac_ab12");
+    await macRow.waitFor();
+    assert.deepEqual(await macRow.locator("[data-feature]").evaluateAll(items => items.map(item => item.dataset.status)), ["connected","disconnected","off","off"]);
+    for (const word of ["Built-in browser","Desktop control","Files","Commands","Connected","Disconnected","Off"]) assert.ok((await macRow.innerText()).includes(word));
+    for (const [key, label, choice] of [["environment_order_web","Preferred environment (web and mobile)","Mac"],["environment_order_app","Preferred environment (Mac app)","Bot computer"]]) {
+      const control = page.getByRole("combobox",{name:label});
+      await control.click(); await page.getByRole("option",{name:choice,exact:true}).click();
+      await page.waitForFunction(({key}) => document.querySelector(`[data-key="${key}"]`)?.dataset.source === "stored",{key});
+      assert.ok(calls.some(call => call.includes(`"${key}"`)));
+    }
+    const toggle = page.getByRole("switch",{name:"Automatic environment failover"});
+    // The switch flips when the save answers (as in test-automation-settings): click, then wait for the stored value.
+    await toggle.click();
+    await page.waitForFunction(() => document.querySelector('[data-key="environment_failover"]')?.dataset.source === "stored");
+    assert.equal(await toggle.isChecked(), false);
+    assert.ok(calls.some(call => call.includes('"environment_failover":false')));
+    await close();
+  }
+
   // ---- 1. The list: VM, E2B and a Mac, in that order; badge words, access lines, the Bot computer tag, controls from `actions` only.
   {
     const {page, close} = await open({tab: "computer"});
@@ -150,7 +182,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Used by all Bots Ready/);
     assert.equal(await page.locator(".env-tag").count(), 1, "one environment carries the Bot computer tag");
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /E2B cloud computer Not in use Asleep/);
-    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on Online/);
+    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on (Built-in browser \w+ Desktop control \w+ Files \w+ Commands \w+ )?Online/, "access line, the feature line, then the state");
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
     assert.deepEqual(await buttons(row(page, "e2b")), ["use"], "remove sits in the row menu");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
@@ -296,7 +328,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const mine = page.locator('[data-environment="this-mac"]');
     await mine.waitFor();
     assert.deepEqual(await rcCalls(), [["set", true]]);
-    assert.match((await mine.innerText()).replace(/\s+/g, " "), /This Mac Studio MacBook Available/);
+    assert.match((await mine.innerText()).replace(/\s+/g, " "), /This Mac Studio MacBook/);
+    assert.deepEqual(await mine.locator("[data-feature]").evaluateAll(items => items.map(item => item.dataset.status)), ["connected","disconnected","off","off"]);
     assert.equal(await toggle.isChecked(), true);
     assert.equal(await page.locator(".rc-block").getByText("Actions with consequences still ask you first.", {exact: false}).count(), 1);
     assert.deepEqual(await names(page), ["This server", "E2B cloud computer"], "the paired Mac is shown once: the this-Mac row, not the list");

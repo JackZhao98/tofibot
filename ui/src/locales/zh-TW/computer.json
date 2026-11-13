@@ -653,6 +653,17 @@
         "unnamed": "未命名的 Bot",
         "allow": "重新允許"
       }
+    },
+    "feature": {
+      "browser": "內建瀏覽器",
+      "desktop": "桌面控制",
+      "files": "檔案",
+      "shell": "指令"
+    },
+    "feature_status": {
+      "connected": "已連線",
+      "disconnected": "已中斷",
+      "off": "已關閉"
     }
   },
   "browser": {

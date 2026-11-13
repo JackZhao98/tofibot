@@ -1,3 +1,5 @@
+import {EnvironmentFeatures} from "./EnvironmentFeatures";
+import type {EnvironmentFeature} from "./environments";
 import { SettingsSwitch } from "./settings/components";
 import {useRef, useState, type RefObject} from "react";
 import {useTranslation} from "./i18n";
@@ -36,7 +38,7 @@ function ThisMacMenu({name, denied, onOpenFiles, onOpenDenied}: {name: string; d
 }
 
 /** The this-Mac row: icon, "This Mac" with the device name, the state, one inline action, the menu. */
-export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true}: {rc: RemoteControl; state: ThisMacState; onOpenFiles: (() => void) | null; onOpenDenied: () => void; /** False on the Mac settings page itself: its own menu entry would point at the page you are on. */ menu?: boolean}) {
+export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true, features = []}: {rc: RemoteControl; state: ThisMacState; onOpenFiles: (() => void) | null; onOpenDenied: () => void; /** False on the Mac settings page itself: its own menu entry would point at the page you are on. */ menu?: boolean; features?: EnvironmentFeature[]}) {
   const {t} = useTranslation("computer");
   const status = rc.status!;
   const working = rc.busy !== "";
@@ -53,6 +55,7 @@ export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true}: 
     <div className="rc-copy">
       <strong>{name}</strong>
       <p className="rc-device">{status.name}</p>
+      <EnvironmentFeatures features={features}/>
       {reasonText && <p className="rc-reason" data-reason-text="">{reasonText}</p>}
       {!status.hotkeyOk && state.word !== "unavailable" && <p className="rc-reason">{t("environments.rc.hotkey_taken")}</p>}
     </div>
@@ -65,7 +68,7 @@ export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true}: 
 }
 
 /** The switch row, its one-line note, and the this-Mac row while the switch is on. `offered` is false on a server without personal computers. */
-export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied, menu = true}: {rc: RemoteControl; offered: boolean; onOpenFiles: (() => void) | null; onOpenDenied: () => void; menu?: boolean}) {
+export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied, menu = true, features = []}: {rc: RemoteControl; offered: boolean; onOpenFiles: (() => void) | null; onOpenDenied: () => void; menu?: boolean; features?: EnvironmentFeature[]}) {
   const {t} = useTranslation("computer");
   const status = rc.status;
   if (!status) return null;
@@ -79,6 +82,6 @@ export function RemoteControlBlock({rc, offered, onOpenFiles, onOpenDenied, menu
       <Switch checked={enabled} label={t("environments.rc.title")} disabled={locked} busy={rc.busy === "set"} onChange={value => void rc.set(value)}/>
     </div>
     {note && <p className={`rc-note${note.alert ? " is-error" : ""}`} role={note.alert ? "alert" : "status"} data-failure={rc.failure ?? undefined}>{note.text}</p>}
-    {enabled && <ThisMacRow rc={rc} state={thisMacState(status)} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied} menu={menu}/>}
+    {enabled && <ThisMacRow features={features} rc={rc} state={thisMacState(status)} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied} menu={menu}/>}
   </section>;
 }

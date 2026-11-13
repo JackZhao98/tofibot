@@ -1118,7 +1118,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	}
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
-	noteText := s.runContextNote(context.Background())
+	noteText := s.runContextNote(context.Background(), r)
 	if r.Kind == runKindSchedule || r.scheduleTask != nil {
 		if occurrence := s.scheduleOccurrenceNote(r); occurrence != "" {
 			noteText += "\n" + occurrence
@@ -1272,7 +1272,11 @@ func (s *Server) userLocation() *time.Location {
 	return time.UTC
 }
 
-func (s *Server) runContextNote(ctx context.Context) string {
+func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
+	var r Run
+	if len(runs) > 0 {
+		r = runs[0]
+	}
 	loc := time.UTC
 	userZone := ""
 	if zone, err := s.store.userTimezone(); err == nil && zone != "" {
@@ -1300,7 +1304,7 @@ func (s *Server) runContextNote(ctx context.Context) string {
 	} else if s.computer() == nil && !s.hasOtherComputers() {
 		note += "\n" + noComputerStatus
 	}
-	if line := s.computersRunContext(ctx); line != "" {
+	if line := s.environmentsRunContext(r); line != "" {
 		note += "\n" + line
 	}
 	return note + "\n[/run context]"

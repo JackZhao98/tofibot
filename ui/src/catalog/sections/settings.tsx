@@ -36,24 +36,24 @@ import { Select } from "../../Select";
 const noop = () => {};
 const sampleEnvironments: EnvironmentsView = {
   environments: [
-    { id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "configure"] },
-    { id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, guest_outdated: false, access: "none", actions: ["use", "remove"] },
-    { id: "mac_ab12", kind: "mac", name: "Studio MacBook", state: "online", error_code: "", platform: "darwin", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
+    { features: [], id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "configure"] },
+    { features: [], id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, guest_outdated: false, access: "none", actions: ["use", "remove"] },
+    { features: [], id: "mac_ab12", kind: "mac", name: "Studio MacBook", state: "online", error_code: "", platform: "darwin", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
   ],
   add: { e2b: false, mac: true, vm_command: "" },
   e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "preparing", error_code: "", error: "", template_phase: "preparing", guest_outdated: false },
 };
 const failedEnvironments: EnvironmentsView = {
   environments: [
-    { id: "e2b", kind: "e2b", name: "", state: "failed", error_code: "template_build_failed", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "remove"] },
-    { id: "mac_cd34", kind: "mac", name: "Old iMac", state: "offline", error_code: "", platform: "darwin", last_seen: "2026-11-01T08:00:00Z", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
+    { features: [], id: "e2b", kind: "e2b", name: "", state: "failed", error_code: "template_build_failed", bot_computer: true, guest_outdated: false, access: "all_bots", actions: ["retry", "remove"] },
+    { features: [], id: "mac_cd34", kind: "mac", name: "Old iMac", state: "offline", error_code: "", platform: "darwin", last_seen: "2026-11-01T08:00:00Z", bot_computer: false, guest_outdated: false, access: "allowed_on_mac", actions: ["disconnect"] },
   ],
   add: { e2b: false, mac: true, vm_command: "" },
   e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "failed", error_code: "template_build_failed", error: "Build failed: image pull denied", template_phase: "failed", guest_outdated: false },
 };
 /** The organization's computer (user groups): provided rows carry no key hint and no error text, only codes. */
 const orgE2B = (state: EnvironmentsView["environments"][number]["state"], extra: Partial<EnvironmentsView["environments"][number]> = {}): EnvironmentsView["environments"][number] =>
-  ({ id: "e2b", kind: "e2b", name: "", state, error_code: "", bot_computer: true, access: "all_bots", actions: [], guest_outdated: false, ...extra });
+  ({ features: [], id: "e2b", kind: "e2b", name: "", state, error_code: "", bot_computer: true, access: "all_bots", actions: [], guest_outdated: false, ...extra });
 const orgView = (item: EnvironmentsView["environments"][number], e2b: Partial<NonNullable<EnvironmentsView["e2b"]>> = {}): EnvironmentsView => ({
   environments: [item], add: { e2b: false, mac: false, vm_command: "" },
   e2b: { configured: true, key_hint: "", phase: "ready", error_code: "", error: "", template_phase: "ready", guest_outdated: false, ...e2b },

@@ -276,7 +276,7 @@ func TestComputerDesktopRoutesToAPersonalComputer(t *testing.T) {
 			t.Errorf("schema lacks %s", k)
 		}
 	}
-	if d := props["computer_id"].(map[string]any)["description"].(string); !strings.Contains(d, "capture") || !strings.Contains(d, "no start, stop or trace") || !strings.Contains(d, "move, drag") || !strings.Contains(d, "needs the person's approval") {
+	if d := props["computer_id"].(map[string]any)["description"].(string); !strings.Contains(d, "capture") || !strings.Contains(d, "start, stop and trace always run on the Bot computer") || !strings.Contains(d, "move, drag") || !strings.Contains(d, "needs the person's approval") {
 		t.Errorf("computer_id description: %s", d)
 	}
 
@@ -470,12 +470,13 @@ func TestComputerDesktopToolByComputerKind(t *testing.T) {
 	if _, err := runDesktop(tool, `{"action":"click","x":1,"y":1}`); toolCode(err) != "user_confirmation_required" {
 		t.Fatalf("Mac only, undeclared click: %v", err)
 	}
-	// A second Mac with desktop control: the Bot must say which.
-	second := enrollMac(t, s, "Laptop", "desktop.capture")
-	_, err := runDesktop(tool, `{"action":"capture"}`)
-	if toolCode(err) != "invalid_arguments" || !strings.Contains(err.Error(), only.id) || !strings.Contains(err.Error(), second.id) || strings.Contains(err.Error(), filesOnly.id) {
-		t.Fatalf("two Macs: %v", err)
+	// With two Macs the first connected desktop in pairing order stays the default.
+	second := enrollMac(t, s, "Laptop", "desktop.capture", "desktop.click")
+	raw := s.desktopRouteInput(run, "computer_desktop", json.RawMessage(`{"action":"capture"}`))
+	if id := s.desktopToolComputer("computer_desktop", raw); id != only.id || id == filesOnly.id {
+		t.Fatalf("two Macs: %s", id)
 	}
+	var err error
 	go func() { _, e := runDesktop(tool, `{"computer_id":"`+second.id+`","action":"capture"}`); done <- e }()
 	if job = second.poll(5); job == nil {
 		t.Fatal("named Mac got no job")

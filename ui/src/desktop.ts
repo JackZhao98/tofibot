@@ -225,3 +225,20 @@ if (isDesktop) {
   window.addEventListener("dragover", event => { if (event.dataTransfer?.types.includes("Files")) event.preventDefault(); });
   window.addEventListener("drop", event => { if (event.dataTransfer?.types.includes("Files")) event.preventDefault(); });
 }
+
+// Cache the paired device identity; status events keep later sends current.
+let originStatus: Promise<string | null> | null = null;
+let originID: string | null = null;
+export function originComputerID(): Promise<string | null> {
+  const bridge = window.tofiDesktop?.botBrowser;
+  if (!bridge) return Promise.resolve(null);
+  if (!originStatus) {
+    let changed = false;
+    bridge.onStatus(status => { changed = true; originID = status.deviceID ?? null; });
+    originStatus = bridge.status().then(status => {
+      if (!changed) originID = status.deviceID ?? null;
+      return originID;
+    }).catch(() => originID);
+  }
+  return originStatus.then(() => originID);
+}

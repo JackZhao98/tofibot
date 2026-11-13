@@ -1419,6 +1419,18 @@
       "monthly_spend_limit_usd": {
         "name": "Monatliches Ausgabenlimit",
         "what": "Lehnt Aufrufe kostenpflichtiger Modelle ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt."
+      },
+      "environment_order_web": {
+        "name": "Bevorzugte Umgebung (Web und Mobilgeräte)",
+        "what": "Wähle die erste Umgebung für Nachrichten aus dem Web und von Mobilgeräten."
+      },
+      "environment_order_app": {
+        "name": "Bevorzugte Umgebung (Mac-App)",
+        "what": "Wähle die erste Umgebung für Nachrichten aus der Mac-App."
+      },
+      "environment_failover": {
+        "name": "Automatischer Umgebungswechsel",
+        "what": "Wenn ein Browser nicht starten kann, in der nächsten verfügbaren Umgebung fortfahren."
       }
     },
     "option": {
@@ -1439,6 +1451,14 @@
         "declared": "Was der Bot angibt",
         "commands": "Auch Tastenbefehle",
         "all": "Alle Eingaben"
+      },
+      "environment_order_web": {
+        "bot_computer": "Bot-Computer",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "Dieser Mac",
+        "bot_computer": "Bot-Computer"
       }
     },
     "auto": "Automatisch · {{model}}",

@@ -37,14 +37,14 @@ func browserError(code, certainty string) error {
 		"browser_session_changed":       "The browser session changed. Read its new identity and discard the old action.",
 		"browser_viewport_changed":      "The viewport changed. Take a new snapshot before using coordinates.",
 		"browser_control_lost":          "Browser control was lost. Explain the uncertainty and wait for the person.",
-		"browser_login_required":        "Ask the person to open the browser, log in, and explicitly return control to the Bot. Never type passwords.",
-		"browser_action_unsupported":    "This browser action is unsupported. Do not switch to system input, full-screen capture, another transport or another computer.",
+		"browser_login_required":        "The site needs a sign-in that this browser does not have. Never type passwords.",
+		"browser_action_unsupported":    "This browser cannot do this action.",
 		"user_takeover":                 "The person took control of the browser. Wait for explicit local handover; there is no automatic resume.",
 		"user_stop":                     "The person stopped browser control. Stop and wait for their instruction.",
 		"browser_server_unsupported":    "Ask the person to update the server for browser protocol version 1.",
 		"browser_client_unsupported":    "Ask the person to update the Mac app for browser protocol version 1.",
 		"browser_transport_unavailable": "The browser connection is unavailable. Reconnection does not authorize replay of an interrupted action.",
-		"computer_not_configured":       "No Bot computer is configured. Use a Mac only when the person explicitly selects it, with its computer_id.",
+		"browser_unavailable":           "No browser is connected in any environment.",
 	}
 	status := tooloutcome.Denied
 	if certainty == "unknown" {

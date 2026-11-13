@@ -783,3 +783,11 @@ The desktop app (private repo tofi-app) bundles a copy of the Web UI build inste
 - Every release tag publishes `tofi-desktop-ui-<tag>.tar.gz` and `.sha256` (release.yml, job `desktop-ui`), built by `node scripts/export-desktop-ui.cjs OUT --version <tag>` from the tag's commit. Its `ui-artifact.json` carries `server_version`, `revision` and `desktop_contract`.
 - `internal/app/desktop_contract.go` defines `DesktopContract` (integer, the only place) and `DesktopMinClient` (x.y.z). `/api/server-info` (single and accounts mode) returns `"desktop": {"contract": N, "min_client": "x.y.z"}`; the export script reads the same constant.
 - **Bump `DesktopContract` whenever the UI <-> server API changes incompatibly** (a route, field or event the shipped UI needs is removed or changes meaning, or a new UI needs an API an old server lacks in a way that cannot degrade). Raise `DesktopMinClient` when the desktop shell itself (not the UI) must be newer. Additive changes need neither. The desktop refuses to open a workspace when the contract differs or its version is below `min_client`, and offers its updater plus "Open in browser".
+
+# Environment routing (2026-11-13)
+
+A message may store `origin_computer_id`. Accept only a non-revoked personal computer in this account. An invalid id becomes an empty string; the send still succeeds. A retry keeps the first origin. Child runs use the root trigger's origin. Scheduled runs use the Web order.
+
+Use `environmentOrder` and `environmentFeatures` for routing, listings and run context. The Mac app starts with its Mac; Web starts with the Bot computer. The person's instruction overrides the order. Inside a Mac, use the built-in browser, then desktop control, then the next environment. The three `environment_*` automation settings control this order and automatic failover. Offer Playwright tools only when the Bot computer is first. Desktop start, stop and trace stay on the Bot computer.
+
+Each browser and desktop result has `served_by`. Automatic browser failover requires an omitted computer id, an entry URL, an allowed code and `not_executed` certainty. Never replay an unknown effect. Keep each environment's effect review. A denied Mac is excluded for the rest of the run. Origin and browser route caches are per run and are removed when the run ends.

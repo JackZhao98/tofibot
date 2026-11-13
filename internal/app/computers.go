@@ -116,14 +116,15 @@ func servedActions(caps []string) []string {
 }
 
 type Computer struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Platform     string   `json:"platform"`
-	Kind         string   `json:"kind"`
-	Online       bool     `json:"online"`
-	Capabilities []string `json:"capabilities"`
-	LastSeen     string   `json:"last_seen,omitempty"`
-	Region       string   `json:"region,omitempty"`
+	Features     []environmentFeature `json:"features"`
+	ID           string               `json:"id"`
+	Name         string               `json:"name"`
+	Platform     string               `json:"platform"`
+	Kind         string               `json:"kind"`
+	Online       bool                 `json:"online"`
+	Capabilities []string             `json:"capabilities"`
+	LastSeen     string               `json:"last_seen,omitempty"`
+	Region       string               `json:"region,omitempty"`
 	// Status is the stored attachment state: attached, lost or detached.
 	Status string `json:"status,omitempty"`
 	// Default marks the computer a Bot uses when the person names none (the VM).
@@ -1483,7 +1484,7 @@ func (s *Store) hasPairedComputer() bool {
 }
 
 func (s *Server) computerTools(r Run) []Tool {
-	list := Tool{Name: "list_computers", Description: "List the service host and the Bot computers (the Bot computer, which is the default, and any other computer the person connected) with kind, current online status and explicitly granted capabilities. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
+	list := Tool{Name: "list_computers", Description: "List the service host and the Bot computers (the Bot computer and any other computer the person connected) with kind, current online status and explicitly granted capabilities. Each computer has features with a status. Reuse prior conversation facts for explanatory answers; call this when current availability or grants matter for an operation, not automatically on every turn.", Parameters: objectSchema(map[string]any{}, nil), Execute: func(ctx context.Context, _ json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}

@@ -40,13 +40,22 @@ func TestManualCoversSettings(t *testing.T) {
 			t.Errorf("%s is missing from its reference page %s", d.Key, d.Manual)
 		}
 	}
+	// Each automation item has a row on the manual page of the settings page that shows it (most are Advanced).
+	manualOf := map[string]string{}
+	for _, d := range settingsRegistry {
+		manualOf[d.Key] = d.Manual
+	}
 	for _, item := range automationItems {
 		if item.Key == autoMCPReview {
 			continue
 		}
-		page, _ := manual.Get("settings/advanced")
+		id := manualOf["automation."+item.Key]
+		if id == "" {
+			id = "settings/advanced"
+		}
+		page, _ := manual.Get(id)
 		if !strings.Contains(page.Body, "`automation."+item.Key+"`") {
-			t.Errorf("automation item %s has no row in the manual", item.Key)
+			t.Errorf("automation item %s has no row in the manual page %s", item.Key, id)
 		}
 	}
 	for _, id := range manualGuideIDs {
