@@ -1,9 +1,10 @@
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, request } from "./api";
 import type { CatHandle } from "./CatStage";
 import { CATS, EmptyCat } from "./EmptyCat";
 import { TofiIcon } from "./icons";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { effortLabels } from "./ModelSettings";
 import { OnboardingServices, type ServicesStatus } from "./OnboardingServices";
 import { effortForModel, groupModels, modelEfforts, providerForModel, providerLabels, shortEffortLabel } from "./modelCatalog";
@@ -131,9 +132,9 @@ function Welcome({ titleId, onStart, onSkip }: { titleId: string; onStart: () =>
 /** A short radiogroup: the thinking levels of a model, or the two key providers. */
 function OnbSegmented<T extends string>({ value, options, onChange, label, disabled = false }: { value: T; options: readonly { value: T; label: ReactNode }[]; onChange: (value: T) => void; label: string; disabled?: boolean }) {
   return (
-    <div className="onb-seg" role="radiogroup" aria-label={label}>
-      {options.map(option => <button key={option.value} type="button" role="radio" aria-checked={value === option.value} disabled={disabled} onClick={() => onChange(option.value)}>{option.label}</button>)}
-    </div>
+    <RadioGroup.Root value={value} onValueChange={onChange} disabled={disabled} className="onb-seg" aria-label={label}>
+      {options.map(option => <RadioGroup.Item key={option.value} value={option.value}>{option.label}</RadioGroup.Item>)}
+    </RadioGroup.Root>
   );
 }
 
@@ -345,24 +346,24 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
     body = (
       <>
         <p className="onb-lede onb-lede-left">{t("onboarding.model_body")}</p>
-        <div className="onb-choices" role="radiogroup" aria-label={t("onboarding.model_title")}>
-          <button type="button" role="radio" aria-checked={choice === "chatgpt"} className="onb-choice" disabled={busy} onClick={() => { setChoice("chatgpt"); setError(null); }}>
+        <RadioGroup.Root value={choice} onValueChange={value => { setChoice(value as typeof choice); setError(null); }} disabled={busy} className="onb-choices" aria-label={t("onboarding.model_title")}>
+          <RadioGroup.Item value="chatgpt" className="onb-choice">
             <span className="onb-choice-badge">{t("onboarding.easiest")}</span>
             <span className="onb-choice-icon"><TofiIcon name="user" size={18} /></span>
             <strong>{t("onboarding.chatgpt_title")}</strong>
             <small>{t("onboarding.chatgpt_body")}</small>
-          </button>
-          <button type="button" role="radio" aria-checked={choice === "key"} className="onb-choice" disabled={busy} onClick={() => { setChoice("key"); setError(null); }}>
+          </RadioGroup.Item>
+          <RadioGroup.Item value="key" className="onb-choice">
             <span className="onb-choice-icon"><TofiIcon name="key" size={18} /></span>
             <strong>{t("onboarding.key_title")}</strong>
             <small>{t("onboarding.key_body")}</small>
-          </button>
-          <button type="button" role="radio" aria-checked={choice === "server"} className="onb-choice" data-choice="server" disabled={busy} onClick={() => { setChoice("server"); setError(null); }}>
+          </RadioGroup.Item>
+          <RadioGroup.Item value="server" className="onb-choice" data-choice="server">
             <span className="onb-choice-icon"><TofiIcon name="globe" size={18} /></span>
             <strong>{t("onboarding.server_title")}</strong>
             <small>{t("onboarding.server_body")}</small>
-          </button>
-        </div>
+          </RadioGroup.Item>
+        </RadioGroup.Root>
         <p className="onb-small onb-cost" data-cost={choice === "chatgpt" ? "plan" : choice === "server" ? "endpoint" : "api"}>{choice === "chatgpt" ? t("settings:providers.cost.plan") : choice === "server" ? t("settings:providers.cost.endpoint") : t("settings:providers.cost.api_setup")}</p>
         {choice === "chatgpt" && (phase === "waiting" || (phase === "error" && !key)) && (
           <div className="onb-panel" aria-live="polite">

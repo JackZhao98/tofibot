@@ -7,7 +7,7 @@ import { readEnvironments, type Environment } from "./environments";
 import { displayName, markName, presetFor } from "./connections/names";
 import { message, type MCP } from "./connections/shared";
 import { storedKind, type ConnectionKind } from "./connections/status";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
 import { formatDateTime } from "./i18n/format";
 import { TofiIcon } from "./icons";

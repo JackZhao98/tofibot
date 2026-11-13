@@ -8,7 +8,7 @@ import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FIL
 import { ENVIRONMENT_CATEGORY, portabilityLabel as label, exportDefaultCategories, importDefaultCategories, checkPortableInput } from "./portabilitySelection";
 import "./portability.css";
 import { Banner, FilePicker, SettingsDetails, SettingsRow } from "./settings/components";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useUserTimezone } from "./UserTimezone";
 import { i18n, useTranslation } from "./i18n";
 import { Select } from "./Select";

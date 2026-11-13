@@ -1,3 +1,4 @@
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
 import { Banner, FilePicker } from "../settings/components";
@@ -121,13 +122,12 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
         <label className="connect-field">{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
         {hasGmail && <fieldset className="connect-field connect-scope">
           <legend>{t("local.google.scope")}</legend>
-          <div className="connect-scope-cards" role="radiogroup" aria-label={t("local.google.scope")}>
-            {(["readonly", "read-send"] as const).map(value => <label key={value} className="connect-scope-card" data-checked={scope === value || undefined}>
-              <input type="radio" name="gog-scope" value={value} checked={scope === value} onChange={() => setScope(value)} />
+          <RadioGroup.Root value={scope} onValueChange={value => setScope(value as typeof scope)} className="connect-scope-cards" aria-label={t("local.google.scope")}>
+            {(["readonly", "read-send"] as const).map(value => <RadioGroup.Item key={value} value={value} className="connect-scope-card">
               <strong>{t(value === "readonly" ? "local.google.scope_readonly_title" : "local.google.scope_read_send_title")}</strong>
               <small>{t(value === "readonly" ? "local.google.scope_readonly_note" : "local.google.scope_read_send_note")}</small>
-            </label>)}
-          </div>
+            </RadioGroup.Item>)}
+          </RadioGroup.Root>
         </fieldset>}
       </li>
     </ol>

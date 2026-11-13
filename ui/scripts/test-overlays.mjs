@@ -43,7 +43,7 @@ async function check(name, fn) {
 }
 
 // ---- 1. bundle ----
-await check("bundle: entry within budget, Radix only in the lazy RadixOverlays chunk", async () => {
+await check("bundle: entry within budget, Radix menus and popovers only in the lazy RadixOverlays chunk", async () => {
   const html = readFileSync(join(fx.outDir, "index.html"), "utf8");
   const eager = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(match => match[1]);
   const gzip = eager.reduce((sum, file) => sum + zlib.gzipSync(readFileSync(join(fx.outDir, file)), { level: 9 }).length, 0);
@@ -54,7 +54,9 @@ await check("bundle: entry within budget, Radix only in the lazy RadixOverlays c
   const lazy = entryText.match(/assets\/RadixOverlays-[\w-]+\.js/);
   assert.ok(lazy, "the entry loads RadixOverlays dynamically");
   assert.ok(!eager.some(file => file.includes("/RadixOverlays-")), "RadixOverlays is not an entry file");
-  for (const marker of ["data-radix-menu-content", "data-radix-popper-content-wrapper", "DismissableLayer"]) assert.ok(!entryText.includes(marker), `no Radix code (${marker}) in the entry`);
+  // D82: the entry may carry the chat's small Radix parts (the message bar's DismissableLayer and Toolbar, Collapsible,
+  // FocusScope); menus and the popper stay lazy.
+  for (const marker of ["data-radix-menu-content", "data-radix-popper-content-wrapper"]) assert.ok(!entryText.includes(marker), `no Radix menu or popper code (${marker}) in the entry`);
   const chunk = readFileSync(join(fx.outDir, lazy[0]), "utf8");
   // The popper (positioning) is shared with the lazy Select chunk, so Rollup may hoist it into a common non-entry chunk.
   const lazyText = [chunk, ...readdirSync(join(fx.outDir, "assets")).filter(name => name.endsWith(".js") && !eager.includes(`assets/${name}`)).map(name => readFileSync(join(fx.outDir, "assets", name), "utf8"))].join("\n");
@@ -566,8 +568,7 @@ await check("group read-by names are a quiet hint in #tofi-layers", async () => 
   await context.close();
 });
 
-// The Bot identity card is a Radix Popover too. Nothing in the app opens it today (App.tsx builds it only for a delegation
-// notice, which returns earlier), so it is mounted on its own in a dev-server page with the app's CSS.
+// The identity card uses Radix HoverCard dwell, presence and dismissal. Exercise it with the app CSS.
 await check("identity card: hover opens it in #tofi-layers without taking focus; moving into it keeps it; leaving and Escape close it", async () => {
   if (engineName !== "chromium") return console.log("  (dev-server page: Chromium only)");
   const fixture = await mkdtemp(join(ui, ".overlays-fixture-"));
@@ -606,7 +607,8 @@ void i18nReady.then(() => createRoot(document.getElementById('root')!).render(<d
     await sleep(300);
     const card = await page.evaluate(() => { const c = document.querySelector(".bot-identity-card"), r = c.getBoundingClientRect(); return { layers: Boolean(c.closest("#tofi-layers")), role: c.getAttribute("role"), focusOutside: !c.contains(document.activeElement), left: r.left, top: r.top, label: c.getAttribute("aria-label") }; });
     assert.ok(card.layers, "the card is in #tofi-layers");
-    assert.equal(card.role, "dialog");
+    assert.equal(card.role, null, "HoverCard is non-modal information, not a dialog");
+    assert.equal(await page.locator(".bot-identity-card.tofi-pop[data-state=open]").count(), 1, "shared popup motion and Radix presence");
     assert.match(card.label ?? "", /Ledger Cat/, "the card is labelled with the Bot's name");
     assert.ok(card.focusOutside, "hover does not move focus into the card");
     assert.ok(Math.abs(card.left - box.x) <= 1 && Math.abs(card.top - (box.y + box.height + 8)) <= 1, `the card sits 8 px under the name (${card.left},${card.top} vs ${box.x},${box.y + box.height + 8})`);
@@ -619,6 +621,12 @@ void i18nReady.then(() => createRoot(document.getElementById('root')!).render(<d
     await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
     await page.mouse.move(box.x + 10, box.y + box.height / 2);
     await page.locator(".bot-identity-card").waitFor({ timeout: 5000 });
+    await page.locator(".bot-identity-card button").first().click();
+    assert.equal(await page.evaluate(() => window.__mentioned), 1, "Mention remains an explicit card action");
+    await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
+    await page.mouse.move(5, 590);
+    await anchor.focus();
+    await page.locator(".bot-identity-card").waitFor();
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector(".bot-identity-card"), null, { timeout: 2000 });
     assert.deepEqual(errors, []);

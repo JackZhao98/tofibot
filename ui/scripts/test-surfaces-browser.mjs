@@ -41,8 +41,23 @@ try {
     await page.getByRole("button", { name: "Open artifacts" }).click();
     await page.locator("[data-computer-toggle]").click();
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]') && document.querySelector('.widget-column [data-card="artifacts"]'));
+    await page.locator(".artifacts-widget-all").click();
+    const tabs = page.locator('.cover-window .artifacts-kinds [role="tab"]');
+    await tabs.first().waitFor();
+    await tabs.first().focus();
+    await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => document.querySelector('.cover-window .artifacts-kinds [role="tab"]:nth-child(2)')?.getAttribute("aria-selected") === "true");
+    assert.equal(await tabs.nth(1).evaluate(tab => document.getElementById(tab.getAttribute("aria-controls"))?.getAttribute("role")), "tabpanel", "Radix trigger controls a real panel");
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Escape");
+    await page.locator(".cover-window").waitFor({ state: "detached" });
     await page.getByRole("button", { name: /^Collapse Artifacts/ }).click();
     await settled(page);
+    assert.equal(await page.getByRole("button", { name: /^Expand Artifacts/ }).evaluate(button => {
+      // Radix omits aria-controls while closed, even with forceMount.
+      const content = button.closest(".context-card").querySelector(".context-card-body");
+      return button.getAttribute("aria-expanded") === "false" && content?.dataset.state === "closed" && content.inert;
+    }), true, "Radix fold controls the retained inert content");
     assert.deepEqual(await cards(page), ["computer", "artifacts"]);
     await row(page, DM2.name).click();
     await settled(page);

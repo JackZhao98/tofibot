@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
+import { FocusScope } from "@radix-ui/react-focus-scope";
+import { keepFocus } from "./focusModality";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { animate, drag, readTransformValue, type AnimationPlaybackControls } from "motion";
@@ -195,24 +197,8 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     const frame = window.requestAnimationFrame(() => {
       shell?.querySelector<HTMLElement>('button:not([disabled])')?.focus({ preventScroll: true });
     });
-    const keyboard = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || !shell) return;
-      // Escape is useSurfaceEscape's: the big window steps back to the compact one there.
-      if (event.key === "Tab") {
-        const items = Array.from(shell.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])'))
-          .filter(element => !element.closest('[inert]') && element.getClientRects().length > 0);
-        if (!items.length) { event.preventDefault(); shell.focus(); return; }
-        const index = items.indexOf(document.activeElement as HTMLElement);
-        if (index < 0 || event.shiftKey && index === 0 || !event.shiftKey && index === items.length - 1) {
-          event.preventDefault();
-          (event.shiftKey ? items.at(-1) : items[0])?.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", keyboard);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("keydown", keyboard);
       // Do not override focus moved deliberately to another workspace surface.
       if (document.activeElement === document.body || shell?.contains(document.activeElement)) {
         const trigger = returnFocusRef.current;
@@ -279,7 +265,9 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const corners: { corner: PipCorner; key: "tl" | "tr" | "bl" | "br" }[] = [{ corner: "tl", key: "tl" }, { corner: "tr", key: "tr" }, { corner: "bl", key: "bl" }, { corner: "br", key: "br" }];
   // The shell is always wrapped (the trigger is only disabled outside the small form), so the live video never remounts when the form changes.
   const wrapped = <ContextMenu.Root modal={false}>
-    <ContextMenu.Trigger asChild disabled={!pipActive}>{shell}</ContextMenu.Trigger>
+    {/* The big window keeps Tab inside (Radix FocusScope; Escape is useSurfaceEscape's). The scope is always mounted, so its
+        mount and unmount focus moves are off (keepFocus): entry focus and return stay in the effect above. */}
+    <ContextMenu.Trigger asChild disabled={!pipActive}><FocusScope asChild trapped={expanded} loop onMountAutoFocus={keepFocus} onUnmountAutoFocus={keepFocus}>{shell}</FocusScope></ContextMenu.Trigger>
     {pipActive && <ContextMenu.Portal container={layerRoot()}>
       <ContextMenu.Content className="tofi-pop pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
         onCloseAutoFocus={event => { event.preventDefault(); shellRef.current?.querySelector<HTMLElement>(".desktop-enlarge")?.focus({ preventScroll: true }); }}>

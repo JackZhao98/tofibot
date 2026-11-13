@@ -40,11 +40,10 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 @media (pointer:coarse) { .context-card-button { width:44px; height:44px; } }
 .context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
 
-/* Folding a card animates its row height; the content stays mounted (a live computer session survives it). */
-.context-card-body { display:grid; grid-template-rows:1fr; transition:grid-template-rows var(--m-base) var(--ease-out); }
-.context-card.is-collapsed .context-card-body { grid-template-rows:0fr; }
+/* Folding a card is the shared .collapsible-content height animation; the content stays mounted (a live computer session
+   survives it). The computer card never folds and lets its screen overflow. */
+.context-card.is-bare .context-card-body { overflow:visible; }
 .context-card-inner { min-height:0; min-width:0; overflow:clip; }
-.context-card.is-collapsed .context-card-inner { visibility:hidden; transition:visibility 0s var(--m-base); }
 
 /* Panels inside a card: the card is the surface, so a panel drops its own frame, its own title and its own close
    button (the card header carries both) and keeps one inner padding. */
@@ -63,6 +62,5 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 @media (prefers-reduced-motion:reduce) {
   .widget-slot, .widget-slot[data-leaving] { animation:none; transition:none; }
   .context-card, .context-card-grip, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }
-  .context-card-body, .context-card.is-collapsed .context-card-inner { transition:none; }
 }
 @media (forced-colors:active) { .context-card { outline:1px solid CanvasText; } }

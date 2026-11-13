@@ -85,7 +85,7 @@ const html = readFileSync(join(ui, "index.html"), "utf8");
 if (!/<div id="root"><\/div>\s*<div id="tofi-layers"><\/div>/.test(html)) { portalFailures++; fail(`index.html: <div id="tofi-layers"></div> must follow <div id="root"></div>`); }
 // Body appends that are not overlays: an off-screen caret mirror, the clipboard fallback field, the download anchor.
 // proxyChallengeRecover.ts: a hidden, short-lived same-origin frame that renews a proxy clearance; not an overlay.
-const BODY_APPEND_ALLOWED = { "textareaCaret.ts": 1, "App.tsx": 1, "botPackage.ts": 1, "layers.ts": 1, "proxyChallengeRecover.ts": 1 };
+const BODY_APPEND_ALLOWED = { "textareaCaret.ts": 1, "MessageHoverActions.tsx": 1, "botPackage.ts": 1, "layers.ts": 1, "proxyChallengeRecover.ts": 1 };
 for (const file of [...tracked("*.ts"), ...tracked("*.tsx")]) {
   if (skip(file)) continue;
   const code = readFileSync(join(src, file), "utf8");

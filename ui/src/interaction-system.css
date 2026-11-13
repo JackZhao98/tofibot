@@ -98,7 +98,7 @@ form[aria-busy=true]{cursor:progress}
 .appearance-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .appearance-options button{padding:8px;border:1px solid var(--line);background:transparent;border-radius:12px;color:var(--text-soft);font-size:12px;display:grid;gap:8px}
 .appearance-options button:hover{background:var(--surface-soft)}
-.appearance-options button[aria-pressed="true"]{border-color:var(--text-soft);background:var(--surface-soft);color:var(--text)}
+.appearance-options button[data-state="checked"]{border-color:var(--text-soft);background:var(--surface-soft);color:var(--text)}
 .theme-swatch{height:54px;border-radius:6px;background:var(--swatch-light-bg);display:grid;align-content:center;gap:5px;padding:9px 14px 9px 24px;border-left:14px solid var(--swatch-light-edge);box-shadow:inset 0 0 0 1px var(--line-soft)}
 .theme-swatch i{height:3px;border-radius:4px;background:var(--swatch-light-ink)}.theme-swatch i:last-child{width:60%}
 .theme-swatch-dark{background:var(--swatch-dark-bg);border-left-color:var(--swatch-dark-edge)}.theme-swatch-dark i{background:var(--swatch-dark-ink)}
@@ -212,9 +212,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:38px;padding:8px 0;border:0;background:transparent;color:var(--text-soft);text-align:left;font-size:13px}
 .disclosure-toggle:hover{color:var(--text)}
 .disclosure-chevron{flex:none;transition:transform var(--m-base) var(--ease-settle)}
-.disclosure[data-open="true"]>.disclosure-toggle .disclosure-chevron{transform:rotate(180deg)}
-.disclosure-region{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;transition:grid-template-rows var(--m-base) var(--ease-settle),opacity var(--m-quick) var(--ease-out),visibility var(--m-base)}
-.disclosure[data-open="true"]>.disclosure-region{grid-template-rows:1fr;opacity:1;visibility:visible}
+.disclosure[data-state="open"]>.disclosure-toggle .disclosure-chevron{transform:rotate(180deg)}
 .disclosure-inner{min-height:0;overflow:hidden}
 .disclosure-inner>label{display:grid;gap:7px;margin:10px 0}
 .disclosure-inner>.model-fields{margin:8px 0}
@@ -259,3 +257,12 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .empty-group-composer button{min-height:38px}
 .archive-card{background:var(--surface)}
 .archive-group-mark{background:var(--surface-soft)}
+
+/* Radix Collapsible content. Its height animates from the measured --radix-collapsible-content-height;
+   closed content stays mounted (forceMount) but is hidden, so Find and the accessibility tree skip it. */
+.collapsible-content{overflow:hidden}
+.collapsible-content[data-state="open"]{animation:collapsible-open var(--m-base) var(--ease-out)}
+.collapsible-content[data-state="closed"]{height:0;visibility:hidden;animation:collapsible-close var(--m-base) var(--ease-settle)}
+@keyframes collapsible-open{from{height:0}to{height:var(--radix-collapsible-content-height)}}
+@keyframes collapsible-close{from{height:var(--radix-collapsible-content-height);visibility:visible}to{height:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.collapsible-content{animation:none}}

@@ -1,3 +1,4 @@
+import * as Tabs from "@radix-ui/react-tabs";
 import { scheduleDisplay } from "./displayMetadata";
 import { CATS, EmptyState } from "./EmptyCat";
 import { ScheduleEditor } from "./ScheduleEditor";
@@ -8,7 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
 import { BotAvatar } from "./BotAvatar";
-import { ConfirmAction, Disclosure } from "./InteractionSystem";
+import { ConfirmAction } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";
 import { WorkExecution } from "./WorkExecution";
@@ -93,9 +95,11 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
       </div>
     </article>;
   }
-  return <div className="detail-content work-panel">
+  return <Tabs.Root value={history ? "history" : "open"} onValueChange={value => { setHistory(value === "history"); setOperationError(null); }} asChild><div className="detail-content work-panel">
     <div className="detail-heading"><div><h2>{botView ? t("panel.bot_heading", { name: conversation.name }) : t("panel.group_heading")}</h2></div><button className="close-button" aria-label={t("panel.close")} disabled={creatingBusy} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
-    <div className="work-toolbar"><div className="work-tabs" role="tablist" aria-label={t("panel.scope")}><button role="tab" aria-selected={!history} onClick={() => { setHistory(false); setOperationError(null); }}>{t("panel.tab_open")}</button><button role="tab" aria-selected={history} onClick={() => { setHistory(true); setOperationError(null); }}>{t("panel.tab_history")}</button></div><button className="ghost-button work-add" aria-label={creating ? t("panel.cancel_new") : t("panel.new")} disabled={conversation.archived || creatingBusy} onClick={() => setCreating(value => !value)}><TofiIcon name={creating ? "close" : "plus"} size={20} /></button></div>
+    <div className="work-toolbar"><Tabs.List className="work-tabs" aria-label={t("panel.scope")}><Tabs.Trigger value="open">{t("panel.tab_open")}</Tabs.Trigger><Tabs.Trigger value="history">{t("panel.tab_history")}</Tabs.Trigger></Tabs.List><button className="ghost-button work-add" aria-label={creating ? t("panel.cancel_new") : t("panel.new")} disabled={conversation.archived || creatingBusy} onClick={() => setCreating(value => !value)}><TofiIcon name={creating ? "close" : "plus"} size={20} /></button></div>
+    <Tabs.Content value={history ? "open" : "history"} forceMount hidden />
+    <Tabs.Content value={history ? "history" : "open"}>
     {!botView && <div className="work-member-select"><Select className="work-member-filter" aria-label={t("panel.member_filter")} value={member} onValueChange={value => setMember(value)}><option value="">{t("panel.all_members")}</option>{conversation.bot_ids.map(id => <option key={id} value={id}>{lookupBot(id)}</option>)}</Select></div>}
     {creating && <WorkCreate onBusyChange={setCreatingBusy} conversation={conversation} conversations={conversations} bots={bots} goals={items.filter(item => item.kind === "goal")} onDone={() => { setCreating(false); setHistory(false); void reload(); }} onCancel={() => setCreating(false)} />}
     {operationError && <div className="error-banner" role="alert">{operationError.text}<button className="text-button" disabled={!!pending} onClick={() => void mutate(operationError.id, operationError.retry)}>{t("panel.retry_action")}</button></div>}
@@ -111,7 +115,8 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
       const display = scheduleDisplay(item);
       return <article className={`work-schedule${attention ? " needs-attention" : ""}`} key={item.id}><time dateTime={item.next_at_utc}>{formatZonedTime(item.next_at_utc, preference.timezone)}</time><strong>{display.title}</strong><p className="work-schedule-description">{display.description}</p><div className="work-row-meta">{provenance(item)}<span className="work-state">{label}</span></div><details className="work-item-details"><summary>{t("panel.manage")}</summary><div className="schedule-instructions"><strong>{t("panel.instructions")}</strong><p>{item.content}</p></div>{(() => { const open = !(conversation.archived || item.conversation_archived || item.bot_archived); const actions = <>{item.status === "active" && <ScheduleIconButton icon="pause" label={t("panel.pause")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.pauseSchedule(item.id))} />}{item.status === "paused" && <ScheduleIconButton icon="play" label={t("panel.resume")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.resumeSchedule(item.id))} />}{waiting && item.last_run_id && <ScheduleIconButton icon="stop" label={t("panel.stop_turn")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.cancelRun(item.last_run_id!))} />}{attention && item.last_run_id && <ScheduleIconButton icon="retry" label={t("panel.rerun")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.retryRun(item.last_run_id!))} />}<ScheduleDeleteButton label={t("panel.delete")} question={t("panel.delete_confirm")} disabled={!!pending} onConfirm={() => mutate(item.id, () => api.deleteSchedule(item.id))} /></>; return open ? <ScheduleEditor schedule={item} disabled={!!pending} onSave={action => mutate(item.id, action)} actions={actions} /> : null; })()}{item.timezone !== preference.timezone && <small>{t("panel.schedule_zone", { zone: item.timezone })}</small>}</details></article>;
     })}</div></section>}
-  </div>;
+    </Tabs.Content>
+  </div></Tabs.Root>;
 }
 
 function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel, onBusyChange }: Pick<Props, "conversation" | "conversations" | "bots"> & { goals: WorkItem[]; onDone: () => void; onCancel: () => void; onBusyChange: (busy: boolean) => void }) {

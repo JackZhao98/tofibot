@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, request } from "./api";
 import { isDesktop } from "./desktop";
 import { ServiceMark } from "./ServiceMark";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { StatusBadge } from "./settings/components";
 import { TofiIcon } from "./icons";
 import { googleAPIEnableURL, googleAudienceURL, getIntegrationPreset, type IntegrationPreset } from "./integrationCatalog";

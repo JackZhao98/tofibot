@@ -1,3 +1,4 @@
+import * as Collapsible from "@radix-ui/react-collapsible";
 import {useCallback, useEffect, useState, type ReactNode} from "react";
 import {TofiIcon} from "../icons";
 
@@ -35,12 +36,12 @@ export function useSubpage<T extends string>(tab: string, owner: Record<string, 
 export function FoldGroup({tab, id, title, summary, children}: {tab: string; id: string; title: ReactNode; summary?: ReactNode; children: ReactNode}) {
   const [open, setOpen] = useState(() => revealTarget(tab) === id);
   useReveal(tab, useCallback(section => { if (section === id) setOpen(true); }, [id]));
-  return <div className="st-fold" data-section={id} data-open={open || undefined}>
-    <button type="button" className="settings-row-v2 is-link is-inline" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+  return <Collapsible.Root open={open} onOpenChange={setOpen} className="st-fold" data-section={id} data-open={open || undefined}>
+    <Collapsible.Trigger className="settings-row-v2 is-link is-inline">
       <div className="settings-row-copy"><strong>{title}</strong></div>
       {summary && <span className="settings-row-value">{summary}</span>}
       <TofiIcon name={open ? "chevron-down" : "chevron-right"} size={14} aria-hidden="true"/>
-    </button>
-    {open && children}
-  </div>;
+    </Collapsible.Trigger>
+    <Collapsible.Content className="collapsible-content">{children}</Collapsible.Content>
+  </Collapsible.Root>;
 }

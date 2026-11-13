@@ -113,3 +113,10 @@
 .workspace .artifacts-widget-list li[data-fresh] .artifact-row { background: color-mix(in srgb, var(--lagoon) 20%, transparent); }
 @keyframes artifact-row-in { from { opacity: 0; translate: 0 -6px; max-height: 0; } to { max-height: 56px; } }
 @media (prefers-reduced-motion: reduce) { .workspace .artifacts-widget-list li[data-fresh] { animation: none; } .workspace .artifact-row { transition: none; } }
+
+/* Nested Radix roots share the existing wrapping toolbar; panels retain their accessible associations. */
+.artifacts-tab-layout{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin:18px 0 20px}
+.artifacts-tab-layout .artifacts-toolbar,.artifacts-scope-panel,.artifacts-kind-root{display:contents}
+.artifacts-tab-layout .artifacts-tabs{flex:0 1 auto}
+.artifacts-tab-layout .artifacts-search{flex:1 1 220px;min-width:0}
+.artifacts-result-panel{flex:1 0 100%;min-width:0;margin-top:10px}

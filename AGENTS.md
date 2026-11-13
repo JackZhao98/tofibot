@@ -561,16 +561,34 @@ Modal dialogs use `ModalDialog` / `ConfirmDialog` from `ui/src/overlays/ModalDia
 docs/design/migration.md step 3). Import it only from lazy chunks: Radix must stay out of the entry bundle (D31;
 `test:dialogs` crawls the build). Pass the dialog element as the child (classes and role stay yours) and the scrim class
 as `overlayClassName`; choose `closeOnEscape`, `closeOnOutside`, `locked`, `initialFocus` and `returnFocus` explicitly. It
-sets `aria-modal="true"` and `data-tofi-modal` (App.tsx's desktop-shortcut gate and detail-pane trap read them), keeps Tab
+sets `aria-modal="true"` and `data-tofi-modal` (App.tsx's desktop-shortcut gate reads them), keeps Tab
 inside, lets Escape close only the top layer and claims it with `preventDefault` (app Escape handlers must check
 `defaultPrevented`), returns focus, hides the rest from screen readers and turns pointer events off on `<body>` (the
-workspace toast opts back in). Not migrated on purpose: `TakeoverDialog` (Tab belongs to the remote screen), the terminal's
+workspace toast opts back in). `TakeoverDialog` is a `ModalDialog` too (`closeOnEscape={false}`, `initialFocus` on the remote
+screen). Surfaces that must not remount keep Tab inside with Radix `FocusScope` (`trapped`, `loop`, and `keepFocus` from
+`focusModality.ts` on its mount and unmount focus events): the Settings window and narrow drawer (`App.tsx`) and the big computer
+window (`FloatingDesktop.tsx`). Not migrated on purpose: the terminal's
 inline confirm, `PermissionCoach`, and the image lightbox and file preview (native `<dialog>`, top layer; hints and the
 toast render inside the open one via `topLayerDialog()` / `InTopLayer` in `layers.ts`).
 A dialog opened from a menu item reads where focus returns before it opens (`rememberDialogOpener` in App.tsx): the item
 unmounts with the menu and the workspace turns inert in the same commit; from the sidebar row menu that is the row it was opened
 on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
 (one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
+
+# Web UI controls on Radix
+
+Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches (`react-switch`), disclosures
+(`react-collapsible`), the Bot identity card (`react-hover-card`) and the message action bar (`react-toolbar` in a
+`DismissableLayer`) are Radix. Do not write a hand-made version of a behaviour that one of these covers.
+- Entry bundle (D31 as amended by D82, `test:dialogs`): only the parts every chat shows are eager: the message action bar
+  (`ui/src/MessageHoverActions.tsx`, Toolbar + DismissableLayer) and the tool-step drawer and run-context toggle in the message
+  list (`App.tsx`, Collapsible). Dialogs, menus, popovers and the Settings controls stay in lazy chunks. The entry may grow
+  for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82.
+- `Disclosure` and `AppearancePicker` are in `ui/src/InteractionPrimitives.tsx` (lazy chunks only).
+- Collapsible content gets the class `collapsible-content` (`interaction-system.css`): one height animation from
+  `--radix-collapsible-content-height`. Folded content that must stay mounted uses `forceMount` and `inert`; the class hides it.
+- Radix selects a radio and moves a toolbar or tab on a timer after `keydown`. A test that presses an arrow key holds the key for
+  one timer turn (`keyboard.down`, `setTimeout(0)`, `keyboard.up`), as a person does. Do not select on `focus` to pass a test.
 
 # Web UI side panels
 

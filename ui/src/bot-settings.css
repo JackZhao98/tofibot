@@ -108,7 +108,7 @@
 .bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button { border:0; background:var(--surface-2); color:var(--ink-soft); transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
 .bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button:hover { background:var(--sunk); }
 .bot-style-pop .bot-avatar-state button { flex:1; min-height:33px; border-radius:9px; background:transparent; font:600 12px/1.2 var(--body); }
-.bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button[aria-pressed="true"] { background:var(--inverse); color:var(--on-inverse); }
+.bot-style-pop :is(.bot-avatar-state, .bot-avatar-shapes, .bot-avatar-palettes, .bot-avatar-patterns) button[data-state="checked"] { background:var(--inverse); color:var(--on-inverse); }
 .bot-style-pop .bot-avatar-shapes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
 .bot-style-pop .bot-avatar-shapes button { display:grid; justify-items:center; gap:3px; min-width:0; padding:8px 4px; border-radius:12px; font:10px/1.2 var(--body); }
 .bot-style-pop .bot-avatar-shapes :is(.avatar, .tofi-avatar) { display:block; width:44px; height:44px; }

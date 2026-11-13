@@ -11,7 +11,7 @@ import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings,useDictationStatus} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
 import {FollowupsSettings} from "../FollowupsSettings";
-import {AppearancePicker} from "../InteractionSystem";
+import { AppearancePicker } from "../InteractionPrimitives";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
 import {HelpAndFeedback} from "./HelpAndFeedback";

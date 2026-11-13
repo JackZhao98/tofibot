@@ -1,3 +1,5 @@
+import * as Tabs from "@radix-ui/react-tabs";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -41,18 +43,6 @@ type Props = {
   scopes?: Array<{ mode: Props["mode"]; label: string }>;
   onScope?: (mode: Props["mode"]) => void;
 };
-
-/** Arrow keys, Home and End move between the tabs of a tablist and select the one they land on (the buttons are a roving tab stop). */
-function tabsKeys(event: React.KeyboardEvent<HTMLElement>) {
-  const keys: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
-  const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-  const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
-  if (at < 0) return;
-  const to = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : keys[event.key] === undefined ? -1 : (at + keys[event.key] + tabs.length) % tabs.length;
-  if (to < 0) return;
-  event.preventDefault();
-  tabs[to].focus(); tabs[to].click();
-}
 
 /** Everything the Bots produced, at three levels: the whole account, one Bot, one conversation. Read-only. */
 export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage, scopes, onScope }: Props) {
@@ -109,20 +99,28 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
   const kinds: Array<[Kind, string]> = [["all", t("artifacts.type_all")], ["image", t("artifacts.type_images")], ["document", t("artifacts.type_documents")]];
   const filtered = kind !== "all" || query !== "";
 
-  return <div className="detail-content artifacts-panel">
+  return <Tabs.Root value={mode} onValueChange={value => onScope?.(value as Props["mode"])} asChild><div className="detail-content artifacts-panel">
+
     <div className="detail-heading"><div><h2>{title}</h2></div><button type="button" className="close-button" aria-label={t("artifacts.close")} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
+    <div className="artifacts-tab-layout">
+    <div className="artifacts-toolbar">{scopes && onScope && <Tabs.List className="artifacts-tabs artifacts-scopes" aria-label={t("artifacts.scope_label")}>{scopes.map(item => <Tabs.Trigger key={item.mode} value={item.mode}>{item.label}</Tabs.Trigger>)}</Tabs.List>}</div>
+    {scopes?.filter(item => item.mode !== mode).map(item => <Tabs.Content key={item.mode} value={item.mode} forceMount hidden />)}
+    <Tabs.Content value={mode} className="artifacts-scope-panel" aria-labelledby={undefined} aria-label={title}><Tabs.Root className="artifacts-kind-root" value={kind} onValueChange={value => setKind(value as Kind)}>
     <div className="artifacts-toolbar">
-      {scopes && onScope && <div className="artifacts-tabs artifacts-scopes" role="tablist" aria-label={t("artifacts.scope_label")} onKeyDown={tabsKeys}>{scopes.map(item => <button key={item.mode} type="button" role="tab" tabIndex={mode === item.mode ? 0 : -1} aria-selected={mode === item.mode} onClick={() => onScope(item.mode)}>{item.label}</button>)}</div>}
-      <div className="artifacts-tabs artifacts-kinds" role="tablist" aria-label={t("artifacts.tabs_label")} onKeyDown={tabsKeys}>{kinds.map(([value, label]) => <button key={value} type="button" role="tab" tabIndex={kind === value ? 0 : -1} aria-selected={kind === value} onClick={() => setKind(value)}>{label}</button>)}</div>
+      <Tabs.List className="artifacts-tabs artifacts-kinds" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <Tabs.Trigger key={value} value={value}>{label}</Tabs.Trigger>)}</Tabs.List>
       <label className="artifacts-search"><TofiIcon name="search" size={16} /><input type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} /></label>
       <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><input type="checkbox" role="switch" checked={uploads} onChange={event => setUploads(event.target.checked)} /></label>
     </div>
+    {kinds.filter(([value]) => value !== kind).map(([value]) => <Tabs.Content key={value} value={value} forceMount hidden />)}
+    <Tabs.Content value={kind} className="artifacts-result-panel">
     {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => items.length ? void loadMore() : setAttempt(value => value + 1)}>{t("artifacts.retry")}</button></p>}
     {loading && !items.length ? <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" />{t("artifacts.loading")}</div></DelayedFeedback>
       : !items.length ? !error && <EmptyState name="artifacts-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{filtered ? t("artifacts.empty_filtered") : t("artifacts.empty")}</p></EmptyState>
       : <ul className="artifacts-grid" aria-label={t("artifacts.list_label")} aria-busy={loading}>{items.map(item => <ArtifactCard key={item.id} item={item} showBot={scope.kind !== "bot"} showConversation={scope.kind !== "conversation"} onOpenMessage={onOpenMessage} />)}</ul>}
     {next && <button type="button" className="secondary-button artifacts-more" disabled={more} onClick={() => void loadMore()}>{more ? t("artifacts.loading") : t("artifacts.load_more")}</button>}
-  </div>;
+    </Tabs.Content></Tabs.Root></Tabs.Content>
+    </div>
+  </div></Tabs.Root>;
 }
 
 function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item: ArtifactItem; showBot: boolean; showConversation: boolean; onOpenMessage: Props["onOpenMessage"] }) {
@@ -132,9 +130,9 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const kind = fileKind(item.name, item.mime);
 
-  async function toggleVersions() {
-    if (open) { setOpen(false); return; }
-    setOpen(true);
+  async function toggleVersions(next: boolean) {
+    setOpen(next);
+    if (!next) return;
     if (versions || state === "loading") return;
     setState("loading");
     try { setVersions((await fetchArtifacts({ scope: "versions", id: item.id })).items.filter(version => version.id !== item.id)); setState("idle"); }
@@ -151,14 +149,14 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
       <span className="artifact-source">{showConversation && <span className="artifact-conversation">{item.conversation_name}{item.conversation_archived && <em>{t("artifacts.archived")}</em>}</span>}<time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time></span>
       <button type="button" className="ghost-button artifact-goto" aria-label={t("artifacts.go_aria", { name: item.name })} data-hint={t("artifacts.go_to_message")} onClick={() => onOpenMessage(item.conversation_id, item.message_id)}><TofiIcon name="arrow-right" size={16} /></button>
     </div>
-    {item.version_count > 1 && <>
-      <button type="button" className="text-button artifact-versions-toggle" aria-expanded={open} onClick={() => void toggleVersions()}>{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</button>
-      {open && <ul className="artifact-versions">
+    {item.version_count > 1 && <Collapsible.Root open={open} onOpenChange={next => void toggleVersions(next)}>
+      <Collapsible.Trigger className="text-button artifact-versions-toggle">{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</Collapsible.Trigger>
+      <Collapsible.Content className="collapsible-content"><ul className="artifact-versions">
         {state === "loading" && <li className="artifact-versions-note" role="status">{t("artifacts.versions_loading")}</li>}
         {state === "error" && <li className="artifact-versions-note" role="alert">{t("artifacts.versions_error")}</li>}
         {versions?.map(version => <li key={version.id}><button type="button" onClick={() => openItem(version)} aria-label={t("artifacts.open", { name: version.name })}><span>{formatRelativeTime(version.created_at)}</span><small>{fileSize(version.size)}</small></button><button type="button" className="ghost-button" aria-label={t("artifacts.go_aria", { name: version.name })} onClick={() => onOpenMessage(version.conversation_id, version.message_id)}><TofiIcon name="arrow-right" size={14} /></button></li>)}
-      </ul>}
-    </>}
+      </ul></Collapsible.Content>
+    </Collapsible.Root>}
   </li>;
 }
 

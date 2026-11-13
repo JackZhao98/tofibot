@@ -21,3 +21,7 @@ export function installFocusModality(root: Document = document) {
     set("keyboard");
   }, { capture: true, passive: true });
 }
+
+/** For a Radix FocusScope that stays mounted and only toggles `trapped`: it must not move focus when it mounts or unmounts
+ * (Radix does both even while not trapped). The surface's own effect moves focus in and back. */
+export const keepFocus = (event: Event) => event.preventDefault();

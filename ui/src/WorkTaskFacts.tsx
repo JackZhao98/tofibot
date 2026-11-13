@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
 import { formatZonedTime } from "./timezone";
 import type { WorkItem, WorkWait } from "./types";

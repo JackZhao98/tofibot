@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import * as Collapsible from "@radix-ui/react-collapsible";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
@@ -21,7 +22,6 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   const title = t(TITLE_KEY[id]);
   const ref = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const bodyId = useId();
   const sortable = useSortableItem(id, leaving || (id === "computer" && collapsed), moveStep, leaving);
   const grip: WidgetGripApi = { label: t("widgetOrder.grip", { title }), hint: t("widgetOrder.grip_hint"),
     ref: sortable.setActivatorNodeRef, attributes: sortable.attributes, activator: sortable.activator, wasDragged: sortable.wasDragged };
@@ -41,18 +41,18 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   // with the chin's chevron and folds into its own strip (docs/design/widgets-and-sidebar.md section 6).
   const bare = id === "computer";
   const keyFromHeader = (event: ReactKeyboardEvent<HTMLElement>) => { if (event.altKey) grip.activator.onKeyDown?.(event); };
-  return <div ref={sortable.setNodeRef} className="widget-slot" data-dragging={sortable.isDragging || undefined} data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ ...sortable.style, transition: leaving ? undefined : sortable.style.transition, order }}><section ref={ref} className={`context-card${collapsed && id !== "computer" ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
+  return <div ref={sortable.setNodeRef} className="widget-slot" data-dragging={sortable.isDragging || undefined} data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ ...sortable.style, transition: leaving ? undefined : sortable.style.transition, order }}><Collapsible.Root open={bare || !collapsed} onOpenChange={() => onToggle(id)} asChild><section ref={ref} className={`context-card${collapsed && id !== "computer" ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
     {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header" onMouseDown={event => { if (!(event.target as Element).closest("button")) grip.activator.onMouseDown?.(event); }}
       onTouchStart={event => { if (!(event.target as Element).closest("button")) grip.activator.onTouchStart?.(event); }} onKeyDown={keyFromHeader}>
       {/* The title is the fold control: "Title ⌄", the chevron right after the words, turning as the card folds. A press on it that travels
           (or is held) is a drag of the card instead (dnd-kit activation), so a click still folds. */}
-      <h2 ref={heading} tabIndex={-1}><button type="button" className="context-card-fold" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={foldLabel} data-hint={foldLabel}
-        {...grip.activator} onClick={() => { if (!grip.wasDragged()) onToggle(id); }}><span>{title}</span><Icon name="chevron-down" size={14} /></button></h2>
+      <h2 ref={heading} tabIndex={-1}><Collapsible.Trigger asChild><button type="button" className="context-card-fold" aria-label={foldLabel} data-hint={foldLabel}
+        {...grip.activator} onClick={event => { if (grip.wasDragged()) event.preventDefault(); }}><span>{title}</span><Icon name="chevron-down" size={14} /></button></Collapsible.Trigger></h2>
       <span className="context-card-actions"><WidgetGrip grip={grip} className="context-card-button context-card-grip" />
       <button type="button" className="context-card-button context-card-close" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button></span>
     </header>}
-    <div id={bodyId} className="context-card-body" inert={!bare && collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></div>
-  </section></div>;
+    <Collapsible.Content forceMount className="context-card-body collapsible-content" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></Collapsible.Content>
+  </section></Collapsible.Root></div>;
 }
 
 /** Fixed DOM order preserves live video; CSS order and dnd-kit transforms place the cards. */

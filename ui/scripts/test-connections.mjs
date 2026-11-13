@@ -359,7 +359,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await box("Google Drive").check();
       assert.equal(await dialog.getByRole("link", {name: "Enable Google Drive API"}).getAttribute("href"), "https://console.cloud.google.com/apis/library/drive.googleapis.com?project=tofi-sample-123456");
       await box("Gmail").uncheck();
-      assert.equal(await dialog.locator('input[type="radio"]').count(), 0, "the Gmail access choice goes away with Gmail");
+      assert.equal(await dialog.getByRole("radio").count(), 0, "the Gmail access choice goes away with Gmail");
       assert.equal(await box("Gmail").isChecked(), false);
       await box("Gmail").check();
       assert.equal(await dialog.getByRole("button", {name: "Authorize with Google"}).isDisabled(), true, "authorization stays gated on the configured HTTPS address (this fixture is http)");
@@ -377,8 +377,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await dialog.waitFor();
       assert.equal(await dialog.getAttribute("aria-modal"), "true");
       assert.equal(await dialog.locator('input[type="email"]').count(), 1, "the Gmail setup asks for the account");
-      assert.equal(await dialog.locator('input[type="radio"]').count(), 2, "Gmail access is two cards: read only and read and send");
-      assert.equal(await dialog.locator('input[type="radio"]:checked').getAttribute("value"), "readonly", "read only is the default");
+      assert.equal(await dialog.getByRole("radio").count(), 2, "Gmail access is two cards: read only and read and send");
+      assert.equal(await dialog.locator('[role="radio"][aria-checked="true"]').getAttribute("value"), "readonly", "read only is the default");
+      await dialog.getByRole("radio").nth(1).click();
+      assert.equal(await dialog.getByRole("radio").nth(1).getAttribute("aria-checked"), "true", "read and send can be selected");
+      await dialog.getByRole("radio").first().click();
+      assert.equal(await dialog.getByRole("radio").first().getAttribute("aria-checked"), "true", "read only can be restored");
       assert.equal(await dialog.locator("select").count(), 0, "no native select");
       assert.match(await dialog.innerText(), /redirect|Authorized redirect/i, "the redirect URI guidance is in the dialog");
       assert.match(await dialog.locator("code").first().innerText(), /\/api\/extensions\/local-mcp\/gog\/oauth\/callback$/, "the redirect URI is shown");
@@ -408,7 +412,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await dialog.getByRole("button", {name: "Install gogcli"}).waitFor();
       assert.match(await dialog.locator("h3").first().innerText(), /^Google$/, "the Google tile opens the Google step");
       const workspace = dialog.locator(".connect-workspace");
-      assert.equal(await workspace.locator(".disclosure-region").getAttribute("aria-hidden"), "true", "Advanced: Google Workspace MCP is folded");
+      assert.equal(await workspace.locator(".disclosure-toggle").getAttribute("aria-expanded"), "false", "Advanced: Google Workspace MCP is folded");
+      assert.equal(await workspace.locator(".disclosure-region").evaluate(node => node.inert && node.getAttribute("aria-hidden") === "true"), true, "folded Workspace content stays mounted and inert");
       await workspace.getByRole("button", {name: /Advanced: Google Workspace MCP/}).click();
       await dialog.locator('[data-integration-id="google-gmail"]').waitFor({state: "visible"});
       assert.match(await workspace.innerText(), /Workspace Developer Preview Program/, "the folded section states the enrolment requirement");

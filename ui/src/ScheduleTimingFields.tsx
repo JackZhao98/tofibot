@@ -1,4 +1,4 @@
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
 import { weekdayName } from "./scheduleCadence";
 import { dateTimeFormat } from "./timezone";

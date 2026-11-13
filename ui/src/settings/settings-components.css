@@ -206,7 +206,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .appearance-options{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--sunk)}
 .appearance-options button{display:inline-flex;align-items:center;gap:8px;min-height:28px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
 .appearance-options button:hover{color:var(--ink)}
-.appearance-options button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
+.appearance-options button[data-state="checked"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
 .appearance-options .theme-swatch{display:none}
 .notification-setting{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0;padding:10px 0;border:0}
 .notification-setting>strong{font:500 14px/1.4 var(--body);color:var(--ink)}

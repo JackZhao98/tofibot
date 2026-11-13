@@ -1,4 +1,4 @@
-import { Disclosure } from "../InteractionSystem";
+import { Disclosure } from "../InteractionPrimitives";
 import { IntegrationTile } from "../IntegrationBrowser";
 import { integrationCatalog, type IntegrationPreset } from "../integrationCatalog";
 import { useTranslation } from "../i18n";

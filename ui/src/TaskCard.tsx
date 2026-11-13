@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { api, request } from "./api";
-import { Disclosure } from "./InteractionSystem";
+import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { minutesLeft, type FoldedResult, type TaskCardModel } from "./taskCards";
