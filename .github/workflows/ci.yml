@@ -23,12 +23,27 @@ jobs:
         run: go build ./...
       - name: go vet
         run: go vet ./...
+      - name: shard listing
+        run: scripts/go-test-shard.sh --check 4
+
+  # go test in four parallel shards (scripts/go-test-shard.sh): one job ran 26 minutes on hosted runners.
+  go-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    name: go-test (${{ matrix.shard }}/4)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - name: go test
         # TOFI_SKIP_TIMING=1 leaves out wall-clock latency bounds in Go tests (see docs/process.md 3.3); shared runners are too noisy for them.
         env:
           TOFI_SKIP_TIMING: '1'
-        # internal/app runs 5-7 minutes on hosted runners; the 10-minute default timed out once (run 39711758364).
-        run: go test -timeout 30m ./...
+        run: scripts/go-test-shard.sh ${{ matrix.shard }} 4 -timeout 30m
 
   ui:
     runs-on: ubuntu-24.04
