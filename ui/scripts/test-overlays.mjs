@@ -43,7 +43,7 @@ async function check(name, fn) {
 }
 
 // ---- 1. bundle ----
-await check("bundle: entry within budget, Radix only in the lazy RadixOverlays chunk", async () => {
+await check("bundle: entry within budget, Radix menus and popovers only in the lazy RadixOverlays chunk", async () => {
   const html = readFileSync(join(fx.outDir, "index.html"), "utf8");
   const eager = [...html.matchAll(/(?:src|href)="\/(assets\/[^"]+\.js)"/g)].map(match => match[1]);
   const gzip = eager.reduce((sum, file) => sum + zlib.gzipSync(readFileSync(join(fx.outDir, file)), { level: 9 }).length, 0);
@@ -54,7 +54,9 @@ await check("bundle: entry within budget, Radix only in the lazy RadixOverlays c
   const lazy = entryText.match(/assets\/RadixOverlays-[\w-]+\.js/);
   assert.ok(lazy, "the entry loads RadixOverlays dynamically");
   assert.ok(!eager.some(file => file.includes("/RadixOverlays-")), "RadixOverlays is not an entry file");
-  for (const marker of ["data-radix-menu-content", "data-radix-popper-content-wrapper", "DismissableLayer"]) assert.ok(!entryText.includes(marker), `no Radix code (${marker}) in the entry`);
+  // D82: the entry may carry the chat's small Radix parts (the message bar's DismissableLayer and Toolbar, Collapsible,
+  // FocusScope); menus and the popper stay lazy.
+  for (const marker of ["data-radix-menu-content", "data-radix-popper-content-wrapper"]) assert.ok(!entryText.includes(marker), `no Radix menu or popper code (${marker}) in the entry`);
   const chunk = readFileSync(join(fx.outDir, lazy[0]), "utf8");
   // The popper (positioning) is shared with the lazy Select chunk, so Rollup may hoist it into a common non-entry chunk.
   const lazyText = [chunk, ...readdirSync(join(fx.outDir, "assets")).filter(name => name.endsWith(".js") && !eager.includes(`assets/${name}`)).map(name => readFileSync(join(fx.outDir, "assets", name), "utf8"))].join("\n");
