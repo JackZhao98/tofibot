@@ -33,7 +33,10 @@ const leaks = walk(src).filter(file => /\.(tsx?|css)$/.test(file) && !relative(s
 if (leaks.length) fail(`product code imports the isolated catalog: ${leaks.map(file => relative(ui, file)).join(", ")}`);
 else pass("no product file imports from src/catalog");
 const pkg = JSON.parse(readFileSync(join(ui, "package.json"), "utf8"));
-for (const file of ["vite.config.ts", "vite.motion-lab.config.ts", "vite.desktop-settings.config.ts"]) if (/catalog/i.test(readFileSync(join(ui, file), "utf8"))) fail(`${file} must not include the catalog in its graph`);
+// Every product build in package.json; only the Design System build may include the catalog.
+const productConfigs = pkg.scripts.build.split("&&").map(step => step.trim()).filter(step => /^vite build\b/.test(step))
+  .map(step => /--config\s+(\S+)/.exec(step)?.[1] ?? "vite.config.ts").filter(file => file !== "vite.design-system.config.ts");
+for (const file of productConfigs) if (/catalog/i.test(readFileSync(join(ui, file), "utf8"))) fail(`${file} must not include the catalog in its graph`);
 
 // ---- 1b. the separate build adds the catalog without modifying any workspace file
 const { build } = await import("vite");
