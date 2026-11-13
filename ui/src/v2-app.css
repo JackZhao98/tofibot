@@ -511,7 +511,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 :root :is(.desktop-window-controls,.desktop-enlarge-hint) { color:var(--ink); }
 :root :is(.desktop-window-controls) button { color:var(--ink); }
 :root :is(.desktop-window-controls) button:hover { background:var(--surface-2); }
-:root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.search-palette-scrim,.terminal-confirm) {
+:root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
 /* Popups (menus, popovers, selects, context menus, hover cards: .tofi-pop, set by the Radix adapters) grow out of the

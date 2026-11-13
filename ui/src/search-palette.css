@@ -52,5 +52,4 @@
 @keyframes search-scrim-out{from{opacity:1}to{opacity:0}}
 @keyframes search-panel-in{from{opacity:0}to{opacity:1}}
 @keyframes search-panel-out{from{opacity:1}to{opacity:0}}
-/* Typing repaints the palette: a live blur of the whole page under it cost ~100 ms a key. The scrim only dims; the panel is opaque. */
-.search-palette-scrim{-webkit-backdrop-filter:none;backdrop-filter:none}
+
