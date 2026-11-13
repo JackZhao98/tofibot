@@ -6,21 +6,20 @@
 .search-palette[data-state="closing"]{animation:search-panel-out var(--m-instant) var(--ease-in) forwards}
 .search-palette:focus{outline:none}
 .search-palette-head{display:flex;align-items:center;gap:12px;padding:6px 10px 6px 18px;color:var(--muted);border-bottom:1px solid var(--line-soft)}
-/* The global field style (inset shadow, radius, fill) would draw an arc above the line: :root:root outranks it. */
-:root:root .search-palette .search-palette-head input{flex:1;min-width:0;height:52px;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;transform:none;color:var(--ink);font:500 18px/1.3 var(--body)}
+.search-palette-head input{flex:1;min-width:0;height:52px;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;transform:none;color:var(--ink);font:500 18px/1.3 var(--body)}
 .search-palette-head input::placeholder{color:var(--muted)}
-.search-palette-head input:is(:hover,:focus,:focus-visible),:root:root .search-palette .search-palette-head input:is(:hover,:focus,:focus-visible){border:0;outline:0;box-shadow:none;background:transparent;transform:none}
-.search-palette-close{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:var(--radius-md);background:transparent;color:var(--muted);cursor:pointer;transition:background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out)}
+.search-palette-head input:is(:hover,:focus,:focus-visible){border:0;outline:0;box-shadow:none;background:transparent;transform:none}
+.search-palette-close{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:var(--radius-md);background:transparent;color:var(--muted);transition:background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out)}
 .search-palette-close:hover{background:var(--surface-2);color:var(--ink)}
 .search-palette-close:focus-visible,.search-palette-tabs button:focus-visible,.search-palette-retry:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .search-palette-tabs{display:flex;gap:6px;padding:10px 14px 4px}
-.search-palette-tabs button{min-height:30px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-pill);background:transparent;color:var(--ink-soft);font:var(--type-meta);font-weight:600;cursor:pointer;transition:background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out)}
+.search-palette-tabs button{min-height:30px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-pill);background:transparent;color:var(--ink-soft);font:var(--type-meta);font-weight:600;transition:background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out)}
 .search-palette-tabs button:hover{background:var(--surface-2);color:var(--ink)}
 .search-palette-tabs button[aria-selected="true"]{border-color:var(--line-soft);background:var(--surface-2);color:var(--ink)}
 .search-palette-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 8px 8px;scrollbar-width:thin}
 .search-palette-label{padding:10px 10px 4px;color:var(--muted);font:var(--type-label);letter-spacing:var(--label-tracking);text-transform:uppercase}
-.search-palette-row{display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 10px;border-radius:var(--radius-md);color:var(--ink);cursor:pointer;scroll-margin:8px}
-.search-palette-row[data-selected]{background:var(--surface-2)}
+.search-palette-row{display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 10px;border-radius:var(--radius-md);color:var(--ink);scroll-margin:8px}
+.search-palette-row[data-selected="true"]{background:var(--surface-2)}
 .search-palette-row.is-message{align-items:flex-start}
 .search-palette-icon{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;color:var(--ink-soft)}
 .search-palette-row.is-message .search-palette-icon{margin-top:1px}
@@ -42,7 +41,7 @@
   .search-palette-scrim{padding:0;align-items:stretch}
   .search-palette{width:100%;max-height:none;height:var(--viewport-height,100dvh);border-width:0;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}
   .search-palette-head{padding-left:16px}
-  :root:root .search-palette .search-palette-head input{font-size:16px}
+  .search-palette-head input{font-size:16px}
   .search-palette-foot{display:none}
   .search-palette-close{width:44px;height:44px}
   .search-palette-row{min-height:48px}
@@ -54,4 +53,4 @@
 @keyframes search-panel-in{from{opacity:0}to{opacity:1}}
 @keyframes search-panel-out{from{opacity:1}to{opacity:0}}
 /* Typing repaints the palette: a live blur of the whole page under it cost ~100 ms a key. The scrim only dims; the panel is opaque. */
-:root .search-palette-scrim{-webkit-backdrop-filter:none;backdrop-filter:none}
+.search-palette-scrim{-webkit-backdrop-filter:none;backdrop-filter:none}

@@ -257,7 +257,11 @@ await check("@mention autocomplete still completes a member name", async () => {
   await show(page, "Synthetic Group", 100);
   await box(page).click();
   await page.keyboard.type("hi @Led", { delay: 5 });
-  await page.locator(".mention-menu").waitFor();
+  await page.locator(".mention-menu[data-state=open]").waitFor();
+  assert.equal(await page.locator(".mention-menu.tofi-pop").count(), 1);
+  assert.equal(await page.locator(".mention-menu").evaluate(menu => Boolean(menu.closest("[data-radix-popper-content-wrapper]"))), true);
+  assert.equal(await box(page).evaluate(textarea => document.activeElement === textarea), true, "mention keeps textarea focus");
+  assert.equal(await box(page).evaluate(textarea => document.getElementById(textarea.getAttribute("aria-activedescendant"))?.getAttribute("aria-selected")), "true");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector(".composer textarea").value === "hi @Ledger Cat ", null, { timeout: 3000 });
   await context.close();

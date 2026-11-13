@@ -78,7 +78,7 @@ await check("Ctrl+K opens the lazy palette in the layer root; empty state shows 
   assert.deepEqual(groups.map(g => g.toLowerCase()), ["quick actions", "recent chats"]);
   assert.equal(await page.locator(".search-palette-row.is-action").count(), 3);
   assert.deepEqual(await page.locator(".search-palette-row.is-chat .search-palette-title").allTextContents(), ["Harbor Cat", "Ledger Cat"]);
-  assert.equal(await page.locator(".search-palette-row[aria-selected=true]").count(), 1);
+  assert.equal(await page.locator(".search-palette-row[cmdk-item][data-selected=true]").count(), 1);
   const z = await page.evaluate(() => getComputedStyle(document.querySelector(".search-palette-scrim")).zIndex);
   assert.equal(z, "80", "dialog layer");
   await shot(page, "palette-empty-desktop.png");
@@ -101,6 +101,9 @@ await check("typing: debounced, the superseded request is aborted, hits are high
   assert.deepEqual(searches, ["quo", "quokka"], `one request per settled query, got ${JSON.stringify(searches)}`);
   assert.equal(aborted.length, 1, "the stale request was cancelled");
   const rows = page.locator(".search-palette-row.is-message");
+  assert.equal(await page.locator("[cmdk-root]").count(), 1);
+  assert.equal(await page.locator(".search-palette [role=dialog]").count(), 0, "no second dialog");
+  assert.equal(new Set(await rows.evaluateAll(items => items.map(item => item.dataset.value))).size, 2, "unique cmdk values");
   assert.equal(await rows.count(), 2);
   assert.match(await rows.nth(0).textContent(), /item 12/, "newest first");
   assert.equal((await rows.first().locator("mark").textContent()).toLowerCase(), "quokka");
@@ -115,7 +118,7 @@ await check("arrows move the selection; Enter opens the conversation at the mess
   await page.locator(".search-palette").waitFor();
   await page.keyboard.type("quokka", { delay: 10 });
   await page.locator(".search-palette-row.is-message").nth(1).waitFor();
-  const active = () => page.evaluate(() => document.getElementById(document.activeElement.getAttribute("aria-activedescendant"))?.textContent ?? "");
+  const active = () => page.locator("[cmdk-item][data-selected=true]").textContent();
   assert.match(await active(), /item 12/);
   await page.keyboard.press("ArrowDown");
   assert.match(await active(), /item 5/);
@@ -148,6 +151,31 @@ await check("Escape closes after the exit animation and returns focus to the but
   await page.waitForFunction(() => document.querySelector(".search-palette")?.getAttribute("data-state") === "closing" || !document.querySelector(".search-palette"));
   await page.locator(".search-palette").waitFor({ state: "detached", timeout: 3000 });
   assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("search-trigger")), true);
+  await context.close();
+});
+
+await check("Radix tabs use roving focus and change the result group", async () => {
+  const { page, context } = await open();
+  await page.keyboard.press("Control+k");
+  const all = page.getByRole("tab", { name: /^all$/i });
+  await all.focus();
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("data-state") === "active" && /chats/i.test(document.activeElement.textContent));
+  assert.equal(await page.locator(".search-palette-row.is-action").count(), 0);
+  await page.keyboard.press("End");
+  await page.waitForFunction(() => /messages/i.test(document.activeElement?.textContent) && document.activeElement?.getAttribute("aria-selected") === "true");
+  assert.match(await page.locator(".search-palette-note").textContent(), /type/i);
+  await context.close();
+});
+
+await check("Enter on Close does not select cmdk's active quick action", async () => {
+  const { page, context } = await open();
+  await page.keyboard.press("Control+k");
+  await page.locator(".search-palette-close").focus();
+  await page.keyboard.press("Enter");
+  await page.locator(".search-palette").waitFor({ state: "detached" });
+  assert.equal(await page.locator(".new-bot-dialog,[data-cover]").count(), 0);
+  assert.equal(new URL(page.url()).pathname, "/b/bot_b");
   await context.close();
 });
 

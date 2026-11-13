@@ -431,7 +431,10 @@ await check("layers: @ menu, attachment and account menus escape their container
   const { page, context } = await fx.open({ path: "/g/grp" });
   await page.locator(".composer textarea").click();
   await page.keyboard.type("@");
-  const mention = await onTop(page, ".mention-menu");
+  const mention = await onTop(page, ".mention-menu[data-state=open]");
+  assert.equal(await page.locator(".mention-menu.tofi-pop").count(), 1);
+  assert.equal(await page.locator(".mention-menu").evaluate(menu => Boolean(menu.closest("[data-radix-popper-content-wrapper]"))), true);
+  assert.equal(await page.locator(".composer textarea").evaluate(textarea => document.activeElement === textarea), true);
   const caret = await page.locator(".composer textarea").boundingBox();
   assert.ok(mention.rect[3] <= caret.y + caret.height, "the @ menu sits above the input");
   for (const option of await page.locator(".mention-menu [role=option]").all()) {
