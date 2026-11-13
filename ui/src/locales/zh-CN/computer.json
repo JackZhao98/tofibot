@@ -95,7 +95,6 @@
       "browser": "浏览器"
     },
     "video_aria": "Bot 当前桌面实时视频",
-    "pointer_click": "{{name}} · 点击",
     "placeholder": {
       "waking": "正在唤醒 Bot 电脑",
       "connecting": "正在连接屏幕",
@@ -657,9 +656,9 @@
     }
   },
   "browser": {
+    "panel": "Bot 浏览器",
     "source": "你的 Mac · Bot 浏览器",
     "look": "查看 Bot 浏览器（{{id}}）",
-    "open": "打开并登录",
     "enlarge": "放大 Bot 浏览器",
     "shrink": "缩小 Bot 浏览器",
     "status": {
@@ -695,7 +694,8 @@
       "computer_lost": "Mac 连接已丢失",
       "device_revoked": "设备访问已撤销",
       "browser_clear_failed": "无法清除浏览器数据，浏览器保持暂停",
-      "computer_not_configured": "尚未配置 Bot 电脑"
+      "computer_not_configured": "尚未配置 Bot 电脑",
+      "no_connection": "这台 Mac 还在连接服务器，请稍后再试。"
     },
     "in_app": "请在这台 Mac 的 App 中设置",
     "settings": "浏览器设置",

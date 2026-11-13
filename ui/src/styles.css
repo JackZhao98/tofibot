@@ -222,9 +222,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .computer-detail{overflow-y:auto}
 .computer-detail .detail-heading{padding-bottom:4px}
 .computer-detail .detail-heading h2{font-size:18px}
-.computer-heading-copy{display:grid;gap:1px;min-width:0}
-.computer-heading-copy .small-text{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
-.computer-detail-heading-actions{display:flex;align-items:center;gap:6px}
 .computer-expand-button{padding:7px 9px;font-size:11px;white-space:nowrap}
 .computer-detail .secondary-button,.computer-detail .primary-button{min-height:32px;padding:7px 10px;font-size:12px}
 .computer-member-select{display:flex;align-items:center;gap:8px;margin:0 0 6px;color:var(--text-soft);font-size:11px}

@@ -1822,8 +1822,6 @@
     "botBrowserEnabled": "Bot 전용 브라우저 사용 허용",
     "botBrowserRetainLogin": "브라우저 로그인 유지",
     "botBrowserShareFrames": "서버를 통한 창 화면 표시 허용",
-    "pipAboveOtherApps": "작은 창을 다른 App 위에 표시",
-    "pipAllSpaces": "모든 데스크탑에 표시",
     "login_hint": "이 서버 계정의 Bot은 이 브라우저의 로그인을 공유합니다. 일상 브라우저와는 분리됩니다.",
     "frames_hint": "Bot 브라우저 페이지만 서버를 통해 표시됩니다. 꺼도 Bot은 작업할 수 있으며 작업 스크린샷은 모델에 전송될 수 있습니다.",
     "login_actions": "브라우저 로그인",

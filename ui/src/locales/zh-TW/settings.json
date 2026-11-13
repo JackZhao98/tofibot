@@ -1822,8 +1822,6 @@
     "botBrowserEnabled": "允許 Bot 使用專用瀏覽器",
     "botBrowserRetainLogin": "保留瀏覽器登入狀態",
     "botBrowserShareFrames": "允許視窗畫面經伺服器顯示",
-    "pipAboveOtherApps": "小窗顯示在其他 App 上方",
-    "pipAllSpaces": "在所有桌面顯示",
     "login_hint": "此伺服器帳戶的 Bot 共用這個瀏覽器的登入狀態，與日常瀏覽器分開。",
     "frames_hint": "只顯示 Bot 瀏覽器頁面，畫面經過伺服器；關閉後 Bot 仍可工作，任務截圖仍可能傳給模型。",
     "login_actions": "瀏覽器登入狀態",

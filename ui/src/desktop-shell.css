@@ -10,7 +10,7 @@
    screen is a drag or a click, never a page scroll or a text selection. */
 .desktop-floating-shell.is-small:not(.is-docked){inset:0 auto auto 0;right:auto;bottom:auto;width:var(--pip-width,392px);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .desktop-floating-shell[data-pip="drag"] .desktop-enlarge{cursor:grabbing}
-html:not([data-desktop]) .desktop-floating-shell.is-expanded {
+.desktop-floating-shell.is-expanded {
   inset:0; z-index:var(--z-dialog); display:grid; place-items:center; width:auto; max-height:none;
   height:var(--viewport-height,100dvh); padding:12px; margin:0; transition:none;
   pointer-events:auto; background:color-mix(in srgb,var(--ink) 30%,transparent);

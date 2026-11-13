@@ -259,7 +259,7 @@ export function BotBrowserSettings() {
     } catch { if (mounted.current) setCode(clear ? 'browser_clear_failed' : 'browser_control_lost'); }
     finally { pending.current = false; if (mounted.current) setBusy(false); }
   }
-  const settings: (keyof BrowserSettings)[] = ['botBrowserEnabled', 'botBrowserRetainLogin', 'botBrowserShareFrames', 'pipAboveOtherApps', 'pipAllSpaces'];
+  const settings: (keyof BrowserSettings)[] = ['botBrowserEnabled', 'botBrowserRetainLogin', 'botBrowserShareFrames'];
   return <details className="bot-browser-settings">
     <summary>{t('bot_browser.advanced')}</summary>
     {!bridge ? <p role="status">{t(window.tofiDesktop ? 'bot_browser.browser_client_unsupported' : 'bot_browser.in_app')}</p> : <SettingsCard>

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { DesktopPointerMarker } from "./DesktopPointerMarker";
-import { isDesktop } from "./desktop";
 import { useDesktopPresence, type DesktopPresenceState } from "./desktopPresence";
 import "./desktop-presence.css";
 import { DesktopPlaceholder, type DesktopPlaceholderTone } from "./DesktopPlaceholder";
@@ -777,14 +776,10 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const windowButtons = expanded ? [powerButton, expandButton, closeButton] : [closeButton, expandButton, powerButton];
   // The small screen is one button: the middle of it enlarges. The hint (glyph and words) fades in over a soft scrim on hover and focus.
   const enlargeButton = !expanded && !folded && <button type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} aria-keyshortcuts={widgetGrip ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-    onPointerDown={widgetGrip && !isDesktop ? widgetGrip.onPress : undefined} onKeyDown={widgetGrip ? widgetGrip.onKeyDown : undefined}
+    onPointerDown={widgetGrip ? widgetGrip.onPress : undefined} onKeyDown={widgetGrip ? widgetGrip.onKeyDown : undefined}
     onClick={() => { if (widgetGrip?.wasDragged()) return; setExpanded(true); }}>
     <span className="desktop-enlarge-hint" aria-hidden="true"><span className="desktop-expand-glyph" />{t("desktop.enlarge_hint")}</span>
   </button>;
-  const windowActions = <div className="computer-detail-heading-actions computer-floating-actions">
-    {windowButtons}
-
-  </div>;
   const [takePending, setTakePending] = useState(false);
   const takeBlocked = showOwnershipStatus && ownership?.owner?.kind === "human" && !humanControlled;
   const canTake = Boolean(screenReady) && !busy && !takeBlocked;
@@ -859,7 +854,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   };
   // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
   // Only the big window shows the group; the small one and the strip keep the status text for the screen reader and the strip.
-  const controlBar = !isDesktop && (expanded ? <div className={`desktop-chin is-${capsule.tone}`}>
+  const controlBar = expanded ? <div className={`desktop-chin is-${capsule.tone}`}>
     <span className="desktop-drop" aria-hidden="true" />
     <button type="button" className="desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
     <span className="sr-only desktop-chin-text" role="status">{capsule.text}</span>
@@ -869,18 +864,17 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
       <span className="desktop-driver-side is-bot" aria-hidden="true"><BotAvatar id={switchBot} mini animated={false} /></span>
       <span className="desktop-driver-side is-you" aria-hidden="true">{t("desktop.control.you")}</span>
     </button>
-  </div> : <div className={`desktop-chin is-${capsule.tone}`}><span className="sr-only desktop-chin-text" role="status">{capsule.text}</span></div>);
+  </div> : <div className={`desktop-chin is-${capsule.tone}`}><span className="sr-only desktop-chin-text" role="status">{capsule.text}</span></div>;
 
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${folded && !expanded ? " is-folded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
-    {!passivePreview && expanded && !isDesktop && !sheet && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
-    {expanded && isDesktop && <div className="detail-heading computer-floating-heading"><div className="computer-heading-copy"><h2 className="sr-only">{t("desktop.title")}</h2></div>{windowActions}</div>}
+    {!passivePreview && expanded && !sheet && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
 
-    {!passivePreview && (!expanded || !isDesktop) && <div className="desktop-window-controls">{windowButtons}</div>}
+    {!passivePreview && <div className="desktop-window-controls">{windowButtons}</div>}
     {(error || connectionLost) && (imageURL || debug) && <p className="error-banner" role="alert">{connectionLost ? t("desktop.error.connection_lost") : error}</p>}
     {powerNote && <p className="error-banner desktop-power-note" role="alert">{powerNote}</p>}
-    {!botWorking && info && (debug || info.state !== "ready" && (imageURL || isDesktop)) && <div className="computer-info"><div className="computer-info-main"><strong>{known(stateKeys, info.state) ? t(stateKeys[info.state]) : t("desktop.state.other", { state: info.state })}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? t("desktop.phase_label", { phase: phaseText(info.phase) }) : t("desktop.state_synced")}</small></div>{info.guest_outdated_required ? <small className="error-text" data-guest-outdated-required="">{t("desktop.outdated_required")}</small> : info.error_code === "org_resource_missing" ? <small className="error-text" data-error-code="org_resource_missing">{t("environments.error.org_resource_missing")}</small> : info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && !info.guest_outdated_required && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>{t("desktop.retry_prepare")}</button>}</div>}
-    {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor={isDesktop && !humanControlled ? "visible" : "hidden"} enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{wakeOverlay && <div className="desktop-wake-overlay"><DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /></div>}{enlargeButton}</div>}
+    {!botWorking && info && (debug || info.state !== "ready" && imageURL) && <div className="computer-info"><div className="computer-info-main"><strong>{known(stateKeys, info.state) ? t(stateKeys[info.state]) : t("desktop.state.other", { state: info.state })}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? t("desktop.phase_label", { phase: phaseText(info.phase) }) : t("desktop.state_synced")}</small></div>{info.guest_outdated_required ? <small className="error-text" data-guest-outdated-required="">{t("desktop.outdated_required")}</small> : info.error_code === "org_resource_missing" ? <small className="error-text" data-error-code="org_resource_missing">{t("environments.error.org_resource_missing")}</small> : info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && !info.guest_outdated_required && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>{t("desktop.retry_prepare")}</button>}</div>}
+    {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor="hidden" enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{wakeOverlay && <div className="desktop-wake-overlay"><DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /></div>}{enlargeButton}</div>}
     {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" data-desktop-frame="">
       {enlargeButton}
       <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop}

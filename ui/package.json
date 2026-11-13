@@ -125,6 +125,7 @@
     "test:mail-draft-copies": "node scripts/test-mail-draft-copies.mjs",
     "test:admin-groups": "node scripts/test-admin-groups.mjs",
     "test:org-resources": "node scripts/test-org-resources.mjs",
+    "test:bot-browser-panel": "node scripts/test-bot-browser-panel.mjs",
     "test:bot-browser-pip": "node scripts/test-bot-browser-pip.mjs",
     "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs",
     "test:work-timeline": "node scripts/test-work-timeline.mjs",

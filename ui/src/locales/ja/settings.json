@@ -1822,8 +1822,6 @@
     "botBrowserEnabled": "Bot 専用ブラウザを許可",
     "botBrowserRetainLogin": "ブラウザのログイン状態を保持",
     "botBrowserShareFrames": "サーバー経由の画面表示を許可",
-    "pipAboveOtherApps": "小窓を他の App の手前に表示",
-    "pipAllSpaces": "すべてのデスクトップに表示",
     "login_hint": "このサーバーアカウントの Bot は専用ブラウザのログイン状態を共有します。普段のブラウザとは別です。",
     "frames_hint": "Bot ブラウザのページだけがサーバー経由で表示されます。オフでも Bot は作業でき、タスクの画像はモデルに送られる場合があります。",
     "login_actions": "ブラウザのログイン",

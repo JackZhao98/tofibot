@@ -1835,8 +1835,6 @@
     "botBrowserEnabled": "Bots dürfen den eigenen Browser verwenden",
     "botBrowserRetainLogin": "Browseranmeldungen behalten",
     "botBrowserShareFrames": "Fenstervorschau über den Server erlauben",
-    "pipAboveOtherApps": "Minifenster über anderen Apps",
-    "pipAllSpaces": "Auf allen Schreibtischen anzeigen",
     "login_hint": "Bots dieses Serverkontos teilen die Anmeldungen dieses Browsers, getrennt von deinem Alltagsbrowser.",
     "frames_hint": "Nur die Bot-Browserseite wird über den Server angezeigt. Auch ohne Vorschau kann Bot arbeiten und Aufgabenbilder an das Modell senden.",
     "login_actions": "Browseranmeldungen",

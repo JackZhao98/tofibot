@@ -95,7 +95,6 @@
       "browser": "ブラウザ"
     },
     "video_aria": "Bot のデスクトップのライブ映像",
-    "pointer_click": "{{name}} · クリック",
     "placeholder": {
       "waking": "Bot コンピューターを起こしています",
       "connecting": "画面に接続中",
@@ -657,9 +656,9 @@
     }
   },
   "browser": {
+    "panel": "Bot ブラウザ",
     "source": "あなたの Mac · Bot ブラウザ",
     "look": "Bot ブラウザを見る（{{id}}）",
-    "open": "開いてログイン",
     "enlarge": "Bot ブラウザを拡大",
     "shrink": "Bot ブラウザを縮小",
     "status": {
@@ -695,7 +694,8 @@
       "computer_lost": "Mac との接続が切れました",
       "device_revoked": "デバイスへのアクセスは取り消されました",
       "browser_clear_failed": "データを消去できませんでした。ブラウザは停止したままです",
-      "computer_not_configured": "Bot コンピュータが未設定です"
+      "computer_not_configured": "Bot コンピュータが未設定です",
+      "no_connection": "この Mac はまだサーバーに接続中です。少し待ってからもう一度お試しください。"
     },
     "in_app": "この Mac の App で設定してください",
     "settings": "ブラウザ設定",

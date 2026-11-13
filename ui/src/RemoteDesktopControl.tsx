@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { ApiError, request } from "./api";
-import { isDesktop } from "./desktop";
 import { useTranslation } from "./i18n";
 
 type InputEvent = { type: string; [key: string]: unknown };
@@ -181,8 +180,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     enqueue({ type: "clipboard-barrier" });
   }
   return <div className={`remote-desktop ${owned ? "in-control" : ""}`}>
-    {expanded && isDesktop && <div className="remote-control-bar"><span className="remote-owner-status">{!owned && takeoverRun && <BotAvatar id={takeoverRun.botId ?? botId} mini animated={false} />}<span>{owned ? t("remote.status.you") : pending ? t("remote.status.waiting") : takeoverRun ? t("remote.status.bot", { name: takeoverRun.name }) : blocked ? t("remote.status.other_window") : !enabled ? t("remote.status.connecting") : t("remote.status.click_to_take")}</span></span><div className="remote-control-actions">{owned && (touchMode || touchInput.current) && <button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button>}{owned && <button className="secondary-button" onClick={() => void release()}>{t("remote.release")}</button>}</div></div>}
-    {expanded && !isDesktop && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button></div>}
+    {expanded && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button></div>}
     {owned && waiting && <p className="field-note" role="status">{t("remote.bot_waiting")}</p>}
     {notice && <p className="field-note" role="status">{notice}</p>}
     {error && <p className="error-text">{error}</p>}

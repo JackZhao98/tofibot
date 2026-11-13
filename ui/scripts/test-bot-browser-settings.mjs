@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {startUi, launch, ui} from './computer-window-fixture.mjs';
 const languages = ['en','zh-CN','zh-TW','ja','ko','de','fr'];
-const booleans = ['botBrowserEnabled','botBrowserRetainLogin','botBrowserShareFrames','pipAboveOtherApps','pipAllSpaces'];
+const booleans = ['botBrowserEnabled','botBrowserRetainLogin','botBrowserShareFrames'];
 const catalogs = {};
 for (const lang of languages) {
   const settings = JSON.parse(await readFile(join(ui,'src/locales',lang,'settings.json'),'utf8')).bot_browser;
@@ -21,7 +21,7 @@ const pageSource = await readFile(join(ui,'src/desktop-settings/MacSettingsPage.
 const local = pageSource.slice(pageSource.indexOf('export function BotBrowserSettings'));
 assert.doesNotMatch(local, /fetch\(|request\(|localStorage|sessionStorage|\.remoteControl\./);
 assert.match(local, /showSaved=\{false\}/);
-console.log('PASS settings static boundaries, five local booleans, seven complete catalogs');
+console.log('PASS settings static boundaries, three local booleans, seven complete catalogs');
 if (!process.argv.includes('--static')) {
   const {server,origin} = await startUi();let browser;
   try {
@@ -33,7 +33,7 @@ if (!process.argv.includes('--static')) {
       await page.route('**/api/**', route => route.abort());
       await page.addInitScript(({bridge,desktop,supported,code,language}) => {
         localStorage.setItem('tofi.language', language);
-        const s = {supported,code,deviceID:'mac-synthetic',phase:'idle',settings:{botBrowserEnabled:true,botBrowserRetainLogin:true,botBrowserShareFrames:true,pipAboveOtherApps:true,pipAllSpaces:true}};
+        const s = {supported,code,deviceID:'mac-synthetic',phase:'idle',settings:{botBrowserEnabled:true,botBrowserRetainLogin:true,botBrowserShareFrames:true}};
         window.__browserStatus=s;window.__calls=[];window.__fail=null;
         const copy = () => JSON.parse(JSON.stringify(s));
         const result = () => ({ok:true,code:null,status:copy()});
@@ -52,7 +52,7 @@ if (!process.argv.includes('--static')) {
     for(const language of languages){
       const {page,requests}=await open({language});const words=catalogs[language];
       for(const key of booleans) await page.getByRole('switch',{name:words[key],exact:true}).waitFor();
-      assert.equal(await page.locator('.bot-browser-settings [role=switch]').count(),5);
+      assert.equal(await page.locator('.bot-browser-settings [role=switch]').count(),3);
       for(const key of booleans) assert.equal(await page.getByRole('switch',{name:words[key],exact:true}).getAttribute('aria-checked'),'true');
       await page.getByRole('switch',{name:words.botBrowserShareFrames,exact:true}).click();
       assert.equal(await page.getByRole('switch',{name:words.botBrowserShareFrames,exact:true}).getAttribute('aria-checked'),'false');
