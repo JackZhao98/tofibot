@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { arrowOpens, OverlayMenu } from "../overlays/OverlayHost";
+import { arrowOpens, OverlayMenu, pressToggle } from "../overlays/OverlayHost";
 import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";
@@ -24,7 +24,7 @@ export function MoreMenu({ name, menu, busy = false }: { name: string; menu: Row
   const anchor = useRef<HTMLDivElement>(null);
   const label = t("mcp.more_actions", { name });
   return <div className="mcp-menu-anchor" ref={anchor}>
-    <button ref={trigger} type="button" className="mcp-button mcp-menu-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={busy} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}>
+    <button ref={trigger} type="button" className="mcp-button mcp-menu-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={busy} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}>
       <TofiIcon name="more" size={20} variant={open ? "filled" : "outline"} />
     </button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu" label={label} trigger={trigger} anchor={anchor} align="end" sideOffset={7}>

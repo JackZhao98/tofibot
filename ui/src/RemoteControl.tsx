@@ -2,7 +2,7 @@ import { SettingsSwitch } from "./settings/components";
 import {useRef, useState, type RefObject} from "react";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
-import {arrowOpens, OverlayMenu} from "./overlays/OverlayHost";
+import {arrowOpens, OverlayMenu, pressToggle} from "./overlays/OverlayHost";
 import {thisMacState, type RemoteControl, type ThisMacState} from "./useRemoteControl";
 import type {RemoteControlReason} from "./desktop";
 import "./remote-control.css";
@@ -27,7 +27,7 @@ function ThisMacMenu({name, denied, onOpenFiles, onOpenDenied}: {name: string; d
   const label = t("environments.more", {name});
   if (!onOpenFiles && !denied) return null;
   return <>
-    <button ref={trigger} type="button" className="rc-more" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-hint={label} onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
+    <button ref={trigger} type="button" className="rc-more" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-hint={label} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {onOpenFiles && <button type="button" data-action="files" onClick={() => { setOpen(false); onOpenFiles(); }}>{t("environments.rc.menu.files")}</button>}
       {denied > 0 && <button type="button" data-action="denied" onClick={() => { setOpen(false); onOpenDenied(); }}>{t("environments.rc.menu.denied")}</button>}

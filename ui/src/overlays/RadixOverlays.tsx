@@ -51,7 +51,7 @@ function Submenu({ label, icon, className, children }: { label: string; icon?: R
   return <DropdownMenu.Sub open={open} onOpenChange={setOpen}>
     <DropdownMenu.SubTrigger ref={trigger} className="menu-subtrigger">{icon}<span>{label}</span><i className="menu-subtrigger-chevron" aria-hidden="true" /></DropdownMenu.SubTrigger>
     <DropdownMenu.Portal container={layerRoot()}>
-      <DropdownMenu.SubContent className={className} aria-label={label} sideOffset={6} alignOffset={-8} collisionPadding={MENU_PADDING}
+      <DropdownMenu.SubContent className={`tofi-pop ${className ?? ""}`} aria-label={label} sideOffset={6} alignOffset={-8} collisionPadding={MENU_PADDING}
         onEscapeKeyDown={event => { event.preventDefault(); setOpen(false); trigger.current?.focus(); }}>
         {asItems(children)}
       </DropdownMenu.SubContent>
@@ -103,7 +103,7 @@ export function Menu({ open, onOpenChange, className, id, label, trigger, anchor
   return <DropdownMenu.Root open={open} onOpenChange={onOpenChange} modal={false}>
     {point ? createPortal(hidden, layerRoot()) : hidden}
     <DropdownMenu.Portal container={layerRoot()}>
-      <DropdownMenu.Content className={className} id={id} aria-label={label} aria-labelledby={label ? undefined : trigger?.current?.id || undefined}
+      <DropdownMenu.Content className={`tofi-pop ${className ?? ""}`} id={id} aria-label={label} aria-labelledby={label ? undefined : trigger?.current?.id || undefined}
         side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={MENU_PADDING} data-layer={layerOf(returnTo())}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(returnTo(), outside.current); }}
         onFocusOutside={keepOnFocusMove}
@@ -162,7 +162,7 @@ export function Popover({ open, onOpenChange, className, anchor, container, take
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Anchor virtualRef={anchor} />
     <RadixPopover.Portal container={container ?? layerRoot()}>
-      <RadixPopover.Content ref={content} className={className} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={POPOVER_PADDING} data-layer={layerOf(opener.current)} {...rest}
+      <RadixPopover.Content ref={content} className={`tofi-pop ${className ?? ""}`} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={POPOVER_PADDING} data-layer={layerOf(opener.current)} {...rest}
         onOpenAutoFocus={event => { if (!takeFocus) event.preventDefault(); }}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(opener.current, outside.current); }}
         onFocusOutside={keepOnFocusMove}

@@ -70,6 +70,8 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const place = useCallback((next: PipPlace | { size: number }) => { const value = { ...pipRef.current, ...next }; savePip(value); setPip(value); }, []);
   const busyRef = useRef(false);
   const draggedRef = useRef(false);
+  // Where the last press began: a release that lands elsewhere ended a drag, even one too quick for Motion's onStart.
+  const pressAtRef = useRef<{ x: number; y: number } | null>(null);
   const snapRef = useRef<AnimationPlaybackControls | null>(null);
   // Motion owns the shell's transform in every form, including restoring its stored place.
   useLayoutEffect(() => {
@@ -96,6 +98,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     // Electron delivering moves across the native title-bar drag strip.
     const press = (event: PointerEvent) => {
       draggedRef.current = false;
+      pressAtRef.current = { x: event.clientX, y: event.clientY };
       if ((event.target as Element).closest(".desktop-window-controls, .desktop-control-button")) {
         event.stopImmediatePropagation();
         return;
@@ -264,7 +267,10 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
 
   const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={pipActive ? { "--pip-width": `${pipWidth}px` } as CSSProperties : undefined}
     onKeyDown={arrowKeys}
-    onClickCapture={pipActive ? event => { if (draggedRef.current) { draggedRef.current = false; event.preventDefault(); event.stopPropagation(); } } : undefined}
+    onClickCapture={pipActive ? event => {
+      const at = pressAtRef.current, moved = at !== null && Math.hypot(event.clientX - at.x, event.clientY - at.y) > 3;
+      if (draggedRef.current || moved) { draggedRef.current = false; event.preventDefault(); event.stopPropagation(); }
+    } : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={label ?? t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>
@@ -275,7 +281,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const wrapped = <ContextMenu.Root modal={false}>
     <ContextMenu.Trigger asChild disabled={!pipActive}>{shell}</ContextMenu.Trigger>
     {pipActive && <ContextMenu.Portal container={layerRoot()}>
-      <ContextMenu.Content className="pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
+      <ContextMenu.Content className="tofi-pop pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
         onCloseAutoFocus={event => { event.preventDefault(); shellRef.current?.querySelector<HTMLElement>(".desktop-enlarge")?.focus({ preventScroll: true }); }}>
         {corners.map(({ corner, key }) => <ContextMenu.Item key={corner} className="pip-menu-item" onSelect={() => place({ corner, dx: 0, dy: 0 })}>{t(`desktop.pip.corner_${key}`)}</ContextMenu.Item>)}
         <ContextMenu.Separator className="pip-menu-separator" />

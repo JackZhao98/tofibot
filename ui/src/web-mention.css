@@ -1,4 +1,4 @@
-:is(.workspace,[id="tofi-layers"]) .mention-menu { width:min(300px,calc(100vw - 36px)); transform-origin:center; animation:menu-enter var(--m-quick) var(--ease-out) both; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu { width:min(300px,calc(100vw - 36px)); }
 :is(.workspace,[id="tofi-layers"]) .mention-menu > button[role=option] { position:relative; z-index:1; }
 :is(.workspace,[id="tofi-layers"]) .mention-menu:has(.web-mention-pill) > button[role=option].selected { background:transparent; }
 :is(.workspace,[id="tofi-layers"]) .mention-menu:has(.web-mention-pill) > button[role=option]:hover { background:transparent; }

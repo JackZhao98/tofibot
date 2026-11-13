@@ -7,11 +7,11 @@ import { layerRoot } from "./layers";
 import { EASE, MOTION } from "./motion";
 
 const modifiers = [restrictToVerticalAxis, restrictToParentElement];
-// A pointer drag is over the card its middle is nearest (the design's "middle crosses middle"). A keyboard step moves the
-// card's top onto the next card's top; cards differ a lot in height (Usage is several times Artifacts), so for the
-// keyboard the slot with the nearest top is the one it is over, or the step would never pass a short card.
-const nearestTop: CollisionDetection = ({ collisionRect, droppableContainers, droppableRects }) => droppableContainers
-  .flatMap(container => { const rect = droppableRects.get(container.id); return rect ? [{ id: container.id, data: { droppableContainer: container, value: Math.abs(rect.top - collisionRect.top) } }] : []; })
+// A pointer drag is over the card its middle is nearest (the design's "middle crosses middle"). A keyboard step lines the
+// card up with the next one: tops when it moves up, bottoms when it moves down. Cards differ a lot in height (Usage is
+// several times Artifacts), so for the keyboard the slot with the nearest top or bottom edge is the one it is over.
+const nearestEdge: CollisionDetection = ({ collisionRect, droppableContainers, droppableRects }) => droppableContainers
+  .flatMap(container => { const rect = droppableRects.get(container.id); return rect ? [{ id: container.id, data: { droppableContainer: container, value: Math.min(Math.abs(rect.top - collisionRect.top), Math.abs(rect.bottom - collisionRect.bottom)) } }] : []; })
   .sort((a, b) => a.data.value - b.data.value);
 const noLayoutAnimation = () => false;
 const reducedQuery = () => matchMedia("(prefers-reduced-motion: reduce)");
@@ -47,7 +47,7 @@ export function SortableList({ items, onMove, announce, instructions, onDragging
   }, [onDragging]);
   // Which kind of drag this is, set by the event that started it.
   const byKeyboard = useRef(false);
-  const collision: CollisionDetection = args => byKeyboard.current ? nearestTop(args) : closestCenter(args);
+  const collision: CollisionDetection = args => byKeyboard.current ? nearestEdge(args) : closestCenter(args);
   const finish = () => { document.documentElement.removeAttribute("data-sortable-dragging"); onDragging?.(false); };
   return <DndContext sensors={sensors} collisionDetection={collision} modifiers={modifiers}
     autoScroll={{ threshold: { x: 0, y: 0.1 } }}

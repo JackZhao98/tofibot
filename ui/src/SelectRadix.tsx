@@ -35,7 +35,7 @@ export default function SelectRadixImpl(props: SelectProps & { options: NonNulla
       <span className="ui-select-value"><RadixSelect.Value placeholder={placeholder} /></span>
     </RadixSelect.Trigger>
     <RadixSelect.Portal container={layerRoot()}>
-      <RadixSelect.Content className="ui-select-content" position="popper" sideOffset={6} collisionPadding={POPUP_PADDING} data-layer={layer}>
+      <RadixSelect.Content className="tofi-pop ui-select-content" position="popper" sideOffset={6} collisionPadding={POPUP_PADDING} data-layer={layer}>
         <RadixSelect.Viewport className="ui-select-viewport">
           {options.map((choice, index) => isGroup(choice)
             ? <RadixSelect.Group key={`${choice.label}:${index}`}>

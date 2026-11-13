@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "dev:remote": "TOFI_DEV_API_INSECURE=1 vite",
-    "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts && vite build --config vite.desktop-pages.config.ts && vite build --config vite.design-system.config.ts",
+    "build": "tsc -b && vite build && vite build --config vite.motion-lab.config.ts && vite build --config vite.design-system.config.ts && vite build --config vite.desktop-pages.config.ts",
     "typecheck": "tsc -b --pretty false",
     "test:portability": "node scripts/test-portability.mjs",
     "test:account-menu": "node --test scripts/test-account-menu.mjs",

@@ -12,7 +12,7 @@ import {formatRelativeTime} from "./i18n/format";
 import {TofiIcon, type TofiIconName} from "./icons";
 import {useOwnerSession} from "./OwnerSession";
 import {usePolicy} from "./capabilityPolicy";
-import {arrowOpens, OverlayMenu} from "./overlays/OverlayHost";
+import {arrowOpens, OverlayMenu, pressToggle } from "./overlays/OverlayHost";
 import {useSettingsActive} from "./settingsActivity";
 import {Banner, SectionAnchor, SettingsCard, SettingsRow, SettingsSection, StatusBadge, type BadgeState} from "./settings/components";
 import type {SettingsTab} from "./SettingsShell";
@@ -50,7 +50,7 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
   const trigger = useRef<HTMLButtonElement>(null);
   return <>
     <button ref={trigger} type="button" className="st-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={t("environments.more", {name})} data-hint={t("environments.more", {name})}
-      onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
+      {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={t("environments.more", {name})} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {items.map(action => <button key={action} type="button" className="mcp-menu-danger" data-action={action} onClick={() => { setOpen(false); onAction(action, item); }}>{t(`environments.action.${action}`)}</button>)}
     </OverlayMenu>}
@@ -175,7 +175,7 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
     add?.vm_command ? {id: "vm" as const, icon: "server" as const, label: t("environments.add_menu.vm")} : null,
   ].filter(item => item !== null);
   const addControl = addItems.length > 0 && <>
-    <button ref={addButton} type="button" className="st-button env-add" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)} onKeyDown={arrowOpens(setMenuOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.add")}</button>
+    <button ref={addButton} type="button" className="st-button env-add" aria-haspopup="menu" aria-expanded={menuOpen} {...pressToggle(() => setMenuOpen(value => !value))} onKeyDown={arrowOpens(setMenuOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.add")}</button>
     {menuOpen && <OverlayMenu open onOpenChange={setMenuOpen} className="mcp-menu env-menu env-add-menu" label={t("environments.add")} trigger={addButton as RefObject<HTMLElement | null>} anchor={addButton as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {addItems.map(item => <button key={item.id} type="button" data-add={item.id} onClick={() => { setMenuOpen(false); setDialog({kind: item.id}); }}><TofiIcon name={item.icon} size={16} aria-hidden="true"/>{item.label}</button>)}
     </OverlayMenu>}
