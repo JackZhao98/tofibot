@@ -18,6 +18,7 @@ export const SETTINGS_SECTIONS = {
   admin: ["accounts", "version"],
   "admin-groups": ["policy", "members"],
   "admin-resources": ["models", "computers", "web"],
+  "admin-design": [],
 } as const;
 
 export type SettingsTabId = keyof typeof SETTINGS_SECTIONS;

@@ -16,7 +16,7 @@ import {providerForModel, providerLabels} from "./modelCatalog";
 import {useLanguage, useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 
-export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"devices"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"devices"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources"|"admin-design";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
 export const SETTINGS_TAB_SECTIONS:Record<SettingsTab,readonly string[]>=SETTINGS_SECTIONS;
 export type SettingsView="home"|"page";
@@ -32,8 +32,8 @@ type GroupId="you"|"bots"|"workspace"|"system"|"admin";
 type Group={id:GroupId;items:Page[]};
 const page=(id:SettingsTab,icon:TofiIconName,tag?:PageTag):Page=>({id,icon,tag,name:`shell.page.${id}.name`});
 const group=(id:GroupId,items:Page[]):Group=>({id,items});
-// Administration is its own navigation group, for administrators of a multi-account install only.
-const adminGroup=group("admin",[page("admin","group"),page("admin-groups","layers"),page("admin-resources","key")]);
+// Account management is multi-account only; the single-account owner also gets the design library.
+const adminGroup=group("admin",[page("admin","group"),page("admin-groups","layers"),page("admin-resources","key"),page("admin-design","layout-grid")]);
 // The "advanced" tab id is the System page: version, server, Behavior (a subpage), data, troubleshooting, Start over.
 const groups:Group[]=[
  group("you",[page("general","sliders")]),
@@ -67,8 +67,9 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  const tab=(legacySettingsTabs[requestedTab as string]??requestedTab) as SettingsTab;
  const {language}=useLanguage();
  const session=useOwnerSession();
- const isAdmin=Boolean(session?.multi_account&&session.owner?.role==="admin");
-  const visibleGroups:Group[]=useMemo(()=>isAdmin?[...groups,adminGroup]:groups,[isAdmin]);
+ const isAdmin=Boolean(session&&(!session.multi_account||session.owner?.role==="admin"));
+ const isMultiAdmin=isAdmin&&Boolean(session?.multi_account);
+  const visibleGroups:Group[]=useMemo(()=>isAdmin?[...groups,isMultiAdmin?adminGroup:group("admin",adminGroup.items.filter(item=>item.id==="admin-design"))]:groups,[isAdmin,isMultiAdmin]);
  const allItems=visibleGroups.flatMap(item=>item.items);
  const attention=useConnectionAttention(refreshToken);
  const counts:Partial<Record<SettingsTab,{value:number;tone:"honey"|"iris"}>>={...(attention>0?{connections:{value:attention,tone:"honey"}}:{})};
@@ -78,7 +79,7 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
  useEffect(()=>{if(entry&&entry.seq!==entrySeq.current){entrySeq.current=entry.seq;setMobileView(entry.view)}},[entry]);
  const hints=useMobileHints(narrow&&mobileView==="home");
  useEffect(()=>{if(tab!==requestedTab)onTab(tab)},[tab,requestedTab,onTab]);
- useEffect(()=>{if((tab==="admin"||tab==="admin-groups"||tab==="admin-resources")&&!isAdmin)onTab("general")},[tab,isAdmin,onTab]);
+ useEffect(()=>{if((tab==="admin-design"&&!isAdmin)||((tab==="admin"||tab==="admin-groups"||tab==="admin-resources")&&!isMultiAdmin))onTab("general")},[tab,isAdmin,isMultiAdmin,onTab]);
  const [visited,setVisited]=useState<SettingsTab[]>([tab]);
  const [drafts,setDrafts]=useState<Record<string,SettingsDraft>>({});
  const [pending,setPending]=useState<Target|null>(null);

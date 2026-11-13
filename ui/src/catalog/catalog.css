@@ -40,3 +40,20 @@ html.catalog-frame .catalog-caption { margin: 0 0 8px; color: var(--muted); font
 html.catalog-frame .catalog-caption span { margin-left: 8px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 /* A context class of the catalog's own (CatalogState.context): the width of the chat column, for cards shown alone. */
 html.catalog-frame .catalog-column { max-width: var(--chat-max, 760px); margin: 0 auto; }
+
+/* Specimen layout only; product appearances remain in their own stylesheets. */
+html.catalog-frame .catalog-token-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px; }
+html.catalog-frame .catalog-token-grid figure, html.catalog-frame .catalog-icon-grid figure { margin:0; min-width:0; }
+html.catalog-frame .catalog-token-grid figcaption small { display:block; overflow-wrap:anywhere; color:var(--muted); }
+html.catalog-frame .catalog-token-sample { height:64px; margin-bottom:10px; }
+html.catalog-frame .catalog-icon-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:20px; }
+html.catalog-frame .catalog-icon-grid svg { margin-right:12px; }
+html.catalog-frame .catalog-motion-track { width:36px; transition-property:translate; }
+html.catalog-frame .catalog-token-grid figure:hover .catalog-motion-track { translate:120px; }
+html.catalog-frame .catalog-specimens { display:flex; flex-wrap:wrap; align-items:center; gap:18px; }
+html.catalog-frame .catalog-control-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; }
+html.catalog-frame .catalog-control-grid label { display:grid; gap:6px; }
+@media(prefers-reduced-motion:reduce) { html.catalog-frame .catalog-motion-track { transition:none; } }
+
+.catalog-shell [data-catalog-section="foundations"] .catalog-frames { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.catalog-shell [data-catalog-section="foundations"] .catalog-frame-box { width:100%; }

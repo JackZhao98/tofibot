@@ -126,6 +126,8 @@
   "settings:permissionsPage.standing.title": "一律放行",
   "settings:primary.label": "主要助理",
   "settings:providers.title": "模型供應商",
+  "settings:shell.page.admin-design.description": "範例元件與設計令牌",
+  "settings:shell.page.admin-design.name": "設計系統",
   "settings:shell.page.admin-groups.description": "依群組設定帳戶可用的資源",
   "settings:shell.page.admin-groups.name": "使用者群組",
   "settings:shell.page.admin-resources.description": "伺服器提供給群組的金鑰",

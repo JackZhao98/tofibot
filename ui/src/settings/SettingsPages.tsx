@@ -47,6 +47,7 @@ export type SettingsPagesProps={
 const AdminAccounts=lazy(()=>import("../AdminAccounts").then(module=>({default:module.AdminAccounts})));
 /** The other two Administration pages load on demand for the same reason. */
 const AdminGroups=lazy(()=>import("../AdminGroups").then(module=>({default:module.AdminGroups})));
+const DesignSystemPage=lazy(()=>import("./DesignSystemPage"));
 const AdminResources=lazy(()=>import("../AdminResources").then(module=>({default:module.AdminResources})));
 /** The storage card loads on demand; it is not part of the first paint of Settings. */
 const StorageUsage=lazy(()=>import("../StorageUsage").then(module=>({default:module.StorageUsage})));
@@ -69,6 +70,7 @@ export function SettingsPages(props:SettingsPagesProps){
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;
   case "admin": return <Suspense fallback={null}><div className="settings-stack"><SectionAnchor id="accounts" wide><AdminAccounts/></SectionAnchor><AdminVersion/></div></Suspense>;
   case "admin-groups": return <Suspense fallback={null}><AdminGroups openTab={props.openTab}/></Suspense>;
+  case "admin-design": return <Suspense fallback={null}><DesignSystemPage/></Suspense>;
   case "admin-resources": return <Suspense fallback={null}><AdminResources openTab={props.openTab}/></Suspense>;
   default: return unreachable(page);
  }

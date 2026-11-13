@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "Organisationsressourcen",
         "description": "Schlüssel, die der Server Gruppen bereitstellt"
+      },
+      "admin-design": {
+        "name": "Designsystem",
+        "description": "Beispielkomponenten und Designtokens"
       }
     },
     "category": "Einstellungsbereich",
@@ -1876,5 +1880,8 @@
     "device_revoked": "Gerätezugriff widerrufen",
     "browser_clear_failed": "Browserdaten konnten nicht gelöscht werden. Der Browser bleibt pausiert.",
     "computer_not_configured": "Kein Bot-Computer eingerichtet"
+  },
+  "design": {
+    "open_tab": "In neuem Tab öffnen"
   }
 }

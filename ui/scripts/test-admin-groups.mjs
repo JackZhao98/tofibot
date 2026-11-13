@@ -39,8 +39,8 @@ try {
     stub.reset();
     const {page, close} = await open({tab: "admin-groups"});
     assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"]);
-    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources"]);
-    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] .settings-nav-label', items => items.map(item => item.textContent)), ["Accounts", "Groups", "Organization resources"]);
+    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources", "admin-design"], "Administration: accounts, groups, resources, and the design system");
+    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] .settings-nav-label', items => items.map(item => item.textContent)), ["Accounts", "Groups", "Organization resources", "Design system"]);
     assert.equal(await page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts left System");
     await body(page, "admin-groups").locator(".ag-item").first().waitFor();
     assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Groups");

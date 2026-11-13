@@ -85,6 +85,10 @@
       "admin-resources": {
         "name": "Organization resources",
         "description": "Keys this server provides to groups"
+      },
+      "admin-design": {
+        "name": "Design system",
+        "description": "Synthetic components and design tokens"
       }
     },
     "category": "Settings category",
@@ -1876,5 +1880,8 @@
     "device_revoked": "Device access revoked",
     "browser_clear_failed": "Could not clear browser data. The browser stays paused.",
     "computer_not_configured": "No Bot computer is configured"
+  },
+  "design": {
+    "open_tab": "Open in a new tab"
   }
 }
