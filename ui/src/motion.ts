@@ -15,11 +15,12 @@ export const EASE = {
 //   push: the phone swipe-back (phoneSwipeGesture.ts) after the finger lifts. Critically damped (damping = 2 * sqrt(stiffness *
 //         mass)), so it never rings past the pane's edge. From half way at rest it is within 2 px of home after ~225 ms and
 //         within 0.5 px after ~280 ms, the tap push's base (220) and panel-in (280); a flick leaves faster, lands as soon.
-//   pipSnap: the Bot-computer mini window (pipDrag.ts) settling into the nearest corner after the release, ~235 ms, under 1% overshoot (ratio 0.83).
+//   pipSnap: the Bot-computer mini window (FloatingDesktop.tsx) settling into the nearest corner after the release, ~235 ms, under 1% overshoot (ratio 0.83).
 //   pipFollow: a stacked second window chasing the one in front (P3; no caller yet). Tunable live: window.__TOFI_PIP = { snap: { stiffness: 380 } }.
 export const SPRING = {
   push: { stiffness: 900, damping: 60, mass: 1 },
-  pipSnap: { stiffness: 420, damping: 34, mass: 1 },
+  // At rest within a pixel: the release writes the exact corner afterwards, so the sub-pixel tail is not worth frames.
+  pipSnap: { stiffness: 420, damping: 34, mass: 1, restDelta: 1, restSpeed: 10 },
   pipFollow: { stiffness: 320, damping: 30, mass: 1 },
 } as const;
 

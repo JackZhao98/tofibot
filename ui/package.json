@@ -48,6 +48,7 @@
     "test:auto-review": "node scripts/test-auto-review.mjs",
     "test:task-issue-ux": "node scripts/test-task-issue-ux.mjs",
     "test:computer-window": "node scripts/test-computer-window.mjs",
+    "test:floating-desktop": "node scripts/test-floating-desktop.mjs",
     "test:pip-drag": "node scripts/test-pip-drag.mjs",
     "test:ipad-computer": "node scripts/test-ipad-computer.mjs",
     "test:desktop-connect": "node scripts/test-desktop-connect.mjs",
@@ -145,6 +146,7 @@
     "@xterm/xterm": "^6.0.0",
     "emoji-mart": "5.6.0",
     "i18next": "26.4.2",
+    "motion": "14.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-i18next": "17.0.16",
@@ -157,7 +159,6 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "motion": "14.4.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
   }

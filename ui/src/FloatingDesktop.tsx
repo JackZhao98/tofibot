@@ -2,10 +2,10 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
-import { MOTION, EASE } from "./motion";
+import { animate, drag, readTransformValue, type AnimationPlaybackControls } from "motion";
+import { MOTION, EASE, SPRING } from "./motion";
 import { layerRoot } from "./layers";
-import { createPipEngine, translate, type PipEngine } from "./pipDrag";
-import { PIP_SIZES, defaultPipStored, nudgePipPoint, parsePipStored, pipPlaceFromPoint, resolvePipPlace, snapPipSide, type PipCorner, type PipPlace, type PipStored } from "./floatingDesktopPosition";
+import { PIP_SIZES, clampPipPoint, defaultPipStored, nearestPipCorner, projectPipPoint, nudgePipPoint, parsePipStored, pipPlaceFromPoint, resolvePipPlace, snapPipSide, type PipCorner, type PipPlace, type PipStored } from "./floatingDesktopPosition";
 import "./desktop-shell.css";
 
 const PIP_KEY = "tofi.pip.v1";
@@ -68,22 +68,95 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     return { size: { width: el.offsetWidth, height: el.offsetHeight }, viewport: { width: window.innerWidth, height: window.innerHeight }, composerTop: composerTop(), point: { left: rect.left, top: rect.top } };
   }, []);
   const place = useCallback((next: PipPlace | { size: number }) => { const value = { ...pipRef.current, ...next }; savePip(value); setPip(value); }, []);
-  const engineRef = useRef<PipEngine | null>(null);
-  engineRef.current ??= createPipEngine({ element: () => shellRef.current, measure, controls: ".desktop-window-controls, .desktop-control-button", commit: place });
-  useEffect(() => () => engineRef.current?.dispose(), []);
-  // Placement is the one write to the shell: before the FLIP below measures it, and again whenever the stored place, the viewport or the composer changes.
+  const busyRef = useRef(false);
+  const draggedRef = useRef(false);
+  const snapRef = useRef<AnimationPlaybackControls | null>(null);
+  // Motion owns the shell's transform in every form, including restoring its stored place.
   useLayoutEffect(() => {
     const el = shellRef.current;
-    if (!el) return;
-    if (!pipActive) { el.style.transform = ""; return; }
-    if (engineRef.current?.busy()) return;
+    if (!el || busyRef.current) return;
     const m = measure();
-    if (m) el.style.transform = translate(resolvePipPlace(pip, m.size, m.viewport, m.composerTop));
+    if (!m) return;
+    const point = pipActive ? resolvePipPlace(pip, m.size, m.viewport, m.composerTop) : { left: 0, top: 0 };
+    // Out of the mini form (big window, docked card) the shell has no placement, at once: Motion writes on the next frame,
+    // and a leftover translate would show the big window offset for that frame and make its fixed children relative to it.
+    if (!pipActive) el.style.transform = "none";
+    animate(el, { x: point.left, y: point.top }, { duration: 0 });
   }, [pipActive, pip, tick, measure]);
+  useLayoutEffect(() => {
+    const el = shellRef.current;
+    if (!pipActive || !el) return;
+    let disposed = false;
+    let pointerId: number | undefined;
+    let captureTarget: Element | undefined;
+    const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const constraints = { left: 0, right: 0, top: 0, bottom: 0 };
+    const end = () => { busyRef.current = false; delete el.dataset.pip; el.style.willChange = ""; };
+    // Runs before Motion's listener. Controls must remain plain clicks, and capture keeps
+    // Electron delivering moves across the native title-bar drag strip.
+    const press = (event: PointerEvent) => {
+      draggedRef.current = false;
+      if ((event.target as Element).closest(".desktop-window-controls, .desktop-control-button")) {
+        event.stopImmediatePropagation();
+        return;
+      }
+      if (event.button !== 0 || !event.isPrimary) return;
+      snapRef.current?.stop();
+      snapRef.current = null;
+      end();
+      const m = measure();
+      if (!m) return;
+      const min = clampPipPoint({ left: -Infinity, top: -Infinity }, m.size, m.viewport, m.composerTop);
+      const max = clampPipPoint({ left: Infinity, top: Infinity }, m.size, m.viewport, m.composerTop);
+      Object.assign(constraints, { left: min.left, right: max.left, top: min.top, bottom: max.top });
+      pointerId = event.pointerId;
+      // Capture on the pressed descendant so a short click still reaches the enlarge button.
+      captureTarget = event.target as Element;
+      captureTarget.setPointerCapture(pointerId);
+    };
+    el.addEventListener("pointerdown", press);
+    const stopDrag = drag(el, {
+      constraints, elastic: false, momentum: false,
+      onStart: () => {
+        if (disposed) return;
+        busyRef.current = true;
+        draggedRef.current = true;
+        el.dataset.pip = "drag";
+        el.style.willChange = "transform";
+      },
+      onEnd: (event, info) => {
+        if (disposed) return;
+        const m = measure();
+        if (!m) { end(); return; }
+        const point = { left: Number(readTransformValue(el, "x")), top: Number(readTransformValue(el, "y")) };
+        const velocity = event.type === "pointercancel" ? { x: 0, y: 0 } : info.velocity;
+        const next = event.altKey ? pipPlaceFromPoint(point, m.size, m.viewport, m.composerTop)
+          : { corner: nearestPipCorner(projectPipPoint(point, velocity), m.size, m.viewport, m.composerTop), dx: 0, dy: 0 };
+        const target = resolvePipPlace(next, m.size, m.viewport, m.composerTop);
+        el.dataset.pip = "snap";
+        // A per-value transition replaces the shared one, so each axis carries the whole spring and its own release velocity.
+        // At rest means both axes are done; a press during the snap stops it and its result is dropped.
+        const spring = { type: "spring" as const, ...SPRING.pipSnap };
+        const run = animate(el, { x: target.left, y: target.top }, reduced() ? { duration: 0 } : { x: { ...spring, velocity: velocity.x }, y: { ...spring, velocity: velocity.y } });
+        snapRef.current = run;
+        // Motion draws a value on its next frame, after `finished` resolves: wait for that frame before calling it at rest.
+        void run.finished.then(() => requestAnimationFrame(() => { if (!disposed && snapRef.current === run) { snapRef.current = null; end(); place(next); } }));
+      },
+    });
+    return () => {
+      disposed = true;
+      stopDrag();
+      snapRef.current?.stop();
+      snapRef.current = null;
+      el.removeEventListener("pointerdown", press);
+      if (pointerId !== undefined && captureTarget?.hasPointerCapture(pointerId)) captureTarget.releasePointerCapture(pointerId);
+      end();
+    };
+  }, [pipActive, measure, place]);
   useEffect(() => {
     if (!pipActive) return;
     let frame = 0;
-    const again = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (!engineRef.current?.busy()) setTick(value => value + 1); }); };
+    const again = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (!busyRef.current) setTick(value => value + 1); }); };
     const composer = document.querySelector<HTMLElement>(".composer");
     const observer = composer ? new ResizeObserver(again) : undefined;
     if (composer) for (const target of new Set([composer, ...Array.from(composer.children) as HTMLElement[]])) observer?.observe(target);
@@ -190,8 +263,8 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   }, [folded]);
 
   const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={pipActive ? { "--pip-width": `${pipWidth}px` } as CSSProperties : undefined}
-    onPointerDown={pipActive ? event => engineRef.current?.press(event.nativeEvent) : undefined} onKeyDown={arrowKeys}
-    onClickCapture={pipActive ? event => { if (engineRef.current?.wasDragged()) { event.preventDefault(); event.stopPropagation(); } } : undefined}
+    onKeyDown={arrowKeys}
+    onClickCapture={pipActive ? event => { if (draggedRef.current) { draggedRef.current = false; event.preventDefault(); event.stopPropagation(); } } : undefined}
     role={expanded ? "dialog" : "group"} aria-modal={expanded || undefined} aria-label={label ?? t("desktop.title")} tabIndex={expanded ? -1 : undefined}>
     <div id={contentId} className="desktop-presence-content">
       <div className="desktop-presence-canvas">{children}</div>
