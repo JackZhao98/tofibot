@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { api } from "./api";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
 import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopControl";
 import { useTranslation } from "./i18n";
 import "./handover.css";
-import { layerRoot } from "./layers";
+import { ModalDialog } from "./overlays/ModalDialog";
 
 type Props = { botId: string; questionId: string; site: string; prompt: string; busy: boolean; error: string; onResult: (result: "done" | "cannot") => void; onClose: () => void };
 
@@ -47,26 +46,14 @@ export function TakeoverDialog({ botId, questionId, site, prompt, busy, error, o
     return () => { alive = false; clearTimeout(timer); };
   }, [botId]);
 
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    pane.current?.focus();
-    const keys = (event: KeyboardEvent) => {
-      if (event.key !== "Tab" || event.defaultPrevented) return;
-      const targets = Array.from(pane.current?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([tabindex="-1"])') ?? []).filter(el => el.getClientRects().length);
-      const i = targets.indexOf(document.activeElement as HTMLElement);
-      if (i < 0 || (!event.shiftKey && i === targets.length - 1) || (event.shiftKey && i === 0)) {
-        event.preventDefault(); (event.shiftKey ? targets.at(-1) : targets[0])?.focus();
-      }
-    };
-    document.addEventListener("keydown", keys);
-    return () => { document.removeEventListener("keydown", keys); previous?.focus(); };
-  }, []);
 
   // Hand the screen back before the answer travels, so the resumed run never queues behind this hold.
   async function finish(result: "done" | "cannot") { await control.current?.release(); onResult(result); }
   async function leave() { await control.current?.release(); onClose(); }
 
-  return createPortal(<div className="handover-overlay">
+  // The shared Radix modal keeps Tab inside and returns focus. Escape and a press outside never close it: the keyboard
+  // belongs to the remote computer, and the person leaves with one of the three buttons.
+  return <ModalDialog onClose={() => void leave()} overlayClassName="handover-overlay" closeOnEscape={false} closeOnOutside={false} initialFocus={pane}>
     <div ref={pane} className="handover-dialog" role="dialog" aria-modal="true" aria-label={t("handover.dialog.label", { site })} tabIndex={-1} data-question-id={questionId}>
       <header>
         <div><strong>{site}</strong><span>{t("handover.dialog.subtitle")}</span></div>
@@ -83,5 +70,5 @@ export function TakeoverDialog({ botId, questionId, site, prompt, busy, error, o
       </RemoteDesktopControl>
       <footer role="status">{error || t("handover.dialog.footer")}</footer>
     </div>
-  </div>, layerRoot());
+  </ModalDialog>;
 }
