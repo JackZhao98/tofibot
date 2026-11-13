@@ -209,13 +209,14 @@ class ExposureTests(AuditCase):
         self.set_env(TOFI_DOMAIN='tofi.example.com', TOFI_TLS_CERT_FILE='', TOFI_TLS_KEY_FILE='', TOFI_BIND='0.0.0.0')
         self.assertEqual(self.level('exposure.listen'), 'WARN')
 
-    def test_plain_http_sign_in_allowed_in_direct_mode_warns(self):
+    def test_plain_http_from_the_lan_is_the_direct_mode_default(self):
+        # Owner 11-12: LAN HTTP is the default; the server answers plain HTTP to private addresses only.
         self.set_env(TOFI_OWNER_ALLOW_LAN_HTTP='1')
-        self.assertEqual(self.level('exposure.lan_http'), 'WARN')
+        self.assertEqual(self.level('exposure.lan_http'), 'PASS')
         env = tofi_host.read_env()
         del env['TOFI_OWNER_ALLOW_LAN_HTTP']  # an older env file: compose defaults it to 1
         tofi_host.write_env(env)
-        self.assertEqual(self.level('exposure.lan_http'), 'WARN')
+        self.assertEqual(self.level('exposure.lan_http'), 'PASS')
 
 
 class AuthTests(AuditCase):
