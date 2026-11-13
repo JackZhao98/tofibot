@@ -706,5 +706,20 @@
     "in_app": "Set this up in the App on this Mac",
     "settings": "Browser settings",
     "close": "Close Bot browser preview"
+  },
+  "bot_browser_chrome": {
+    "address": "Search or enter address",
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "stop": "Stop",
+    "hand_back": "Hand back to Bot",
+    "bot": "Bot is browsing",
+    "human": "You are browsing",
+    "paused": "Paused",
+    "close": "Close Bot browser",
+    "empty_title": "Bot browser",
+    "empty_body": "Pages your Bot opens show up here. Type an address to browse yourself.",
+    "hand_back_short": "Hand back"
   }
 }

@@ -700,5 +700,20 @@
     "in_app": "请在这台 Mac 的 App 中设置",
     "settings": "浏览器设置",
     "close": "关闭 Bot 浏览器画面"
+  },
+  "bot_browser_chrome": {
+    "address": "搜索或输入网址",
+    "back": "后退",
+    "forward": "前进",
+    "reload": "重新加载",
+    "stop": "停止",
+    "hand_back": "交还给 Bot",
+    "bot": "Bot 正在浏览",
+    "human": "你在浏览",
+    "paused": "已暂停",
+    "close": "关闭 Bot 浏览器",
+    "empty_title": "Bot 浏览器",
+    "empty_body": "Bot 打开的网页会显示在这里。也可以自己输入网址浏览。",
+    "hand_back_short": "交还"
   }
 }
