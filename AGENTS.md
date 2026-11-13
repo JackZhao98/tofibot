@@ -590,6 +590,19 @@ Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches
 - Radix selects a radio and moves a toolbar or tab on a timer after `keydown`. A test that presses an arrow key holds the key for
   one timer turn (`keyboard.down`, `setTimeout(0)`, `keyboard.up`), as a person does. Do not select on `focus` to pass a test.
 
+# Web UI file drops, activity drawers and workspace notices
+
+- A file drop target on an element (Settings `FilePicker`) uses `react-dropzone` (`noClick`, `noKeyboard`). The chat's
+  window-level drop (`WebFileDropOverlay`) stays hand-written: react-dropzone targets an element, and binding it to the
+  window took as much glue as the 40 lines it would replace (tried 2026-11-13).
+- The Activity drawer and the tool-step drawers are Radix Collapsible with the shared `.collapsible-content` motion. An
+  outside open (a step link) goes through the drawer's handle and waits for the `taskActivity` chunk, so it never opens empty.
+- `WorkspaceToast` is a plain `role="alert"` notice (refresh failed with Retry, or a named Bot browser failure), not Radix
+  Toast: a Toast is a dismissable layer that takes Escape from the dialog under it and would hide an unresolved error.
+  `SavedNote` stays inline beside its control.
+- The computer window's fold and enlarge transitions stay on the platform Web Animations API: Motion `animate()` only
+  changes the call (tried 2026-11-13). The mini window's drag is Motion.
+
 # Web UI side panels
 
 Web only, 1100 px and wider; the design is `docs/design/widgets-and-sidebar.md` and decision D67 (`side-panels.md` is the superseded first version). What a conversation can open has three tiers; the state is `surfaces` in `ui/src/surfaces.ts` (pure functions, `npm --prefix ui run test:surfaces`), and call sites use those functions directly (there is no `Panel` type or `setPanel` adapter any more: `openSurface`, `openSidebarId`, `openCoverPanel`, `toggleWidgetId` in `App.tsx`).

@@ -71,7 +71,7 @@ assert.ok(listBytes > 0 && listBytes < 4_000, `the list response was ${listBytes
 const resultText = () => page.evaluate(() => [...document.querySelectorAll(".task-step pre")].map(pre => pre.textContent).join("\n"));
 assert.ok(!(await resultText()).includes("FULL_RESULT_TAIL"), "the list preview must not already hold the full result");
 // Opening the step must replace the preview with the full result.
-await page.locator("details.task-activity > summary").first().click();
+await page.locator(".task-activity > .process-line").first().click();
 await step.locator("> details > summary").click();
 await page.waitForFunction(() => [...document.querySelectorAll(".task-step pre")].some(pre => pre.textContent.includes("FULL_RESULT_TAIL")), null, { timeout: 10_000 });
 assert.equal(calls.full, 1, "the full result is fetched once per step");

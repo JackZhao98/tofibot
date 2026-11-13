@@ -1,3 +1,4 @@
+import { useDropzone } from "react-dropzone";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
@@ -136,11 +137,10 @@ export function SettingsDetails({children}: {children: ReactNode}) {
 /** Styled file picker: a button, the chosen file name as a chip, and a drop zone. The native input stays hidden. */
 export function FilePicker({accept, label, fileName, onFile, disabled = false, dropHint, labelledBy}: {accept?: string; label: ReactNode; fileName?: string; onFile: (file: File) => void; disabled?: boolean; dropHint?: ReactNode; labelledBy?: string}) {
   const input = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  return <div className={`file-picker${dragging ? " is-dragging" : ""}`} role={labelledBy ? "group" : undefined} aria-labelledby={labelledBy}
-    onDragOver={event => { event.preventDefault(); if (!disabled) setDragging(true); }}
-    onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }}
-    onDrop={event => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (!disabled && file) onFile(file); }}>
+  const { getRootProps, isDragActive } = useDropzone({ noClick: true, noKeyboard: true, disabled,
+    onDrop: files => { if (files[0]) onFile(files[0]); },
+  });
+  return <div {...getRootProps({ className: `file-picker${isDragActive ? " is-dragging" : ""}`, role: labelledBy ? "group" : undefined, "aria-labelledby": labelledBy })}>
     <input ref={input} type="file" hidden accept={accept} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) onFile(file); }}/>
     <button type="button" className="st-button" disabled={disabled} onClick={() => input.current?.click()}><TofiIcon name="folder-open" size={16} aria-hidden="true"/>{label}</button>
     {fileName ? <span className="file-chip" title={fileName}><TofiIcon name="file" size={14} aria-hidden="true"/><span>{fileName}</span></span> : dropHint && <span className="file-picker-hint">{dropHint}</span>}

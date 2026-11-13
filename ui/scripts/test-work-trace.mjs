@@ -97,6 +97,7 @@ try {
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady,setLanguage} from '../src/i18n';
 import WorkTrace from '../src/WorkTrace';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import {traceUnderReply} from '../src/workTraceLayout';
 const query=new URLSearchParams(location.search);
 const tiles=Number(query.get('tiles')||5), steps=Number(query.get('steps')||tiles);
@@ -105,7 +106,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const mode=query.get('mode');
   if(!mode)return <WorkTrace run={run as any}/>;
   const under=traceUnderReply({hasTrace:true,isFinalReply:true,hasTaskBlock:mode==='shown',activityShown:mode==='shown'});
-  return <div className="message-block"><div className="message-bubble" data-testid="reply">Done.</div>{under&&<div className="message-work-trace"><WorkTrace run={run as any}/></div>}{mode==='shown'&&<details open className="task-activity" data-testid="activity"><summary>Activity</summary><WorkTrace run={run as any}/></details>}</div>;
+  return <div className="message-block"><div className="message-bubble" data-testid="reply">Done.</div>{under&&<div className="message-work-trace"><WorkTrace run={run as any}/></div>}{mode==='shown'&&<Collapsible.Root defaultOpen className="task-activity" data-testid="activity"><Collapsible.Trigger className="process-line">Activity</Collapsible.Trigger><Collapsible.Content className="collapsible-content"><WorkTrace run={run as any}/></Collapsible.Content></Collapsible.Root>}</div>;
 })()}</div>));
 `);
   server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });

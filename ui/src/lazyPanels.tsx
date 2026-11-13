@@ -164,7 +164,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".header-actions", "contextCard"],
   ["[data-computer-toggle]", "contextCard"],
   [".composer-stop", "stopMenu"],
-  [".task-activity > summary", "taskActivity"],
+  [".task-activity > .process-line", "taskActivity"],
   [".web-tool-toggle", "toolSteps"],
   [".sidebar-account", "accountMenu"],
   [".reaction-options", "reactionPicker"],

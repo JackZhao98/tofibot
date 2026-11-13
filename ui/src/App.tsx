@@ -8,7 +8,7 @@ import { sourceKey, type ComputerSource } from "./botBrowserSource";
 import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
-import { TaskRunBlock, taskBlockVisible, toggleDisclosure } from "./TaskRunBlock";
+import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
 import { LiveMark } from "./LiveMark";
 import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
@@ -99,7 +99,7 @@ import { draftDeltaApplies } from "./draftDelta";
 import { DraftStream, useLiveDraft } from "./draftStream";
 import { rowModelEqual } from "./timelineRow";
 import type { TaskCardModel, TaskFeed } from "./taskCards";
-import { InTopLayer, layerRoot } from "./layers";
+import { layerRoot } from "./layers";
 import { useProxyChallenge } from "./ProxyChallengeSlot";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
@@ -2649,7 +2649,7 @@ function Workspace() {
     <div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       <Suspense fallback={null}><UpdateBanner /></Suspense>
       {workspaceErrorShown && indexInitialized.current && !proxyChallenged && <Suspense fallback={null}><WorkspaceToast onRetry={() => void refreshIndex()} /></Suspense>}
-      {nativePanel.failure && <InTopLayer><div className="stream-status workspace-status workspace-toast" role="alert" data-browser-panel-failure={nativePanel.failure}>{browserT(`browser.status.${nativePanel.failure}`)}</div></InTopLayer>}
+      {nativePanel.failure && <Suspense fallback={null}><WorkspaceToast key={nativePanel.failure} failure={nativePanel.failure} message={browserT(`browser.status.${nativePanel.failure}`)} /></Suspense>}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.guest_outdated_required ? t("computer.outdated_required") : computerInfo.error_code === "org_resource_missing" ? t("computer.org_missing") : computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error && !computerInfo.guest_outdated_required ? ` · ${computerInfo.error}` : ""}</span>{computerInfo.guest_outdated_required ? <button className="secondary-button" onClick={() => openSettings("computer")}>{t("computer.open_environments")}</button> : (computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>

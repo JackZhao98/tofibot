@@ -263,6 +263,6 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .collapsible-content{overflow:hidden}
 .collapsible-content[data-state="open"]{animation:collapsible-open var(--m-base) var(--ease-out)}
 .collapsible-content[data-state="closed"]{height:0;visibility:hidden;animation:collapsible-close var(--m-base) var(--ease-settle)}
-@keyframes collapsible-open{from{height:0}to{height:var(--radix-collapsible-content-height)}}
-@keyframes collapsible-close{from{height:var(--radix-collapsible-content-height);visibility:visible}to{height:0;visibility:hidden}}
+@keyframes collapsible-open{from{height:0;opacity:0;translate:0 -6px}to{height:var(--radix-collapsible-content-height);opacity:1;translate:0 0}}
+@keyframes collapsible-close{from{height:var(--radix-collapsible-content-height);visibility:visible;opacity:1;translate:0 0}to{height:0;visibility:hidden;opacity:0;translate:0 -4px}}
 @media(prefers-reduced-motion:reduce){.collapsible-content{animation:none}}

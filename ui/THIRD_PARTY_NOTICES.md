@@ -28,7 +28,7 @@ JetBrains Mono: the unmodified upstream `fonts/webfonts/JetBrainsMono-Regular.wo
 
 ## Menu, popover and dialog libraries (MIT, 0BSD)
 
-The menus and popovers are Radix primitives in the lazily loaded chunk `assets/RadixOverlays-*.js` (docs/design/migration.md step 2); the modal dialogs (`src/overlays/ModalDialog.tsx`, step 3) bundle Radix Dialog and AlertDialog in their own lazy chunk. Shared primitives land in a shared lazy chunk; none of them is in the entry bundle. Versions are pinned in `package-lock.json`; full license texts are in `public/licenses/`.
+The menus and popovers are Radix primitives in the lazily loaded chunk `assets/RadixOverlays-*.js` (docs/design/migration.md step 2); the modal dialogs (`src/overlays/ModalDialog.tsx`, step 3) bundle Radix Dialog and AlertDialog in their own lazy chunk. Shared primitives are deduplicated; Toolbar, DismissableLayer, Collapsible and FocusScope may ship in the entry under D82. Dialogs, menus and popovers stay lazy. Versions are pinned in `package-lock.json`; full license texts are in `public/licenses/`.
 
 | Packages | License | Text |
 |---|---|---|
@@ -41,3 +41,14 @@ The menus and popovers are Radix primitives in the lazily loaded chunk `assets/R
 ## Sortable lists (MIT)
 
 Widget and Web tools reordering uses `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0 and `@dnd-kit/modifiers` 9.0.0, with `@dnd-kit/accessibility` and `@dnd-kit/utilities`. Copyright (c) 2021, Claudéric Demers. These packages are bundled only in lazy panel chunks; the full MIT license is in `public/licenses/dnd-kit.txt`.
+
+## File drop targets (MIT)
+
+File drops use `react-dropzone` 20.1.4, with `file-selector` and `attr-accept`. Full MIT license texts are in
+`public/licenses/react-dropzone.txt`, `public/licenses/file-selector.txt` and `public/licenses/attr-accept.txt`.
+
+## Computer animation (MIT)
+
+Computer dragging and transitions use `motion` 14.4.0, `framer-motion`, `motion-dom` and `motion-utils`, in lazy computer chunks.
+Full MIT license texts are in `public/licenses/motion.txt`, `public/licenses/framer-motion.txt`,
+`public/licenses/motion-dom.txt` and `public/licenses/motion-utils.txt`.

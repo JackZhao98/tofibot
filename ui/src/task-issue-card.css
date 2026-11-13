@@ -12,22 +12,21 @@
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
 .task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
 .task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
-.task-issue-technical>summary,.task-activity>summary,.task-tool-records summary,.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
+.task-issue-technical>summary,.task-activity>.process-line,.task-tool-records :is(summary,.task-step-trigger),.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
 .task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--surface-sunk);color:var(--text-body);font:var(--type-code)}
 .task-issue-feedback{font:var(--type-meta);color:var(--text-secondary)}
 .task-activity{margin-block-start:var(--space-2)}
-.task-activity>summary{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
-.task-activity>summary::-webkit-details-marker{display:none}
-.task-activity>summary>svg{transition:transform var(--m-base) var(--ease-out)}
-.task-activity>summary>svg.activity-glyph{margin-inline-start:var(--space-1)}
-.task-activity[open]:not([data-drawer=closing])>summary>svg.process-line-chevron{transform:rotate(90deg)}
-.task-activity[data-drawer=closing]>summary>svg{transition-duration:var(--m-panel-out)}
+.task-activity>.process-line{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
+.task-activity>.process-line>svg{transition:transform var(--m-base) var(--ease-out)}
+.task-activity>.process-line>svg.activity-glyph{margin-inline-start:var(--space-1)}
+.task-activity[data-state="open"]>.process-line>svg.process-line-chevron{transform:rotate(90deg)}
+.task-activity[data-state="closed"]>.process-line>svg{transition-duration:var(--m-panel-out)}
 /* The steps carry no divider and no padding of their own: the drawer animates height alone, so closing ends at zero. */
 .task-activity-records{box-sizing:border-box;display:flow-root;min-width:0}
 .task-activity-detail{color:var(--text-process);font:inherit}
 /* Steps sit on one thin rail; each marker carries state by shape as well as color. */
 .task-tool-records{list-style:none;padding:0;margin:0}
-.task-tool-records summary{display:flex;align-items:center;gap:var(--space-2);min-height:28px;padding-block:0;list-style:none;font:var(--type-meta)}
+.task-tool-records :is(summary,.task-step-trigger){display:flex;align-items:center;gap:var(--space-2);min-height:28px;padding-block:0;list-style:none;font:var(--type-meta)}
 .task-tool-records summary::-webkit-details-marker{display:none}
 /* A step that failed, was blocked or was interrupted is red: a diamond and red state words. */
 .task-step-title{min-width:0;color:var(--text-body);overflow-wrap:anywhere}
@@ -49,7 +48,7 @@
 .task-step.is-running .task-step-state{color:var(--lagoon-text);font-variant-numeric:tabular-nums}
 @keyframes task-step-in{from{opacity:0;transform:translateY(-6px)}}
 @keyframes task-step-sheen{from{background-position:100% 0}to{background-position:-60% 0}}
-@media(prefers-reduced-motion:reduce){.task-step-marker,.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--text-body);background:none}.task-activity>summary>svg{transition:none}}
+@media(prefers-reduced-motion:reduce){.task-step-marker,.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--text-body);background:none}.task-activity>.process-line>svg{transition:none}}
 .task-record-meta,.task-question-record{font:var(--type-meta);color:var(--text-secondary)}
 .task-question-record{padding-block:var(--space-2)}.task-question-record p{margin:0 0 var(--space-2)}.task-question-record dl{margin:0}.task-question-record dl>div{display:flex;gap:var(--space-3)}.task-question-record dd{margin:0;overflow-wrap:anywhere}
 .task-run-block :is(button,summary,pre,h3):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
@@ -63,10 +62,10 @@
 
 .task-run-block .approval-actions button,.task-run-block .approval-secondary button{min-height:44px}
 /* Working run: one quiet process line (loading mark, what the Bot is doing, seconds) that opens into the steps. Look: live-line.css. */
-.task-activity>summary.process-line{min-height:28px;color:var(--text-process);list-style:none}
-.task-activity>summary.process-line:hover{color:var(--text-secondary)}
+.task-activity>.process-line{min-height:28px;color:var(--text-process);list-style:none}
+.task-activity>.process-line:hover{color:var(--text-secondary)}
 .task-activity-live{font-variant-numeric:tabular-nums}
-@media(pointer:coarse){.task-activity>summary.process-line{min-height:44px}}
+@media(pointer:coarse){.task-activity>.process-line{min-height:44px}}
 .task-step-reason{color:var(--status-error-text)}
 
 /* Activity hidden: a working run is the same process line ("Browsing the web · 10s"); it goes when the run ends. */
@@ -75,9 +74,9 @@
 
 /* Compact Activity: one meta-size row per call, the state is an icon (its word is the accessible name), the time is
    small and quiet and only shows from one second up. A problem row keeps its words, red, on a faint wash. */
-.task-activity>summary .process-line-text{display:inline-flex;align-items:center;gap:var(--space-2)}
-.task-activity>summary .task-activity-detail::before{content:"\00b7";margin-inline-end:var(--space-2)}
-.task-activity>summary .task-activity-problem{display:inline-flex;align-items:center;gap:2px}
+.task-activity>.process-line .process-line-text{display:inline-flex;align-items:center;gap:var(--space-2)}
+.task-activity>.process-line .task-activity-detail::before{content:"\00b7";margin-inline-end:var(--space-2)}
+.task-activity>.process-line .task-activity-problem{display:inline-flex;align-items:center;gap:2px}
 .task-activity-records{padding-inline-start:var(--space-1)}
 .task-tool-records .tool-status{display:inline-flex;align-items:center;justify-content:center;flex:0 0 14px;width:14px;height:14px;color:var(--text-secondary)}
 .task-tool-records .tool-status.is-done{color:var(--text-process)}
@@ -85,18 +84,20 @@
 .task-step-time-quiet{flex:0 0 auto;margin-inline-start:auto;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Folded calls: the count is a small muted pill, the chevron its own slot after it, the time stays on the right with every other row's. */
 .task-step-count{flex:none;box-sizing:border-box;min-width:20px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--text-process) 14%,transparent);color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;line-height:18px;text-align:center}
-.task-step.is-problem>details>summary{border-radius:var(--radius-sm,8px);background:color-mix(in srgb,var(--status-error) 7%,transparent);padding-inline:var(--space-2);margin-inline:calc(-1 * var(--space-2))}
+.task-step.is-problem>div>.task-step-trigger{border-radius:var(--radius-sm,8px);background:color-mix(in srgb,var(--status-error) 7%,transparent);padding-inline:var(--space-2);margin-inline:calc(-1 * var(--space-2))}
 .task-step-nested{list-style:none;margin:0;padding:0 0 0 var(--space-4)}
 .task-step-body{padding-inline-start:calc(14px + var(--space-2))}
-.task-step-group>details>.task-step-body{padding-inline-start:0}
-.task-tool-records summary:hover .task-step-title{color:var(--text)}
-@media(pointer:coarse){.task-tool-records summary{min-height:36px}}
+.task-step-group>div>.collapsible-content>.task-step-body{padding-inline-start:0}
+.task-tool-records :is(summary,.task-step-trigger):hover .task-step-title{color:var(--text)}
+@media(pointer:coarse){.task-tool-records :is(summary,.task-step-trigger){min-height:36px}}
 .task-step-chevron{flex:none;margin-inline-start:calc(var(--space-1) - var(--space-2) + var(--space-1));color:var(--text-process);transition:transform var(--m-base) var(--ease-out)}
-.task-step-group>details[open]:not([data-drawer=closing])>summary .task-step-chevron{transform:rotate(90deg)}
-.task-step-group>details[data-drawer=closing]>summary .task-step-chevron{transition-duration:var(--m-panel-out)}
+.task-step-group>div[data-state="open"]>.task-step-trigger .task-step-chevron{transform:rotate(90deg)}
+.task-step-group>div[data-state="closed"]>.task-step-trigger .task-step-chevron{transition-duration:var(--m-panel-out)}
 @media(prefers-reduced-motion:reduce){.task-step-chevron{transition:none}}
 /* A failure whose retry already started folds to one quiet line; the live run below is the focus. */
 .task-issue-retried{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-sunk);color:var(--text-secondary);font:var(--type-meta)}
 .task-issue-retried:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .task-silent-note{margin:0 0 var(--space-2)}
 .task-silent-note-body{padding:0 0 var(--space-2);color:var(--text-secondary)}
+
+.task-step-trigger{width:100%;text-align:start;border:0;border-radius:0;background:none;color:inherit}

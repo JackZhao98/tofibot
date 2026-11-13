@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { flushSync } from "react-dom";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
 import { ComputerLookButton } from "./ComputerLookButton";
@@ -11,10 +11,8 @@ import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } fr
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
-import { prefersReducedMotion } from "./motion-lab/lib/hooks";
 import { WorkTimeline, SilentNoteBody, TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
-import { MOTION, EASE } from "./motion";
 
 /**
  * One stretch of a run's calls in the conversation (see splitActivitySegments). A run cut by other items is drawn as several
@@ -26,78 +24,27 @@ export type TaskSegment = { tools: ToolActivity[]; index: number; count: number;
 export type TaskDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 export type TaskRunBlockProps = { senderHead?: React.ReactNode; owner: TaskOwner; tools: ToolActivity[]; questions: Question[]; drafts: MailDraft[]; messages: Message[]; summaries: ToolActivityRunSummary[]; details?: Record<string, TaskDetailState>; connected?: boolean; /** Sends a failed run again (the server accepts it for busy or dropped service). */ onRetryRun?: (runId: string) => void | Promise<void>; /** The run a retry of this one started: the failure card folds to a one-line note. */ retriedBy?: Run; /** Pins one language (tests, fixtures); the active UI language otherwise. */ locale?: Language; botName?: string; showName?: boolean; onFeedback?: (text:string) => void; /** The stretch of the run this block draws; absent: the whole run. */ segment?: TaskSegment; onOpenTools: () => void; onRefresh: () => Promise<void>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; liveStatus?: string; /** The run's reply is already on screen (a streaming draft with text, or its final message): the live line steps aside in that same frame instead of leaving later. */ replying?: boolean; /** Chat default: no Activity row. Cards (approvals, issues) and a live status line still show. */ hideActivity?: boolean; /** The run's Activity was asked for (message action); shows it although hidden. */ revealed?: boolean; renderMessage?: (message: Message) => ReactNode; renderQuestion: (question: Question) => ReactNode; renderDraft: (draft: MailDraft) => ReactNode };
 
-const drawers = new WeakMap<HTMLElement, Animation[]>();
-const drawerBody = (details: HTMLDetailsElement) => details.querySelector<HTMLElement>(":scope > :not(summary)");
-
-/**
- * Motion Lab drawer for a native <details>: the body is clipped while its height
- * settles, its content fades and drops 6px into place, and a second click
- * reverses from wherever the drawer is. The open attribute stays the truth.
- */
-export function animateDisclosure(details: HTMLDetailsElement, open: boolean) {
-  const body = drawerBody(details);
-  if (!body || prefersReducedMotion()) { details.open = open; return; }
-  const from = drawers.has(body) ? body.getBoundingClientRect().height : open ? 0 : body.offsetHeight;
-  drawers.get(body)?.forEach(animation => animation.cancel());
-  if (open) details.open = true;
-  details.dataset.drawer = open ? "opening" : "closing";
-  const to = open ? body.scrollHeight + body.offsetHeight - body.clientHeight : 0;
-  // A border-box height cannot go below the body's own padding and border, so a body that has either would stop short
-  // of zero and snap the last pixels when <details> finally hides it (the old close ended 17px high, then jumped). They
-  // ride the same animation, from what is there to nothing and back.
-  const box = getComputedStyle(body);
-  const edges = { paddingBlockStart: box.paddingBlockStart, paddingBlockEnd: box.paddingBlockEnd, borderBlockStartWidth: box.borderBlockStartWidth, borderBlockEndWidth: box.borderBlockEndWidth };
-  const none = { paddingBlockStart: "0px", paddingBlockEnd: "0px", borderBlockStartWidth: "0px", borderBlockEndWidth: "0px" };
-  body.style.overflow = "clip";
-  // fill keeps the closed pose until the attribute flips, so no frame shows the body at full height again.
-  const height = body.animate(open ? [{ height: `${from}px`, ...(from ? {} : none) }, { height: `${to}px`, ...edges }] : [{ height: `${from}px`, ...edges }, { height: "0px", ...none }], { duration: open ? MOTION.base : MOTION.panelOut, easing: open ? EASE.out : EASE.settle, fill: "forwards" });
-  const fade = body.animate(open ? { opacity: [0, 1], translate: ["0 -6px", "0 0"] } : { opacity: [1, 0], translate: ["0 0", "0 -4px"] }, { duration: open ? MOTION.base : MOTION.quick, easing: open ? EASE.out : EASE.settle, fill: "forwards" });
-  drawers.set(body, [height, fade]);
-  height.finished.then(() => {
-    drawers.delete(body);
-    delete details.dataset.drawer;
-    body.style.overflow = "";
-    if (!open) details.open = false;
-    height.cancel();
-    fade.cancel();
-  }, () => {});
-}
-
-/** A summary click drives the drawer instead of the native instant toggle. */
-export function toggleDisclosure(event: React.MouseEvent<HTMLElement>) {
-  const details = event.currentTarget.parentElement;
-  if (!(details instanceof HTMLDetailsElement)) return;
-  event.preventDefault();
-  // Mid-collapse the attribute is still open, so the drawer's direction decides.
-  animateDisclosure(details, details.dataset.drawer ? details.dataset.drawer === "closing" : !details.open);
-}
-
-/**
- * Opens the Activity drawer on its list, never empty: while the list's chunk is still downloading (it is warmed on
- * hover and in idle time) the open waits for it, then starts on the commit that has the steps in it.
- */
-export function openActivity(details: HTMLDetailsElement) {
-  if (panelLoaded("taskActivity")) { animateDisclosure(details, true); return; }
-  void whenPanelLoaded("taskActivity").then(() => { flushSync(() => {}); animateDisclosure(details, true); });
-}
-
-function toggleActivity(event: React.MouseEvent<HTMLElement>) {
-  const details = event.currentTarget.parentElement;
-  if (details instanceof HTMLDetailsElement && !details.open && !details.dataset.drawer && !panelLoaded("taskActivity")) { event.preventDefault(); openActivity(details); return; }
-  toggleDisclosure(event);
-}
+export type ActivityDisclosureHandle = { open: () => void; element: HTMLDivElement | null };
 
 /** A live status this long can be cut on a phone; opened, the first row carries it whole. */
 const LONG_STATUS = 28;
 
-export function ActivityDisclosure({ children, locale, detail, count, duration, issues, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; /** The whole line in words (the accessible name). */ detail?: string; count?: number; duration?: string; /** Steps that did not finish; shown red. */ issues?: number; live?: { label: string; full: string }; disclosureRef: React.RefObject<HTMLDetailsElement | null>; onOpen: () => void }) {
+export function ActivityDisclosure({ children, locale, detail, count, duration, issues, live, disclosureRef, onOpen }: { children: ReactNode; locale?: Language; /** The whole line in words (the accessible name). */ detail?: string; count?: number; duration?: string; /** Steps that did not finish; shown red. */ issues?: number; live?: { label: string; full: string }; disclosureRef: React.RefObject<ActivityDisclosureHandle | null>; onOpen: () => void }) {
   const { t } = useTranslation("tasks", { lng: locale });
   const [open, setOpen] = useState(false);
-  // While the Bot works the whole block is one quiet process line (loading mark, what it is doing, seconds); the
-  // steps stay folded until someone opens it. The line is the <summary>, so Enter and Space open it natively.
-  // Finished: a chevron, the tool glyph, the count and the time; the words are the accessible name.
+  const element = useRef<HTMLDivElement>(null);
+  const request = useRef(0);
+  const change = (next: boolean) => {
+    const id = ++request.current;
+    if (!next) { setOpen(false); return; }
+    const show = () => { if (request.current === id && panelLoaded("taskActivity")) { setOpen(true); onOpen(); } };
+    if (panelLoaded("taskActivity")) show();
+    else void whenPanelLoaded("taskActivity").then(show);
+  };
+  useEffect(() => () => { request.current++; }, []);
+  useImperativeHandle(disclosureRef, () => ({ open: () => change(true), element: element.current }));
   const name = [t("activity.title"), detail, issues ? t("step.state.failed") + " " + issues : ""].filter(Boolean).join(" · ");
-  return <details className={`task-activity${live ? " is-live" : ""}`} ref={disclosureRef} onToggle={event => { setOpen(event.currentTarget.open); if (event.currentTarget.open) onOpen(); }}><summary className="process-line" role="button" aria-expanded={open} aria-label={live ? undefined : name} onClick={toggleActivity}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /><TofiIcon className="activity-glyph" name="terminal" size={14} aria-hidden="true" /><span className="process-line-text" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration && <span className="task-activity-detail">{duration}</span>}{issues ? <span className="task-activity-problem"><TofiIcon name="alert" size={13} aria-hidden="true" />{issues}</span> : null}</span></>}</summary><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></details>;
+  return <Collapsible.Root className={`task-activity${live ? " is-live" : ""}`} ref={element} open={open} onOpenChange={change}><Collapsible.Trigger className="process-line" aria-label={live ? undefined : name}>{live ? <><LiveMark /><span className="process-line-text task-activity-live" role="status">{live.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></> : <><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /><TofiIcon className="activity-glyph" name="terminal" size={14} aria-hidden="true" /><span className="process-line-text" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration && <span className="task-activity-detail">{duration}</span>}{issues ? <span className="task-activity-problem"><TofiIcon name="alert" size={13} aria-hidden="true" />{issues}</span> : null}</span></>}</Collapsible.Trigger><Collapsible.Content forceMount inert={!open || undefined} aria-hidden={!open} className="collapsible-content"><div className="task-activity-records">{live && live.full.length > LONG_STATUS && <p className="task-live-full">{live.full}</p>}{children}</div></Collapsible.Content></Collapsible.Root>;
 }
 
 export const problemStates = ["failed", "not_executed", "interrupted"];
@@ -145,7 +92,7 @@ export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boole
 }
 
 export function TaskRunBlock({ owner, segment, tools, questions, drafts, messages, summaries, details = {}, connected = true, locale, botName, showName, senderHead, onFeedback, onOpenTools, onRefresh, onRetryRun, retriedBy, onLoadDetails, liveStatus, replying = false, hideActivity = false, revealed: revealedByMenu = false, renderMessage, renderQuestion, renderDraft }: TaskRunBlockProps) {
-  const disclosure = useRef<HTMLDetailsElement>(null);
+  const disclosure = useRef<ActivityDisclosureHandle>(null);
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
   const { run, ids, silentNotes, hasWork, tools: scopedTools, shownTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, segment });
@@ -206,7 +153,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   const liveFull = liveStatus || t("activity.thinking");
   const liveLine = live && !(replying && hideActivity && !revealedByMenu) ? { label: `${liveFull} · ${formatStepSeconds(liveSeconds)}`, full: liveFull } : undefined;
   function openStep(runId: string, callId: string) {
-    if (disclosure.current && !disclosure.current.open) disclosure.current.open = true;
+    disclosure.current?.open();
     setPendingStep(`${runId}:${callId}`);
   }
   // The step may arrive with a later activity page; reveal it once it renders.
@@ -215,12 +162,15 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     // The step may sit in an earlier stretch of the run, drawn as another block under the same owner.
     const step = block.current?.parentElement?.querySelector<HTMLLIElement>(`section[data-task-owner="${CSS.escape(owner.key)}"] li[data-step="${CSS.escape(pendingStep)}"]`) ?? block.current?.querySelector<HTMLLIElement>(`li[data-step="${CSS.escape(pendingStep)}"]`);
     if (!step) return;
-    const holder = step.closest("details.task-activity");
-    if (holder instanceof HTMLDetailsElement && !holder.open) holder.open = true;
-    const record = step.querySelector("details");
-    if (record) record.open = true;
-    step.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    step.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+    const holder = step.closest(".task-activity");
+    const trigger = holder?.querySelector<HTMLButtonElement>(":scope > button");
+    if (trigger?.getAttribute("aria-expanded") === "false") trigger.click();
+    const record = step.querySelector<HTMLButtonElement>(".task-step-trigger");
+    if (record?.getAttribute("aria-expanded") === "false") record.click();
+    requestAnimationFrame(() => {
+      step.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      step.querySelector<HTMLElement>(".task-step-trigger")?.focus({ preventScroll: true });
+    });
     setPendingStep("");
   }, [pendingStep, tools, bodyReady]);
   // Hidden Activity is mounted on request (a message's "View activity", or a card's own action) and opened once it exists.
@@ -233,12 +183,12 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     if (!showActivity || !openWhenShown.current || !disclosure.current) return;
     openWhenShown.current = false;
     // The record opens as a drawer (--m-base) instead of pushing the list down in one frame.
-    openActivity(disclosure.current);
-    disclosure.current.querySelector("summary")?.focus({ preventScroll: true });
-    disclosure.current.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    disclosure.current.open();
+    disclosure.current.element?.querySelector("button")?.focus({ preventScroll: true });
+    disclosure.current.element?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [showActivity, revealedByMenu]);
   function viewActivity() {
-    if (disclosure.current) { openActivity(disclosure.current); disclosure.current.querySelector("summary")?.focus(); }
+    if (disclosure.current) { disclosure.current.open(); disclosure.current.element?.querySelector("button")?.focus(); }
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;

@@ -1,3 +1,5 @@
+import { WorkspaceToast } from "../../WorkspaceToast";
+import { FilePicker } from "../../settings/components";
 import { useId, useState } from "react";
 import { Select } from "../../Select";
 import { SettingsSwitch, Segmented } from "../../settings/components";
@@ -45,6 +47,8 @@ export const primitives: CatalogSection = {
   id: "primitives", number: "P", title: "Primitives",
   states: [
     ...buttonStates,
+    { id: "workspace-toast", kind: "inline", label: "Radix toast · Retry, F8, swipe to dismiss", render: () => <WorkspaceToast onRetry={() => {}} /> },
+    { id: "file-drop", kind: "inline", label: "Dropzone · settings file picker", render: () => <FilePicker label="Choose file" onFile={() => {}} /> },
     ...(["rest", "hover", "focus"] as const).map(state => ({ ...computer.states[0], id: `desktop-control-button-${state}`, label: `.desktop-control-button · ${state}`, force: state === "rest" ? [] : [{ selector: ".desktop-control-button", state }] })),
     { id: "controls", kind: "inline", label: "Form controls · rest", render: () => <Controls/> },
     { id: "controls-hover", kind: "inline", label: "Form controls · hover", render: () => <Controls/>, force: [{ selector: "input,textarea,button", state: "hover" }] },

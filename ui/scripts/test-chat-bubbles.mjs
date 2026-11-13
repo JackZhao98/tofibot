@@ -445,8 +445,8 @@ try {
       assert.equal(seen.rows, 0, "no Activity row beside the cards");
       // The issue card's own "View activity" still opens the details although Activity is hidden.
       await page.locator('.task-issue-card[data-issue-kind] button:has-text("查看执行记录")').first().click();
-      await page.waitForSelector(".task-activity[open]");
-      assert.ok(await page.locator(".task-activity[open] .task-step").count() >= 1, "the failed run's steps are listed");
+      await page.waitForSelector(".task-activity[data-state=open]");
+      assert.ok(await page.locator(".task-activity[data-state=open] .task-step").count() >= 1, "the failed run's steps are listed");
       await page.screenshot({ path: join(heroDir, "after-cards-dm-1180x820-light.png") });
       assert.deepEqual(errors, [], "page errors");
     } finally { await context.close(); }
@@ -466,7 +466,7 @@ try {
         // A message whose run did no work offers none.
         assert.equal(await page.locator('.message-block[data-message-id="u1"] button[aria-label="查看工作过程"]').count(), 0, "a person's message has no activity action");
         await action.tap();
-        await page.waitForSelector('.task-run-block[data-run-id="run_c"] .task-activity[open]');
+        await page.waitForSelector('.task-run-block[data-run-id="run_c"] .task-activity[data-state=open]');
         assert.ok(await page.locator('.task-run-block[data-run-id="run_c"] .task-step').count() >= 7, "the run's seven steps load inside the opened details");
         assert.equal(await page.locator('.task-run-block[data-run-id="run_a"] .task-activity').count(), 0, "only the asked run opens");
         await page.screenshot({ path: join(heroDir, `after-view-activity-${kind}-1180x820-light.png`) });
