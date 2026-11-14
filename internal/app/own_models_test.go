@@ -296,39 +296,82 @@ func TestDefaultModelNeverCrossesSource(t *testing.T) {
 	}
 }
 
-// A default nobody saved must never become the member's Codex model: Bots that follow it resolve it at each run.
-func TestUnsavedDefaultNeverTakesCodex(t *testing.T) {
-	f := newOrgFixture(t)
-	f.setOverrides(t, provAllowOwn)
-	ws := f.memberWorkspace(t)
-	signInCodex(t, ws, time.Now().Add(time.Hour))
-	ws.modelCatalog = []ModelOption{codexSnapshotOption()}
-	ws.modelCatalogAt, ws.modelCatalogSource = time.Now(), "live"
-	notCodex := func(label string) string {
+// A default nobody saved takes the member's ChatGPT model only when the
+// organization holds no model key, and keeps it once saved (owner 11-14).
+func TestUnsavedDefaultTakesCodexOnlyWithoutOrgModels(t *testing.T) {
+	setup := func(t *testing.T, overrides string) (*orgFixture, *Server) {
 		t.Helper()
+		f := newOrgFixture(t)
+		f.setOverrides(t, overrides)
+		ws := f.memberWorkspace(t)
+		signInCodex(t, ws, time.Now().Add(time.Hour))
+		ws.modelCatalog = []ModelOption{codexSnapshotOption()}
+		ws.modelCatalogAt, ws.modelCatalogSource = time.Now(), "live"
+		return f, ws
+	}
+	saved := func(t *testing.T, ws *Server) string {
+		t.Helper()
+		x, err := ws.store.getModelSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return x.Model
+	}
+	orgCatalog := func(ws *Server) {
+		ws.providerMu.Lock()
+		ws.providerCatalogs[ws.catalogKey(providerOpenAI)] = providerCatalog{models: []ModelOption{{ID: "gpt-5", Name: "GPT-5"}}, at: time.Now(), source: "live"}
+		ws.providerMu.Unlock()
+	}
+
+	t.Run("no organization model key", func(t *testing.T) {
+		f, ws := setup(t, provAllowOwn)
 		got, _ := ws.modelDefaults()
-		if strings.HasPrefix(got, "codex-") {
-			t.Fatalf("%s: the default became %q", label, got)
+		if !strings.HasPrefix(got, "codex-") {
+			t.Fatalf("the default is %q, want the member's ChatGPT model", got)
 		}
-		resolved, _ := ws.resolveBotModel(context.Background(), "", Bot{Model: ""})
-		if strings.HasPrefix(resolved, "codex-") || resolved != got {
-			t.Fatalf("%s: a following Bot resolved %q, default %q", label, resolved, got)
+		if s := saved(t, ws); s != got {
+			t.Fatalf("saved default %q, resolved %q", s, got)
 		}
-		return got
-	}
-	notCodex("signed in, no organization key")
-	f.seedOrgOpenAI(t)
-	ws.providerMu.Lock()
-	ws.providerCatalogs[ws.catalogKey(providerOpenAI)] = providerCatalog{models: []ModelOption{{ID: "gpt-5", Name: "GPT-5"}}, at: time.Now(), source: "live"}
-	ws.providerMu.Unlock()
-	if got := notCodex("organization key added"); got != "gpt-5" {
-		t.Fatalf("with an organization key the default is %q, want an organization model", got)
-	}
-	org, _ := f.g.orgSecrets()
-	if err := org.remove(providerVaultID(providerOpenAI)); err != nil {
-		t.Fatal(err)
-	}
-	notCodex("organization key removed")
+		if resolved, _ := ws.resolveBotModel(context.Background(), "", Bot{Model: ""}); resolved != got {
+			t.Fatalf("a following Bot resolved %q, default %q", resolved, got)
+		}
+		// An organization key added later does not move the saved default.
+		f.seedOrgOpenAI(t)
+		orgCatalog(ws)
+		if again, _ := ws.modelDefaults(); again != got {
+			t.Fatalf("the default moved to %q after the organization added a key", again)
+		}
+	})
+	t.Run("own models forbidden", func(t *testing.T) {
+		_, ws := setup(t, provForbidOwn)
+		if got, _ := ws.modelDefaults(); strings.HasPrefix(got, "codex-") {
+			t.Fatalf("the default became %q", got)
+		}
+		if s := saved(t, ws); s != "" {
+			t.Fatalf("a default was saved: %q", s)
+		}
+	})
+	t.Run("organization key, catalog not loaded", func(t *testing.T) {
+		f, ws := setup(t, provAllowOwn)
+		f.seedOrgOpenAI(t)
+		if got, _ := ws.modelDefaults(); strings.HasPrefix(got, "codex-") {
+			t.Fatalf("the default became %q while the organization holds a key", got)
+		}
+		if s := saved(t, ws); s != "" {
+			t.Fatalf("a default was saved: %q", s)
+		}
+	})
+	t.Run("organization key with catalog", func(t *testing.T) {
+		f, ws := setup(t, provAllowOwn)
+		f.seedOrgOpenAI(t)
+		orgCatalog(ws)
+		if got, _ := ws.modelDefaults(); got != "gpt-5" {
+			t.Fatalf("with an organization key the default is %q, want an organization model", got)
+		}
+		if s := saved(t, ws); s != "" {
+			t.Fatalf("an organization pick was saved: %q", s)
+		}
+	})
 }
 
 func TestRedactionFollowsPolicyNotReference(t *testing.T) {

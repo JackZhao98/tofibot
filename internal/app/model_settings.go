@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/JackZhao98/tofibot/internal/provider"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -86,8 +87,10 @@ func (s *Server) modelDefaults() (string, string) {
 // sign-in), so a switch of provider would be a switch of whose credential is spent.
 // A default the person saved is therefore never moved: if its source is unusable
 // the run fails with the named error. Only a default nobody saved (the built-in
-// one) may pick another model, and only from the organization's catalogs; with
-// none it stays as is. The member picks a Codex model explicitly if they want one.
+// one) may pick another model: first from the organization's catalogs; when the
+// organization holds no model key at all, the member's ChatGPT sign-in, if own
+// models are allowed. That pick is saved as the member's default, so Bots that
+// follow it stay on the member's plan when organization keys are added later.
 func (s *Server) providedModelDefaults(model, effort string) (string, string) {
 	if saved, err := s.store.getModelSettings(); err != nil || saved.Model != "" {
 		return model, effort
@@ -103,10 +106,42 @@ func (s *Server) providedModelDefaults(model, effort string) (string, string) {
 			}
 		}
 	}
-	// The organization offers nothing usable: keep the built-in default, so the run fails with the
-	// named error. Never the member's Codex: Bots that follow the default resolve it at each run,
-	// and a Codex default would flip between the member's plan and organization money as keys come and go.
+	if s.codexConnected() && s.orgHoldsNoModelKey() {
+		return s.adoptCodexDefault(model, effort)
+	}
+	// Nothing usable: keep the built-in default, so the run fails with the named error.
 	return model, effort
+}
+
+// orgHoldsNoModelKey is true only when every model resource reads as not stored.
+// A key that exists but is not usable yet (its catalog still loading) or a read
+// that fails is no proof, and must not move the member onto their own plan.
+func (s *Server) orgHoldsNoModelKey() bool {
+	for _, name := range apiKeyProviders {
+		ctx, cancel := context.WithTimeout(context.Background(), policyReadTimeout)
+		_, err := s.orgProviderKey(ctx, name)
+		cancel()
+		if !errors.Is(err, errOrgResourceMissing) {
+			return false
+		}
+	}
+	return true
+}
+
+// adoptCodexDefault saves the member's newest Codex Sol model as their default.
+// Saved, it is never moved again (see providedModelDefaults). When the save
+// fails the model still serves this run; the next resolution tries again.
+func (s *Server) adoptCodexDefault(model, effort string) (string, string) {
+	pick := modelSettings{Model: s.codexConversationDefault(), ReasoningEffort: effort}
+	for _, m := range s.cachedProviderCatalog(providerCodex) {
+		if m.ID == pick.Model && m.DefaultReasoning != "" {
+			pick.ReasoningEffort = m.DefaultReasoning
+		}
+	}
+	if err := s.saveModelDefaults(pick); err != nil {
+		log.Printf("model settings: saving the ChatGPT default %s: %v", pick.Model, err)
+	}
+	return pick.Model, pick.ReasoningEffort
 }
 
 // preferredProviderModel is the model a workspace gets when it has none of its
