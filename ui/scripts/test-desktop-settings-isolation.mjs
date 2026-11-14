@@ -27,7 +27,7 @@ const FORBIDDEN_CODE = [
   [/\bWebSocket\b/, "WebSocket"], [/\bsendBeacon\b/, "sendBeacon"], [/dangerouslySetInnerHTML\s*[=:]|\binnerHTML\s*=/, "dangerouslySetInnerHTML or innerHTML"],
 ];
 const STORAGE = /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie/;
-const PACKAGES = [/^react$/, /^react\/jsx(-dev)?-runtime$/, /^react-dom(\/.*)?$/, /^i18next$/, /^react-i18next$/, /^@radix-ui\/.+$/];
+const PACKAGES = [/^react$/, /^react\/jsx(-dev)?-runtime$/, /^react-dom(\/.*)?$/, /^i18next$/, /^react-i18next$/, /^@radix-ui\/.+$/, /^react-dropzone$/];
 const SHARED_STORAGE = new Set(["i18n/index.ts"]); // the validated language preference helper
 const SOURCE = /\.(tsx?|mts|m?js)$/;
 
