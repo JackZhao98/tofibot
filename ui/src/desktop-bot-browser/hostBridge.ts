@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { currentLanguage, isLanguage, setLanguage } from "../i18n";
 
 export type HostData = {
   active: string | null;
@@ -9,6 +10,8 @@ export type HostData = {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** The chat page's language and theme: this page has its own storage partition, so it cannot read the person's choice. */
+  look?: { lang?: string; theme?: string };
 };
 
 declare global {
@@ -29,6 +32,9 @@ const getSnapshot = () => snapshot;
 // Register while the module evaluates, before React mounts or catalogs finish loading.
 window.renderHost = data => {
   snapshot = data;
+  const { lang, theme } = data.look ?? {};
+  if (isLanguage(lang) && lang !== currentLanguage()) void setLanguage(lang);
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.themeFixed = document.documentElement.dataset.theme = theme;
   listeners.forEach(listener => listener());
 };
 
