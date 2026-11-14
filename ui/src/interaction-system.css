@@ -258,11 +258,14 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .archive-card{background:var(--surface)}
 .archive-group-mark{background:var(--surface-soft)}
 
-/* Radix Collapsible content. Its height animates from the measured --radix-collapsible-content-height;
-   closed content stays mounted (forceMount) but is hidden, so Find and the accessibility tree skip it. */
-.collapsible-content{overflow:hidden}
+/* Radix Collapsible content. Radix turns transitions off while it measures each open and close, so the motion is a keyframe
+   animation (Radix restores animation-name after measuring) on the grid row, 0fr to 1fr: nothing is measured, so content that
+   loads after the open grows with the drawer (with forceMount, Radix never writes --radix-collapsible-content-height). Closed
+   content that stays mounted is hidden, so Find and the accessibility tree skip it. The content holds one child element. */
+.collapsible-content{display:grid;grid-template-rows:1fr;overflow:hidden}
+.collapsible-content>*{min-height:0}
 .collapsible-content[data-state="open"]{animation:collapsible-open var(--m-base) var(--ease-out)}
-.collapsible-content[data-state="closed"]{height:0;visibility:hidden;animation:collapsible-close var(--m-base) var(--ease-settle)}
-@keyframes collapsible-open{from{height:0;opacity:0;translate:0 -6px}to{height:var(--radix-collapsible-content-height);opacity:1;translate:0 0}}
-@keyframes collapsible-close{from{height:var(--radix-collapsible-content-height);visibility:visible;opacity:1;translate:0 0}to{height:0;visibility:hidden;opacity:0;translate:0 -4px}}
+.collapsible-content[data-state="closed"]{grid-template-rows:0fr;visibility:hidden;animation:collapsible-close var(--m-base) var(--ease-settle)}
+@keyframes collapsible-open{from{grid-template-rows:0fr;opacity:0}to{grid-template-rows:1fr;opacity:1}}
+@keyframes collapsible-close{from{grid-template-rows:1fr;opacity:1;visibility:visible}to{grid-template-rows:0fr;opacity:0;visibility:hidden}}
 @media(prefers-reduced-motion:reduce){.collapsible-content{animation:none}}

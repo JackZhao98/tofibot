@@ -182,10 +182,17 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   useEffect(() => {
     if (!showActivity || !openWhenShown.current || !disclosure.current) return;
     openWhenShown.current = false;
-    // The record opens as a drawer (--m-base) instead of pushing the list down in one frame.
-    disclosure.current.open();
-    disclosure.current.element?.querySelector("button")?.focus({ preventScroll: true });
-    disclosure.current.element?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    // The record opens as a drawer (--m-base) instead of pushing the list down in one frame. Radix Collapsible keeps the
+    // animation off for content that opens before its first frame (it treats that as the initial state), so a drawer that
+    // was just revealed opens on the next frame.
+    const frame = requestAnimationFrame(() => {
+      const drawer = disclosure.current;
+      if (!drawer) return;
+      drawer.open();
+      drawer.element?.querySelector("button")?.focus({ preventScroll: true });
+      drawer.element?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [showActivity, revealedByMenu]);
   function viewActivity() {
     if (disclosure.current) { disclosure.current.open(); disclosure.current.element?.querySelector("button")?.focus(); }
