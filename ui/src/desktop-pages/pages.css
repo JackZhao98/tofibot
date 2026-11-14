@@ -1,0 +1,25 @@
+@import "../desktop-settings/mac-settings.css";
+.desktop-page{min-height:100dvh;background:var(--bg);color:var(--ink)}
+.desktop-page .mac-settings-inner{max-width:640px}
+.desktop-page .settings-page-body{padding-top:64px}
+.desktop-page fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:12px}
+.desktop-page form{display:grid;gap:16px}
+.desktop-page label{display:grid;gap:8px;font:var(--type-body);color:var(--ink-soft)}
+.desktop-page input,.desktop-page textarea{width:100%;min-width:0}
+.desktop-page p{overflow-wrap:anywhere}
+.desktop-page .desktop-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.desktop-page pre{max-height:240px;min-height:100px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);color:var(--ink);padding:12px;border-radius:var(--radius-md);font:13px/1.5 var(--mono)}
+.desktop-page code{overflow-wrap:anywhere;white-space:pre-wrap}
+.desktop-page .desktop-files{max-height:180px;overflow:auto;padding-inline-start:24px}
+.desktop-page .desktop-files li{padding:6px;overflow-wrap:anywhere}
+@layer base{html[data-permission-guide],html[data-permission-guide] body{background:transparent}}
+.permission-guide{position:relative;height:94px;padding:10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-xl);font:13px/1.25 var(--body);user-select:none}
+.permission-guide,.permission-guide *{-webkit-app-region:no-drag}
+.permission-guide .permission-tile{display:flex;align-items:center;gap:10px;height:72px;padding:10px 12px;background:var(--sunk);border-radius:var(--radius-lg)}
+.permission-guide img{flex:none;width:46px;height:46px;pointer-events:none}
+.permission-guide .permission-copy{min-width:0}
+.permission-guide strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.permission-guide p{margin:5px 0 0;color:var(--ink-soft);font-size:11px}
+.permission-guide .permission-close{position:absolute;inset:3px 5px auto auto;padding:0 4px;min-height:18px;font-size:14px}
+
+.desktop-page :is(button,input,textarea,a,[role="button"]){-webkit-app-region:no-drag}

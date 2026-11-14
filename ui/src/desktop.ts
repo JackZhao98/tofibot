@@ -81,6 +81,13 @@ export type DesktopDeviceStatus = {
 export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean };
 export type DesktopSandboxSelection = { selectionID: string; root: string; serverLabel: string };
 
+/** Local-only workbench IPC; the Mac app accepts it only from /__desktop/local-run. */
+export type LocalRunFile = {path: string; bytes: number};
+export type LocalRunSelection = {selectionID: string; name: string; mode?: "native"; root?: string; authorized?: boolean; files?: LocalRunFile[]; excludedCount?: number; totalBytes?: number};
+export type LocalRunStatus = {mode?: "native"; available: boolean; running?: boolean; faulted?: boolean; lab?: boolean; reason?: string};
+export type LocalRunResult = {runID: string; status: "completed" | "failed" | "stopped"; mode?: "native"; effects?: "direct"; containment?: "unverified"; exitCode?: number; reason?: string; stdout?: string; stderr?: string; faulted?: boolean; cleanup?: {scope: string; status: string}; files?: (LocalRunFile & {handle: string})[]};
+export type LocalRunEvent = {runID: string; mode?: "native"; type: "output"; stream: "stdout" | "stderr"; text: string} | {runID: string; mode?: "native"; type: "state"; phase: "preparing" | "running" | "stopping"};
+
 export type BrowserSettings = {
   botBrowserEnabled: boolean; botBrowserRetainLogin: boolean; botBrowserShareFrames: boolean;
 };
@@ -113,7 +120,15 @@ export type AppUpdateBridge = {
 
 declare global {
   interface Window {
+    setPermissionGuideTheme?: (dark: boolean) => void;
     tofiDesktop?: {
+      getLocalRunStatus?: () => Promise<LocalRunStatus>;
+      chooseLocalRunDirectory?: () => Promise<LocalRunSelection | null>;
+      authorizeLocalRunDirectory?: (selectionID: string) => Promise<LocalRunSelection | null>;
+      localRun?: (input: {selectionID: string; command: string; exportPaths?: string[]}) => Promise<LocalRunResult>;
+      localRunStop?: () => Promise<boolean>;
+      localRunSaveFile?: (handle: string) => Promise<boolean>;
+      onLocalRunEvent?: (listener: (event: LocalRunEvent) => void) => () => void;
       platform: string;
       themePreference: "system" | "light" | "dark";
       onCommand: (listener: (command: DesktopCommand) => void) => () => void;

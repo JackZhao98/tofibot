@@ -188,6 +188,8 @@ for (const size of SIZES) {
   await page.locator("[aria-label='Shrink Bot computer']").first().waitFor();
   await check(page, "enlarged Bot computer", size);
   await page.locator("[aria-label='Close Bot computer']").first().click();
+  // The next click must not land while the big window is still closing (a slow CI runner showed that race).
+  await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell.is-expanded"));
 
   // The tasks drawer: a column beside the chat when wide, a panel over the chat (and its header) below 1120 px.
   await page.getByRole("button", { name: "Tasks" }).first().click();
