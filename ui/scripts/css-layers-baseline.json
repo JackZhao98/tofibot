@@ -218,7 +218,7 @@
   },
   "search-palette.css": {
     "global": 0,
-    "rootBump": 2,
+    "rootBump": 1,
     "webFork": 0,
     "important": 0,
     "tokenDef": 0
@@ -275,7 +275,7 @@
   "v2-app.css": {
     "global": 0,
     "rootBump": 15,
-    "webFork": 28,
+    "webFork": 26,
     "important": 3,
     "tokenDef": 0
   },
