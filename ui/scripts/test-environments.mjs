@@ -95,7 +95,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
           undoDeny: async id => { rc.calls.push(["undoDeny", id]); rc.denied = rc.denied.filter(bot => bot.bot_id !== id); return {ok: true, bots: rc.denied.slice()}; },
           onStatus: listener => { rc.listeners.add(listener); return () => rc.listeners.delete(listener); }
         };
-        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false, ...(bridgeless ? {} : {remoteControl: bridge})};
+        window.tofiDesktop = {platform: "darwin", themePreference: value, onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, openDesktopSettings: async () => { window.__openedMacSettings++; }, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {}, remoteInputFocus: () => {}, startAccessibilityDrag: () => {}, requestMicrophoneAccess: async () => false, ...(bridgeless ? {} : {remoteControl: bridge, botBrowser: {status: async () => ({deviceID: rc.status.deviceID}), onStatus: () => () => {}}})};
       }
     }, {value: theme, desktop, bridgeless});
     const page = await context.newPage();
@@ -182,7 +182,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Used by all Bots Ready/);
     assert.equal(await page.locator(".env-tag").count(), 1, "one environment carries the Bot computer tag");
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /E2B cloud computer Not in use Asleep/);
-    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on (Built-in browser \w+ Desktop control \w+ Files \w+ Commands \w+ )?Online/, "access line, the feature line, then the state");
+    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on Connected: Built-in browser Disconnected: Desktop control Off: Files, Commands Online/, "access line, the features grouped by status, then the state");
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
     assert.deepEqual(await buttons(row(page, "e2b")), ["use"], "remove sits in the row menu");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
@@ -329,7 +329,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await mine.waitFor();
     assert.deepEqual(await rcCalls(), [["set", true]]);
     assert.match((await mine.innerText()).replace(/\s+/g, " "), /This Mac Studio MacBook/);
-    assert.deepEqual(await mine.locator("[data-feature]").evaluateAll(items => items.map(item => item.dataset.status)), ["connected","disconnected","off","off"]);
+    // This Mac's features are on the Bot browser row (one place, whether or not remote control is on), not on this row.
+    assert.equal(await mine.locator("[data-feature]").count(), 0);
+    const browserRow = page.locator(".settings-row-copy", {hasText: "Your Mac · Bot browser"});
+    assert.deepEqual(await browserRow.locator("[data-feature]").evaluateAll(items => items.map(item => item.dataset.status)), ["connected","disconnected","off","off"]);
+    assert.match((await browserRow.innerText()).replace(/\s+/g, " "), /Connected: Built-in browser Disconnected: Desktop control Off: Files, Commands/);
     assert.equal(await toggle.isChecked(), true);
     assert.equal(await page.locator(".rc-block").getByText("Actions with consequences still ask you first.", {exact: false}).count(), 1);
     assert.deepEqual(await names(page), ["This server", "E2B cloud computer"], "the paired Mac is shown once: the this-Mac row, not the list");

@@ -660,11 +660,19 @@
       "files": "文件",
       "shell": "命令"
     },
+    "feature_bot": {
+      "browser": "浏览器",
+      "desktop": "桌面",
+      "files": "文件",
+      "shell": "命令"
+    },
     "feature_status": {
       "connected": "已连接",
       "disconnected": "已断开",
-      "off": "已关闭"
-    }
+      "off": "未开启"
+    },
+    "feature_colon": "：",
+    "feature_sep": "、"
   },
   "browser": {
     "panel": "Bot 浏览器",

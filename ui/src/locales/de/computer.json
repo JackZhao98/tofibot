@@ -666,11 +666,19 @@
       "files": "Dateien",
       "shell": "Befehle"
     },
+    "feature_bot": {
+      "browser": "Browser",
+      "desktop": "Desktop",
+      "files": "Dateien",
+      "shell": "Befehle"
+    },
     "feature_status": {
       "connected": "Verbunden",
       "disconnected": "Getrennt",
       "off": "Aus"
-    }
+    },
+    "feature_colon": ": ",
+    "feature_sep": ", "
   },
   "browser": {
     "panel": "Bot-Browser",
