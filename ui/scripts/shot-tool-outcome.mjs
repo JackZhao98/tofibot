@@ -25,7 +25,7 @@ try {
     const status = scene === "live" && label === "before" ? "&status=" + encodeURIComponent("Thinking: I role for myself too—something lik…") : "";
     await page.goto(`${origin}/scripts/tool-outcome-fixture.html?scene=${scene}&theme=${theme}${status}`);
     await page.waitForSelector(".task-run-block");
-    for (const summary of await page.$$(".task-activity:not(.is-live)>summary")) await summary.click();
+    for (const summary of await page.$$(".task-activity:not(.is-live)>.process-line")) await summary.click();
     await page.waitForTimeout(500);
     await page.screenshot({ path: join(out, `${scene}-${width}-${theme}.png`) });
     await page.close();

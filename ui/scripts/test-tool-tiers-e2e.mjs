@@ -546,7 +546,7 @@ async function scenarioRemember(page, fx) {
   const reply = page.locator('.message-block', {hasText: 'Budget page updated again.'}).last();
   await reply.locator('.message-content').first().hover();
   await reply.getByRole('button', {name: 'View activity', exact: true}).click();
-  const activity = page.locator('.task-activity[open]').last();
+  const activity = page.locator('.task-activity[data-state=open]').last();
   const record = await waitFor(async () => (await bodyText(page)).includes('Approved by a remembered approval from this chat'), 'remembered activity record', 15000).catch(() => false);
   check('9b: the activity record says a remembered approval decided it (no one was asked)', record, (await activity.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 200));
   await shot(page, 's9b-remembered-no-card');

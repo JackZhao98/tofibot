@@ -30,9 +30,8 @@
 :root .workspace .web-tool-run.is-complete .web-tool-step{animation:none}
 :root .workspace .web-tool-step>svg{margin-top:1px}
 :root .workspace .web-tool-step-detail{min-width:0}
-:root .workspace .web-tool-step-detail>summary{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;list-style:none}
-:root .workspace .web-tool-step-detail>summary::-webkit-details-marker{display:none}
-:root .workspace .web-tool-step-detail>summary:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+:root .workspace .web-tool-step-detail>.web-tool-step-trigger{display:block;min-height:0;padding:0;border:0;background:none;color:inherit;list-style:none}
+:root .workspace .web-tool-step-detail>.web-tool-step-trigger:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 :root .workspace .web-tool-step-label{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 :root .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label{color:transparent;background-image:linear-gradient(100deg,var(--ink) 0 30%,var(--lagoon-text) 44% 56%,var(--ink) 70% 100%);background-size:260% 100%;background-clip:text;-webkit-background-clip:text;animation:web-tool-label-sheen 1.8s linear infinite}
 :root .workspace .web-tool-step-meta{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--muted);font:var(--type-status-regular);font-variant-numeric:tabular-nums}
@@ -81,7 +80,7 @@
 :root .workspace .web-tool-step.is-problem .web-tool-step-state{color:var(--danger-text)}
 :root .workspace .web-tool-count{display:inline-block;box-sizing:border-box;min-width:20px;margin-inline-start:var(--space-2);padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--text-process) 14%,transparent);color:var(--text-process);font-variant-numeric:tabular-nums;line-height:18px;text-align:center;vertical-align:1px}
 :root .workspace .web-tool-group-chevron{display:inline-block;vertical-align:-1px;margin-inline-start:var(--space-2);color:var(--text-process);transition:rotate var(--m-base) var(--ease-out)}
-:root .workspace .web-tool-group>.web-tool-step-detail:not([data-drawer=closing])[open] .web-tool-group-chevron{rotate:90deg}
+:root .workspace .web-tool-group>.web-tool-step-detail[data-state="open"] .web-tool-group-chevron{rotate:90deg}
 :root .workspace .web-tool-group-steps{display:grid;list-style:none;margin:0;padding:0 0 0 var(--space-3)}
 @media(prefers-reduced-motion:reduce){:root .workspace .web-tool-group-chevron{transition:none}}
 :root .workspace .web-tool-run.has-tool-issues .web-tool-toggle:not(.is-static){color:var(--text-process)}
@@ -92,3 +91,5 @@
 :root .workspace .computer-look:is(:hover,:focus-visible){opacity:1;background:var(--surface-hover);color:var(--ink)}
 :root .workspace .computer-look:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:1px}
 @media(forced-colors:active){:root .workspace .computer-look{color:ButtonText;opacity:1}}
+
+.web-tool-step-trigger{width:100%;text-align:start;font:inherit}

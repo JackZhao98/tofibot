@@ -1,3 +1,4 @@
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { lazy, Suspense, type ReactNode } from "react";
 import "./approval-card.css";
 import { TofiIcon } from "./icons";
@@ -13,7 +14,7 @@ import { approvalFactRows } from "./extensionFacts";
 import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "./questionTimeline";
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
-import { problemStates, toggleDisclosure, type TaskDetailState } from "./TaskRunBlock";
+import { problemStates, type TaskDetailState } from "./TaskRunBlock";
 
 /** The work trace line closes the list of a run that kept captures; it is its own chunk. */
 const WorkTrace = lazy(() => import("./WorkTrace"));
@@ -35,13 +36,13 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
   // A problem step explains itself in words first; codes stay in technical details.
   const reason = tool.outcome?.code || tool.outcome?.status ? taskOutcomeText(tool.outcome, locale) : state === "interrupted" ? t("step.interrupted") : t("step.failed");
   return <li className={`task-step is-${state}${problem ? " is-problem" : ""}`} data-step={`${tool.run_id}:${tool.call_id}`}>
-    <details onToggle={event => { if (event.currentTarget.open) requestFullToolResult(tool); }}><summary onClick={toggleDisclosure}><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{state === "reviewed" ? t("step.reviewed_title") : toolStepTitle(tool)}{state !== "reviewed" && preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</summary>
-      <div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
+    <Collapsible.Root onOpenChange={open => { if (open) requestFullToolResult(tool); }}><Collapsible.Trigger className="task-step-trigger"><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{state === "reviewed" ? t("step.reviewed_title") : toolStepTitle(tool)}{state !== "reviewed" && preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</Collapsible.Trigger>
+      <Collapsible.Content forceMount className="collapsible-content"><div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
         {tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <div className="task-step-actions"><button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button></div>}
         <details className="task-step-technical"><summary>{t("step.technical_details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
-      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></details>
+      <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></Collapsible.Content></Collapsible.Root>
   </li>;
 }
 
@@ -50,8 +51,8 @@ function ToolStepGroup({ items, locale, onOpenTools }: { items: ToolActivity[]; 
   const { t } = useTranslation("tasks", { lng: locale });
   const total = items.reduce((sum, tool) => sum + (toolStepSeconds(tool) ?? 0), 0);
   return <li className="task-step task-step-group is-completed">
-    <details><summary onClick={toggleDisclosure}><ToolStatusIcon state="completed" label={toolDisplayLabel(items[0], locale)} /><span className="task-step-title">{toolStepTitle(items[0])}</span><span className="task-step-count" aria-label={t("step.group_count", { count: items.length })}>{items.length}</span><TofiIcon className="task-step-chevron" name="chevron-right" size={12} aria-hidden="true" />{total >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(total)}</time>}</summary>
-      <div className="task-step-body"><ol className="task-step-nested">{items.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} onOpenTools={onOpenTools} />)}</ol></div></details>
+    <Collapsible.Root><Collapsible.Trigger className="task-step-trigger"><ToolStatusIcon state="completed" label={toolDisplayLabel(items[0], locale)} /><span className="task-step-title">{toolStepTitle(items[0])}</span><span className="task-step-count" aria-label={t("step.group_count", { count: items.length })}>{items.length}</span><TofiIcon className="task-step-chevron" name="chevron-right" size={12} aria-hidden="true" />{total >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(total)}</time>}</Collapsible.Trigger>
+      <Collapsible.Content forceMount className="collapsible-content"><div className="task-step-body"><ol className="task-step-nested">{items.map(tool => <ToolStepRecord key={`${tool.run_id}:${tool.call_id}`} tool={tool} locale={locale} onOpenTools={onOpenTools} />)}</ol></div></Collapsible.Content></Collapsible.Root>
   </li>;
 }
 

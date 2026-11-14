@@ -162,6 +162,7 @@
     "motion": "14.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-dropzone": "20.1.4",
     "react-i18next": "17.0.16",
     "react-markdown": "10.1.0",
     "remark-cjk-friendly": "2.3.1",

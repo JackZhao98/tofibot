@@ -491,8 +491,8 @@ await check("viewing a message's activity opens the record as a drawer, not in o
   await page.evaluate(() => {
     window.__rec = []; window.__recOn = true;
     const tick = t => {
-      const records = document.querySelector(".task-activity-records");
-      window.__rec.push({ t, h: records ? records.getBoundingClientRect().height : -1, open: Boolean(document.querySelector("details.task-activity[open]")) });
+      const records = document.querySelector(".task-activity > .collapsible-content");
+      window.__rec.push({ t, h: records ? records.getBoundingClientRect().height : -1, open: Boolean(document.querySelector(".task-activity[data-state=open]")) });
       if (window.__recOn) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

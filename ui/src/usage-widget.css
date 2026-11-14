@@ -63,5 +63,5 @@
 /* Keep the summary readable in a short Mac window; only its content scrolls. */
 .context-card[data-card="usage"]{display:flex;flex-direction:column;max-height:calc(var(--viewport-height,100dvh) - var(--chat-header-height,64px) - 32px)}
 .context-card[data-card="usage"] .context-card-header{flex:none}
-.context-card[data-card="usage"]:not(.is-collapsed) .context-card-body{display:block;min-height:0;overflow:auto;overscroll-behavior:contain}
+.context-card[data-card="usage"]:not(.is-collapsed) .context-card-body{min-height:0;overflow:auto;overscroll-behavior:contain}
 .context-card[data-card="usage"]:not(.is-collapsed) .context-card-inner{overflow:visible}

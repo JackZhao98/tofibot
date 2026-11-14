@@ -42,6 +42,6 @@ export function FoldGroup({tab, id, title, summary, children}: {tab: string; id:
       {summary && <span className="settings-row-value">{summary}</span>}
       <TofiIcon name={open ? "chevron-down" : "chevron-right"} size={14} aria-hidden="true"/>
     </Collapsible.Trigger>
-    <Collapsible.Content className="collapsible-content">{children}</Collapsible.Content>
+    <Collapsible.Content className="collapsible-content"><div>{children}</div></Collapsible.Content>
   </Collapsible.Root>;
 }
