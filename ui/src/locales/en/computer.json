@@ -659,6 +659,17 @@
         "unnamed": "Unnamed Bot",
         "allow": "Allow again"
       }
+    },
+    "feature": {
+      "browser": "Built-in browser",
+      "desktop": "Desktop control",
+      "files": "Files",
+      "shell": "Commands"
+    },
+    "feature_status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "off": "Off"
     }
   },
   "browser": {

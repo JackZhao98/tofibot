@@ -222,12 +222,14 @@ func TestCaptureDetailIsDescribedInTheTools(t *testing.T) {
 	s, _, run := captureServer(t)
 	for _, name := range []string{"computer_desktop", "computer_browser"} {
 		tool, _ := toolNamed(s.microVMTools(run), name)
-		if !strings.Contains(tool.Description, captureDetailSentence) {
-			t.Errorf("%s lacks the detail sentence", name)
-		}
+		// The sentence is in the description or, where the description has no room left (computer_browser), on the detail parameter.
 		props, _ := tool.Parameters["properties"].(map[string]any)
-		if _, ok := props["detail"]; !ok {
+		detail, ok := props["detail"].(map[string]any)
+		if !ok {
 			t.Errorf("%s lacks the detail parameter", name)
+		}
+		if text, _ := detail["description"].(string); !strings.Contains(tool.Description, captureDetailSentence) && !strings.Contains(text, captureDetailSentence) {
+			t.Errorf("%s lacks the detail sentence", name)
 		}
 	}
 }

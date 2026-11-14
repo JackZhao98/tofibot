@@ -653,6 +653,17 @@
         "unnamed": "名前のない Bot",
         "allow": "もう一度許可"
       }
+    },
+    "feature": {
+      "browser": "内蔵ブラウザ",
+      "desktop": "デスクトップ操作",
+      "files": "ファイル",
+      "shell": "コマンド"
+    },
+    "feature_status": {
+      "connected": "接続済み",
+      "disconnected": "未接続",
+      "off": "オフ"
     }
   },
   "browser": {

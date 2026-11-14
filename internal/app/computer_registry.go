@@ -509,6 +509,7 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 // releaseComputerHolds frees every computer lock a run holds. Called where the
 // run's desktop ownership is released.
 func (s *Server) releaseComputerHolds(runID string) {
+	s.environmentRuns.Delete(runID)
 	s.computerMu.RLock()
 	slots := make([]*computerSlot, 0, len(s.computerSlots))
 	for _, slot := range s.computerSlots {
@@ -524,65 +525,28 @@ func (s *Server) releaseComputerHolds(runID string) {
 
 // computerSummary is what the Bot learns about each computer.
 type computerSummary struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Kind         string   `json:"kind"`
-	Online       bool     `json:"online"`
-	Default      bool     `json:"default,omitempty"`
-	InUse        bool     `json:"in_use,omitempty"`
-	Region       string   `json:"region,omitempty"`
-	Capabilities []string `json:"capabilities"`
+	Features     []environmentFeature `json:"features"`
+	State        string               `json:"state,omitempty"`
+	ID           string               `json:"id"`
+	Name         string               `json:"name"`
+	Kind         string               `json:"kind"`
+	Online       bool                 `json:"online"`
+	Default      bool                 `json:"default,omitempty"`
+	InUse        bool                 `json:"in_use,omitempty"`
+	Region       string               `json:"region,omitempty"`
+	Capabilities []string             `json:"capabilities"`
 }
 
 // botComputers lists the attached computers for a Bot: the VM (the default)
 // and any personal computers. Nothing here names a path, a socket or a token.
 func (s *Server) botComputers(ctx context.Context) []computerSummary {
-	var out []computerSummary
-	for _, slot := range s.attachedSlots() {
-		item := computerSummary{ID: slot.id, Name: slot.id, Kind: slot.rowKind, Region: slot.region, Capabilities: []string{}}
-		state := slot.currentState()
-		if slot.rowKind == computer.RowKindVM {
-			item.Default = true
-			item.Name = "Bot workspace"
-			item.Capabilities = append(item.Capabilities, s.computerCapabilities().Capabilities...)
-			if info, err := s.microVMInfo(ctx); err == nil {
-				item.Online = state == slotAttached && computer.Available(info.State)
-			}
-		} else {
-			item.Online = state == slotAttached
-			if s.store != nil {
-				if row, err := s.store.computerRow(slot.id); err == nil {
-					item.Online = item.Online && computerRecentlySeen(row.LastSeen)
-					item.Name = row.Name
-					item.Capabilities = row.Capabilities
-				}
-			}
-		}
-		item.InUse = slot.holder() != ""
-		out = append(out, item)
-	}
-	return out
+	return s.environmentOrder(Run{})
 }
 
 // computersRunContext is the one run-context line that tells a Bot about more
 // than one computer. With only the VM it is empty (the VM line already exists).
 func (s *Server) computersRunContext(ctx context.Context) string {
-	if !s.hasOtherComputers() {
-		return ""
-	}
-	var parts []string
-	for _, c := range s.botComputers(ctx) {
-		state := "online"
-		if !c.Online {
-			state = "offline"
-		}
-		label := fmt.Sprintf("%s (%s, %s", c.Name, c.Kind, state)
-		if c.Default {
-			label += ", default"
-		}
-		parts = append(parts, label+") id="+c.ID)
-	}
-	return "Computers: " + strings.Join(parts, "; ") + ". Use computer_action with a computer_id to act on one; the default is the Bot workspace. Call list_computers for capabilities."
+	return s.environmentsRunContext(Run{})
 }
 
 // ---- lifecycle ----

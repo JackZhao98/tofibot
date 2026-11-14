@@ -65,12 +65,9 @@ func TestPersonalBrowserNoVMExplicitRouting(t *testing.T) {
 	if tool.Execute == nil {
 		t.Fatal("browser missing without VM")
 	}
-	if _, e := tool.Execute(context.Background(), json.RawMessage(`{"action":"read"}`)); toolCode(e) != "computer_not_configured" {
-		t.Fatalf("implicit Mac: %v", e)
-	}
 	done := make(chan error, 1)
 	go func() {
-		_, e := tool.Execute(context.Background(), json.RawMessage(`{"computer_id":"`+m.id+`","action":"read"}`))
+		_, e := tool.Execute(context.Background(), json.RawMessage(`{"action":"read"}`))
 		done <- e
 	}()
 	j := m.poll(1)
@@ -365,7 +362,7 @@ func TestPersonalBrowserPreservesVMDispatchAndRecovery(t *testing.T) {
 	}
 	raw := json.RawMessage(`{"action":"browser.read","computer_id":"firecracker"}`)
 	out, e := tool.Execute(context.Background(), raw)
-	if e != nil || out != "vm-result" || calls != 1 {
+	if e != nil || out != "served_by: Bot computer, Chrome\nvm-result" || calls != 1 {
 		t.Fatalf("VM changed %s %v calls %d", out, e, calls)
 	}
 	got := tool.Identity(raw)
@@ -408,7 +405,7 @@ func TestBrowserToolKeepsBotComputerParamsAndDescribesMacOnParams(t *testing.T) 
 			t.Errorf("%s has no description", name)
 		}
 	}
-	if !strings.HasPrefix(tool.Description, "Bot computer browser.") || len(tool.Description) > 1024 {
+	if !strings.HasPrefix(tool.Description, computerFallbackNote) || len(tool.Description) > 1024 {
 		t.Fatalf("description = %q (%d bytes)", tool.Description, len(tool.Description))
 	}
 }

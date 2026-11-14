@@ -141,7 +141,11 @@ func (s *Server) microVMStatus(ctx context.Context) string {
 // workspace-wide environment; Bot profiles and displays provide separation
 // between Bots while /workspace/shared and other Bot directories remain
 // intentionally addressable for collaboration.
-func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) string {
+func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string, runs ...Run) string {
+	var r Run
+	if len(runs) > 0 {
+		r = runs[0]
+	}
 	if s.computer() == nil {
 		return ""
 	}
@@ -160,7 +164,7 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string) str
 	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nBot computer (Linux VM), separate from the service host and Mac; never claim host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this Bot computer at the listed paths. %s Stop the desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentialsFor(s.browserEnginePlaywright())+computerDesktopEssentialsFor(s.desktopEngineA11y())) + idle
+	return fmt.Sprintf("\nBot computer (Linux VM), separate from the service host and Mac; work here is never host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this Bot computer at the listed paths. %s Stop the desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentialsFor(s.browserEnginePlaywright() && s.browserBotFirst(r))+computerDesktopEssentialsFor(s.desktopEngineA11y())) + idle
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -185,6 +189,11 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 			items[i].InUse = slot.holder() != ""
 		}
 	}
+	for i := range items {
+		if items[i].Kind == computer.RowKindPersonal {
+			items[i].Features = environmentFeatures(ComputerRow{Kind: computer.RowKindPersonal, Capabilities: items[i].Capabilities}, items[i].Online, s.browserHub(items[i].ID))
+		}
+	}
 	vm := s.computer()
 	if vm == nil {
 		return items, nil
@@ -203,6 +212,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	} else {
 		item.Online = false
 	}
+	item.Features = environmentFeatures(ComputerRow{Kind: computer.RowKindVM}, infoErr == nil && (info.State == "ready" || info.State == "asleep" || info.State == "resuming"), nil)
 	items = append(items, item)
 	return items, nil
 }
@@ -431,7 +441,7 @@ const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use 
 func (s *Server) microVMTools(r Run) []Tool {
 	if s.computer() == nil {
 		tools := s.personalDesktopTools(r)
-		if s.browserMacPaired() {
+		if s.hasMacBrowser() {
 			tools = append(tools, s.browserTool(r, nil))
 		}
 		return tools
@@ -663,7 +673,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return in.Action, argsJSON, nil
 	})
 	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. "+desktopKindsSentence+" Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. Use desktop.start when readiness is unknown; desktop.capture is for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" "+traceActionSentence, desktopToolSchema(), s.parseDesktopTool)
-	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace"}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace. File uploads in web pages use browser.upload, never the system file dialog."}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action        string   `json:"action"`
 			Detail        string   `json:"detail,omitempty"`
@@ -720,21 +730,20 @@ func (s *Server) microVMTools(r Run) []Tool {
 		inputs.ensure(ctx, s, r)
 		s.flushGeneratedImages(ctx, r)
 	}
-	playwright, a11y := s.browserEnginePlaywright(), s.desktopEngineA11y()
+	playwright, a11y := s.browserEnginePlaywright() && s.browserBotFirst(r), s.desktopEngineA11y()
 	// Hybrid: with the accessibility engine the screenshot and coordinate tool stays
 	// next to the desktop_ tools; the element tree is the first choice and the
 	// coordinates are the fallback.
 	if a11y {
-		desktop.Description = computerDesktopHybridNote + " " + desktop.Description
+		desktop.Description = computerDesktopHybridNote + " " + strings.ReplaceAll(strings.ReplaceAll(desktop.Description, captureDetailSentence+" ", ""), "A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. ", "")
 	}
-	tools := []Tool{shell, files, desktop}
+	tools := []Tool{shell, files, s.environmentTool(r, desktop, false)}
 	if a11y {
 		tools = append(tools, s.desktopEngineTools(r, prepare)...)
 	}
 	if playwright {
 		// The classic tool stays registered as the fallback the engine's tools point at.
 		tools = append(tools, s.browserEngineTools(r, prepare, browser)...)
-		browser.Description = computerBrowserFallbackNote + " " + browser.Description
 	}
 	vmBrowser := browser
 	browser = s.browserTool(r, &vmBrowser)

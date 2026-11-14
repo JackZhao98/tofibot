@@ -1,3 +1,5 @@
+import {EnvironmentFeatures} from "./EnvironmentFeatures";
+import {AutomationRows} from "./AutomationSettings";
 import {useEffect, useRef, useState, type ReactNode, type RefObject} from "react";
 import {ApiError, request} from "./api";
 import {ComputerAttach} from "./ComputerAttach";
@@ -71,6 +73,7 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false, temp
   const imageBuilding = item.kind === "e2b" && templatePhase === "preparing" && !required;
   const description = <>
     {!(provided && item.access === "none") && <span className="env-line">{words.access(item)}{lastSeen && ` · ${t("environments.last_seen", {time: lastSeen})}`}</span>}
+    <EnvironmentFeatures features={item.features}/>
     {item.guest_outdated && !required && <span className="env-line env-outdated" data-outdated="true">{t("environments.outdated")}</span>}
     {imageBuilding && <span className="env-line env-building" data-template="preparing">{t(item.state === "preparing" ? "environments.image_preparing" : "environments.image_building")}</span>}
     {item.error_code && <span className="env-line env-reason" data-error-code={item.error_code}>{t(`environments.error.${reasonKey(item.error_code)}` as "environments.error.generic")}</span>}
@@ -204,9 +207,10 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   const base = session?.multi_account && session.owner?.id ? `/api/admin/accounts/${encodeURIComponent(session.owner.id)}/computer` : "/api/admin/computer";
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
-    {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
+    {data && rc.available && <RemoteControlBlock features={data.environments.find(item => item.id === rc.status?.deviceID)?.features} rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
     <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
     {body}
+    {data && data.environments.some(item => item.bot_computer || item.kind === "mac") && <AutomationRows groups={["environment"]} hasEnvironment/>}
     {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}
     {dialog?.kind === "e2b" && <E2BDialog onClose={() => setDialog(null)} onSaved={body => { replace(body); setDialog(null); }}/>}
     {dialog?.kind === "denied" && <DeniedBotsDialog bots={rc.denied} onUndo={id => void rc.undoDeny(id)} onClose={() => setDialog(null)}/>}

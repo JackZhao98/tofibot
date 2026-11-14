@@ -347,6 +347,9 @@ func (s *Server) browserEngineTools(r Run, prepare func(context.Context), classi
 			},
 		})
 	}
+	for i := range tools {
+		tools[i] = s.environmentTool(r, tools[i], true)
+	}
 	return tools
 }
 

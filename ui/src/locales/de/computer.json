@@ -659,6 +659,17 @@
         "unnamed": "Unbenannter Bot",
         "allow": "Wieder erlauben"
       }
+    },
+    "feature": {
+      "browser": "Integrierter Browser",
+      "desktop": "Desktopsteuerung",
+      "files": "Dateien",
+      "shell": "Befehle"
+    },
+    "feature_status": {
+      "connected": "Verbunden",
+      "disconnected": "Getrennt",
+      "off": "Aus"
     }
   },
   "browser": {

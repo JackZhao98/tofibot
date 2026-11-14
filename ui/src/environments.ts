@@ -10,7 +10,9 @@ export type EnvironmentKind = "vm" | "e2b" | "mac";
 export type EnvironmentState = "ready" | "starting" | "resuming" | "asleep" | "stopped" | "standby" | "failed" | "preparing" | "online" | "offline" | "unknown";
 export type EnvironmentAccess = "all_bots" | "allowed_on_mac" | "none";
 export type EnvironmentAction = "retry" | "wake" | "configure" | "use" | "remove" | "disconnect" | "upgrade";
+export type EnvironmentFeature = {key: "browser" | "desktop" | "files" | "shell"; status: "connected" | "disconnected" | "off"; code?: string};
 export type Environment = {
+ features: EnvironmentFeature[];
   id: string; kind: EnvironmentKind; name: string; state: EnvironmentState; error_code: string;
   platform?: string; last_seen?: string; bot_computer: boolean; access: EnvironmentAccess; actions: EnvironmentAction[];
   /** The computer runs an older image than the current one: it works, and `upgrade` replaces it (its files are removed). */
@@ -34,6 +36,7 @@ export function normalizeEnvironments(body: unknown): EnvironmentsView {
   const raw = (body ?? {}) as Record<string, any>;
   const list = Array.isArray(raw.environments) ? raw.environments : [];
   const environments = list.filter(item => item && typeof item.id === "string" && kinds.includes(item.kind)).map((item: any): Environment => ({
+    features: Array.isArray(item.features) ? item.features.filter((f: any) => f && ["browser", "desktop", "files", "shell"].includes(f.key)).map((f: any) => ({key: f.key, status: f.status === "connected" || f.status === "off" ? f.status : "disconnected", code: typeof f.code === "string" ? f.code : undefined})) : [],
     id: item.id, kind: item.kind, name: typeof item.name === "string" ? item.name : "",
     state: states.includes(item.state) ? item.state : "unknown", error_code: typeof item.error_code === "string" ? item.error_code : "",
     platform: typeof item.platform === "string" ? item.platform : undefined, last_seen: typeof item.last_seen === "string" ? item.last_seen : undefined,
@@ -92,6 +95,10 @@ export function useEnvironments(active = true) {
     window.addEventListener("focus", focus);
     document.addEventListener("visibilitychange", focus);
     return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", focus); };
+  }, [active, load]);
+  useEffect(() => {
+    if (!active) return;
+    return window.tofiDesktop?.botBrowser?.onStatus(() => { void load(); });
   }, [active, load]);
   const settling = environmentsSettling(data);
   useEffect(() => {

@@ -46,3 +46,6 @@
 .env-config-body{display:grid;gap:14px;margin-top:6px;max-height:min(62vh,560px);overflow:auto}
 /* Kept from the retired pairing sheet: a lone note directly under a web settings section keeps its top gap. */
 html:not([data-desktop]) .settings-section>.field-note{margin:8px 0 0}
+/* The features of an environment and their status, one badge each. */
+.env-features{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.env-feature{display:inline-flex;align-items:center;gap:var(--space-1)}

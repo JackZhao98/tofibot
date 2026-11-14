@@ -1,3 +1,4 @@
+import {originComputerID} from "./desktop";
 import type { CompatEndpointInput, CompatListedModel, SearchResults, TaskImpact, FollowupAccount, FollowupBotSettings, FollowupOverview, FollowupVerdict, AgentUsageTotal, Attachment, Bot, ComputerHealth, Config, ContentPatch, ContextUsage, Conversation, EventEnvelope, Memory, MemoryInput, Message, ModelCatalog, ModelProviderStatus, Run, RunContextSnapshot, RunHealth, Schedule, ScheduleKind, SchedulePatchInput, StreamDraft, ToolActivity, ToolActivityDetailPage, ToolActivityRunSummary, UsageCall, UsagePeriod, WebToolsView, WorkspaceEventEnvelope, WorkItem, Weekday } from "./types";
 import { i18n } from "./i18n";
 import { codeText } from "./i18n/codeText";
@@ -122,7 +123,8 @@ export const api = {
     if (beforeSeq !== undefined) query.set("before_seq", String(beforeSeq));
     return request<{ messages: Message[] | null; drafts?: StreamDraft[] | null; has_more: boolean; event_cursor?: number }>(`/api/conversations/${encodeURIComponent(id)}/messages?${query}`).then((result) => ({ ...result, messages: result.messages ?? [], drafts: result.drafts ?? [] }));
   },
-  sendMessage: (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => request<{ message: Message; run?: Run | null; runs?: Run[]; queued?: { bot_id: string; run_id: string; inbox_id: string }[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json(input)),
+  // In the Mac app every send names that Mac (the server ranks its environments by where the person writes from).
+  sendMessage: async (id: string, input: { content: string; client_message_id: string; attachment_ids?: string[] }) => { const origin = await originComputerID(); return request<{ message: Message; run?: Run | null; runs?: Run[]; queued?: { bot_id: string; run_id: string; inbox_id: string }[] }>(`/api/conversations/${encodeURIComponent(id)}/messages`, json({...input, ...(origin ? {origin_computer_id: origin} : {})})); },
   setMessageReaction: (conversationId: string, messageId: string, emoji: string, present: boolean) => request<{ conversation_id: string; message_id: string; reactions: NonNullable<Message["reactions"]> }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, { method: "PUT", body: JSON.stringify({ emoji, present }) }),
   uploadAttachment: async (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<Attachment>(`/api/conversations/${encodeURIComponent(id)}/attachments`, { method: "POST", body }); },
   // The newest page of runs plus every active one; `before` (an ISO time) asks for the page of runs created earlier, to go with an older page of messages.

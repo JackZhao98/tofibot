@@ -1407,6 +1407,18 @@
       "monthly_spend_limit_usd": {
         "name": "每月花費上限",
         "what": "本月花費達到上限後，拒絕對計費模型的呼叫，並在 80% 時提醒一次。單位為整數美元，0 表示關閉。在「用量」頁設定。"
+      },
+      "environment_order_web": {
+        "name": "首選環境（網頁與手機）",
+        "what": "選擇網頁與手機訊息的首選環境。"
+      },
+      "environment_order_app": {
+        "name": "首選環境（Mac App）",
+        "what": "選擇 Mac App 訊息的首選環境。"
+      },
+      "environment_failover": {
+        "name": "自動切換環境",
+        "what": "瀏覽器無法啟動時，繼續使用下一個可用環境。"
       }
     },
     "option": {
@@ -1427,6 +1439,14 @@
         "declared": "僅 Bot 宣告有影響的",
         "commands": "再加上快速鍵",
         "all": "全部輸入"
+      },
+      "environment_order_web": {
+        "bot_computer": "Bot 電腦",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "這台 Mac",
+        "bot_computer": "Bot 電腦"
       }
     },
     "auto": "自動 · {{model}}",

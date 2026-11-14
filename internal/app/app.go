@@ -299,6 +299,7 @@ type Server struct {
 	reactionWakeWindow                   time.Duration // 0 = defaultReactionWakeWindow
 	desktopRestartedAt                   time.Time
 	browserFallbackAt                    sync.Map
+	environmentRuns                      sync.Map
 	attentionWaiters                     attentionWaiters // open long polls of GET /api/notifications
 	desktopStarting                      atomic.Int32     // desktop.start calls in flight; the computer info reports it as desktop_starting
 	gogStatus                            gogStatusCache
@@ -811,6 +812,7 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 	for _, col := range []struct{ name, ddl string }{
 		{"kind", `ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT ''`},
 		{"notice_data", `ALTER TABLE messages ADD COLUMN notice_data TEXT`},
+		{"origin_computer_id", `ALTER TABLE messages ADD COLUMN origin_computer_id TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err = ensureColumn(s.db, "messages", col.name, col.ddl); err != nil {
 			return err
@@ -3891,10 +3893,11 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		return
 	}
 	var x struct {
-		Content         string   `json:"content"`
-		AttachmentIDs   []string `json:"attachment_ids"`
-		RecipientBotID  string   `json:"recipient_bot_id"`
-		ClientMessageID string   `json:"client_message_id"`
+		Content          string   `json:"content"`
+		AttachmentIDs    []string `json:"attachment_ids"`
+		RecipientBotID   string   `json:"recipient_bot_id"`
+		ClientMessageID  string   `json:"client_message_id"`
+		OriginComputerID string   `json:"origin_computer_id"`
 	}
 	if decode(r, &x) != nil || (strings.TrimSpace(x.Content) == "" && len(x.AttachmentIDs) == 0) || x.ClientMessageID == "" {
 		writeErr(w, 400, "invalid_request", "content and client_message_id are required")
@@ -3981,7 +3984,7 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request, c Conversat
 		}
 		specs = []runSpec{{BotID: c.BotID, Model: b.Model}}
 	}
-	m, runs, queued, dup, e := s.store.addUserRunsSteering(c.ID, x.Content, x.ClientMessageID, specs, x.AttachmentIDs, interrupt)
+	m, runs, queued, dup, e := s.store.addUserRunsSteeringOrigin(c.ID, x.Content, x.ClientMessageID, specs, x.AttachmentIDs, s.store.validMessageOrigin(x.OriginComputerID), interrupt)
 	if e != nil {
 		if errors.Is(e, ErrConversationBusy) {
 			writeErr(w, 409, "conversation_busy", "conversation has an active run")
@@ -4223,7 +4226,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	if r.Kind != runKindTriage {
 		tools = append(tools, s.contextUsageTool(r.ID))
 	}
-	computerPrompt := s.microVMEnvironmentPrompt(ctx, r.BotID)
+	computerPrompt := s.microVMEnvironmentPrompt(ctx, r.BotID, r)
 	extensionPrompt, capabilityPrompt := "", ""
 
 	if r.Kind == runKindTriage {

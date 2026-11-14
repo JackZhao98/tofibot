@@ -455,16 +455,17 @@ func (s *Server) fallBackToVM(reason string) {
 // ---- API ----
 
 type environmentItem struct {
-	ID          string   `json:"id"`
-	Kind        string   `json:"kind"`
-	Name        string   `json:"name"`
-	State       string   `json:"state"`
-	ErrorCode   string   `json:"error_code"`
-	Platform    string   `json:"platform,omitempty"`
-	LastSeen    string   `json:"last_seen,omitempty"`
-	BotComputer bool     `json:"bot_computer"`
-	Access      string   `json:"access"`
-	Actions     []string `json:"actions"`
+	Features    []environmentFeature `json:"features"`
+	ID          string               `json:"id"`
+	Kind        string               `json:"kind"`
+	Name        string               `json:"name"`
+	State       string               `json:"state"`
+	ErrorCode   string               `json:"error_code"`
+	Platform    string               `json:"platform,omitempty"`
+	LastSeen    string               `json:"last_seen,omitempty"`
+	BotComputer bool                 `json:"bot_computer"`
+	Access      string               `json:"access"`
+	Actions     []string             `json:"actions"`
 	// GuestOutdated: the computer runs an older image than the current one. It
 	// works; the "upgrade" action replaces it and removes its files.
 	GuestOutdated bool `json:"guest_outdated,omitempty"`
@@ -528,6 +529,13 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 		// The organization's computer is the only one listed: no own key, no choice, no add.
 		s.orgE2BEnvironmentView(ctx, &out)
 		s.appendPairedMacs(ctx, &out)
+		for i := range out.Environments {
+			item := &out.Environments[i]
+			if item.Kind != envKindMac {
+				item.Features = environmentFeatures(ComputerRow{Kind: computer.RowKindVM}, item.BotComputer && (item.State == "ready" || item.State == "asleep" || item.State == "resuming"), nil)
+			}
+		}
+
 		out.Add.Mac = s.personalComputers
 		return out
 	}
@@ -601,6 +609,12 @@ func (s *Server) environmentsView(ctx context.Context) environmentsView {
 	}
 
 	s.appendPairedMacs(ctx, &out)
+	for i := range out.Environments {
+		item := &out.Environments[i]
+		if item.Kind != envKindMac {
+			item.Features = environmentFeatures(ComputerRow{Kind: computer.RowKindVM}, item.BotComputer && (item.State == "ready" || item.State == "asleep" || item.State == "resuming"), nil)
+		}
+	}
 
 	out.Add.E2B = p == nil || out.E2B.Phase == "failed"
 	if out.Add.E2B && e2bImage() == "" {
@@ -634,7 +648,7 @@ func (s *Server) appendPairedMacs(ctx context.Context, out *environmentsView) {
 		if c.Online {
 			state = "online"
 		}
-		out.Environments = append(out.Environments, environmentItem{ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
+		out.Environments = append(out.Environments, environmentItem{Features: environmentFeatures(ComputerRow{Kind: computer.RowKindPersonal, Capabilities: c.Capabilities}, c.Online, s.browserHub(c.ID)), ID: c.ID, Kind: envKindMac, Name: c.Name, State: state, Platform: c.Platform, LastSeen: c.LastSeen, Access: "allowed_on_mac", Actions: []string{"disconnect"}})
 	}
 }
 

@@ -665,6 +665,17 @@
         "unnamed": "Bot sans nom",
         "allow": "Autoriser à nouveau"
       }
+    },
+    "feature": {
+      "browser": "Navigateur intégré",
+      "desktop": "Contrôle du bureau",
+      "files": "Fichiers",
+      "shell": "Commandes"
+    },
+    "feature_status": {
+      "connected": "Connecté",
+      "disconnected": "Déconnecté",
+      "off": "Désactivé"
     }
   },
   "browser": {

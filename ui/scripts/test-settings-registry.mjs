@@ -9,6 +9,11 @@ import { bundleModules } from "./lib/bundle.mjs";
 // or when a section id is missing from the component that owns it.
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const registry = JSON.parse(await readFile(join(root, "src/generated/settingsRegistry.json"), "utf8"));
+for (const key of ["environment_order_web", "environment_order_app", "environment_failover"]) {
+  const item = registry.settings.find(item => item.key === `automation.${key}`);
+  assert.ok(item, `${key} is in the settings inventory`);
+  assert.equal(item.link, "/settings/computer#environment", `${key} opens the Environments section`);
+}
 const source = async path => readFile(join(root, "src", path), "utf8");
 {
   const { readSettingsLink, SIDE_PARAMS, ...sections } = await bundleModules(root, ["src/settingsRoute.ts", "src/settings/sections.ts", "src/conversationRoute.ts"]);

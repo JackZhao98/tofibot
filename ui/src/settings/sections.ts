@@ -41,7 +41,7 @@ export const CONNECTION_SECTIONS = ["status", "tools", "advanced", "danger"] as 
  * primary Bot's settings (`readSettingsLink`), or General when there is no Bot.
  */
 export const LEGACY_SETTINGS_LINKS: Record<string, string> = {
-  approvals: "permissions", devices: "computer",
+  approvals: "permissions", devices: "computer", environments: "computer",
   allowances: "permissions", "allowances#how": "permissions", "allowances#standing": "permissions#standing",
   "allowances#remembered": "permissions#remembered", "allowances#reviewer": "permissions#advanced",
   followups: "advanced#followups", tools: "connections#web", keys: "computer#keys",

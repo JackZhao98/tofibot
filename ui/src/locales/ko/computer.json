@@ -653,6 +653,17 @@
         "unnamed": "이름 없는 Bot",
         "allow": "다시 허용"
       }
+    },
+    "feature": {
+      "browser": "내장 브라우저",
+      "desktop": "데스크톱 제어",
+      "files": "파일",
+      "shell": "명령"
+    },
+    "feature_status": {
+      "connected": "연결됨",
+      "disconnected": "연결 끊김",
+      "off": "꺼짐"
     }
   },
   "browser": {

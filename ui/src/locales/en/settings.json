@@ -1419,6 +1419,18 @@
       "monthly_spend_limit_usd": {
         "name": "Monthly spend limit",
         "what": "Refuses calls to billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page."
+      },
+      "environment_order_web": {
+        "name": "Preferred environment (web and mobile)",
+        "what": "Choose the first environment for messages from web and mobile."
+      },
+      "environment_order_app": {
+        "name": "Preferred environment (Mac app)",
+        "what": "Choose the first environment for messages from the Mac app."
+      },
+      "environment_failover": {
+        "name": "Automatic environment failover",
+        "what": "Continue in the next available environment when a browser cannot start."
       }
     },
     "option": {
@@ -1439,6 +1451,14 @@
         "declared": "What the Bot declares",
         "commands": "Also key commands",
         "all": "All input"
+      },
+      "environment_order_web": {
+        "bot_computer": "Bot computer",
+        "mac": "Mac"
+      },
+      "environment_order_app": {
+        "this_mac": "This Mac",
+        "bot_computer": "Bot computer"
       }
     },
     "auto": "Automatic · {{model}}",

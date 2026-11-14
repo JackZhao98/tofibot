@@ -148,6 +148,7 @@
     "automation#schedules": "advanced#reviews",
     "automation#widgets": "advanced#behavior",
     "devices": "computer",
+    "environments": "computer",
     "followups": "advanced#followups",
     "keys": "computer#keys",
     "models#dictation": "models#more",
@@ -537,6 +538,50 @@
       "audit": false
     },
     {
+      "key": "automation.environment_order_web",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "bot_computer",
+        "mac"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/computer#environment",
+      "manual": "settings/computer",
+      "label_key": "settings:automation.item.environment_order_web.name",
+      "audit": true
+    },
+    {
+      "key": "automation.environment_order_app",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "this_mac",
+        "bot_computer"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/computer#environment",
+      "manual": "settings/computer",
+      "label_key": "settings:automation.item.environment_order_app.name",
+      "audit": true
+    },
+    {
+      "key": "automation.environment_failover",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/computer#environment",
+      "manual": "settings/computer",
+      "label_key": "settings:automation.item.environment_failover.name",
+      "audit": true
+    },
+    {
       "key": "automation.conversation_model",
       "scope": "account",
       "kind": "model",
@@ -751,7 +796,7 @@
         "self": "forbidden"
       },
       "link": "/settings/computer#environment",
-      "manual": "settings/advanced",
+      "manual": "settings/computer",
       "label_key": "settings:automation.item.desktop_idle_seconds.name",
       "audit": true
     },

@@ -22,7 +22,7 @@ import (
 const desktopKindsSentence = "computer_id: a person's own Mac."
 
 var (
-	desktopComputerIDParam = map[string]any{"type": "string", "description": "Optional. Omit for the Bot computer. Set to the id of a person's own paired computer (list_computers, kind personal) to act on that machine. On it: capture, click, double_click, triple_click, move, drag, scroll, type and key; no start, stop or trace. The Bot computer (no computer_id): start, stop, capture, trace, click, double_click, triple_click, scroll, type, key. Input other than move that does not declare effect needs the person's approval; declare effect none for harmless input such as focusing, scrolling or opening, and the real effect for anything else. capture and move never need approval. button, to_x, to_y and display apply to it only. Files and commands: computer_action with files.* and sandbox.exec."}
+	desktopComputerIDParam = map[string]any{"type": "string", "description": "The id of an environment from the run context. Omit it to use the first environment in the run's order that has desktop control; start, stop and trace always run on the Bot computer. Pass it when the person names an environment. On a Mac: capture, click, double_click, triple_click, move, drag, scroll, type and key. On the Bot computer: start, stop, capture, trace, click, double_click, triple_click, scroll, type and key. Input other than move that does not declare effect needs the person's approval; declare effect none for harmless input such as focusing, scrolling or opening, and the real effect for anything else. capture and move never need approval. button, to_x, to_y and display apply to a Mac only. Files and commands: computer_action with files.* and sandbox.exec."}
 	desktopButtonParam     = map[string]any{"type": "string", "enum": []string{"left", "right", "middle"}, "description": "Person's own computer only: mouse button for click and drag, default left."}
 	desktopDisplayParam    = map[string]any{"type": "integer", "minimum": 0, "maximum": 15, "description": "Person's own computer only: display id from the displays list of the previous capture; default is the primary display."}
 )
@@ -468,7 +468,7 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 	if s.computer() != nil || len(s.desktopMacs()) == 0 {
 		return nil
 	}
-	return []Tool{{
+	t := Tool{
 		Name:        "computer_desktop",
 		Description: "Control the screen of a person's own paired Mac: capture (share attaches the picture to your reply), click, double_click, triple_click, move, drag, scroll, type, key. Coordinates are pixels of the latest capture. A left click result says via: ax_press (the control was pressed without moving the pointer) or pointer. Each input declares its effect. Input with an effect other than none, or with none declared, is reviewed, and only a few need the person's confirmation. A system permission or privacy prompt on the Mac is the person's to answer: tell them what it asks and leave it. Pass computer_id when more than one Mac is paired. Files and commands: computer_action.",
 		Parameters:  desktopToolSchema(),
@@ -509,7 +509,8 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 			_ = json.Unmarshal(raw, &sh)
 			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail, sh.Share)
 		},
-	}}
+	}
+	return []Tool{s.environmentTool(r, t, false)}
 }
 
 // desktopToolSchema is the argument schema of computer_desktop, the same for every kind of computer.
