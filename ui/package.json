@@ -133,7 +133,8 @@
     "test:bot-browser-settings": "node scripts/test-bot-browser-settings.mjs",
     "test:work-timeline": "node scripts/test-work-timeline.mjs",
     "test:work-timeline-browser": "node scripts/test-work-timeline.mjs --browser",
-    "test:message-origin": "node scripts/test-message-origin.mjs"
+    "test:message-origin": "node scripts/test-message-origin.mjs",
+    "test:desktop-pages": "node scripts/test-desktop-pages.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
