@@ -660,11 +660,19 @@
       "files": "파일",
       "shell": "명령"
     },
+    "feature_bot": {
+      "browser": "브라우저",
+      "desktop": "데스크톱",
+      "files": "파일",
+      "shell": "명령"
+    },
     "feature_status": {
       "connected": "연결됨",
       "disconnected": "연결 끊김",
       "off": "꺼짐"
-    }
+    },
+    "feature_colon": ": ",
+    "feature_sep": ", "
   },
   "browser": {
     "panel": "Bot 브라우저",

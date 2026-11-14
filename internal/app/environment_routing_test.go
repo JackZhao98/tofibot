@@ -438,3 +438,57 @@ func TestBrowserFailoverStoppedBotComputer(t *testing.T) {
 		}
 	}
 }
+
+// An opening request takes the verb of the browser that serves it (run aa65be46's follow-up, 2026-11-13: the model sent
+// browser.navigate to the Mac, which has no page to navigate, and was told the page no longer existed).
+func TestBrowserEntryActionFollowsTheBrowser(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		mac  bool
+		in   string
+		want string
+	}{
+		{"mac navigate opens", true, `{"action":"browser.navigate","url":"https://example.test"}`, "browser.open"},
+		{"mac bare navigate opens", true, `{"action":"navigate","url":"https://example.test"}`, "browser.open"},
+		{"bot computer open navigates", false, `{"action":"browser.open","url":"https://example.test"}`, "browser.navigate"},
+		{"a page in a session keeps its verb", true, `{"action":"browser.navigate","url":"https://example.test","session_epoch":"s","target_id":"t"}`, "browser.navigate"},
+		{"no url keeps its verb", true, `{"action":"browser.read"}`, "browser.read"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			// A fresh run each time: a served call fixes the run's browser.
+			s, m, _, r := browserFixture(t)
+			s.microVM = newFakeComputer(microVMComputerID)
+			if c.mac {
+				r = originForTest(t, s, r, m.id)
+			}
+			var got string
+			dispatch := func(_ context.Context, raw json.RawMessage) (string, error) {
+				var in map[string]any
+				_ = json.Unmarshal(raw, &in)
+				got, _ = in["action"].(string)
+				return `{}`, nil
+			}
+			if _, err := s.routeBrowserCall(context.Background(), r, json.RawMessage(c.in), dispatch); err != nil {
+				t.Fatal(err)
+			}
+			if got != c.want {
+				t.Fatalf("action %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// A hibernated Bot computer wakes on its next call, so it keeps its place in the order (live check on rc.13: the Web order
+// left it out and sent a Web message to the Mac).
+func TestHibernatedBotComputerStaysFirstFromTheWeb(t *testing.T) {
+	for _, state := range []string{"ready", computer.StateHibernating, computer.StateHibernated, computer.StateResuming} {
+		t.Run(state, func(t *testing.T) {
+			s, _, _, r := browserFixture(t)
+			s.microVM = &environmentStateComputer{newFakeComputer(microVMComputerID), state}
+			order := s.browserOrder(r)
+			if len(order) == 0 || order[0].Computer.ID != microVMComputerID {
+				t.Fatalf("%s: browser order %+v", state, order)
+			}
+		})
+	}
+}

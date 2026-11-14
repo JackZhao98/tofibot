@@ -73,7 +73,7 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false, temp
   const imageBuilding = item.kind === "e2b" && templatePhase === "preparing" && !required;
   const description = <>
     {!(provided && item.access === "none") && <span className="env-line">{words.access(item)}{lastSeen && ` · ${t("environments.last_seen", {time: lastSeen})}`}</span>}
-    <EnvironmentFeatures features={item.features}/>
+    {(item.bot_computer || item.kind === "mac") && <EnvironmentFeatures kind={item.kind === "mac" ? "mac" : "bot"} features={item.features}/>}
     {item.guest_outdated && !required && <span className="env-line env-outdated" data-outdated="true">{t("environments.outdated")}</span>}
     {imageBuilding && <span className="env-line env-building" data-template="preparing">{t(item.state === "preparing" ? "environments.image_preparing" : "environments.image_building")}</span>}
     {item.error_code && <span className="env-line env-reason" data-error-code={item.error_code}>{t(`environments.error.${reasonKey(item.error_code)}` as "environments.error.generic")}</span>}
@@ -131,6 +131,8 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   const openFiles = rc.available && window.tofiDesktop?.openDesktopSettings ? () => { void window.tofiDesktop?.openDesktopSettings?.().catch(() => {}); } : null;
   // The list follows the switch: a Mac that appeared or left is read once, not polled.
   const thisMacID = rc.status?.enabled ? rc.status.deviceID : null;
+  // The Mac this app runs on: its row in the list is left out (it is shown once, on the Bot browser row below).
+  const thisMac = data?.environments.find(item => item.kind === "mac" && item.id === rc.status?.deviceID);
   const seenMac = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (seenMac.current !== undefined && seenMac.current !== thisMacID) void reload();
@@ -207,8 +209,9 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   const base = session?.multi_account && session.owner?.id ? `/api/admin/accounts/${encodeURIComponent(session.owner.id)}/computer` : "/api/admin/computer";
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
-    {data && rc.available && <RemoteControlBlock features={data.environments.find(item => item.id === rc.status?.deviceID)?.features} rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
-    <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
+    {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
+    {/* This Mac's features (built-in browser, desktop control, ...) show here whether or not remote control is on. */}
+    <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
     {body}
     {data && data.environments.some(item => item.bot_computer || item.kind === "mac") && <AutomationRows groups={["environment"]} hasEnvironment/>}
     {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}

@@ -672,11 +672,19 @@
       "files": "Fichiers",
       "shell": "Commandes"
     },
+    "feature_bot": {
+      "browser": "Navigateur",
+      "desktop": "Bureau",
+      "files": "Fichiers",
+      "shell": "Commandes"
+    },
     "feature_status": {
       "connected": "Connecté",
       "disconnected": "Déconnecté",
       "off": "Désactivé"
-    }
+    },
+    "feature_colon": " : ",
+    "feature_sep": ", "
   },
   "browser": {
     "panel": "Navigateur Bot",

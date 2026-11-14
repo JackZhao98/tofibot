@@ -660,11 +660,19 @@
       "files": "檔案",
       "shell": "指令"
     },
+    "feature_bot": {
+      "browser": "瀏覽器",
+      "desktop": "桌面",
+      "files": "檔案",
+      "shell": "指令"
+    },
     "feature_status": {
       "connected": "已連線",
       "disconnected": "已中斷",
-      "off": "已關閉"
-    }
+      "off": "未開啟"
+    },
+    "feature_colon": "：",
+    "feature_sep": "、"
   },
   "browser": {
     "panel": "Bot 瀏覽器",

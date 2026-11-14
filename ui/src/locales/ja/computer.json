@@ -660,11 +660,19 @@
       "files": "ファイル",
       "shell": "コマンド"
     },
+    "feature_bot": {
+      "browser": "ブラウザ",
+      "desktop": "デスクトップ",
+      "files": "ファイル",
+      "shell": "コマンド"
+    },
     "feature_status": {
       "connected": "接続済み",
       "disconnected": "未接続",
       "off": "オフ"
-    }
+    },
+    "feature_colon": "：",
+    "feature_sep": "、"
   },
   "browser": {
     "panel": "Bot ブラウザ",
