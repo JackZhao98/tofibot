@@ -465,6 +465,25 @@ func (s *Server) environmentsRunContext(r Run) string {
 	return b.String()
 }
 
+// entryBrowserAction gives an opening request the action of the browser that serves it. An opening request has a url and no
+// session or target. A Mac's built-in browser opens it in a new page (browser.open: it has no current page to navigate);
+// the Bot computer navigates its current tab (browser.navigate). The model then need not know each browser's verbs.
+func (s *Server) entryBrowserAction(id string, in map[string]json.RawMessage) {
+	_, hasURL := in["url"]
+	_, hasSession := in["session_epoch"]
+	_, hasTarget := in["target_id"]
+	var action string
+	_ = json.Unmarshal(in["action"], &action)
+	if bare := strings.TrimPrefix(action, "browser."); !hasURL || hasSession || hasTarget || (bare != "navigate" && bare != "open") {
+		return
+	}
+	want := "browser.navigate"
+	if !s.isVMRoute(id) {
+		want = "browser.open"
+	}
+	in["action"], _ = json.Marshal(want)
+}
+
 var automaticBrowserCodes = map[string]bool{
 	"computer_offline": true, "computer_lost": true, "device_revoked": true, "browser_transport_unavailable": true, "browser_client_unsupported": true, "browser_server_unsupported": true, "browser_not_enabled": true, "bot_not_allowed": true, "app_not_allowed": true, "computer_not_configured": true,
 }
@@ -507,6 +526,7 @@ func (s *Server) routeBrowserCall(ctx context.Context, r Run, raw json.RawMessag
 	for {
 		visited[id] = true
 		in["computer_id"], _ = json.Marshal(id)
+		s.entryBrowserAction(id, in)
 		forward, _ := json.Marshal(in)
 		var out string
 		var err error
