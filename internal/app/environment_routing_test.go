@@ -477,3 +477,18 @@ func TestBrowserEntryActionFollowsTheBrowser(t *testing.T) {
 		})
 	}
 }
+
+// A hibernated Bot computer wakes on its next call, so it keeps its place in the order (live check on rc.13: the Web order
+// left it out and sent a Web message to the Mac).
+func TestHibernatedBotComputerStaysFirstFromTheWeb(t *testing.T) {
+	for _, state := range []string{"ready", computer.StateHibernating, computer.StateHibernated, computer.StateResuming} {
+		t.Run(state, func(t *testing.T) {
+			s, _, _, r := browserFixture(t)
+			s.microVM = &environmentStateComputer{newFakeComputer(microVMComputerID), state}
+			order := s.browserOrder(r)
+			if len(order) == 0 || order[0].Computer.ID != microVMComputerID {
+				t.Fatalf("%s: browser order %+v", state, order)
+			}
+		})
+	}
+}

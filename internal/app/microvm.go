@@ -212,7 +212,7 @@ func (s *Server) listComputers(ctx context.Context) ([]Computer, error) {
 	} else {
 		item.Online = false
 	}
-	item.Features = environmentFeatures(ComputerRow{Kind: computer.RowKindVM}, infoErr == nil && (info.State == "ready" || info.State == "asleep" || info.State == "resuming"), nil)
+	item.Features = environmentFeatures(ComputerRow{Kind: computer.RowKindVM}, infoErr == nil && computer.Available(info.State), nil)
 	items = append(items, item)
 	return items, nil
 }

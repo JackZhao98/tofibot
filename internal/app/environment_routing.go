@@ -184,7 +184,8 @@ func (s *Server) environmentOrder(r Run) []computerSummary {
 			c.Online = false
 			if info, err := s.cachedEnvironmentInfo(); err == nil {
 				c.State = info.State
-				c.Online = info.State == "ready" || info.State == "asleep" || info.State == "resuming"
+				// computer.Available: a hibernated or resuming Bot computer wakes on its next call.
+				c.Online = computer.Available(info.State)
 			}
 		}
 		if slot := s.slotFor(c.ID); slot != nil {
