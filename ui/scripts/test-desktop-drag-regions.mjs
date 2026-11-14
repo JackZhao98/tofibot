@@ -192,12 +192,16 @@ for (const size of SIZES) {
   await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell.is-expanded"));
 
   // The tasks drawer: a column beside the chat when wide, a panel over the chat (and its header) below 1120 px.
+  // Wide, it is .sidebar-pane; narrow, the detail pane as a context panel. The widget column also carries
+  // .detail-pane.visible.context-panel: matching it let this step pass on the closed Bot computer's 220 ms exit
+  // and time out when a slow runner outlasted that exit (CI 11-14).
+  const tasksDrawer = ".sidebar-pane:not(.is-leaving), .detail-pane.visible.context-panel:not(.widget-column):not(.surface-exiting)";
   await page.getByRole("button", { name: "Tasks" }).first().click();
-  await page.locator(".detail-pane.visible").first().waitFor();
+  await page.locator(tasksDrawer).waitFor();
   await check(page, "tasks drawer", size);
   await page.getByRole("button", { name: "Tasks" }).first().click({ force: true }).catch(() => {});
   await page.keyboard.press("Escape");
-  await page.locator(".detail-pane.visible").first().waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  await page.waitForFunction(() => !document.querySelector(".sidebar-pane, .detail-pane.visible.context-panel:not(.widget-column)"), null, { timeout: 5000 });
 
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menu").first().waitFor();
