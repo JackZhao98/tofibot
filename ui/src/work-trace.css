@@ -15,9 +15,10 @@
 .work-narration p { margin:0; }
 .work-batch { display:flex; align-items:flex-start; gap:12px; min-width:0; }
 .work-command-group { flex:0 1 auto; min-width:0; color:var(--text-process); font:var(--type-meta); }
-.work-command-group > summary { display:flex; align-items:center; gap:6px; min-height:40px; cursor:pointer; list-style:none; }
-.work-command-group > summary::-webkit-details-marker { display:none; }
-.work-command-group[open] > summary > svg { transform:rotate(90deg); }
+.work-command-toggle { display:flex; align-items:center; gap:6px; min-height:40px; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:start; }
+.work-command-toggle > svg { transition:transform var(--m-base) var(--ease-out); }
+.work-command-group[data-state="open"] > .work-command-toggle > svg { transform:rotate(90deg); }
+@media (prefers-reduced-motion:reduce) { .work-command-toggle > svg { transition:none; } }
 .work-command-group ol { list-style:none; padding:0 0 0 18px; margin:0; }
 .work-command-group li { display:flex; align-items:center; gap:6px; min-width:0; padding:4px 0; }
 .work-command-group li > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

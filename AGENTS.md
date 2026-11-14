@@ -585,8 +585,11 @@ Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches
   list (`App.tsx`, Collapsible). Dialogs, menus, popovers and the Settings controls stay in lazy chunks. The entry may grow
   for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82.
 - `Disclosure` and `AppearancePicker` are in `ui/src/InteractionPrimitives.tsx` (lazy chunks only).
-- Collapsible content gets the class `collapsible-content` (`interaction-system.css`): one height animation from
-  `--radix-collapsible-content-height`. Folded content that must stay mounted uses `forceMount` and `inert`; the class hides it.
+- Collapsible content gets the class `collapsible-content` (`interaction-system.css`) and holds one child element: a
+  keyframed grid row, 0fr to 1fr. Do not use CSS transitions or `--radix-collapsible-content-height` with Radix Collapsible:
+  Radix turns transitions off while it measures each open and close, and with `forceMount` it never writes the height
+  variable. Content that opens before its first frame does not animate (Radix treats it as the initial state); open a
+  just-mounted drawer on the next frame. Folded content that must stay mounted uses `forceMount` and `inert`; the class hides it.
 - Radix selects a radio and moves a toolbar or tab on a timer after `keydown`. A test that presses an arrow key holds the key for
   one timer turn (`keyboard.down`, `setTimeout(0)`, `keyboard.up`), as a person does. Do not select on `focus` to pass a test.
 

@@ -179,7 +179,8 @@ let state: DesktopState = {};
 let flushTimer: number | undefined;
 let hydrationGeneration = 0;
 let hydration: { instance: string; promise: Promise<void> } | undefined;
-export const isDesktop = Boolean(window.tofiDesktop);
+// typeof: modules that import this one are also rendered on the server in tests (test:task-cards), where there is no window.
+export const isDesktop = typeof window !== "undefined" && Boolean(window.tofiDesktop);
 
 export function hydrateDesktopState(instance: string): Promise<void> {
   const api = window.tofiDesktop;

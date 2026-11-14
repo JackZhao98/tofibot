@@ -9,8 +9,9 @@ import "../focus-ring.css";
 import "./bot-browser-chrome.css";
 
 const media = matchMedia("(prefers-color-scheme: dark)");
+// The system theme until the Mac app sends the chat page's theme with renderHost (hostBridge.ts).
 const applyTheme = () => {
-  document.documentElement.dataset.theme = media.matches ? "dark" : "light";
+  if (!document.documentElement.dataset.themeFixed) document.documentElement.dataset.theme = media.matches ? "dark" : "light";
 };
 applyTheme();
 media.addEventListener("change", applyTheme);

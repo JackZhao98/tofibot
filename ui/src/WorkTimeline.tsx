@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { request } from "./api";
 import { useTranslation, type Language } from "./i18n";
 import { TofiIcon } from "./icons";
@@ -53,9 +54,9 @@ export default function WorkTimeline({ tools, notes, runs, locale }: { tools: To
     {workEntries(tools, notes).map(entry => entry.kind === "narration"
       ? <div className="work-narration" key={entry.note.id}><MessageMarkdown content={entry.note.content} /></div>
       : <div className="work-batch" key={entry.key}>
-        <details className="work-command-group"><summary><TofiIcon name="chevron-right" size={12} /><span>{t(`trace.${entry.tools.some(tool => tool.status === "running" || tool.status === "queued") ? "working" : workGroupKind(entry.tools)}`, { count: entry.tools.length })}</span></summary>
-          <ol>{entry.tools.map(tool => <li key={tool.call_id} data-step={`${tool.run_id}:${tool.call_id}`}><ToolStatusIcon state={toolDisplayState(tool)} label={toolDisplayLabel(tool, locale)} /><span>{toolStepTitle(tool)}{toolStepDetail(tool) && ` · ${toolStepDetail(tool)}`}</span></li>)}</ol>
-        </details>
+        <Collapsible.Root className="work-command-group"><Collapsible.Trigger className="work-command-toggle"><TofiIcon name="chevron-right" size={12} /><span>{t(`trace.${entry.tools.some(tool => tool.status === "running" || tool.status === "queued") ? "working" : workGroupKind(entry.tools)}`, { count: entry.tools.length })}</span></Collapsible.Trigger>
+          <Collapsible.Content className="collapsible-content"><ol>{entry.tools.map(tool => <li key={tool.call_id} data-step={`${tool.run_id}:${tool.call_id}`}><ToolStatusIcon state={toolDisplayState(tool)} label={toolDisplayLabel(tool, locale)} /><span>{toolStepTitle(tool)}{toolStepDetail(tool) && ` · ${toolStepDetail(tool)}`}</span></li>)}</ol></Collapsible.Content>
+        </Collapsible.Root>
         <CaptureStack images={groupPictures(entry.tools, captures[entry.tools[0].run_id] ?? [])} />
       </div>)}
     {error && <button type="button" className="text-button" onClick={() => setRevision(value => value + 1)}>{t("trace.load_failed")}</button>}

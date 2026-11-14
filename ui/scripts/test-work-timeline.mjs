@@ -70,9 +70,9 @@ void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoo
       await page.goto(`${origin}/${basename(fixture)}/index.html?theme=${theme}`);
       const groups=page.locator('.work-command-group'); await groups.first().waitFor();
       assert.equal(await groups.count(),2);
-      assert.equal(await groups.locator('[open]').count(),0);
-      assert.equal(await groups.first().getAttribute('open'),null);
-      await groups.first().locator('summary').click();
+      assert.equal(await groups.locator('[data-state=open]').count(),0);
+      assert.equal(await groups.first().getAttribute('data-state'),'closed');
+      await groups.first().locator('.work-command-toggle').click();
       assert.equal(await groups.first().locator('li:visible').count(),2);
       assert.equal(await page.locator('.work-narration').textContent(),'The first check passed.');
       const stack=page.locator('.work-capture-stack'); await stack.waitFor();

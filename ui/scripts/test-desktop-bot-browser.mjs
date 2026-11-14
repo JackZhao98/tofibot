@@ -119,6 +119,13 @@ try {
   await early.getByRole("textbox").press("Enter");
   assert.equal((await navigation).url(), "https://example.com/");
   await early.close();
+  // The toolbar has its own storage partition: it follows the chat page's language and theme sent with renderHost.
+  await render({ look: { lang: "zh-CN", theme: "light" } });
+  await page.waitForFunction(() => document.documentElement.lang === "zh-CN");
+  assert.equal(await page.getByRole("heading", { name: "Bot browser", exact: true }).count(), 0, "the heading is no longer English");
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light", "the chat page's theme wins over the system theme");
+  await page.emulateMedia({ colorScheme: "dark" });
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "light", "a system theme change does not undo it");
   console.log("PASS desktop Bot browser chrome, bridge, address conversion, keyboard, geometry and themes");
   await context.close();
 } finally {
