@@ -125,6 +125,11 @@ func (g *AccountGateway) serveHostBackup(w http.ResponseWriter, r *http.Request,
 			writeErr(w, 405, "method_not_allowed", "use GET")
 			return
 		}
+		// No backup storage set up is a normal state, not a failure: `tofi backups` says so plainly.
+		if cfg, _, found, cerr := g.backupConfigRow(ctx); cerr == nil && (!found || cfg.Bucket == "") {
+			writeJSON(w, 200, map[string]any{"snapshots": []any{}, "configured": false})
+			return
+		}
 		repo, _, err := g.backupRepo(ctx)
 		if err != nil {
 			code, _ := errorCode(err)
@@ -153,7 +158,7 @@ func (g *AccountGateway) serveHostBackup(w http.ResponseWriter, r *http.Request,
 			writeJSON(w, backupStatusFor(code), map[string]string{"code": code, "message": "backup storage did not answer"})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"snapshots": out})
+		writeJSON(w, 200, map[string]any{"snapshots": out, "configured": true})
 	case "account-snapshots", "account-restore", "account-undo":
 		g.serveHostAccountRestore(w, r, op)
 	default:

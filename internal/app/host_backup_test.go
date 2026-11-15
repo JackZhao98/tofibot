@@ -144,3 +144,15 @@ func TestHostAccountRestoreChannel(t *testing.T) {
 		t.Fatalf("legacy %d %v", code, out)
 	}
 }
+
+// With no backup storage set up, the snapshot list is empty and says so; it is not an error.
+func TestHostBackupSnapshotsWithNoStorage(t *testing.T) {
+	b := &backupFixture{orgFixture: newOrgFixture(t)}
+	hostBackupFixture(t, b)
+	w := hostCall(b.g, "GET", "/api/host/backup/snapshots", "", bearer())
+	var out map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &out)
+	if list, ok := out["snapshots"].([]any); w.Code != 200 || out["configured"] != false || !ok || len(list) != 0 {
+		t.Fatalf("snapshots %d %s", w.Code, w.Body.String())
+	}
+}
