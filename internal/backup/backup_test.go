@@ -381,3 +381,52 @@ func TestSelect(t *testing.T) {
 }
 
 var _ = errors.New
+
+// /etc/tofi rides in the snapshot as one more encrypted object, listed in the
+// manifest, restored byte for byte, and never visible in the bucket or in the
+// data directory's small-files tar.
+func TestEtcArchiveRidesInTheSnapshot(t *testing.T) {
+	x := setup(t)
+	ctx := context.Background()
+	etcDir := filepath.Join(x.data, "host-etc")
+	os.MkdirAll(etcDir, 0o755)
+	archive := []byte("tar-bytes-with-SECRET-etc-token")
+	os.WriteFile(filepath.Join(etcDir, "etc.tar.gz"), archive, 0o400)
+	x.src.EtcFile = filepath.Join(etcDir, "etc.tar.gz")
+	m, err := x.repo.Run(ctx, x.src, "pre-update", time.Date(2026, 11, 10, 3, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Etc == nil || m.Etc.Size != int64(len(archive)) || m.Root.Bytes <= 0 || m.Size() < m.Root.Bytes+m.Etc.Size {
+		t.Fatalf("manifest %+v", m)
+	}
+	for _, k := range x.f.Keys() {
+		data, _, _ := x.f.Object(k)
+		if bytes.Contains(data, []byte("SECRET-etc-token")) {
+			t.Fatalf("%s holds the etc archive in plain", k)
+		}
+	}
+	out := filepath.Join(t.TempDir(), "etc.tar.gz")
+	got1, err := x.repo.RestoreEtc(ctx, m.Snapshot, out)
+	if got, _ := os.ReadFile(out); err != nil || got1 == nil || got1.SHA != hexOf(archive) || got1.CapturedAt == "" || !bytes.Equal(got, archive) {
+		t.Fatalf("restore etc: %v %v", got1, err)
+	}
+	dest := filepath.Join(t.TempDir(), "data")
+	if _, err = x.repo.RestoreAll(ctx, m.Snapshot, dest, backup.RestoreOpts{MaxSchema: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(filepath.Join(dest, "host-etc")); err == nil {
+		t.Fatal("host-etc leaked into the data tree")
+	}
+	// A snapshot taken without the host's file has none, and says so.
+	x.src.EtcFile = filepath.Join(etcDir, "absent")
+	m2, err := x.repo.Run(ctx, x.src, "manual", time.Date(2026, 11, 10, 4, 0, 0, 0, time.UTC))
+	if err != nil || m2.Etc != nil {
+		t.Fatalf("no file: %v %+v", err, m2.Etc)
+	}
+	if none, err := x.repo.RestoreEtc(ctx, m2.Snapshot, out); none != nil || err != nil {
+		t.Fatalf("restore none: %v %v", none, err)
+	}
+}
+
+func hexOf(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }

@@ -796,6 +796,11 @@ class LifecycleBase(HostCase):
         self.install_bundle = mock.patch.object(tofi_host, 'install_bundle', side_effect=lambda m: self.make_bundle(m['version'])).start()
         self.active_runs = mock.patch.object(tofi_host, 'active_runs', return_value=0).start()
         self.guest_copies = mock.patch.object(tofi_host, 'pending_guest_copies', return_value=(0, [])).start()
+        # No App answers in these tests: remote backup is "not configured" unless a test says otherwise.
+        self.real_pre_update_remote = tofi_host.pre_update_remote_snapshot
+        self.remote = mock.patch.object(tofi_host, 'pre_update_remote_snapshot', return_value={
+            'status': 'skipped', 'reason': 'not_configured', 'policy': 'attempt'}).start()
+        mock.patch.object(tofi_host, 'remote_snapshots', return_value=([], 'backup_store_misconfigured')).start()
         self.object_rows = mock.patch.object(tofi_host, 'object_rows', return_value=(0, 0, [])).start()
         self.addCleanup(mock.patch.stopall)
 

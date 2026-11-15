@@ -404,7 +404,7 @@ Later accounts are created by the Admin. Then open Settings -> Model provider.
 | `tofi config trusted-proxies [IP\|CIDR ...] [--clear]` | Show, set or clear the reverse proxies trusted for `X-Forwarded-For`; printing the Caddy/Nginx snippets when set |
 | `tofi backup [--note TEXT] [--no-disks]` | Stop, back up data, settings and (by default) every Bot computer's workspace disk, start again, then verify the new backup. Disks are zstd-compressed, copied only while TOFI is stopped; a space estimate is printed first and only the 2 newest backups keep their disks |
 | `tofi backup --verify [ID\|all]` | Check a backup without restoring it: files, sizes, sha256, archives readable, `tofi.env` usable, no unlisted files. Exit 1 on any problem |
-| `tofi backups [--json]` | List backups: id, time, version, size, reason |
+| `tofi backups [--json]` | List local backups and remote snapshots in one table: id, time, version, size, reason, LOCATION (`local` / `remote`). If remote backup is not configured or the App cannot list it, the local ones are listed and the line `Remote snapshots could not be listed: <code>` names why |
 | `tofi restore <id> [--yes] [--no-disks]` | Verify the backup's checksums, back up the current state (`pre-restore`), restore data and settings (and the Bot computer disks, if the backup has them), and switch to that backup's version. Replaced disks stay beside the new ones as `workspace-before-restore-*.ext4` |
 | `tofi uninstall` | Stop and remove containers; keep `/etc/tofi`, `/var/lib/tofi`, images, AppArmor profile; journal `stopped-retained` |
 | `tofi uninstall --purge` | After you type the hostname: remove containers, TOFI's images, profile, unit and every TOFI directory including all data. Images removed are only those named by this installation (current `tofi.env`, a pending rollback, every release manifest under `/opt/tofi`), without force, so an image another container uses is kept; each removed or kept image is printed. Nothing is pruned |
@@ -437,6 +437,14 @@ Every update is built so that nothing is lost when it fails.
   backups; a manual `tofi backup` adds `disks/<account>.ext4.zst` (see `--no-disks`). The last 3 automatic backups (`pre-update`, `pre-restore`) are kept, pruned
   after a good update; `manual` backups (`tofi backup`) are never pruned: remove
   one with `sudo tofi backups --remove <ID>`.
+- **Remote snapshot first.** When remote backup is on (Administration > Backups), `tofi update` asks the running
+  App for a `pre-update` snapshot before it stops anything (host route `/api/host/backup/run`), unless a successful
+  one with a `/etc/tofi` copy is under 6 hours old. It packs `/etc/tofi` into `data/host-etc/etc.tar.gz` (root-owned directory, file 0400
+  for the App's uid) so the snapshot carries it, encrypted. The setting `before_update` (`attempt` default, `require`,
+  `off`) decides a failure: `attempt` continues and prints the failure in red, `require` stops before anything is
+  touched. The result is `remote` in the backup's `meta.json` and in `update-history.jsonl`. The local backup below
+  is unchanged. `sudo tofi restore --from-remote` puts the snapshot's `/etc/tofi` back and refuses by name
+  (`restore_no_disk_space`) when the snapshot would not fit.
 - **Room check.** Before anything is stopped the update needs 2x the size of
   data + settings plus 1 GiB free under `/var/lib/tofi`; otherwise it refuses and
   prints the numbers.
@@ -504,8 +512,8 @@ Every update is built so that nothing is lost when it fails.
 
 ```
 $ sudo tofi backups
-  ID                       CREATED (UTC)         VERSION      SIZE      REASON
-  20261009T041203Z-v0.1.0  2026-10-09T04:12:03Z  v0.1.0       42.0 MiB  pre-update
+  ID                       CREATED (UTC)         VERSION      SIZE      REASON      LOCATION
+  20261009T041203Z-v0.1.0  2026-10-09T04:12:03Z  v0.1.0       42.0 MiB  pre-update  local
 
   Restore one with: sudo tofi restore <ID>
   Automatic backups (pre-update, pre-restore): the last 3 are kept. Manual ones stay until you remove them: sudo tofi backups --remove <ID>

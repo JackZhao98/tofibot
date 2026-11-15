@@ -39,19 +39,50 @@ type Entry struct {
 	DiskGone   int            `json:"disk_missing"` // rows whose file was already gone from disk
 	Obj        int            `json:"bucket_refs"`
 	VM         int            `json:"vm_refs"`
+	// Bytes is the plain size of everything a restore of this entry writes:
+	// database, small files and disk attachments. Snapshots made before P2
+	// have 0; Manifest.Size falls back to the database sizes then.
+	Bytes int64 `json:"bytes,omitempty"`
+}
+
+// EtcEntry lists the host's /etc/tofi archive in a snapshot (P2). The host
+// tool packs it into <data>/host-etc/etc.tar.gz; the App only encrypts and
+// uploads it. Its contents are never logged or listed.
+type EtcEntry struct {
+	CapturedAt string `json:"captured_at"`
+	Size       int64  `json:"size"`
+	SHA        string `json:"sha256"`
 }
 
 // Manifest is the encrypted list of one snapshot. Writing it commits the snapshot.
 type Manifest struct {
-	Format     int     `json:"format"`
-	InstanceID string  `json:"instance_id"`
-	Snapshot   string  `json:"snapshot"`
-	Reason     string  `json:"reason"`
-	AppVersion string  `json:"app_version"`
-	Schema     int     `json:"schema"`
-	CreatedAt  string  `json:"created_at"`
-	Root       Entry   `json:"root"`
-	Accounts   []Entry `json:"accounts"`
+	Format     int       `json:"format"`
+	InstanceID string    `json:"instance_id"`
+	Snapshot   string    `json:"snapshot"`
+	Reason     string    `json:"reason"`
+	AppVersion string    `json:"app_version"`
+	Schema     int       `json:"schema"`
+	CreatedAt  string    `json:"created_at"`
+	Root       Entry     `json:"root"`
+	Accounts   []Entry   `json:"accounts"`
+	Etc        *EtcEntry `json:"etc,omitempty"`
+}
+
+// Size is the bytes a whole-machine restore of this snapshot writes: the
+// recorded entry sizes, or the database sizes for a snapshot that has none.
+func (m *Manifest) Size() int64 {
+	var n int64
+	for _, e := range append([]Entry{m.Root}, m.Accounts...) {
+		if e.Bytes > 0 {
+			n += e.Bytes
+		} else {
+			n += e.DBSize
+		}
+	}
+	if m.Etc != nil {
+		n += m.Etc.Size
+	}
+	return n
 }
 
 // Source says where the data is and who is writing.
@@ -61,6 +92,9 @@ type Source struct {
 	AppVersion string
 	Schema     int
 	Staging    string // directory for the temporary copy (one database at a time)
+	// EtcFile is the host's /etc/tofi archive (optional). When it exists the
+	// snapshot carries it as one more encrypted object.
+	EtcFile string
 }
 
 var rowTables = []string{"bots", "conversations", "messages", "attachments"}
@@ -175,7 +209,7 @@ func diskAttachments(path string) (names map[string]string, obj, vm int, err err
 // leaves out: databases and attachments have their own objects, the rest is
 // scratch or lives elsewhere (design 4.1).
 var skipTop = map[string]bool{"tofi.db": true, "tofi.db-wal": true, "tofi.db-shm": true, "attachments": true, "accounts": true,
-	"tmp": true, ".spool": true, "backups": true, "backup": true, "host-control.token": true}
+	"tmp": true, ".spool": true, "backups": true, "backup": true, "host-control.token": true, "host-etc": true}
 
 func tarDir(dir string) ([]byte, error) {
 	var buf bytes.Buffer
@@ -347,6 +381,7 @@ func (r *Repo) capture(ctx context.Context, src Source, snap, id string, now tim
 		return e, err
 	}
 	e.DBSize, e.DBSHA = int64(len(plain)), hexSum(plain)
+	e.Bytes = e.DBSize
 	packed, err := gz(plain)
 	if err != nil {
 		return e, err
@@ -362,6 +397,7 @@ func (r *Repo) capture(ctx context.Context, src Source, snap, id string, now tim
 		return e, err
 	}
 	e.FilesSHA = hexSum(files)
+	e.Bytes += int64(len(files))
 	if files, err = gz(files); err != nil {
 		return e, err
 	}
@@ -378,9 +414,12 @@ func (r *Repo) capture(ctx context.Context, src Source, snap, id string, now tim
 		return e, err
 	}
 	e.Obj, e.VM = obj, vm
-	have := map[string]bool{}
+	have := map[string]int64{}
 	prefix := r.Base + joinKey("files", attKey) + "/"
-	if err = r.B.List(ctx, prefix, func(o filestore.ObjectInfo) error { have[strings.TrimPrefix(o.Key, prefix)] = true; return nil }); err != nil {
+	if err = r.B.List(ctx, prefix, func(o filestore.ObjectInfo) error {
+		have[strings.TrimPrefix(o.Key, prefix)] = max(o.Size-28, 0) // nonce + GCM tag
+		return nil
+	}); err != nil {
 		return e, storeErr(err)
 	}
 	ids := make([]string, 0, len(names))
@@ -389,7 +428,9 @@ func (r *Repo) capture(ctx context.Context, src Source, snap, id string, now tim
 	}
 	sort.Strings(ids)
 	for _, aid := range ids {
-		if !have[aid] {
+		if size, ok := have[aid]; ok {
+			e.Bytes += size
+		} else {
 			raw, rerr := os.ReadFile(filepath.Join(dir, "attachments", filepath.Base(names[aid])))
 			if errors.Is(rerr, os.ErrNotExist) {
 				e.DiskGone++
@@ -401,6 +442,7 @@ func (r *Repo) capture(ctx context.Context, src Source, snap, id string, now tim
 			if perr := r.putOnce(ctx, joinKey("files", attKey, aid), raw); perr != nil {
 				return e, perr
 			}
+			e.Bytes += int64(len(raw))
 		}
 		e.Disk = append(e.Disk, aid)
 	}
@@ -480,6 +522,9 @@ func (r *Repo) Run(ctx context.Context, src Source, reason string, now time.Time
 			return nil, cerr
 		}
 		m.Accounts = append(m.Accounts, e)
+	}
+	if m.Etc, err = r.captureEtc(ctx, src, snap, now); err != nil {
+		return nil, err
 	}
 	raw, _ := json.Marshal(m)
 	if err = r.put(ctx, joinKey("snapshots", snap, "manifest"), raw); err != nil {
@@ -664,4 +709,53 @@ func (r *Repo) Prune(ctx context.Context, ret Retention) (int, error) {
 		}
 	}
 	return removed, nil
+}
+
+// etcObject is the repository path of a snapshot's /etc/tofi archive.
+func etcObject(snap string) string { return joinKey("snapshots", snap, "root", "etc") }
+
+// captureEtc uploads the host's /etc/tofi archive, when the host left one. No
+// file is no object (a nil entry); an unreadable file is a failure, because a
+// snapshot that silently lacks it would look complete.
+func (r *Repo) captureEtc(ctx context.Context, src Source, snap string, now time.Time) (*EtcEntry, error) {
+	if src.EtcFile == "" {
+		return nil, nil
+	}
+	raw, err := os.ReadFile(src.EtcFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fail("backup_etc_unreadable", err)
+	}
+	at := now
+	if info, serr := os.Stat(src.EtcFile); serr == nil {
+		at = info.ModTime()
+	}
+	e := &EtcEntry{CapturedAt: at.UTC().Format(time.RFC3339), Size: int64(len(raw)), SHA: hexSum(raw)}
+	if err = r.put(ctx, etcObject(snap), raw); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// RestoreEtc writes snapshot snap's /etc/tofi archive to dest (mode 0600) and
+// returns its manifest entry (nil when the snapshot has none). The bytes are
+// checked against the manifest; only the entry (time, size, sha256) is returned.
+func (r *Repo) RestoreEtc(ctx context.Context, snap, dest string) (*EtcEntry, error) {
+	m, err := r.Manifest(ctx, snap)
+	if err != nil {
+		return nil, err
+	}
+	if m.Etc == nil {
+		return nil, nil
+	}
+	raw, err := r.get(ctx, etcObject(snap))
+	if err != nil {
+		return nil, err
+	}
+	if hexSum(raw) != m.Etc.SHA {
+		return nil, fail("backup_object_damaged", nil)
+	}
+	return m.Etc, os.WriteFile(dest, raw, 0o600)
 }
