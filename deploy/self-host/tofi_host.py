@@ -2081,10 +2081,10 @@ def check_object_rows(version):
     if target is None or gen_minimum is None or target >= gen_minimum:
         return
     gens, unreadable = generation_rows()
-    if unreadable:
-        raise HostError(
-            'Cannot tell whether files live in an earlier bucket: %s could not be read. Nothing was changed.'
-            % ', '.join(unreadable))
+    for database in unreadable:
+        # Not fatal here: the object-rows check above already refuses an unreadable database for releases
+        # without bucket support, and the File storage config below is read independently of it.
+        warn('Could not read %s to look for files in earlier buckets.' % database)
     later = {g: v for g, v in gens.items() if g != 'g1'}
     if later or file_store_has_previous_generations():
         raise HostError(
