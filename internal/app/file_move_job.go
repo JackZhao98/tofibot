@@ -476,7 +476,7 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 			}
 			for _, p := range cfg.Prev {
 				u := usage[p.Gen]
-				v.Previous = append(v.Previous, previousBucket{Gen: p.Gen, Bucket: p.Bucket, ReplacedAt: p.ReplacedAt, Files: u.Files, Bytes: u.Bytes, Pending: u.Pending})
+				v.Previous = append(v.Previous, previousBucket{Gen: p.Gen, Bucket: p.Bucket, ReplacedAt: p.ReplacedAt, Files: u.Files, Bytes: u.Bytes, Pending: u.Pending + u.Staging})
 			}
 		}
 	}

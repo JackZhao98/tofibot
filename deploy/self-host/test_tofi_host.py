@@ -2810,6 +2810,21 @@ class ObjectStoreRowsTests(HostCase):
         tofi_host.check_object_rows(tofi_host.OBJECT_ROWS_MIN_VERSION)
         tofi_host.check_object_rows('v0.7.0')
 
+    def test_a_release_before_generations_is_refused_while_a_later_generation_holds_rows(self):
+        self.database('', [('1', 'obj:k/1', 10), ('2', 'obj:g2|k/2', 20)], config={'bucket': 'b2', 'gen': 'g2'})
+        rc = tofi_host.GENERATION_MIN_VERSION
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.check_object_rows('v0.6.3-rc.16')
+        self.assertIn('more than one bucket', str(caught.exception))
+        tofi_host.check_object_rows(rc)
+        summary = tofi_host.file_store_summary()
+        self.assertEqual([g['gen'] for g in summary['generations']], ['g1', 'g2'])
+
+    def test_a_config_with_earlier_buckets_blocks_a_release_before_generations(self):
+        self.database('', [('1', 'obj:g2|k/1', 10)], config={'bucket': 'b2', 'gen': 'g2', 'prev': [{'gen': 'g1'}]})
+        with self.assertRaises(tofi_host.HostError):
+            tofi_host.check_object_rows('v0.6.3-rc.16')
+
     def test_an_older_release_is_fine_without_obj_rows(self):
         self.database('', [('1', '1.upload', 10)])
         tofi_host.check_object_rows('v0.6.2')
@@ -2824,7 +2839,8 @@ class ObjectStoreRowsTests(HostCase):
     def test_backup_note_names_the_bucket_and_counts(self):
         self.assertIsNone(tofi_host.file_store_summary())
         self.database('', [('1', 'obj:k/1', 10), ('2', 'obj:k/2', 20)], config={'bucket': 'tofi-cloud', 'gen': 'g1', 'endpoint': 'https://x'})
-        self.assertEqual(tofi_host.file_store_summary(), {'kind': 's3', 'bucket': 'tofi-cloud', 'gen': 'g1', 'objects': 2, 'bytes': 30})
+        self.assertEqual(tofi_host.file_store_summary(), {'kind': 's3', 'bucket': 'tofi-cloud', 'gen': 'g1', 'objects': 2, 'bytes': 30,
+                                                          'generations': [{'gen': 'g1', 'objects': 2, 'bytes': 30}]})
         text = tofi_host.render_backups([{'id': 'b1', 'size': 1, 'meta': {'created_at': 'now', 'version': 'v1', 'reason': 'manual',
                                                                            'file_store': tofi_host.file_store_summary()}}])
         self.assertIn('keeps 2 files in bucket tofi-cloud', text)

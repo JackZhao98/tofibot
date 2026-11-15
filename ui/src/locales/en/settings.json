@@ -714,7 +714,9 @@
         "invalid_prefix": "The prefix takes lowercase letters, digits, dots, dashes and slashes.",
         "invalid_grace": "Deleted files are kept 1 to 365 days.",
         "file_store_in_use": "Files are stored in this bucket. It cannot be removed until they are moved.",
-        "file_store_location_in_use": "That bucket is already an earlier bucket. Move its files or retire it first."
+        "file_store_location_in_use": "That bucket is already an earlier bucket. Move its files or retire it first.",
+        "file_store_cannot_compare": "Could not compare the new bucket with the current and earlier ones. Check that they are reachable and try again.",
+        "file_store_same_bucket": "This is the bucket already in use. Its prefix cannot change while files are stored in it."
       },
       "missing_accounts_one": "{{count}} account override",
       "missing_accounts_other": "{{count}} account overrides",
@@ -914,7 +916,8 @@
           "account_deleting": "Account skipped: it is being deleted",
           "account_unavailable": "Account skipped: its files could not be opened",
           "account_disabled": "Account skipped: it is disabled. Enable it, then resume or move again.",
-          "file_move_failed": "Move failed"
+          "file_move_failed": "Move failed",
+          "same_physical_bucket": "The destination is the same bucket as the source"
         },
         "reconcile_title": "Reconcile",
         "reconcile_help": "Compare file records with this server's disk and the bucket: missing files, size or checksum mismatches, and orphaned objects.",
@@ -973,7 +976,8 @@
           "no_previous_bucket": "There is no previous bucket to move files from.",
           "file_store_generation_in_use": "Files are still stored in this bucket. Move them to the current bucket first.",
           "generation_cleanup_pending": "Deleted files are still waiting out the retention period in this bucket.",
-          "generation_not_found": "There is no previous bucket to retire."
+          "generation_not_found": "There is no previous bucket to retire.",
+          "generation_busy": "This bucket was replaced a moment ago, or an import to it is still finishing. Try again later."
         },
         "to_current": "Move to current bucket",
         "direction_to_generation": "Previous bucket to current bucket",

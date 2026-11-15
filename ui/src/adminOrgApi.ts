@@ -135,7 +135,7 @@ export function backupError(cause: unknown): string {
   return i18n.t("settings:admin.org.backup.error.generic");
 }
 
-const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use", "file_store_location_in_use"] as const;
+const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use", "file_store_location_in_use", "file_store_cannot_compare", "file_store_same_bucket"] as const;
 
 /** Words for a failed Administration call, from the server's stable code. The provider's own text is never shown. Resolved at call time. */
 export function orgError(cause: unknown): string {

@@ -1963,6 +1963,9 @@ def pending_guest_copies():
 # The first release that reads `disk_name = "obj:<key>"` rows (files in the object store).
 # An older release treats such a name as a local file and answers 404 for every one.
 OBJECT_ROWS_MIN_VERSION = 'v0.6.3-rc.9'
+# The first release that reads `obj:<gen>|<key>` rows and a File storage config with earlier bucket
+# generations. An older release would read such a row as the key `<gen>|<key>` of the current bucket.
+GENERATION_MIN_VERSION = 'v0.6.3-rc.17'
 
 
 def count_object_rows(database):
@@ -1979,6 +1982,53 @@ def count_object_rows(database):
     finally:
         connection.close()
     return int(row[0]), int(row[1])
+
+
+def count_generation_rows(database):
+    """{generation: (rows, bytes)} of one App database for rows that live in a bucket (`obj:` = g1)."""
+    uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
+    connection = sqlite3.connect(uri, uri=True, timeout=5)
+    try:
+        rows = connection.execute(
+            "SELECT CASE WHEN instr(disk_name,'|')>0 THEN substr(disk_name,5,instr(disk_name,'|')-5) ELSE 'g1' END,"
+            "COUNT(*),COALESCE(SUM(size),0) FROM attachments "
+            "WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1").fetchall()
+    except sqlite3.OperationalError as error:
+        if str(error).startswith('no such table'):
+            return {}
+        raise
+    finally:
+        connection.close()
+    return {str(g): (int(n), int(b)) for g, n, b in rows}
+
+
+def generation_rows():
+    """({generation: [rows, bytes]}, unreadable) over every App database, read-only."""
+    out, unreadable = {}, []
+    for database in run_databases():
+        try:
+            per = count_generation_rows(database)
+        except (sqlite3.Error, OSError, ValueError, TypeError):
+            unreadable.append(str(database))
+            continue
+        for gen, (n, b) in per.items():
+            cur = out.setdefault(gen, [0, 0])
+            cur[0], cur[1] = cur[0] + n, cur[1] + b
+    return out, unreadable
+
+
+def file_store_has_previous_generations():
+    """True when the File storage config lists an earlier bucket generation."""
+    try:
+        uri = 'file:%s?mode=ro' % urllib.parse.quote(str(P.data / 'tofi.db'))
+        connection = sqlite3.connect(uri, uri=True, timeout=5)
+        try:
+            row = connection.execute("SELECT config FROM org_resources WHERE id='file_store'").fetchone()
+        finally:
+            connection.close()
+        return bool(row and (json.loads(row[0]) or {}).get('prev'))
+    except (sqlite3.Error, OSError, ValueError, TypeError, AttributeError):
+        return False
 
 
 def object_rows():
@@ -2015,6 +2065,9 @@ def file_store_summary():
         summary['bucket'], summary['gen'] = config.get('bucket'), config.get('gen')
     except (sqlite3.Error, OSError, ValueError, TypeError, AttributeError):
         pass
+    gens, _ = generation_rows()
+    if gens:
+        summary['generations'] = [{'gen': g, 'objects': n, 'bytes': b} for g, (n, b) in sorted(gens.items())]
     return summary
 
 
@@ -2022,8 +2075,25 @@ def check_object_rows(version):
     """Refuse a release that predates `obj:` rows while files live in the object store.
     The files must be moved back to disk first, or the release must be one that reads them."""
     target, minimum = version_key(version), version_key(OBJECT_ROWS_MIN_VERSION)
-    if target is None or minimum is None or target >= minimum:
+    if target is not None and minimum is not None and target < minimum:
+        _refuse_object_rows(version)
+    gen_minimum = version_key(GENERATION_MIN_VERSION)
+    if target is None or gen_minimum is None or target >= gen_minimum:
         return
+    gens, unreadable = generation_rows()
+    if unreadable:
+        raise HostError(
+            'Cannot tell whether files live in an earlier bucket: %s could not be read. Nothing was changed.'
+            % ', '.join(unreadable))
+    later = {g: v for g, v in gens.items() if g != 'g1'}
+    if later or file_store_has_previous_generations():
+        raise HostError(
+            'Update refused: %s predates bucket generations and File storage has more than one bucket. That release '
+            'would read those files from the wrong place. Nothing was changed. Update to %s or later, or move the '
+            'files back to one bucket and retire the earlier ones first.' % (version, GENERATION_MIN_VERSION))
+
+
+def _refuse_object_rows(version):
     rows, _, unreadable = object_rows()
     if unreadable:
         raise HostError(

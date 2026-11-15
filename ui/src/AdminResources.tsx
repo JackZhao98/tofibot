@@ -366,7 +366,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
   return <article className="detail-content provider-card org-resource" data-resource="file_store" aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={t("admin.org.file_store.name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("admin.org.file_store.tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: config?.bucket ?? "", endpoint: config?.endpoint ?? ""})}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
-    {resource && <div className="provider-key-row">
+    {resource && <div className="file-store-destination">
       <label htmlFor={`${formId}-dest`}>{t("admin.org.file_store.destination")}</label>
       <select id={`${formId}-dest`} data-field="destination" value={config?.kind === "disk" ? "disk" : "s3"} onChange={event => void destination(event.target.value as "s3" | "disk")}>
         <option value="s3">{t("admin.org.file_store.dest_bucket")}</option>

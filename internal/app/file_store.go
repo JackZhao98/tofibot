@@ -192,7 +192,8 @@ func (s *Store) objectRows() (int, error) {
 
 // objectUsage counts, per generation, the rows that live in a bucket and the
 // journal entries still waiting to remove an object from it.
-type genUsage struct{ Files, Bytes, Pending int64 }
+// Staging counts imports staged in a bucket that are not yet rows: they will become rows named by that generation.
+type genUsage struct{ Files, Bytes, Pending, Staging int64 }
 
 const genOfDisk = `CASE WHEN instr(disk_name,'|')>0 THEN substr(disk_name,5,instr(disk_name,'|')-5) ELSE 'g1' END`
 
@@ -216,18 +217,37 @@ func (s *Store) objectUsageByGen() (map[string]genUsage, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var g string
 		var n int64
 		if err = rows.Scan(&g, &n); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		u := out[g]
 		u.Pending = n
 		out[g] = u
 	}
-	return out, rows.Err()
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	staged, err := s.db.Query(`SELECT ` + genOfDisk + `,COUNT(*) FROM portability_asset_staging WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer staged.Close()
+	for staged.Next() {
+		var g string
+		var n int64
+		if err = staged.Scan(&g, &n); err != nil {
+			return nil, err
+		}
+		u := out[g]
+		u.Staging = n
+		out[g] = u
+	}
+	return out, staged.Err()
 }
 
 func (b FileBackend) String() string { return fmt.Sprintf("file backend %s", b.Kind) }

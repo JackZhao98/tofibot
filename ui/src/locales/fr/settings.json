@@ -721,7 +721,9 @@
         "invalid_prefix": "Le préfixe accepte les minuscules, les chiffres, les points, les tirets et les barres obliques.",
         "invalid_grace": "Les fichiers supprimés sont conservés de 1 à 365 jours.",
         "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Il ne peut pas être retiré tant qu'ils ne sont pas déplacés.",
-        "file_store_location_in_use": "Ce bucket est déjà un ancien bucket. Déplacez ses fichiers ou retirez-le d'abord."
+        "file_store_location_in_use": "Ce bucket est déjà un ancien bucket. Déplacez ses fichiers ou retirez-le d'abord.",
+        "file_store_cannot_compare": "Impossible de comparer le nouveau bucket avec l'actuel et les anciens. Vérifiez qu'ils sont joignables et réessayez.",
+        "file_store_same_bucket": "C'est le bucket déjà utilisé. Son préfixe ne peut pas changer tant que des fichiers y sont stockés."
       },
       "missing_accounts_one": "{{count}} exception de compte",
       "missing_accounts_many": "{{count}} exceptions de compte",
@@ -924,7 +926,8 @@
           "account_deleting": "Compte ignoré : suppression en cours",
           "account_unavailable": "Compte ignoré : ses fichiers n’ont pas pu être ouverts",
           "account_disabled": "Compte ignoré : il est désactivé. Activez-le, puis reprenez ou relancez le déplacement.",
-          "file_move_failed": "Échec du déplacement"
+          "file_move_failed": "Échec du déplacement",
+          "same_physical_bucket": "La destination est le même bucket que la source"
         },
         "reconcile_title": "Rapprochement",
         "reconcile_help": "Compare les enregistrements de fichiers avec le disque de ce serveur et le bucket : fichiers manquants, écarts de taille ou de somme de contrôle, objets orphelins.",
@@ -983,7 +986,8 @@
           "no_previous_bucket": "Il n'y a aucun ancien bucket d'où déplacer des fichiers.",
           "file_store_generation_in_use": "Des fichiers sont encore stockés dans ce bucket. Déplacez-les d'abord vers le bucket actuel.",
           "generation_cleanup_pending": "Des fichiers supprimés attendent encore la fin de la période de rétention dans ce bucket.",
-          "generation_not_found": "Il n'y a aucun ancien bucket à retirer."
+          "generation_not_found": "Il n'y a aucun ancien bucket à retirer.",
+          "generation_busy": "Ce bucket vient d'être remplacé, ou un import y est encore en cours. Réessayez plus tard."
         },
         "to_current": "Déplacer vers le bucket actuel",
         "direction_to_generation": "Ancien bucket vers bucket actuel",

@@ -7,6 +7,7 @@ package app
 // store handle and a key layout), never the credentials.
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -219,39 +220,10 @@ func (w watchedStore) List(ctx context.Context, prefix string, fn func(filestore
 	return w.note(w.Store.List(ctx, prefix, fn))
 }
 
-// objectRowsAnywhere counts `obj:` rows in every account's workspace.
-func (g *AccountGateway) objectRowsAnywhere(ctx context.Context) (int, error) {
-	rows, err := g.root.store.db.QueryContext(ctx, `SELECT id,username,email,role,disabled,legacy,deleting FROM accounts`)
-	if err != nil {
-		return 0, err
-	}
-	var accounts []Account
-	for rows.Next() {
-		var a Account
-		if err = rows.Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.Legacy, &a.Deleting); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		accounts = append(accounts, a)
-	}
-	rows.Close()
-	total := 0
-	for _, a := range accounts {
-		ws, err := g.workspace(a)
-		if err != nil {
-			return 0, err
-		}
-		n, err := ws.store.objectRows()
-		if err != nil {
-			return 0, err
-		}
-		total += n
-	}
-	return total, nil
-}
-
-// deleteAccountFiles is the `files` step of account deletion: every object under
-// the account's prefix, no grace. Without a bucket there is nothing to remove.
+// deleteAccountFiles is the `files` step of account deletion: every object under the
+// account's prefix in the current bucket and in every earlier generation, no grace. A
+// generation that cannot be reached fails the step by name: the account's files must not
+// be left behind in a bucket nobody looked at. Without a bucket there is nothing to remove.
 func (g *AccountGateway) deleteAccountFiles(ctx context.Context, accountID string) error {
 	b, err := g.fileBackendFor(ctx, accountID)
 	if err != nil {
@@ -260,16 +232,86 @@ func (g *AccountGateway) deleteAccountFiles(ctx context.Context, accountID strin
 	if b.Store == nil {
 		return nil
 	}
-	var keys []string
-	if err = b.Store.List(ctx, b.Prefix, func(o filestore.ObjectInfo) error { keys = append(keys, o.Key); return nil }); err != nil {
-		return err
+	type target struct {
+		st     filestore.Store
+		prefix string
 	}
-	for _, k := range keys {
-		if err = b.Store.Delete(ctx, k); err != nil {
-			return err
+	targets := []target{{b.Store, b.Prefix}}
+	if row, found, rerr := g.getOrgResource(ctx, orgFileStoreID); rerr != nil {
+		return rerr
+	} else if found {
+		var cfg fileStoreConfig
+		_ = json.Unmarshal([]byte(row.Config), &cfg)
+		for _, p := range cfg.Prev {
+			st, oerr := b.Old(p.Gen)
+			if oerr != nil || st == nil {
+				return newFileStoreError(codeFileStoreMisconfigured, errors.New("earlier bucket not available"))
+			}
+			targets = append(targets, target{st, FileStoreKeyPrefix(p.Prefix, g.root.instance.ID, accountID)})
+		}
+	}
+	for _, t := range targets {
+		var keys []string
+		if err = t.st.List(ctx, t.prefix, func(o filestore.ObjectInfo) error { keys = append(keys, o.Key); return nil }); err != nil {
+			return fileStoreFailure(err)
+		}
+		for _, k := range keys {
+			if err = t.st.Delete(ctx, k); err != nil {
+				return fileStoreFailure(err)
+			}
 		}
 	}
 	return nil
+}
+
+// aliasedGeneration writes a probe object through the new configuration and looks for it
+// through the current generation and every earlier one. It returns the generation that can
+// read it (the same physical bucket under another name), or "" when none can. A generation
+// that cannot be asked is an error: nothing is minted on a guess.
+func (g *AccountGateway) aliasedGeneration(ctx context.Context, cfg, prev fileStoreConfig, accessKey, secret string) (string, error) {
+	s3, err := filestore.NewS3(cfg.s3(accessKey, secret))
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+	defer cancel()
+	key := cfg.Prefix + fileStoreLayoutV1 + "/" + g.root.instance.ID + "/_probe/" + newID()
+	payload := []byte("tofi-alias-probe")
+	if err = s3.Put(ctx, key, bytes.NewReader(payload), filestore.ObjectMeta{Size: int64(len(payload)), SHA256: "probe", SafeMIME: "application/octet-stream"}); err != nil {
+		return "", err
+	}
+	defer func() { _ = s3.Delete(context.WithoutCancel(ctx), key) }()
+	gens := append([]fileStoreGen{prev.asGen("")}, prev.Prev...)
+	for _, c := range gens {
+		st, err := g.openGenStore(prev, c)
+		if err != nil {
+			return "", err
+		}
+		if _, err = st.Stat(ctx, key); err == nil {
+			return c.Gen, nil
+		} else if !errors.Is(err, filestore.ErrNotFound) {
+			return "", err
+		}
+	}
+	return "", nil
+}
+
+// openGenStore builds a client for one generation straight from the vault (no cache).
+func (g *AccountGateway) openGenStore(cfg fileStoreConfig, c fileStoreGen) (filestore.Store, error) {
+	id := fileStoreGenVaultID(c.Gen)
+	if c.Gen == prevGenName(cfg) {
+		id = orgFileStoreID
+	}
+	v, err := g.orgSecrets()
+	if err != nil {
+		return nil, err
+	}
+	got, ok := secretSource(v).secret(id, orgFileStoreKind)
+	if !ok {
+		return nil, errOrgResourceMissing
+	}
+	accessKey, key, _ := strings.Cut(got.Value, "\x00")
+	return filestore.NewS3(c.config().s3(accessKey, key))
 }
 
 // fileStoreIn is the PUT body. A blank key pair keeps the stored one only while
@@ -339,6 +381,9 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	ctx := r.Context()
+	// Read under the lock: two saves must not both start from the same stored config.
+	g.orgWriteMu.Lock()
+	defer g.orgWriteMu.Unlock()
 	old, found, err := g.getOrgResource(ctx, sp.ID)
 	if err != nil {
 		storageFailure(w, "read resource", err)
@@ -349,8 +394,6 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		_ = json.Unmarshal([]byte(old.Config), &prev)
 		cfg = prev
 	}
-	g.orgWriteMu.Lock()
-	defer g.orgWriteMu.Unlock()
 	// "disk" turns new files back to this server's disk and keeps the bucket
 	// readable: rows already in it are still read from it.
 	if in.Kind == fileStoreKindDisk {
@@ -427,9 +470,11 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		writeErr(w, 400, "invalid_key", "Enter the full access key ID and secret.")
 		return
 	}
-	// A different bucket, endpoint or prefix is a migration, not an edit: while files live in the
-	// current bucket it becomes the next generation and the current one stays readable.
-	newGen := false
+	// A different bucket, endpoint or prefix is a migration, not an edit: the new config becomes the
+	// next generation (an empty one is simply retirable) and the current one stays readable. Whether
+	// it really is another bucket is decided by looking, not by comparing strings: a probe written
+	// through the new config that an existing generation can read is the same physical bucket.
+	newGen, verified := false, false
 	if found && !cfg.sameLocation(prev) {
 		for _, p := range prev.Prev {
 			if cfg.sameLocation(p.config()) {
@@ -437,21 +482,45 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 				return
 			}
 		}
-		usage, err := g.fileStoreUsage(ctx, true)
-		if err != nil {
-			storageFailure(w, "count stored files", err)
+		if res := g.verifyFileStore(ctx, cfg, accessKey, secretKey); !res.ok {
+			writeErr(w, res.status, res.code, res.msg)
 			return
 		}
-		u := usage[prevGenName(prev)]
-		newGen = u.Files > 0 || u.Pending > 0
+		verified = true
+		alias, aerr := g.aliasedGeneration(ctx, cfg, prev, accessKey, secretKey)
+		if aerr != nil {
+			writeErr(w, 502, "file_store_cannot_compare", "Could not compare the new bucket with the current and earlier ones. Check that they are reachable and try again.")
+			return
+		}
+		switch {
+		case alias == "":
+			newGen = true
+		case alias != prevGenName(prev):
+			writeErr(w, 409, "file_store_location_in_use", "That bucket is already an earlier bucket. Move its files or retire it first.")
+			return
+		case cfg.Prefix != prev.Prefix:
+			// The same bucket under another name: the address is an edit, but a prefix change would
+			// leave the account-scoped listing of the old prefix behind while files live there.
+			usage, uerr := g.fileStoreUsage(ctx, true)
+			if uerr != nil {
+				storageFailure(w, "count stored files", uerr)
+				return
+			}
+			if u := usage[alias]; u.Files+u.Pending+u.Staging > 0 {
+				writeErr(w, 409, "file_store_same_bucket", "This is the bucket already in use. Its prefix cannot change while files are stored in it.")
+				return
+			}
+		}
 		if newGen {
 			cfg.Prev = append(append([]fileStoreGen{}, prev.Prev...), prev.asGen(now()))
 			cfg.Gen = prev.nextGen()
 		}
 	}
-	if res := g.verifyFileStore(ctx, cfg, accessKey, secretKey); !res.ok {
-		writeErr(w, res.status, res.code, res.msg)
-		return
+	if !verified {
+		if res := g.verifyFileStore(ctx, cfg, accessKey, secretKey); !res.ok {
+			writeErr(w, res.status, res.code, res.msg)
+			return
+		}
 	}
 	cfgJSON, err := json.Marshal(cfg)
 	if err != nil {
@@ -513,6 +582,9 @@ func (g *AccountGateway) saveFileStoreConfig(w http.ResponseWriter, ctx context.
 	writeJSON(w, 200, row.view())
 }
 
+// generationQuietPeriod is how long after a switch an earlier generation stays unretirable.
+var generationQuietPeriod = time.Hour
+
 func prevGenName(c fileStoreConfig) string {
 	if c.Gen == "" {
 		return firstFileStoreGen
@@ -549,7 +621,7 @@ func (g *AccountGateway) fileStoreUsage(ctx context.Context, strict bool) (map[s
 		}
 		for gen, u := range per {
 			t := out[gen]
-			t.Files, t.Bytes, t.Pending = t.Files+u.Files, t.Bytes+u.Bytes, t.Pending+u.Pending
+			t.Files, t.Bytes, t.Pending, t.Staging = t.Files+u.Files, t.Bytes+u.Bytes, t.Pending+u.Pending, t.Staging+u.Staging
 			out[gen] = t
 		}
 	}
@@ -586,6 +658,12 @@ func (g *AccountGateway) retireFileStoreGen(ctx context.Context, gen string) (co
 		return "file_store_generation_in_use", "Files are still stored in this bucket. Move them to the current bucket first.", 409, nil
 	case u.Pending > 0:
 		return "generation_cleanup_pending", "Deleted files are still waiting out their grace period in this bucket.", 409, nil
+	case u.Staging > 0:
+		return "generation_busy", "An import to this bucket is still waiting to finish.", 409, nil
+	}
+	// An upload that wrote to this bucket just before the switch may still be inserting its row.
+	if at, perr := time.Parse(time.RFC3339, cfg.Prev[idx].ReplacedAt); perr != nil || time.Since(at) < generationQuietPeriod {
+		return "generation_busy", "This bucket was replaced a moment ago. Uploads that were in progress may still finish into it. Try again in an hour.", 409, nil
 	}
 	v, err := g.orgSecrets()
 	if err != nil {

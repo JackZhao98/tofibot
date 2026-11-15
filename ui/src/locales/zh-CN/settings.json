@@ -707,7 +707,9 @@
         "invalid_prefix": "前缀只能包含小写字母、数字、点、短横线和斜杠。",
         "invalid_grace": "已删除文件保留 1 到 365 天。",
         "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能移除。",
-        "file_store_location_in_use": "该存储桶已经是旧存储桶。请先迁走其中的文件，或先将其停用。"
+        "file_store_location_in_use": "该存储桶已经是旧存储桶。请先迁走其中的文件，或先将其停用。",
+        "file_store_cannot_compare": "无法将新存储桶与当前及旧存储桶进行比较。请确认它们可以访问，然后重试。",
+        "file_store_same_bucket": "这是已在使用的存储桶。其中有文件时，不能更改前缀。"
       },
       "missing_accounts_other": "{{count}} 个账户覆盖",
       "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
@@ -904,7 +906,8 @@
           "account_deleting": "已跳过账户：正在删除",
           "account_unavailable": "已跳过账户：无法打开其文件",
           "account_disabled": "已跳过账户：已被停用。请先启用，再继续或重新移动。",
-          "file_move_failed": "移动失败"
+          "file_move_failed": "移动失败",
+          "same_physical_bucket": "目标与来源是同一个存储桶"
         },
         "reconcile_title": "对账",
         "reconcile_help": "将文件记录与本服务器磁盘和存储桶对照：缺失文件、大小或校验和不一致，以及孤立对象。",
@@ -963,7 +966,8 @@
           "no_previous_bucket": "没有可迁出文件的旧存储桶。",
           "file_store_generation_in_use": "此存储桶中仍有文件，请先迁到当前存储桶。",
           "generation_cleanup_pending": "已删除的文件仍在此存储桶中等待保留期结束。",
-          "generation_not_found": "没有可停用的旧存储桶。"
+          "generation_not_found": "没有可停用的旧存储桶。",
+          "generation_busy": "此存储桶刚刚被替换，或有导入仍在完成。请稍后再试。"
         },
         "to_current": "迁到当前存储桶",
         "direction_to_generation": "旧存储桶到当前存储桶",
