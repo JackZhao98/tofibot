@@ -91,3 +91,56 @@ func TestRestoreSpaceCheck(t *testing.T) {
 		t.Fatalf("an unmeasurable disk must be refused by name: %v", err)
 	}
 }
+
+// The host reaches the single-account restore by username or id: list, restore
+// (a later Bot goes away), undo (it comes back); unknown and original-owner
+// accounts are refused by name.
+func TestHostAccountRestoreChannel(t *testing.T) {
+	b := newBackupFixture(t)
+	hostBackupFixture(t, b)
+	call := func(path, body string) (int, map[string]any) {
+		w := hostCall(b.g, "POST", "/api/host/backup/"+path, body, bearer())
+		var out map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		return w.Code, out
+	}
+	ws, err := b.g.workspace(b.member)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ws.store.CreateBot("first", "", "model"); err != nil {
+		t.Fatal(err)
+	}
+	st := b.run(t)
+	if _, err = ws.store.CreateBot("later", "", "model"); err != nil {
+		t.Fatal(err)
+	}
+	code, out := call("account-snapshots", `{"account":"org-member"}`)
+	list, _ := out["snapshots"].([]any)
+	if code != 200 || len(list) != 1 || out["account"] != b.member.ID {
+		t.Fatalf("list %d %v", code, out)
+	}
+	if code, _ = call("account-snapshots", `{"account":"nobody"}`); code != 404 {
+		t.Fatalf("unknown account: %d", code)
+	}
+	if code, out = call("account-restore", `{"account":"`+b.member.ID+`","snapshot":"`+st.LastSnapshot+`"}`); code != 200 || out["restored"] != true {
+		t.Fatalf("restore %d %v", code, out)
+	}
+	ws, _ = b.g.workspace(b.member)
+	if bots, _ := ws.store.ListBots(); len(bots) != 1 {
+		t.Fatalf("after restore: %d bots", len(bots))
+	}
+	if code, _ = call("account-undo", `{"account":"org-member"}`); code != 200 {
+		t.Fatalf("undo %d", code)
+	}
+	ws, _ = b.g.workspace(b.member)
+	if bots, _ := ws.store.ListBots(); len(bots) != 2 {
+		t.Fatalf("after undo: %d bots", len(bots))
+	}
+	if _, err = b.g.root.store.db.Exec(`UPDATE accounts SET legacy=1 WHERE id=?`, b.admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	if code, out = call("account-snapshots", `{"account":"org-admin"}`); code != 409 || out["error"].(map[string]any)["code"] != "account_restore_unsupported_legacy" {
+		t.Fatalf("legacy %d %v", code, out)
+	}
+}

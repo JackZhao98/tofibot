@@ -43,6 +43,7 @@ import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
 import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded } from "./lazyPanels";
+import { setPendingSection } from "./settings/pendingSection";
 import { linkRuntime, provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import type { OpenLinkDeps } from "./settings/linkRuntime";
 import { BotIdentityCard } from "./BotIdentityCard";
@@ -593,7 +594,7 @@ function Workspace() {
   notifyOpen.current = (item) => {
     if (item.conversation_id) { selectConversation(item.conversation_id); setMobileList(false); }
     else if (item.kind === "spend_alert") openSettings("usage");
-    else if (item.kind === "admin_alert") openSettings("admin-resources"); // the Backups card is on this page
+    else if (item.kind === "admin_alert") { setPendingSection({ scope: "settings", page: "admin-resources", section: "backups" }); openSettings("admin-resources"); } // land on the Backups card
   };
   const [usageBotId, setUsageBotId] = useState("");
   // What is open (docs/design/widgets-and-sidebar.md): widgets in the chat, one sidebar at the window edge, one exclusive cover.

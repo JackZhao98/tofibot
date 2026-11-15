@@ -194,46 +194,13 @@ func (g *AccountGateway) adminAccountBackups(w http.ResponseWriter, r *http.Requ
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/admin/accounts/"), "/")
 	id, action := parts[0], strings.Join(parts[1:], "/")
 	ctx := r.Context()
-	fail := func(err error) {
-		var re *restoreError
-		code, _ := errorCode(err)
-		switch {
-		case errors.As(err, &re):
-			writeErr(w, re.status, re.code, "restore refused")
-		case code == "backup_schema_too_new":
-			writeErr(w, 409, "schema_too_new", "the snapshot is newer than this program")
-		case code != "backup_failed":
-			writeErr(w, backupStatusFor(code), code, "restore stopped; the account was not changed")
-		default:
-			storageFailure(w, "restore account", err)
-		}
-	}
+	fail := func(err error) { writeRestoreFailure(w, err) }
 	switch {
 	case action == "backups" && r.Method == http.MethodGet:
-		repo, _, err := g.backupRepo(ctx)
+		out, err := g.accountSnapshots(ctx, id)
 		if err != nil {
 			fail(err)
 			return
-		}
-		snaps, err := repo.List(ctx)
-		if err != nil {
-			fail(err)
-			return
-		}
-		out := []map[string]any{}
-		for i := len(snaps) - 1; i >= 0; i-- {
-			if !snaps[i].Committed {
-				continue
-			}
-			m, merr := repo.Manifest(ctx, snaps[i].Name)
-			if merr != nil {
-				continue
-			}
-			for _, e := range m.Accounts {
-				if e.ID == id {
-					out = append(out, map[string]any{"name": m.Snapshot, "at": m.CreatedAt, "reason": m.Reason, "rows": e.Rows, "files": len(e.Disk)})
-				}
-			}
 		}
 		writeJSON(w, 200, map[string]any{"snapshots": out, "undo_available": len(g.beforeRestoreDirs(id)) > 0})
 	case action == "restore" && r.Method == http.MethodPost:
@@ -260,4 +227,48 @@ func (g *AccountGateway) adminAccountBackups(w http.ResponseWriter, r *http.Requ
 	default:
 		writeErr(w, 405, "method_not_allowed", "unsupported method")
 	}
+}
+
+// writeRestoreFailure maps a restore error to its named HTTP answer; upstream text never leaves.
+func writeRestoreFailure(w http.ResponseWriter, err error) {
+	var re *restoreError
+	code, _ := errorCode(err)
+	switch {
+	case errors.As(err, &re):
+		writeErr(w, re.status, re.code, "restore refused")
+	case code == "backup_schema_too_new":
+		writeErr(w, 409, "schema_too_new", "the snapshot is newer than this program")
+	case code != "backup_failed":
+		writeErr(w, backupStatusFor(code), code, "restore stopped; the account was not changed")
+	default:
+		storageFailure(w, "restore account", err)
+	}
+}
+
+// accountSnapshots lists the committed snapshots that hold the account, newest first.
+func (g *AccountGateway) accountSnapshots(ctx context.Context, id string) ([]map[string]any, error) {
+	repo, _, err := g.backupRepo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snaps, err := repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := []map[string]any{}
+	for i := len(snaps) - 1; i >= 0; i-- {
+		if !snaps[i].Committed {
+			continue
+		}
+		m, merr := repo.Manifest(ctx, snaps[i].Name)
+		if merr != nil {
+			continue
+		}
+		for _, e := range m.Accounts {
+			if e.ID == id {
+				out = append(out, map[string]any{"name": m.Snapshot, "at": m.CreatedAt, "reason": m.Reason, "rows": e.Rows, "files": len(e.Disk)})
+			}
+		}
+	}
+	return out, nil
 }

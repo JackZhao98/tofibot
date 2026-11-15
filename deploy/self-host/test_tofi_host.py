@@ -3533,5 +3533,88 @@ class HostControlClientTests(NoComputerCase):
         self.assertIn('TOFI_HOST_CONTROL_TOKEN_FILE: /app/data/host-control.token', app)
 
 
+class AccountRestoreCliTests(LifecycleBase):
+    """`tofi restore --from-remote --account` and `--undo`: the host-control call is mocked."""
+    POINTS = [{'name': '20261115T100000Z-scheduled', 'at': '2026-11-15T10:00:00Z', 'reason': 'scheduled',
+               'rows': {'conversations': 3, 'messages': 40}, 'files': 2},
+              {'name': '20261114T100000Z-scheduled', 'at': '2026-11-14T10:00:00Z', 'reason': 'scheduled',
+               'rows': {'conversations': 2, 'messages': 30}, 'files': 1}]
+
+    def setUp(self):
+        super().setUp()
+        self.installed()
+        self.calls = []
+        self.fail = {}
+        self.undo_available = False
+
+        def control(env, operation, body=None, timeout=60, route=None):
+            self.calls.append((operation, body, route))
+            if operation in self.fail:
+                raise tofi_host.HostControlUnavailable('x', 409, self.fail[operation])
+            if operation == 'account-snapshots':
+                return {'account': 'acc1', 'username': 'maya', 'snapshots': self.POINTS, 'undo_available': self.undo_available}
+            if operation == 'account-restore':
+                return {'restored': True, 'undo_until': '2026-11-29T10:00:00Z'}
+            return {'undone': True}
+        mock.patch.object(tofi_host, 'host_control', side_effect=control).start()
+
+    def run_main(self, *argv):
+        with mock.patch('sys.stderr', new_callable=io.StringIO) as err, mock.patch('sys.stdout', new_callable=io.StringIO) as out:
+            code = tofi_host.main(list(argv))
+        return (code if code == 0 else err.getvalue()), out.getvalue(), err.getvalue()
+
+    def test_yes_restores_the_newest_point_and_says_what_is_replaced(self):
+        code, out, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes')
+        self.assertEqual(code, 0)
+        self.assertEqual([c[0] for c in self.calls], ['account-snapshots', 'account-restore'])
+        self.assertEqual(self.calls[1][1], {'account': 'maya', 'snapshot': self.POINTS[0]['name']})
+        self.assertEqual(self.calls[1][2], tofi_host.HOST_BACKUP_ROUTE)
+        self.assertIn('replaced', out)
+        self.assertIn('kept for 14 days', out)
+
+    def test_snapshot_prefix_picks_that_point_and_a_bad_name_is_refused(self):
+        code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--snapshot', '20261114', '--yes')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.calls[-1][1]['snapshot'], self.POINTS[1]['name'])
+        self.calls.clear()
+        code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--snapshot', 'nope', '--yes')
+        self.assertIn('restore_snapshot_not_found', code)
+        self.assertEqual([c[0] for c in self.calls], ['account-snapshots'])
+
+    def test_without_a_terminal_and_without_yes_nothing_is_restored(self):
+        with mock.patch('sys.stdin.isatty', return_value=False):
+            code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--snapshot', '20261114')
+        self.assertIn('terminal', code)
+        self.assertNotIn('account-restore', [c[0] for c in self.calls])
+
+    def test_terminal_choice_and_typed_username(self):
+        with mock.patch('sys.stdin.isatty', return_value=True), mock.patch('builtins.input', side_effect=['2', 'wrong']):
+            code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya')
+        self.assertIn('cancelled', code)
+        self.assertNotIn('account-restore', [c[0] for c in self.calls])
+        with mock.patch('sys.stdin.isatty', return_value=True), mock.patch('builtins.input', side_effect=['2', 'maya']):
+            code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.calls[-1][1]['snapshot'], self.POINTS[1]['name'])
+
+    def test_undo(self):
+        code, _, _ = self.run_main('restore', '--account', 'maya', '--undo', '--yes')
+        self.assertIn('nothing_to_undo', code)
+        self.undo_available = True
+        code, out, _ = self.run_main('restore', '--account', 'maya', '--undo', '--yes')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.calls[-1][0], 'account-undo')
+
+    def test_named_errors_hide_the_app_text(self):
+        self.fail['account-restore'] = 'backup_instance_mismatch'
+        code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes')
+        self.assertIn('backup_instance_mismatch', code)
+        self.assertIn('another server', code)
+
+    def test_flag_combinations(self):
+        self.assertIn('--account', self.run_main('restore', '--snapshot', 'x')[0])
+        self.assertIn('--from-remote', self.run_main('restore', '--account', 'maya', '--yes')[0])
+
+
 if __name__ == '__main__':
     unittest.main()

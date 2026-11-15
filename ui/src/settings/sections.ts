@@ -17,7 +17,7 @@ export const SETTINGS_SECTIONS = {
   advanced: ["version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"],
   admin: ["accounts", "version"],
   "admin-groups": ["policy", "members"],
-  "admin-resources": ["models", "computers", "web"],
+  "admin-resources": ["models", "computers", "storage", "backups", "web"],
   "admin-design": [],
 } as const;
 
