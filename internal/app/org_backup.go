@@ -590,6 +590,21 @@ func (g *AccountGateway) adminBackups(w http.ResponseWriter, r *http.Request, a 
 	case rest == "settings" && r.Method == http.MethodPut:
 		g.putBackupSettings(w, r)
 	case (rest == "run" || rest == "verify") && r.Method == http.MethodPost:
+		// Both need the confirmed Recovery Key, and Verify a snapshot of this server to check. Refused here, an early
+		// press never starts a job, never marks the card failed and never alerts the admins.
+		cfg, _, found, err := g.backupConfigRow(ctx)
+		if err != nil {
+			storageFailure(w, "read backup settings", err)
+			return true
+		}
+		if _, hasDEK := g.backupDEK(); !found || cfg.Bucket == "" || !hasDEK || cfg.KeyConfirmedAt == "" {
+			writeErr(w, 409, "backup_not_ready", "Create and confirm the Recovery Key first.")
+			return true
+		}
+		if rest == "verify" && g.loadBackupStatus().LastSuccessAt == "" {
+			writeErr(w, 409, "backup_no_snapshot", "Run a backup first: there is no snapshot to check.")
+			return true
+		}
 		if !g.beginBackupJob() {
 			writeErr(w, 409, "backup_in_progress", "a backup job is already running")
 			return true

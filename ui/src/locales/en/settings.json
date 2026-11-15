@@ -884,7 +884,7 @@
         "to_bucket": "Move to bucket",
         "to_disk": "Move to disk",
         "needs_bucket_destination": "To move files to the bucket, set “New files go to” to Object storage first.",
-        "needs_disk_destination": "To move files back to disk, set “New files go to” to this server's disk first.",
+        "needs_disk_destination": "To move files back to disk, set “{{setting}}” to this server's disk first.",
         "direction_to_bucket": "Disk to bucket",
         "direction_to_disk": "Bucket to disk",
         "progress": "{{done}} of {{total}} files · {{size}} of {{totalSize}}",

@@ -876,7 +876,7 @@
         "to_bucket": "移到儲存桶",
         "to_disk": "移到磁碟",
         "needs_bucket_destination": "要把檔案移到儲存桶，請先將「新檔案存放到」設為物件儲存。",
-        "needs_disk_destination": "要把檔案移回磁碟，請先將「新檔案存放到」設為本伺服器磁碟。",
+        "needs_disk_destination": "要把檔案移回磁碟，請先將「{{setting}}」設為本伺服器磁碟。",
         "direction_to_bucket": "磁碟到儲存桶",
         "direction_to_disk": "儲存桶到磁碟",
         "progress": "{{done}} / {{total}} 個檔案 · {{size}} / {{totalSize}}",

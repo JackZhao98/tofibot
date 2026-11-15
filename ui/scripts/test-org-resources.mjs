@@ -579,6 +579,32 @@ try {
     console.log("PASS backups: the snapshot before updates is a setting on the card and saving sends it");
   }
 
+  // Run now, Verify now and the snapshot list wait for the confirmed Recovery Key; Verify also for a first snapshot.
+  {
+    const base = (() => { stub.reset(); return stub.handle(new URL("http://fixture.test/api/admin/backups"), "GET")[1]; })();
+    const states = [
+      {name: "no key", key: {present: false, fingerprint: "", confirmed_at: ""}, status: {running: false}, run: false, verify: false, list: false, hint: true},
+      {name: "key not confirmed", key: {present: true, fingerprint: "ab12", confirmed_at: ""}, status: {running: false}, run: false, verify: false, list: false, hint: true},
+      {name: "no snapshot yet", key: {present: true, fingerprint: "ab12", confirmed_at: "2026-11-10T00:00:00Z"}, status: {running: false}, run: true, verify: false, list: true, hint: false},
+      {name: "ready", key: {present: true, fingerprint: "ab12", confirmed_at: "2026-11-10T00:00:00Z"}, status: {running: false, last_status: "ok", last_success_at: "2026-11-11T03:00:00Z"}, run: true, verify: true, list: true, hint: false},
+    ];
+    for (const state of states) {
+      stub.reset();
+      const view = {...base, configured: true, settings: {...base.settings, bucket: "tofi-backups", endpoint: "https://r2.example.test"}, key: state.key, status: state.status};
+      const withBackups = {...stub, handle: (url, method, body) => new URL(url).pathname === "/api/admin/backups" && method === "GET" ? [200, view] : stub.handle(url, method, body)};
+      const page = await openSettings({browser, fixture, stub: withBackups, errors, params: {tab: "admin-resources"}});
+      const backups = card(page.page, "backup_store");
+      await backups.locator('[data-action="run"]').waitFor();
+      const enabled = async action => !(await backups.locator(`[data-action="${action}"]`).isDisabled());
+      assert.equal(await enabled("run"), state.run, `${state.name}: Run now`);
+      assert.equal(await enabled("verify"), state.verify, `${state.name}: Verify now`);
+      assert.equal(await enabled("snapshots"), state.list, `${state.name}: Show snapshots`);
+      assert.equal(await backups.locator('[data-hint="key-not-ready"]').count(), state.hint ? 1 : 0, `${state.name}: the Recovery Key hint`);
+      await page.close();
+    }
+    console.log("PASS backups: Run, Verify and the snapshot list wait for the confirmed Recovery Key (Verify also for a snapshot)");
+  }
+
   // ---- 8. Every language renders the page without raw keys.
   for (const language of ["zh-CN", "zh-TW", "ja", "ko", "de", "fr"]) {
     stub.reset();

@@ -876,7 +876,7 @@
         "to_bucket": "バケットへ移動",
         "to_disk": "ディスクへ移動",
         "needs_bucket_destination": "ファイルをバケットへ移動するには、先に「新しいファイルの保存先」をオブジェクトストレージにしてください。",
-        "needs_disk_destination": "ファイルをディスクへ戻すには、先に「新しいファイルの保存先」をこのサーバーのディスクにしてください。",
+        "needs_disk_destination": "ファイルをディスクへ戻すには、先に「{{setting}}」をこのサーバーのディスクにしてください。",
         "direction_to_bucket": "ディスクからバケットへ",
         "direction_to_disk": "バケットからディスクへ",
         "progress": "{{done}} / {{total}} 件 · {{size}} / {{totalSize}}",

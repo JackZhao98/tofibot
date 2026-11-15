@@ -876,7 +876,7 @@
         "to_bucket": "버킷으로 이동",
         "to_disk": "디스크로 이동",
         "needs_bucket_destination": "파일을 버킷으로 이동하려면 먼저 “새 파일 저장 위치”를 오브젝트 스토리지로 설정하세요.",
-        "needs_disk_destination": "파일을 디스크로 되돌리려면 먼저 “새 파일 저장 위치”를 이 서버의 디스크로 설정하세요.",
+        "needs_disk_destination": "파일을 디스크로 되돌리려면 먼저 “{{setting}}”를 이 서버의 디스크로 설정하세요.",
         "direction_to_bucket": "디스크 → 버킷",
         "direction_to_disk": "버킷 → 디스크",
         "progress": "파일 {{done}}/{{total}}개 · {{size}} / {{totalSize}}",
