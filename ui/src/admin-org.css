@@ -100,4 +100,7 @@
 /* Remote backups card: the Recovery Key is shown once, selectable and in monospace. */
 .backup-recovery-key { display: block; margin: 8px 0; padding: 10px 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 15px; letter-spacing: 0.04em; word-break: break-all; user-select: all; border-radius: 8px; background: var(--sunk); }
 .backup-key, .backup-settings, .backup-status, .backup-restore { display: grid; gap: 8px; margin-top: 16px; }
+.backup-hint { margin: -2px 0 4px; color: var(--muted); font: var(--type-meta); }
+.backup-settings > .provider-key-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px; align-items: center; gap: 12px; }
+.backup-settings > .provider-key-row > label { margin: 0; }
 .backup-snapshots { margin: 0; padding-left: 18px; }

@@ -53,7 +53,7 @@ export type OrgResourceInput = {key?: string; base_url?: string; models?: string
 export type FileStoreInput = {kind?: "s3" | "disk"; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; access_key_id?: string; key?: string; delete_grace_days?: number; confirm_public?: boolean};
 
 /** `GET /api/admin/backups`: the Backups card's whole state. Keys are never in it. */
-export type BackupSettings = {remote: "on" | "off"; schedule: "daily" | "6h" | "hourly" | "manual"; keep_daily: number; keep_weekly: number; keep_monthly: number; verify: "weekly" | "monthly" | "manual"; stale_after_hours: number};
+export type BackupSettings = {remote: "on" | "off"; schedule: "daily" | "6h" | "hourly" | "manual"; keep_daily: number; keep_weekly: number; keep_monthly: number; verify: "weekly" | "monthly" | "manual"; stale_after_hours: number; before_update: "attempt" | "require" | "off"};
 export type BackupStatus = {running: boolean; last_attempt_at?: string; last_status?: "ok" | "failed" | "blocked"; last_code?: string; last_account?: string; last_success_at?: string; last_snapshot?: string; last_duration_ms?: number; prune_code?: string; verified_at?: string; verified_snapshot?: string; verify_status?: "ok" | "failed"; verify_code?: string; verify_duration_ms?: number};
 export type BackupView = {configured: boolean; destination?: {endpoint: string; bucket: string; prefix: string}; settings: BackupSettings; key: {present: boolean; fingerprint: string; confirmed_at: string}; status: BackupStatus; stale: boolean; resource?: OrgResource};
 export type BackupSnapshot = {name: string; at: string; reason: string; rows?: Record<string, number>; files?: number};
