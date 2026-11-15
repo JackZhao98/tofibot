@@ -70,7 +70,7 @@ Item fields:
 | Field | Meaning |
 |---|---|
 | `id` | Id of the last row merged into the item. A client that remembers the highest id it showed never shows an item twice. |
-| `kind` | `reply`, `task_result`, `needs_you` or `spend_alert`. A client ignores a kind it does not know: it shows nothing and moves the cursor. |
+| `kind` | `reply`, `task_result`, `needs_you`, `spend_alert` or `admin_alert` (administrators only; `detail` is a stable event code such as `backup_stale`, no conversation). A client ignores a kind it does not know: it shows nothing and moves the cursor. |
 | `detail` | `spend_warning` or `spend_cap` for `spend_alert`; `""` otherwise. |
 | `conversation_id`, `bot_id` | Where it happened. Absent for a spend alert at the cap. |
 | `message_seq` | The message to open, or `null` (`needs_you`, spend alert at the cap). |

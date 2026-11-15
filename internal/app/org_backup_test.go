@@ -284,3 +284,78 @@ func TestRestoreRemoteRebuildsTheDataDirAndTakesOver(t *testing.T) {
 		t.Fatalf("old server: %+v", st)
 	}
 }
+
+// adminAlerts returns the admin_alert details in an account's workspace, oldest first.
+func adminAlerts(t *testing.T, g *AccountGateway, a Account) []string {
+	t.Helper()
+	ws, err := g.workspace(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := ws.store.attentionAfter(0, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, r := range rows {
+		if r.Kind != attentionAdminAlert {
+			t.Fatalf("unexpected kind %q", r.Kind)
+		}
+		out = append(out, r.Detail)
+	}
+	return out
+}
+
+func TestBackupFailureEpisodesMakeOneAdminEventEach(t *testing.T) {
+	b := newBackupFixture(t)
+	b.srv.Down = true
+	b.run(t)
+	b.run(t) // the same failure again: no second event
+	if got := adminAlerts(t, b.g, b.admin); len(got) != 1 || got[0] != "backup_store_unavailable" {
+		t.Fatalf("after a repeated failure: %v", got)
+	}
+	b.srv.Down = false
+	if st := b.run(t); st.LastStatus != "ok" { // success: one recovered event
+		t.Fatalf("recovery: %+v", st)
+	}
+	time.Sleep(1100 * time.Millisecond)        // a snapshot id has one-second resolution
+	if st := b.run(t); st.LastStatus != "ok" { // a plain success after that: nothing
+		t.Fatalf("second success: %+v", st)
+	}
+	if got := adminAlerts(t, b.g, b.admin); len(got) != 2 || got[1] != backupAlertRecovered {
+		t.Fatalf("after recovery: %v", got)
+	}
+	b.srv.Down = true
+	b.run(t) // a new episode after a success: a new event
+	if got := adminAlerts(t, b.g, b.admin); len(got) != 3 || got[2] != "backup_store_unavailable" {
+		t.Fatalf("new episode: %v", got)
+	}
+	if got := adminAlerts(t, b.g, b.member); len(got) != 0 {
+		t.Fatalf("a member was notified: %v", got)
+	}
+}
+
+func TestBackupStaleIsOneEventPerEpisode(t *testing.T) {
+	b := newBackupFixture(t)
+	b.run(t)
+	cfg, _, _, err := b.g.backupConfigRow(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg = cfg.withDefaults()
+	at := time.Now()
+	b.g.alertIfStale(cfg, at.Add(time.Hour)) // fresh: nothing
+	b.g.alertIfStale(cfg, at.Add(40*time.Hour))
+	b.g.alertIfStale(cfg, at.Add(41*time.Hour)) // same episode
+	if got := adminAlerts(t, b.g, b.admin); len(got) != 1 || got[0] != backupAlertStale {
+		t.Fatalf("stale: %v", got)
+	}
+	time.Sleep(1100 * time.Millisecond)
+	if st := b.run(t); st.LastStatus != "ok" { // a success closes the episode with one recovered event
+		t.Fatalf("success: %+v", st)
+	}
+	b.g.alertIfStale(cfg, time.Now().Add(40*time.Hour))
+	if got := adminAlerts(t, b.g, b.admin); len(got) != 3 || got[1] != backupAlertRecovered || got[2] != backupAlertStale {
+		t.Fatalf("second episode: %v", got)
+	}
+}

@@ -18,7 +18,7 @@ import type { DesktopNotificationsBridge } from "./desktop";
 
 export type DeliveryItem = {
   id: number;
-  kind: "reply" | "task_result" | "needs_you" | "spend_alert";
+  kind: "reply" | "task_result" | "needs_you" | "spend_alert" | "admin_alert";
   detail: string;
   conversation_id?: string;
   bot_id?: string;
@@ -119,10 +119,24 @@ export function createAttentionNotifier(env: NotifierEnv): AttentionNotifier {
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
+const BACKUP_REASONS = ["store_unavailable", "store_misconfigured", "key_missing", "no_staging_space", "db_too_large", "capture_corrupt", "repo_diverged", "interrupted", "object_damaged", "object_missing"];
+
+/** `admin_alert` detail is the event: a backup failure code, `backup_stale`, `backup_recovered` or `verify_<code>`. The reason is named from the code; upstream text never reaches here. */
+function adminAlertText(detail: string, t: Translate): { title: string; body: string } {
+  if (detail === "backup_stale") return { title: t("chat:notifications.backup_stale"), body: t("chat:notifications.backup_stale_body") };
+  if (detail === "backup_recovered") return { title: t("chat:notifications.backup_recovered"), body: t("chat:notifications.backup_recovered_body") };
+  const verify = detail.startsWith("verify_");
+  const reason = (verify ? detail.slice(7) : detail).replace(/^backup_/, "");
+  const known = BACKUP_REASONS.includes(reason);
+  if (verify) return { title: t("chat:notifications.backup_verify_failed"), body: known ? t(`chat:notifications.backup_reason_${reason}`) : t("chat:notifications.backup_verify_body") };
+  return { title: t("chat:notifications.backup_failed"), body: t(`chat:notifications.backup_reason_${known ? reason : "generic"}`) };
+}
+
 /** Title and body of an item. `needs_you` and `spend_alert` words are fixed sentences; the server gives only the kind. */
 export function deliveryText(item: DeliveryItem, t: Translate): { title: string; body: string } {
   const title = item.title || "Tofi";
   if (item.kind === "needs_you") return { title, body: t("chat:notifications.needs_you") };
+  if (item.kind === "admin_alert") return adminAlertText(item.detail, t);
   if (item.kind === "spend_alert") return { title, body: t(item.detail === "spend_cap" ? "chat:notifications.spend_cap" : "chat:notifications.spend_warning") };
   // A group's Bot is named; in a direct chat the title already is the Bot.
   const from = item.bot_name && item.bot_name !== item.title ? `${item.bot_name}: ` : "";

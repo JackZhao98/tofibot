@@ -32,6 +32,10 @@ const (
 	attentionTaskResult = "task_result"
 	attentionNeedsYou   = "needs_you"
 	attentionSpendAlert = "spend_alert"
+	// attentionAdminAlert goes to administrators only; detail names the event
+	// (backup_alerts.go: a backup failure code, backup_stale, backup_recovered,
+	// verify_<code>). No conversation, no text stored.
+	attentionAdminAlert = "admin_alert"
 
 	// detail values of a spend_alert.
 	attentionSpendWarning = "spend_warning"

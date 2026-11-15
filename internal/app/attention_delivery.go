@@ -98,6 +98,9 @@ func kindEnabled(p userPreferences, kind string) bool {
 		return p.NotifyNeedsYou
 	case attentionSpendAlert:
 		return p.NotifySpendAlerts
+	case attentionAdminAlert:
+		// Operational events of the server, written only to administrators' workspaces; no per-account switch.
+		return true
 	}
 	return false
 }

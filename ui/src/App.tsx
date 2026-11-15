@@ -593,6 +593,7 @@ function Workspace() {
   notifyOpen.current = (item) => {
     if (item.conversation_id) { selectConversation(item.conversation_id); setMobileList(false); }
     else if (item.kind === "spend_alert") openSettings("usage");
+    else if (item.kind === "admin_alert") openSettings("admin-resources"); // the Backups card is on this page
   };
   const [usageBotId, setUsageBotId] = useState("");
   // What is open (docs/design/widgets-and-sidebar.md): widgets in the chat, one sidebar at the window edge, one exclusive cover.
