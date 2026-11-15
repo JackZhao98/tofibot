@@ -124,7 +124,7 @@ html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto;-webkit-app-re
   html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header > .chat-header-drag { left:130px; }
 
   /* Narrow window: the open card lies over the chat; the scrim under it closes it. */
-  html[data-desktop="darwin"] .workspace .mac-narrow:not(.sidebar-collapsed) .contact-pane { z-index:calc(var(--z-panel) + 2); box-shadow:var(--card-lift); }
+  html[data-desktop="darwin"] .workspace .mac-narrow:not(.sidebar-collapsed) .contact-pane { z-index:var(--z-popover); box-shadow:var(--card-lift); }
   html[data-desktop="darwin"] .workspace .sidebar-scrim { position:fixed; inset:0; z-index:calc(var(--z-panel) + 1); background:var(--scrim); -webkit-app-region:no-drag; animation:sidebar-scrim-in var(--m-quick) var(--ease-out) both; }
   @keyframes sidebar-scrim-in { from { opacity:0; } }
 }
