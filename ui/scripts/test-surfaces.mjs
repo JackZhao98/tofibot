@@ -17,7 +17,7 @@ try {
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
   // The default order, whatever the opening order; one of each; at most four.
-  assert.deepEqual(WIDGET_ORDER, ["computer", "members", "artifacts", "usage"]);
+  assert.deepEqual(WIDGET_ORDER, ["computer", "terminal", "members", "conversation", "artifacts", "usage"]);
   assert.deepEqual(empty().order, [...WIDGET_ORDER], "a fresh state follows the default order");
   const orders = [["artifacts", "members", "computer"], ["members", "artifacts", "computer"], ["computer", "artifacts", "members"], ["artifacts", "artifacts", "computer", "computer"], ["usage", "artifacts", "members", "computer"]];
   for (const opened of orders) {
@@ -137,11 +137,12 @@ try {
   assert.equal(suppressedRunsOf(memory, "C").size, 0);
 
   // Reordering (D67 addendum): the order is the person's, applies to every open and every later open, and keeps the slots of closed widgets.
-  const four = run(...WIDGET_ORDER.map(id => s => openWidget(s, id)));
-  assert.deepEqual(four.widgets, [...WIDGET_ORDER]);
+  const FOUR = ["computer", "members", "artifacts", "usage"];
+  const four = run(...FOUR.map(id => s => openWidget(s, id)));
+  assert.deepEqual(four.widgets, FOUR);
   const moved = moveWidget(four, "usage", 0);
   assert.deepEqual(moved.widgets, ["usage", "computer", "members", "artifacts"], "to the top");
-  assert.deepEqual(moved.order, ["usage", "computer", "members", "artifacts"], "the saved order follows");
+  assert.deepEqual(moved.order, ["usage", "terminal", "computer", "conversation", "members", "artifacts"], "the saved order follows; closed widgets keep their slots");
   assert.equal(moveWidget(moved, "usage", 0), moved, "already there: same object");
   assert.equal(moveWidget(idle, "usage", 0), idle, "a closed widget cannot be moved");
   assert.deepEqual(moveWidget(four, "computer", 99).widgets, ["members", "artifacts", "usage", "computer"], "past the end clamps to the bottom");
@@ -152,7 +153,7 @@ try {
   let sparse = run(s => openWidget(s, "computer"), s => openWidget(s, "artifacts"), s => openWidget(s, "usage"));
   sparse = moveWidget(sparse, "usage", 0);
   assert.deepEqual(sparse.widgets, ["usage", "computer", "artifacts"]);
-  assert.deepEqual(sparse.order, ["usage", "members", "computer", "artifacts"], "the closed Members keeps its slot between the open ones");
+  assert.deepEqual(sparse.order, ["usage", "terminal", "members", "conversation", "computer", "artifacts"], "the closed Members keeps its slot between the open ones");
   const reopened = openWidget(sparse, "members");
   assert.deepEqual(reopened.widgets, ["usage", "members", "computer", "artifacts"], "a widget that opens later lands at its saved place");
   assert.deepEqual(autoOpenWidget(sparse, "members").widgets, ["usage", "members", "computer", "artifacts"], "so does one that opens by itself");
@@ -165,8 +166,8 @@ try {
   // A saved order from storage: junk dropped, repeats dropped, missing widgets appended in the default order.
   assert.deepEqual(normalizeWidgetOrder(null), [...WIDGET_ORDER]);
   assert.deepEqual(normalizeWidgetOrder("members"), [...WIDGET_ORDER]);
-  assert.deepEqual(normalizeWidgetOrder(["artifacts", "bogus", "artifacts", 3, "computer"]), ["artifacts", "computer", "members", "usage"]);
-  assert.deepEqual(normalizeWidgetOrder(["usage", "computer", "members", "artifacts"]), ["usage", "computer", "members", "artifacts"]);
+  assert.deepEqual(normalizeWidgetOrder(["artifacts", "bogus", "artifacts", 3, "computer"]), ["artifacts", "computer", "terminal", "members", "conversation", "usage"]);
+  assert.deepEqual(normalizeWidgetOrder(["usage", "computer", "members", "artifacts"]), ["usage", "computer", "members", "artifacts", "terminal", "conversation"], "an order saved before Terminal and Bot conversation were widgets gets them at the end");
   assert.deepEqual(sortWidgets(["members", "usage", "computer"], ["usage", "computer", "members", "artifacts"]), ["usage", "computer", "members"]);
   // Escape follows the person's order from the bottom up, and the computer still goes last wherever it sits.
   const flipped = moveWidget(moveWidget(four, "computer", 3), "usage", 0);

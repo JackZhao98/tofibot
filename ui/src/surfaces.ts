@@ -8,7 +8,7 @@
  *
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
-export type WidgetId = "computer" | "members" | "artifacts" | "usage";
+export type WidgetId = "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
 export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage";
 export type CoverId = "settings" | "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 
@@ -16,7 +16,7 @@ export type CoverId = "settings" | "bot-settings" | "group-settings" | "new-grou
  * The default order, top to bottom. It never depends on which widget was opened first. It is also the stable order the column draws its
  * nodes in (moving a live video in the DOM would stop it); where a widget sits on screen is `Surfaces.order`, the person's own choice.
  */
-export const WIDGET_ORDER: readonly WidgetId[] = ["computer", "members", "artifacts", "usage"];
+export const WIDGET_ORDER: readonly WidgetId[] = ["computer", "terminal", "members", "conversation", "artifacts", "usage"];
 
 /** A saved order read back from storage: unknown ids and repeats are dropped, a widget the saved list lacks goes last in the default order. */
 export function normalizeWidgetOrder(raw: unknown): WidgetId[] {
