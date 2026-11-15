@@ -198,7 +198,8 @@
       "archive": "归档",
       "artifacts": "产出文件",
       "bot-edit": "Bot 设置",
-      "conversation": "Bot 对话",      "desktop": "Bot 电脑",
+      "conversation": "Bot 对话",
+      "desktop": "Bot 电脑",
       "group-create": "新建群组",
       "members": "成员",
       "memory": "记忆",
@@ -743,7 +744,8 @@
       "waiting_on": "未结束的等待",
       "task_record": "任务记录",
       "task_updates": "任务更新",
-      "wait_result": "等待结果"
+      "wait_result": "等待结果",
+      "plan": "当前计划"
     }
   },
   "run_status": {

@@ -25,8 +25,12 @@ func (s *Server) runTaskRetention(at time.Time) {
 	if days <= 0 {
 		return
 	}
-	if _, err := s.store.cleanupFinishedTasks(at.Add(-time.Duration(days) * 24 * time.Hour)); err != nil {
+	cutoff := at.Add(-time.Duration(days) * 24 * time.Hour)
+	if _, err := s.store.cleanupFinishedTasks(cutoff); err != nil {
 		logTaskError("task retention", err)
+	}
+	if _, err := s.store.cleanupRunPlans(stampTime(cutoff)); err != nil {
+		logTaskError("plan retention", err)
 	}
 }
 

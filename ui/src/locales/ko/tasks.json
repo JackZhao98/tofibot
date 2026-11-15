@@ -422,7 +422,8 @@
       "call": "{{name}} 호출 중",
       "profile": "Bot 프로필 저장하는 중",
       "takeover": "Bot 컴퓨터에서의 작업 대기 중",
-      "connection": "서비스 연결 대기 중"
+      "connection": "서비스 연결 대기 중",
+      "plan": "계획 업데이트 중"
     },
     "title": {
       "form": "양식 입력 대기 중",
@@ -444,7 +445,8 @@
       "call": "{{name}} 호출",
       "profile": "Bot 프로필 저장",
       "takeover": "Bot 컴퓨터에서의 작업 대기 중",
-      "connection": "서비스 연결 대기 중"
+      "connection": "서비스 연결 대기 중",
+      "plan": "계획 업데이트"
     },
     "step_action": {
       "desktop_capture": "스크린샷",
@@ -667,5 +669,24 @@
     "commands_other": "명령 {{count}}개 실행",
     "pages_other": "{{count}}페이지 읽음",
     "working_other": "작업 중 · {{count}}단계"
+  },
+  "plan": {
+    "title": "단계",
+    "dock_label": "Bot이 진행 중인 단계",
+    "count": "{{done}}/{{total}}",
+    "done": "완료",
+    "waiting": "대기 중",
+    "more_other": "외 {{count}}개: {{names}}",
+    "history": "계획 · {{done}}/{{total}} 완료",
+    "history_stopped": "계획 · {{total}}단계 중 {{step}}단계에서 중지",
+    "state": {
+      "pending": "할 일",
+      "in_progress": "진행 중",
+      "done": "완료",
+      "stopped": "중지됨",
+      "not_done": "미완료",
+      "skipped": "건너뜀",
+      "blocked": "막힘"
+    }
   }
 }

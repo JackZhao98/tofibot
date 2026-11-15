@@ -1607,10 +1607,17 @@ func (s *Store) CancelRunTree(id string) error {
 	}
 	// The runs that held the cancelled parts stop with the plan (they may not
 	// be descendants of the stopped run).
+	stopped := append(cancelled, id)
 	if len(holders) > 0 {
-		if _, err = cancelRunsBelowCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(holders))+`)`, anyArgs(holders)...); err != nil {
+		below, err := cancelRunsBelowCollect(tx, `SELECT id FROM runs WHERE id IN (`+sqlMarks(len(holders))+`)`, anyArgs(holders)...)
+		if err != nil {
 			return err
 		}
+		stopped = append(stopped, below...)
+	}
+	// Stop all ends the step lists of the stopped work: nothing carries them on.
+	if err = closeRunPlansTx(tx, stopped, planClosedStopped); err != nil {
+		return err
 	}
 	// Stop all: what the Bot had paused does not start again by itself.
 	var stoppedConv, stoppedBot string

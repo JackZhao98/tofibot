@@ -1,0 +1,56 @@
+/* Pinned step list (PlanCard.tsx): one quiet card per working Bot in the composer's top slot, the width of the message
+   box. Frosted like the composer field so the two read as one dock; steps are meta type with state marks. */
+.plan-dock{position:relative;z-index:2;box-sizing:border-box;width:100%;max-width:var(--chat-max);margin:0 auto var(--space-2);display:grid;gap:6px}
+.plan-dock-cards{display:grid;gap:6px;min-width:0}
+.plan-card-frame{min-width:0}
+.plan-card{box-sizing:border-box;min-width:0;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:var(--radius-lg);background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:var(--sheen);color:var(--text-body);font:var(--type-meta);overflow:hidden}
+.plan-card-head{margin:0;font:inherit}
+.plan-card-trigger{display:flex;align-items:center;gap:var(--space-2);box-sizing:border-box;width:100%;min-height:36px;margin:0;padding:6px var(--space-3);border:0;border-radius:inherit;background:none;color:var(--text-secondary);font:var(--type-meta);font-variant-numeric:tabular-nums;text-align:start;cursor:pointer}
+.plan-card-trigger:hover{color:var(--text-body)}
+.plan-card-trigger:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:-2px}
+.plan-card-who{display:inline-flex;align-items:center;gap:6px;flex:none;max-width:40%;min-width:0;color:var(--text-body)}
+.plan-card-who .avatar{flex:none;width:20px;height:20px}
+.plan-card-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.plan-card-line{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-body)}
+.plan-card-trigger[data-state=open] .plan-card-line{color:var(--text-secondary)}
+.plan-card-count{flex:none;color:var(--text-process)}
+.plan-card-chevron{flex:none;color:var(--text-process);transition:transform var(--m-quick) var(--ease-out)}
+.plan-card-trigger[data-state=open] .plan-card-chevron{transform:rotate(180deg)}
+.plan-card-body{padding:0 var(--space-3) var(--space-2)}
+.plan-card-body[data-state=open]{animation:plan-body-in var(--m-base) var(--ease-out)}
+@keyframes plan-body-in{from{opacity:0}to{opacity:1}}
+.plan-card[data-plan-state=done] .plan-card-count{color:var(--lagoon-text)}
+
+/* Steps: a mark column and the text; done steps step back, the step in progress carries the body ink. */
+.plan-steps{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:min(30vh,240px);overflow-y:auto;overscroll-behavior:contain}
+.plan-steps li{display:flex;align-items:flex-start;gap:var(--space-2);min-width:0;padding:3px 0;color:var(--text-secondary);overflow-wrap:anywhere}
+.plan-steps li[data-state=in_progress]{color:var(--text-body)}
+.plan-steps li[data-state=done],.plan-steps li[data-state=skipped],.plan-steps li[data-state=not_done]{color:var(--text-process)}
+.plan-steps li[data-state=stopped],.plan-steps li[data-state=blocked]{color:var(--text-body)}
+.plan-step-text{min-width:0;flex:1 1 auto}
+.plan-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;width:14px;height:14px;margin-top:3px;color:var(--text-process)}
+.plan-card-head .plan-mark{margin-top:0}
+.plan-mark.is-done{color:var(--lagoon-text)}
+.plan-mark.is-problem{color:var(--status-error-text)}
+.plan-mark.is-pending::before,.plan-mark.is-paused::before{content:"";box-sizing:border-box;width:11px;height:11px;border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent);border-radius:50%}
+.plan-mark.is-paused::before{border-color:var(--text-secondary);border-style:dashed}
+.plan-card[data-plan-state=done] .plan-mark.is-done:first-child{width:16px;height:16px}
+.plan-dock-more{margin:0;padding:0 var(--space-3);color:var(--text-process);font:var(--type-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* The DM cat (web only) sits on the dock's top edge, a few px into it like it sits on the field. */
+.workspace .composer:has(.plan-dock) .composer-perch{top:calc(-75px - var(--plan-dock-offset,0px))}
+
+/* The phone keyboard leaves room for the field only: every card folds to its header line. */
+.workspace.keyboard-viewport-open .plan-card-body{display:none}
+.workspace.keyboard-viewport-open .plan-dock{margin-bottom:var(--space-1)}
+
+/* History: the list at the head of a run's opened Activity, and the one line a run keeps when it ended before its list was done. */
+.plan-activity-head{display:grid;gap:2px;padding:var(--space-1) 0 var(--space-2);font:var(--type-meta)}
+.plan-activity-title{margin:0;color:var(--text-process)}
+.plan-activity-head .plan-steps,.plan-history-body .plan-steps{max-height:none;overflow:visible}
+.plan-history{max-width:var(--chat-max);font:var(--type-meta)}
+.plan-history-trigger[data-state=open] .process-line-chevron{transform:rotate(90deg)}
+.plan-history-body{padding:2px 0 var(--space-2) 22px}
+
+@media(pointer:coarse){.plan-card-trigger{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.plan-card-body[data-state=open]{animation:none}.plan-card-chevron{transition:none}}

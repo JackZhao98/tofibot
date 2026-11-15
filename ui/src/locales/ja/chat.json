@@ -198,7 +198,8 @@
       "archive": "アーカイブ",
       "artifacts": "アーティファクト",
       "bot-edit": "Bot 設定",
-      "conversation": "Bot の会話",      "desktop": "Bot コンピューター",
+      "conversation": "Bot の会話",
+      "desktop": "Bot コンピューター",
       "group-create": "新しいグループ",
       "members": "メンバー",
       "memory": "メモリ",
@@ -743,7 +744,8 @@
       "waiting_on": "未解決の待機",
       "task_record": "タスク記録",
       "task_updates": "タスクの更新",
-      "wait_result": "待機の結果"
+      "wait_result": "待機の結果",
+      "plan": "現在の計画"
     }
   },
   "run_status": {

@@ -1019,6 +1019,18 @@
       "audit": true
     },
     {
+      "key": "automation.work_plan",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/advanced#behavior",
+      "manual": "settings/advanced",
+      "label_key": "settings:automation.item.work_plan.name",
+      "audit": true
+    },
+    {
       "key": "automation.trace_retention_days",
       "scope": "account",
       "kind": "int",

@@ -199,7 +199,8 @@
       "archive": "Archive",
       "artifacts": "Artifacts",
       "bot-edit": "Bot settings",
-      "conversation": "Bot conversation",      "desktop": "Bot computer",
+      "conversation": "Bot conversation",
+      "desktop": "Bot computer",
       "group-create": "New group",
       "members": "Members",
       "memory": "Memory",
@@ -759,7 +760,8 @@
       "waiting_on": "Open waits",
       "task_record": "Task record",
       "task_updates": "Task updates",
-      "wait_result": "Wait result"
+      "wait_result": "Wait result",
+      "plan": "Current plan"
     }
   },
   "run_status": {

@@ -200,7 +200,8 @@
       "archive": "Archives",
       "artifacts": "Artefacts",
       "bot-edit": "Réglages du Bot",
-      "conversation": "Conversation des Bots",      "desktop": "Ordinateur Bot",
+      "conversation": "Conversation des Bots",
+      "desktop": "Ordinateur Bot",
       "group-create": "Nouveau groupe",
       "members": "Membres",
       "memory": "Mémoire",
@@ -775,7 +776,8 @@
       "waiting_on": "Attentes ouvertes",
       "task_record": "Dossier de la tâche",
       "task_updates": "Mises à jour de la tâche",
-      "wait_result": "Résultat de l'attente"
+      "wait_result": "Résultat de l'attente",
+      "plan": "Plan en cours"
     }
   },
   "run_status": {

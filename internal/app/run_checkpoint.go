@@ -241,6 +241,9 @@ func (s *Store) claimRun(ctx context.Context, runID string) (runClaim, bool, err
 		if err = taskRunStartedTx(tx, runID); err != nil {
 			return claim, false, err
 		}
+		if err = planRunStartedTx(tx, runID); err != nil {
+			return claim, false, err
+		}
 	}
 	if err = tx.Commit(); err != nil {
 		return claim, false, err

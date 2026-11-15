@@ -1541,6 +1541,10 @@
         "name": "Arbeitsspur",
         "what": "Speichert kleine Bilder der Bildschirmarbeit eines Bots, damit Sie nachsehen können, was er getan hat. Eine Seite, die eine private Eingabe zeigen kann, und private Ursprünge werden nie gespeichert. Aus speichert gar keine Bilder."
       },
+      "work_plan": {
+        "name": "Schrittliste während der Arbeit",
+        "what": "Bei einer Anfrage mit mehreren Schritten führt ein Bot eine kurze Liste davon. Die Liste steht über dem Eingabefeld und wird während der Arbeit aktualisiert; danach bleibt sie in der Aktivität des Laufs. Aus: Bots führen keine Liste, und es wird nichts angezeigt."
+      },
       "trace_retention_days": {
         "name": "Arbeitsspur aufbewahren",
         "what": "Wie lange die Bilder der Bildschirmarbeit eines Bots auf dem Server bleiben. Danach werden sie gelöscht. Alles behalten löscht sie nie."
