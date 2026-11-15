@@ -13,6 +13,7 @@ import subprocess
 import sqlite3
 import sys
 import tarfile
+import time
 import unittest
 from unittest import mock
 
@@ -2152,7 +2153,7 @@ class RemoteBackupTests(BackupCase):
             self.assertEqual(self.real_pre_update_remote(env)['reason'], reason)
             self.assertEqual([operation for _, operation, _ in seen], ['state'])
         now = tofi_host.parse_utc('2026-11-10T06:00:00')
-        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1'))
+        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1', last_etc_at='2026-11-10T02:59:00Z'))
         recent = self.real_pre_update_remote(env, now=now)
         self.assertEqual((recent['reason'], recent['snapshot_id']), ('recent', 'snap-1'))
         self.assertEqual(len(seen), 1)
@@ -2204,3 +2205,132 @@ class RemoteBackupTests(BackupCase):
             tofi_host.check_remote_restore_space(1 << 30)  # 2 GiB + 1 GiB fits exactly
             with self.assertRaisesRegex(HostError, 'restore_no_disk_space'):
                 tofi_host.check_remote_restore_space(2 << 30)
+
+    def test_require_survives_an_app_outage_and_unknown_state_is_never_skipped(self):
+        self.seed()
+        env = tofi_host.read_env()
+        self.calls(dict(before_update='require', configured=False))
+        self.assertEqual(self.real_pre_update_remote(env)['reason'], 'not_configured')  # the policy is now remembered
+        self.calls(tofi_host.HostControlUnavailable('down'))
+        down = self.real_pre_update_remote(env)
+        self.assertEqual((down['status'], down['code'], down['policy']), ('failed', 'app_unreachable', 'require'))
+        # Malformed answers are failures with a name, never `not_configured`.
+        self.calls({'configured': 'yes'})
+        bad = self.real_pre_update_remote(env)
+        self.assertEqual((bad['status'], bad['code'], bad['policy']), ('failed', 'state_invalid', 'require'))
+        # A host that never read a policy falls back to attempt, still as a failure.
+        (self.P.var / tofi_host.REMOTE_POLICY_FILE).unlink()
+        self.calls(tofi_host.HostControlUnavailable('down'))
+        fresh = self.real_pre_update_remote(env)
+        self.assertEqual((fresh['status'], fresh['policy']), ('failed', 'attempt'))
+
+    def test_recent_snapshot_without_a_fresh_etc_copy_is_not_enough(self):
+        self.seed()
+        env = tofi_host.read_env()
+        now = tofi_host.parse_utc('2026-11-10T06:00:00')
+        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1'))
+        self.assertEqual(self.real_pre_update_remote(env, now=now)['status'], 'ok')  # no etc copy: a new snapshot
+        self.assertEqual(seen[-1][1], 'run')
+        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1', last_etc_at='2026-11-01T00:00:00Z'))
+        self.assertEqual(self.real_pre_update_remote(env, now=now)['status'], 'ok')  # an old etc copy: still new
+        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1', last_etc_at='2026-11-10T02:59:00Z'))
+        self.assertEqual(self.real_pre_update_remote(env, now=now)['reason'], 'recent')
+        self.assertEqual(len(seen), 1)
+
+    def test_waits_for_a_running_scheduled_backup_and_uses_its_result(self):
+        self.seed()
+        env = tofi_host.read_env()
+        started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + 5))
+        answers = iter([dict(self.STATE), dict(self.STATE, running=True),
+                        dict(self.STATE, running=False, last_status='ok', last_snapshot='sched-1', last_success_at=started)])
+
+        def fake(env, operation, body=None, timeout=60, route=None):
+            if operation == 'run':
+                raise tofi_host.HostControlUnavailable('busy', 409, 'backup_in_progress')
+            return next(answers)
+
+        sleeps = []
+        with mock.patch.object(tofi_host, 'host_control', side_effect=fake):
+            result = self.real_pre_update_remote(env, sleep=sleeps.append)
+        self.assertEqual((result['status'], result['snapshot_id']), ('ok', 'sched-1'))
+        self.assertEqual(len(sleeps), 2)
+
+    def test_host_control_names_unreadable_oversized_and_cut_off_answers(self):
+        self.installed()
+        env = tofi_host.read_env()
+
+        def answer(status, raw=b'', error=None):
+            class Response:
+                def __init__(self):
+                    self.status = status
+
+                def read(self, limit=-1):
+                    if error:
+                        raise error
+                    return raw[:limit]
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *exc):
+                    return False
+
+            opener = mock.Mock()
+            opener.open.return_value = Response()
+            return mock.patch.object(tofi_host.urllib.request, 'build_opener', return_value=opener)
+
+        for status, raw, error, code in ((200, b'[1]', None, 'response_invalid'), (200, b'not json', None, 'response_invalid'),
+                                         (200, b'{"a":"' + b'x' * tofi_host.HOST_CONTROL_MAX_BODY + b'"}', None, 'response_too_large'),
+                                         (200, b'', tofi_host.http.client.IncompleteRead(b'{'), None)):
+            with answer(status, raw, error), self.assertRaises(tofi_host.HostControlUnavailable) as caught:
+                tofi_host.host_control(env, 'state', route=tofi_host.HOST_BACKUP_ROUTE)
+            self.assertEqual(caught.exception.code, code)
+        with answer(200, b'{"ok": true}'):
+            self.assertEqual(tofi_host.host_control(env, 'state', route=tofi_host.HOST_BACKUP_ROUTE), {'ok': True})
+
+    def test_host_etc_is_never_written_through_a_link_or_a_foreign_directory(self):
+        self.seed()
+        victim = Path(self.temp.name) / 'victim'
+        victim.mkdir()
+        link = self.P.data / tofi_host.HOST_ETC_DIR
+        os.symlink(victim, link)
+        with self.assertRaisesRegex(HostError, 'not a plain directory'):
+            tofi_host.refresh_host_etc()
+        self.assertEqual(list(victim.iterdir()), [])
+        link.unlink()
+        link.mkdir()
+        os.chmod(link, 0o777)
+        with self.assertRaisesRegex(HostError, 'writable by others'):
+            tofi_host.refresh_host_etc()
+        self.assertEqual(os.stat(link).st_mode & 0o777, 0o777)  # we did not touch what we refused
+
+    def test_downloaded_etc_must_match_the_manifest_hash(self):
+        staged = Path(self.temp.name) / 'etc.tar.gz'
+        staged.write_bytes(b'archive')
+        digest = tofi_host.sha256_file(staged)
+        tofi_host.verify_staged_etc(staged, digest, digest)
+        for listed, reported in ((None, None), (digest, 'other'), ('0' * 64, '0' * 64)):
+            with self.assertRaisesRegex(HostError, 'backup_etc_mismatch'):
+                tofi_host.verify_staged_etc(staged, listed, reported)
+        link = Path(self.temp.name) / 'link.tar.gz'
+        os.symlink(staged, link)
+        with self.assertRaisesRegex(HostError, 'backup_etc_mismatch'):
+            tofi_host.verify_staged_etc(link, digest, digest)
+
+    def test_a_remote_restore_starts_the_pulled_release_not_the_old_servers(self):
+        self.installed()
+        add_custom_env(self)
+        current = tofi_host.read_env()
+        old_server = dict(current, TOFI_VERSION='v0.0.9', TOFI_APP_IMAGE=base.image('app', '7'), CUSTOM_X='from-old-server')
+        tofi_host.write_env(old_server)
+        staged = Path(self.temp.name) / 'incoming-etc.tar.gz'
+        tofi_host.write_archive(staged, 'gz', self.P.etc, exclude=tofi_host.etc_excluded)
+        tofi_host.write_env(current)
+        meta = tofi_host.backup_data('remote', check_space=False, etc_archive=staged)
+        self.write_manifest(base.manifest(OLD, '1'))
+        with mock.patch.object(tofi_host, 'restore_manifest', return_value=base.manifest(OLD, '1')):
+            tofi_host.restore_backup(meta['id'], yes=True)
+        env = tofi_host.read_env()
+        self.assertEqual((env['TOFI_VERSION'], env['TOFI_APP_IMAGE']), (current['TOFI_VERSION'], current['TOFI_APP_IMAGE']))
+        self.assertEqual(env['CUSTOM_X'], 'from-old-server')  # everything the release does not own comes from the snapshot
+        self.assertEqual(self.start_services.call_args[0][0]['TOFI_VERSION'], current['TOFI_VERSION'])

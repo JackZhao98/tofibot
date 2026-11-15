@@ -740,22 +740,22 @@ func (r *Repo) captureEtc(ctx context.Context, src Source, snap string, now time
 }
 
 // RestoreEtc writes snapshot snap's /etc/tofi archive to dest (mode 0600) and
-// reports whether the snapshot had one. The bytes are checked against the
-// manifest; nothing about them is returned.
-func (r *Repo) RestoreEtc(ctx context.Context, snap, dest string) (bool, error) {
+// returns its manifest entry (nil when the snapshot has none). The bytes are
+// checked against the manifest; only the entry (time, size, sha256) is returned.
+func (r *Repo) RestoreEtc(ctx context.Context, snap, dest string) (*EtcEntry, error) {
 	m, err := r.Manifest(ctx, snap)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if m.Etc == nil {
-		return false, nil
+		return nil, nil
 	}
 	raw, err := r.get(ctx, etcObject(snap))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if hexSum(raw) != m.Etc.SHA {
-		return false, fail("backup_object_damaged", nil)
+		return nil, fail("backup_object_damaged", nil)
 	}
-	return true, os.WriteFile(dest, raw, 0o600)
+	return m.Etc, os.WriteFile(dest, raw, 0o600)
 }

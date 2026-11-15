@@ -407,9 +407,9 @@ func TestEtcArchiveRidesInTheSnapshot(t *testing.T) {
 		}
 	}
 	out := filepath.Join(t.TempDir(), "etc.tar.gz")
-	had, err := x.repo.RestoreEtc(ctx, m.Snapshot, out)
-	if got, _ := os.ReadFile(out); err != nil || !had || !bytes.Equal(got, archive) {
-		t.Fatalf("restore etc: %v %v", had, err)
+	got1, err := x.repo.RestoreEtc(ctx, m.Snapshot, out)
+	if got, _ := os.ReadFile(out); err != nil || got1 == nil || got1.SHA != hexOf(archive) || got1.CapturedAt == "" || !bytes.Equal(got, archive) {
+		t.Fatalf("restore etc: %v %v", got1, err)
 	}
 	dest := filepath.Join(t.TempDir(), "data")
 	if _, err = x.repo.RestoreAll(ctx, m.Snapshot, dest, backup.RestoreOpts{MaxSchema: 1}); err != nil {
@@ -424,7 +424,9 @@ func TestEtcArchiveRidesInTheSnapshot(t *testing.T) {
 	if err != nil || m2.Etc != nil {
 		t.Fatalf("no file: %v %+v", err, m2.Etc)
 	}
-	if had, err = x.repo.RestoreEtc(ctx, m2.Snapshot, out); had || err != nil {
-		t.Fatalf("restore none: %v %v", had, err)
+	if none, err := x.repo.RestoreEtc(ctx, m2.Snapshot, out); none != nil || err != nil {
+		t.Fatalf("restore none: %v %v", none, err)
 	}
 }
+
+func hexOf(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }

@@ -103,6 +103,7 @@ type backupStatus struct {
 	LastAccount    string `json:"last_account,omitempty"`
 	LastSuccessAt  string `json:"last_success_at,omitempty"`
 	LastSnapshot   string `json:"last_snapshot,omitempty"`
+	LastEtcAt      string `json:"last_etc_at,omitempty"` // when the host's /etc/tofi copy in the last snapshot was packed
 	LastMs         int64  `json:"last_duration_ms,omitempty"`
 	PruneCode      string `json:"prune_code,omitempty"`
 	VerifyAt       string `json:"verified_at,omitempty"`
@@ -267,6 +268,10 @@ func (g *AccountGateway) runBackupLocked(ctx context.Context, reason string) err
 		return err
 	}
 	st.LastStatus, st.LastCode, st.LastAccount, st.LastSuccessAt, st.LastSnapshot = "ok", "", "", now(), m.Snapshot
+	st.LastEtcAt = ""
+	if m.Etc != nil {
+		st.LastEtcAt = m.Etc.CapturedAt
+	}
 	if _, perr := repo.Prune(ctx, cfg.retention()); perr != nil {
 		st.PruneCode = "backup_prune_failed"
 		log.Printf("[backup] prune failed: %s", firstCode(perr))

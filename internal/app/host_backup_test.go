@@ -54,8 +54,11 @@ func TestHostBackupChannel(t *testing.T) {
 	}
 	code, out = call("GET", "snapshots", "")
 	list, _ := out["snapshots"].([]any)
-	if code != 200 || len(list) != 1 || list[0].(map[string]any)["has_etc"] != true {
+	if code != 200 || len(list) != 1 || list[0].(map[string]any)["has_etc"] != true || list[0].(map[string]any)["etc_captured_at"] == "" {
 		t.Fatalf("snapshots %d %v", code, out)
+	}
+	if _, st := call("GET", "state", ""); st["last_etc_at"] == "" {
+		t.Fatalf("state must say when the etc copy was packed: %v", st)
 	}
 	b.srv.Down = true
 	if code, out = call("POST", "run", `{"reason":"pre-update"}`); code != 502 || out["code"] != "backup_store_unavailable" {
@@ -84,7 +87,7 @@ func TestRestoreSpaceCheck(t *testing.T) {
 		t.Fatalf("too big: %v", err)
 	}
 	diskSpace = func(string) (uint64, uint64, error) { return 0, 0, errors.New("statfs") }
-	if err := checkRestoreSpace(t.TempDir(), 1<<40); err != nil {
-		t.Fatalf("unmeasurable disk must not block: %v", err)
+	if err := checkRestoreSpace(t.TempDir(), 1<<40); !errors.As(err, &re) || re.code != "restore_space_unknown" {
+		t.Fatalf("an unmeasurable disk must be refused by name: %v", err)
 	}
 }

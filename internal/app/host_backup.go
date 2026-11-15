@@ -50,7 +50,7 @@ func checkRestoreSpace(dir string, need int64) error {
 	}
 	free, _, err := diskSpace(probe)
 	if err != nil {
-		return nil // cannot measure: the restore proceeds and fails by itself if the disk fills
+		return &restoreError{500, "restore_space_unknown"} // no fallback: an unmeasurable disk is not a roomy one
 	}
 	margin := max(need/10, 64<<20)
 	if uint64(need+margin) > free {
@@ -76,7 +76,7 @@ func (g *AccountGateway) serveHostBackup(w http.ResponseWriter, r *http.Request,
 		writeJSON(w, 200, map[string]any{
 			"configured": found && cfg.Bucket != "", "remote": cfg.Remote, "before_update": cfg.BeforeUpdate,
 			"last_status": st.LastStatus, "last_code": st.LastCode, "last_success_at": st.LastSuccessAt,
-			"last_snapshot": st.LastSnapshot, "running": g.backupBusy.Load(),
+			"last_snapshot": st.LastSnapshot, "last_etc_at": st.LastEtcAt, "running": g.backupBusy.Load(),
 		})
 	case "run":
 		if r.Method != http.MethodPost {
@@ -140,7 +140,11 @@ func (g *AccountGateway) serveHostBackup(w http.ResponseWriter, r *http.Request,
 				err = merr
 				break
 			}
-			out = append(out, map[string]any{"name": m.Snapshot, "at": m.CreatedAt, "version": m.AppVersion, "reason": m.Reason, "size_bytes": m.Size(), "has_etc": m.Etc != nil})
+			etcAt := ""
+			if m.Etc != nil {
+				etcAt = m.Etc.CapturedAt
+			}
+			out = append(out, map[string]any{"etc_captured_at": etcAt, "name": m.Snapshot, "at": m.CreatedAt, "version": m.AppVersion, "reason": m.Reason, "size_bytes": m.Size(), "has_etc": m.Etc != nil})
 		}
 		if err != nil {
 			code, _ := errorCode(err)

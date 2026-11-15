@@ -439,7 +439,7 @@ Every update is built so that nothing is lost when it fails.
   one with `sudo tofi backups --remove <ID>`.
 - **Remote snapshot first.** When remote backup is on (Administration > Backups), `tofi update` asks the running
   App for a `pre-update` snapshot before it stops anything (host route `/api/host/backup/run`), unless a successful
-  one is under 6 hours old. It packs `/etc/tofi` into `data/host-etc/etc.tar.gz` (root-owned directory, file 0400
+  one with a `/etc/tofi` copy is under 6 hours old. It packs `/etc/tofi` into `data/host-etc/etc.tar.gz` (root-owned directory, file 0400
   for the App's uid) so the snapshot carries it, encrypted. The setting `before_update` (`attempt` default, `require`,
   `off`) decides a failure: `attempt` continues and prints the failure in red, `require` stops before anything is
   touched. The result is `remote` in the backup's `meta.json` and in `update-history.jsonl`. The local backup below

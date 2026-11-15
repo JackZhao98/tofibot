@@ -16,6 +16,7 @@ from contextlib import contextmanager
 import fcntl
 import getpass
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -4176,6 +4177,28 @@ def restore_manifest(version):
     return fetch_manifest(version)
 
 
+RELEASE_ENV_KEYS = ('TOFI_VERSION', 'TOFI_APP_IMAGE', 'TOFI_CADDY_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_GUEST_VERSION')
+
+
+def adopt_candidate_release(env, candidate, manifest, from_remote):
+    """Put the release the restore pulled into the restored tofi.env.
+
+    A remote snapshot brings the original server's /etc/tofi, whose tofi.env names that
+    server's version and images; compose must start what this restore pulled and checked.
+    A key the candidate does not set is removed for a remote restore (a host without a
+    computer has no Worker image), and the Runner settings come from the manifest.
+    """
+    for key in RELEASE_ENV_KEYS:
+        if key in candidate:
+            env[key] = candidate[key]
+        elif from_remote:
+            env.pop(key, None)
+    if from_remote:
+        for key in RUNNER_ENV_KEYS:
+            env.pop(key, None)
+        env.update(runner_env(manifest))
+
+
 def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disks=True):
     """`tofi restore <id>`: put a backup's data and settings back and switch to its version.
 
@@ -4257,6 +4280,7 @@ def restore_backup(backup_id, yes=False, wait=0, force=False, confirm=None, disk
                 transition(state, 'upgrading', 'restore-disks')
                 snapshot_asides = restore_disks(item, meta, state)
             env = read_env()
+            adopt_candidate_release(env, candidate, manifest, meta.get('reason') == 'remote')
             transition(state, 'upgrading', 'switch-config')
             apply_host_config(bundle, env)
             switch_current(version)
@@ -5337,6 +5361,7 @@ def prune_guests(keep):
 HOST_CONTROL_TOKEN_NAME = 'host-control.token'
 HOST_CONTROL_ROUTE = '/api/host/computer/'
 HOST_BACKUP_ROUTE = '/api/host/backup/'
+HOST_CONTROL_MAX_BODY = 4 << 20
 
 
 class HostControlUnavailable(Exception):
@@ -5390,15 +5415,24 @@ def host_control(env, operation, body=None, timeout=60, route=HOST_CONTROL_ROUTE
     request = urllib.request.Request(url, data=data, method='GET' if operation in ('state', 'snapshots') else 'POST',
                                      headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
     try:
-        with opener.open(request, timeout=timeout) as response:
-            status, raw = response.status, response.read(1 << 16)
-    except urllib.error.HTTPError as error:
-        status, raw = error.code, error.read(1 << 16)
-    except (OSError, ValueError) as error:
-        raise HostControlUnavailable('the App did not answer (%s)' % error)
+        try:
+            with opener.open(request, timeout=timeout) as response:
+                status, raw = response.status, response.read(HOST_CONTROL_MAX_BODY + 1)
+        except urllib.error.HTTPError as error:
+            status, raw = error.code, error.read(HOST_CONTROL_MAX_BODY + 1)
+    except (OSError, ValueError, http.client.HTTPException) as error:  # IncompleteRead is an HTTPException
+        raise HostControlUnavailable('the App did not answer (%s)' % type(error).__name__)
+    if len(raw) > HOST_CONTROL_MAX_BODY:
+        raise HostControlUnavailable('the App answer is larger than %d bytes' % HOST_CONTROL_MAX_BODY, status,
+                                     'response_too_large')
     try:
         answer = json.loads(raw or b'{}')
     except ValueError:
+        answer = None
+    if status == 200 and not isinstance(answer, dict):
+        raise HostControlUnavailable('the App answered 200 with a body that is not a JSON object', status,
+                                     'response_invalid')
+    if not isinstance(answer, dict):
         answer = {}
     if status != 200:
         nested = answer.get('error')
@@ -5423,23 +5457,56 @@ def red(text):
 def refresh_host_etc():
     """Pack /etc/tofi where the App can read it, for the snapshot to carry.
 
-    The directory stays root-owned (the App cannot change what it reads); the one
-    file is 0400 and owned by the App's uid. The bytes are never printed or logged.
+    <data> belongs to the App's uid, so nothing here follows a path the App can
+    replace: the data directory and `host-etc` are opened by descriptor
+    (O_NOFOLLOW), `host-etc` must be a directory we own that nobody else can
+    write, and the file is created O_EXCL|O_NOFOLLOW under a temporary name and
+    renamed, all relative to that descriptor. The file is 0400 for the App's
+    uid; the directory stays ours. The bytes are never printed or logged.
     """
-    directory = P.data / HOST_ETC_DIR
-    directory.mkdir(parents=True, exist_ok=True)
-    os.chmod(directory, 0o755)
-    temporary = directory / (HOST_ETC_FILE + '.tmp')
-    temporary.unlink(missing_ok=True)
-    previous = os.umask(0o277)
+    packed = str(P.var / ('.host-etc-%s' % secrets.token_hex(8)))  # created 0600 by write_archive, under a root dir
+    parent = directory = out = None
+    name = '%s.%s.tmp' % (HOST_ETC_FILE, secrets.token_hex(8))
     try:
-        write_archive(temporary, 'gz', P.etc, exclude=etc_excluded)
+        write_archive(Path(packed), 'gz', P.etc, exclude=etc_excluded)
+        parent = os.open(str(P.data), os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.mkdir(HOST_ETC_DIR, 0o755, dir_fd=parent)
+        except FileExistsError:
+            pass
+        try:
+            directory = os.open(HOST_ETC_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+        except OSError as error:
+            raise HostError('%s/%s is not a plain directory (%s); remove it and run again.'
+                            % (P.data, HOST_ETC_DIR, error.strerror))
+        info = os.fstat(directory)
+        if info.st_uid != os.geteuid() or info.st_mode & 0o022:
+            raise HostError('%s/%s is not owned by this user or is writable by others; remove it and run again.'
+                            % (P.data, HOST_ETC_DIR))
+        os.fchmod(directory, 0o755)
+        out = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o400, dir_fd=directory)
+        with open(packed, 'rb') as source:
+            for block in iter(lambda: source.read(MIB), b''):
+                os.write(out, block)
+        os.fchmod(out, 0o400)
+        if os.geteuid() == 0:
+            os.fchown(out, APP_UID, APP_UID)
+        os.close(out)
+        out = None
+        os.rename(name, HOST_ETC_FILE, src_dir_fd=directory, dst_dir_fd=directory)
+        name = None
     finally:
-        os.umask(previous)
-    os.chmod(temporary, 0o400)
-    if os.geteuid() == 0:
-        os.chown(str(temporary), APP_UID, APP_UID)
-    os.replace(str(temporary), str(directory / HOST_ETC_FILE))
+        if out is not None:
+            os.close(out)
+        if name is not None and directory is not None:
+            try:
+                os.unlink(name, dir_fd=directory)
+            except OSError:
+                pass
+        for descriptor in (directory, parent):
+            if descriptor is not None:
+                os.close(descriptor)
+        Path(packed).unlink(missing_ok=True)
 
 
 def parse_utc(text):
@@ -5449,28 +5516,79 @@ def parse_utc(text):
         return None
 
 
-def pre_update_remote_snapshot(env, now=None):
+REMOTE_POLICIES = ('attempt', 'require', 'off')
+REMOTE_POLICY_FILE = 'remote-backup-policy.json'
+REMOTE_WAIT_SECONDS = 600
+REMOTE_WAIT_POLL = 5
+
+
+def read_remote_policy():
+    """The last before_update value read from the App, or None when it never was."""
+    try:
+        value = json.loads((P.var / REMOTE_POLICY_FILE).read_text()).get('before_update')
+    except (OSError, ValueError, AttributeError):
+        return None
+    return value if value in REMOTE_POLICIES else None
+
+
+def remember_remote_policy(policy):
+    try:
+        write_json(P.var / REMOTE_POLICY_FILE, {'before_update': policy, 'at': iso_now()}, 0o600)
+    except OSError as error:
+        warn('Could not remember the remote backup policy (%s).' % error)
+
+
+def wait_for_running_backup(env, policy, sleep=time.sleep):
+    """A scheduled backup holds the slot: wait for it (bounded) and use its result."""
+    started = int(time.time())
+    for _ in range(REMOTE_WAIT_SECONDS // REMOTE_WAIT_POLL):
+        sleep(REMOTE_WAIT_POLL)
+        try:
+            state = host_control(env, 'state', route=HOST_BACKUP_ROUTE, timeout=30)
+        except HostControlUnavailable as error:
+            return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': policy}
+        if not state.get('running'):
+            last = parse_utc(state.get('last_success_at'))
+            if state.get('last_status') == 'ok' and state.get('last_snapshot') and last is not None and last >= started - 1:
+                return {'status': 'ok', 'snapshot_id': state['last_snapshot'], 'at': state['last_success_at'],
+                        'policy': policy}
+            return {'status': 'failed', 'code': state.get('last_code') or 'backup_failed', 'policy': policy}
+    return {'status': 'failed', 'code': 'backup_in_progress', 'policy': policy}
+
+
+def pre_update_remote_snapshot(env, now=None, sleep=time.sleep):
     """Ask the running App for a `pre-update` snapshot before anything is stopped.
 
     Returns {'status': 'ok'|'skipped'|'failed', 'policy': backup.before_update, ...}: `ok` has
     snapshot_id and at; `skipped` has a reason (not_configured, setting_off, recent with the
-    snapshot it found, unsupported for an App without the route); `failed` has the App's error
-    code. It never raises: the caller decides by policy (attempt continues, require stops).
+    snapshot it found, unsupported for an App without the route); `failed` has a named code.
+    It never raises: the caller decides by policy (attempt continues, require stops).
+
+    When the App cannot say what the policy is, the last value this host read successfully
+    applies (so `require` stays `require` through an App outage); a host that never read one
+    uses `attempt`. Either way the step is `failed` with a code, never skipped. An update is
+    how a broken App gets fixed, so unknown is not turned into `require` blindly.
     """
     now = time.time() if now is None else now
+    fallback = read_remote_policy() or 'attempt'
     try:
         state = host_control(env, 'state', route=HOST_BACKUP_ROUTE, timeout=30)
     except HostControlUnavailable as error:
         if error.status == 404:
-            return {'status': 'skipped', 'reason': 'unsupported', 'policy': 'attempt'}
-        return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': 'attempt'}
-    policy = state.get('before_update') if state.get('before_update') in ('attempt', 'require', 'off') else 'attempt'
-    if not state.get('configured') or state.get('remote') != 'on':
+            return {'status': 'skipped', 'reason': 'unsupported', 'policy': fallback}
+        return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': fallback}
+    policy = state.get('before_update')
+    if policy not in REMOTE_POLICIES or not isinstance(state.get('configured'), bool) or state.get('remote') not in ('on', 'off'):
+        return {'status': 'failed', 'code': 'state_invalid', 'policy': fallback}
+    remember_remote_policy(policy)
+    if not state['configured'] or state['remote'] != 'on':
         return {'status': 'skipped', 'reason': 'not_configured', 'policy': policy}
     if policy == 'off':
         return {'status': 'skipped', 'reason': 'setting_off', 'policy': policy}
-    last = parse_utc(state.get('last_success_at'))
-    if last is not None and state.get('last_snapshot') and 0 <= now - last < REMOTE_FRESH_SECONDS:
+    last, etc_at = parse_utc(state.get('last_success_at')), parse_utc(state.get('last_etc_at'))
+    if (last is not None and state.get('last_snapshot') and 0 <= now - last < REMOTE_FRESH_SECONDS
+            and etc_at is not None and 0 <= now - etc_at < REMOTE_FRESH_SECONDS):
+        # Recent enough, and it carries a fresh /etc/tofi copy (a scheduled snapshot may carry an old one).
         return {'status': 'skipped', 'reason': 'recent', 'snapshot_id': state['last_snapshot'],
                 'at': state['last_success_at'], 'policy': policy}
     try:
@@ -5480,8 +5598,12 @@ def pre_update_remote_snapshot(env, now=None):
     try:
         answer = host_control(env, 'run', {'reason': 'pre-update'}, timeout=REMOTE_RUN_TIMEOUT, route=HOST_BACKUP_ROUTE)
     except HostControlUnavailable as error:
+        if error.code == 'backup_in_progress':
+            return wait_for_running_backup(env, policy, sleep)
         return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': policy}
-    return {'status': 'ok', 'snapshot_id': answer.get('snapshot_id'), 'at': answer.get('at'), 'policy': policy}
+    if not isinstance(answer.get('snapshot_id'), str) or not answer['snapshot_id']:
+        return {'status': 'failed', 'code': 'response_invalid', 'policy': policy}
+    return {'status': 'ok', 'snapshot_id': answer['snapshot_id'], 'at': answer.get('at'), 'policy': policy}
 
 
 def report_remote_snapshot(remote):
@@ -6192,6 +6314,25 @@ def choose(title, options):
             return int(reply) - 1
 
 
+def verify_staged_etc(path, listed, reported):
+    """Root checks the downloaded /etc/tofi archive against the manifest's sha256 (as listed before the
+    download) before it is used: a plain file, not a link, with exactly that content."""
+    if not listed or reported != listed:
+        raise HostError('backup_etc_mismatch: the downloaded /etc/tofi copy does not match the snapshot manifest; '
+                        'nothing was changed.')
+    try:
+        info = os.lstat(str(path))
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError('not a regular file')
+        actual = sha256_file(path)
+    except OSError:
+        raise HostError('backup_etc_mismatch: the downloaded /etc/tofi copy is missing or not a plain file; '
+                        'nothing was changed.')
+    if actual != listed:
+        raise HostError('backup_etc_mismatch: the downloaded /etc/tofi copy does not match the snapshot manifest; '
+                        'nothing was changed.')
+
+
 def restore_from_remote(wait=0, force=False):
     """`tofi restore --from-remote`: rebuild this host from the encrypted off-site backups.
 
@@ -6210,8 +6351,11 @@ def restore_from_remote(wait=0, force=False):
     request = {'endpoint': ask('Endpoint (https://...)'), 'region': ask('Region', 'auto'), 'bucket': ask('Bucket'),
                'prefix': ask('Prefix', 'tofi'), 'path_style': ask('Path-style addressing (y/N)', 'N').lower().startswith('y'),
                'access_key_id': ask('Access key ID'), 'secret': getpass.getpass('Secret access key: ')}
+    # 0700, owned by the uid that writes into it (the App image's user): no other local user can swap
+    # what root later extracts into /etc/tofi.
     work = Path(tempfile.mkdtemp(prefix='remote-restore-', dir=str(P.var)))
-    os.chmod(work, 0o777)
+    if os.geteuid() == 0:
+        os.chown(str(work), APP_UID, APP_UID)
     try:
         instances = remote_restore_tool(env, dict(request, action='instances'), work)['instances']
         if not instances:
@@ -6228,6 +6372,10 @@ def restore_from_remote(wait=0, force=False):
         if not picked['schema_supported']:
             raise HostError(REMOTE_RESTORE_ERRORS['backup_schema_too_new'])
         check_remote_restore_space(picked.get('size_bytes'))
+        if picked.get('etc_captured_at'):
+            say('Host settings (/etc/tofi) in this snapshot are from %s.' % picked['etc_captured_at'])
+        else:
+            say('This snapshot has no /etc/tofi copy; the current host settings would be kept.')
         request['snapshot'] = picked['name']
         request['mode'] = ['takeover', 'replica'][choose(
             'Is the original server permanently retired?',
@@ -6243,12 +6391,14 @@ def restore_from_remote(wait=0, force=False):
                    ', '.join('%s %s' % (count, table) for table, count in sorted((entry.get('rows') or {}).items())),
                    entry['disk_files'], entry['missing_files'], entry['vm_refs']))
         etc_file = work / HOST_ETC_FILE
-        if answer.get('etc') and etc_file.is_file():
-            say('  Host settings (/etc/tofi) come back from the snapshot.')
+        if answer.get('etc'):
+            verify_staged_etc(etc_file, picked.get('etc_sha256'), answer.get('etc_sha256'))
+            say('  Host settings (/etc/tofi) come back from the snapshot (packed %s).'
+                % (answer.get('etc_captured_at') or 'at an unknown time'))
         elif request['mode'] == 'takeover':
             say('  This snapshot has no /etc/tofi copy; the current host settings are kept.')
         meta = backup_data('remote', env=env, note='downloaded from the remote repository', check_space=False,
-                           data_root=work / 'data', etc_archive=etc_file if answer.get('etc') and etc_file.is_file() else None)
+                           data_root=work / 'data', etc_archive=etc_file if answer.get('etc') else None)
     finally:
         remove_tree(work)
     restore_backup(meta['id'], True, wait, force)
