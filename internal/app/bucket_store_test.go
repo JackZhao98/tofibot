@@ -455,11 +455,6 @@ func TestFileStoreResourceTestsBeforeSavingAndNeverEchoesKeys(t *testing.T) {
 	}
 	// While rows live in the bucket it cannot be removed or moved.
 	f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 409)
-	other := fakes3.New("bkt", testAccessKeyID)
-	t.Cleanup(other.Close)
-	if out := putFileStore(f, t, other, "", 409); orgErrCode(t, out) != "file_store_in_use" {
-		t.Fatalf("got %s", out)
-	}
 	// Rotating the key at the same address is fine; so is sending new files back to the disk.
 	f.admin_(t, "PUT", "/api/admin/org/resources/file_store", `{"key":"`+testSecretKey+`","access_key_id":"`+testAccessKeyID+`"}`, 200)
 	f.admin_(t, "PUT", "/api/admin/org/resources/file_store", `{"kind":"disk"}`, 200)

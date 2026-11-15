@@ -593,7 +593,18 @@ func (g *AccountGateway) orgCompatConfig(ctx context.Context) (compatConfig, boo
 
 func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Request, sp orgResourceSpec) {
 	ctx := r.Context()
-	if _, found, err := g.getOrgResource(ctx, sp.ID); err != nil {
+	// Read and decide under the lock: a save must not slip in between the count and the removal.
+	g.orgWriteMu.Lock()
+	locked := true
+	unlock := func() {
+		if locked {
+			locked = false
+			g.orgWriteMu.Unlock()
+		}
+	}
+	defer unlock()
+	cur, found, err := g.getOrgResource(ctx, sp.ID)
+	if err != nil {
 		storageFailure(w, "read resource", err)
 		return
 	} else if !found {
@@ -601,11 +612,18 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if sp.ID == orgFileStoreID {
-		// Rows that live in the bucket are read from it: its credentials stay while any exist.
-		if n, cerr := g.objectRowsAnywhere(ctx); cerr != nil {
+		// Rows that live in a bucket are read from it, and journaled objects are removed through it:
+		// its credentials stay while any exist, in any generation.
+		usage, cerr := g.fileStoreUsage(ctx, true)
+		if cerr != nil {
 			storageFailure(w, "count stored files", cerr)
 			return
-		} else if n > 0 {
+		}
+		var n int64
+		for _, u := range usage {
+			n += u.Files + u.Pending + u.Staging
+		}
+		if n > 0 {
 			writeErr(w, 409, "file_store_in_use", "Files are stored in this bucket. It cannot be removed until they are moved.")
 			return
 		}
@@ -615,15 +633,23 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 		storageFailure(w, "open organization vault", err)
 		return
 	}
-	g.orgWriteMu.Lock()
 	err = v.remove(sp.ID)
+	if sp.ID == orgFileStoreID {
+		var fc fileStoreConfig
+		_ = json.Unmarshal([]byte(cur.Config), &fc)
+		for _, p := range fc.Prev { // no row refers to an earlier bucket either (counted above)
+			if err == nil {
+				err = v.remove(fileStoreGenVaultID(p.Gen))
+			}
+		}
+	}
 	if err == nil && sp.ID == e2bKeyVaultID {
 		g.orgE2BReset()
 	}
 	if err == nil {
 		_, err = g.root.store.db.ExecContext(ctx, `DELETE FROM org_resources WHERE id=?`, sp.ID)
 	}
-	g.orgWriteMu.Unlock()
+	unlock()
 	if err != nil {
 		storageFailure(w, "delete resource", err)
 		return

@@ -238,7 +238,7 @@ func (s *Store) addAttachmentOpts(ctx context.Context, conv, name, declaredMIME 
 	disk, gen := key, ""
 	if toBucket {
 		target, key = backend.Store, backend.objectKey(opts.Origin, id)
-		disk, gen = objPrefix+key, backend.Gen
+		disk, gen = objectDisk(backend.Gen, key), backend.Gen
 	}
 	if _, err = f.Seek(0, io.SeekStart); err != nil {
 		return Attachment{}, err

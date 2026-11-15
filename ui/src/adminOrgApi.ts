@@ -50,7 +50,7 @@ export type OrgMissing = {capability: CapabilityId; group_ids: string[]; account
 export type OrgResources = {resources: OrgResource[]; missing: OrgMissing[]};
 export type OrgResourceInput = {key?: string; base_url?: string; models?: string[]; zone?: string; template_id?: string; workspace_id?: string};
 /** `PUT file_store`: the bucket, its access key pair (the secret is `key`, write-only), or just `kind` to choose where new files go. */
-export type FileStoreInput = {kind?: "s3" | "disk"; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; access_key_id?: string; key?: string; delete_grace_days?: number; confirm_public?: boolean};
+export type FileStoreInput = {kind?: "s3" | "disk"; endpoint?: string; region?: string; bucket?: string; prefix?: string; path_style?: boolean; access_key_id?: string; key?: string; delete_grace_days?: number; confirm_public?: boolean; confirm_unverified?: boolean};
 
 /** `GET /api/admin/backups`: the Backups card's whole state. Keys are never in it. */
 export type BackupSettings = {remote: "on" | "off"; schedule: "daily" | "6h" | "hourly" | "manual"; keep_daily: number; keep_weekly: number; keep_monthly: number; verify: "weekly" | "monthly" | "manual"; stale_after_hours: number; before_update: "attempt" | "require" | "off"};
@@ -97,7 +97,7 @@ const backupApi = {
 export {backupApi};
 
 /** Moving existing files between this server's disk and the bucket, the reconciliation report and the orphan sweep. */
-export type FileMoveDirection = "to_bucket" | "to_disk";
+export type FileMoveDirection = "to_bucket" | "to_disk" | "to_generation";
 export type FileMoveStatus = "running" | "paused" | "paused_store_unavailable" | "paused_store_misconfigured" | "paused_disk_full" | "cancelled" | "done" | "done_with_errors";
 export type FileMoveJob = {direction: FileMoveDirection; status: FileMoveStatus; code?: string; files_total: number; files_done: number; bytes_total: number; bytes_done: number; started_at: string; updated_at: string; finished_at?: string};
 export type FileReportItem = {account?: string; issue: string; kind?: string; size: number; age_days?: number};
@@ -105,8 +105,11 @@ export type FileReport = {
   kind: "reconcile" | "sweep"; status: "running" | "done" | "failed"; code?: string; deep?: boolean; dry_run?: boolean; started_at: string; finished_at?: string;
   rows: number; missing_in_store: number; missing_on_disk: number; size_mismatch: number; sha_mismatch: number; unreadable: number; skipped_accounts: number; orphans: number; orphan_bytes: number; orphans_young: number; deleted: number; delete_failed: number; items: FileReportItem[] | null;
 };
+/** An earlier bucket: `gen` is only the handle for retire and is never shown. */
+export type PreviousBucket = {gen: string; bucket: string; replaced_at: string; files: number; bytes: number; pending: number};
 export type FileMoveView = {
   configured: boolean; kind: "s3" | "disk"; disk: {files: number; bytes: number}; bucket: {files: number; bytes: number}; disabled_accounts: number;
+  bucket_name: string; to_current: {files: number; bytes: number}; previous: PreviousBucket[];
   job: FileMoveJob | null; failures: {count: number; by_code: Record<string, number>; items: FileReportItem[]}; report: FileReport | null; busy: string;
 };
 export const fileMoveApi = {
@@ -115,6 +118,7 @@ export const fileMoveApi = {
   pause: () => request<{ok: boolean}>("/api/admin/file-move/pause", send("POST", {})),
   resume: () => request<{ok: boolean}>("/api/admin/file-move/resume", send("POST", {})),
   cancel: () => request<{ok: boolean}>("/api/admin/file-move/cancel", send("POST", {})),
+  retire: (gen: string) => request<{retired: boolean}>("/api/admin/file-move/retire", send("POST", {gen})),
   reconcile: (deep: boolean) => request<{started: boolean}>("/api/admin/file-move/reconcile", send("POST", {deep})),
   sweep: (dryRun: boolean) => request<{started: boolean}>("/api/admin/file-move/sweep", send("POST", {dry_run: dryRun})),
 };
@@ -131,7 +135,7 @@ export function backupError(cause: unknown): string {
   return i18n.t("settings:admin.org.backup.error.generic");
 }
 
-const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use"] as const;
+const errorCodes = ["invalid_policy", "group_exists", "group_limit", "group_builtin_readonly", "group_in_use", "not_found", "invalid_key", "invalid_workspace", "invalid_template", "invalid_zone", "invalid_base_url", "invalid_models", "invalid_address", "no_models", "no_quota", "provider_unreachable", "endpoint_not_allowed", "invalid_request", "custom_template", "forbidden", "storage", "endpoint_unreachable", "credentials_rejected", "bucket_not_found", "write_denied", "conditional_put_unsupported", "range_unsupported", "delete_denied", "bucket_is_public", "invalid_endpoint", "invalid_bucket", "invalid_prefix", "invalid_grace", "file_store_in_use", "file_store_location_in_use", "file_store_cannot_compare", "file_store_same_bucket", "file_store_changed"] as const;
 
 /** Words for a failed Administration call, from the server's stable code. The provider's own text is never shown. Resolved at call time. */
 export function orgError(cause: unknown): string {

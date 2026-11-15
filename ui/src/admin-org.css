@@ -115,3 +115,8 @@
 .file-move-stats dd { margin: 0; color: var(--ink); font: var(--type-meta); font-variant-numeric: tabular-nums; text-align: right; }
 .file-move-stats > .is-failed :is(dt, dd) { color: var(--danger-text); }
 .file-move-items { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; color: var(--muted); font: var(--type-meta); }
+
+/* File storage: "New files go to" lays out like the other fields of the card (label above, full-width select). */
+.org-resource .file-store-destination { display: grid; gap: 6px; margin-top: 12px; }
+.org-resource .file-store-destination > label { margin: 0; }
+.org-resource .file-store-destination > select { width: 100%; min-width: 0; }

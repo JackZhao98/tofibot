@@ -706,7 +706,11 @@
         "invalid_bucket": "버킷 이름을 입력하세요.",
         "invalid_prefix": "접두사에는 소문자, 숫자, 점, 하이픈, 슬래시를 사용할 수 있습니다.",
         "invalid_grace": "삭제된 파일은 1일에서 365일까지 보관할 수 있습니다.",
-        "file_store_in_use": "이 버킷에 파일이 저장되어 있습니다. 파일을 옮기기 전에는 주소를 바꾸거나 버킷을 제거할 수 없습니다."
+        "file_store_in_use": "이 버킷에 파일이 저장되어 있습니다. 파일을 옮기기 전에는 버킷을 제거할 수 없습니다.",
+        "file_store_location_in_use": "이 버킷은 이미 이전 버킷입니다. 파일을 옮기거나 먼저 폐기하세요.",
+        "file_store_cannot_compare": "이전 버킷에 연결할 수 없어 새 버킷이 다른 버킷인지 TOFI가 확인할 수 없습니다. 그래도 저장할까요?",
+        "file_store_same_bucket": "이미 사용 중인 버킷입니다. 파일이 저장되어 있는 동안에는 접두사를 바꿀 수 없습니다.",
+        "file_store_changed": "저장하는 동안 오브젝트 스토리지 설정이 바뀌었습니다. 새로 고친 뒤 다시 시도하세요."
       },
       "missing_accounts_other": "계정 재정의 {{count}}개",
       "intro": "이 키는 이 서버에 속하며, 소속 그룹이 조직 제공 리소스를 쓰는 계정이 사용합니다. 개인 키가 아닙니다. 개인 키는 설정 › AI 모델, 환경, 검색 및 가져오기에 있습니다.",
@@ -759,7 +763,16 @@
         "save": "테스트 후 저장",
         "test": "연결 테스트",
         "test_ok": "연결을 확인했습니다.",
-        "note": "액세스 키 쌍은 암호화되어 저장되며 다시 표시되지 않습니다. 비공개 버킷과 해당 버킷으로 제한된 키를 사용하세요."
+        "note": "액세스 키 쌍은 암호화되어 저장되며 다시 표시되지 않습니다. 비공개 버킷과 해당 버킷으로 제한된 키를 사용하세요.",
+        "preset": "공급자 프리셋",
+        "preset_custom": "직접 입력",
+        "preset_r2": "Cloudflare R2",
+        "preset_s3": "AWS S3",
+        "preset_b2": "Backblaze B2",
+        "preset_minio": "MinIO",
+        "preset_note": "프리셋은 엔드포인트 형식만 채웁니다. 꺾쇠괄호 부분을 바꿔 넣으세요.",
+        "new_bucket_note": "다른 버킷, 엔드포인트 또는 접두사를 저장하면 현재 버킷은 이전 버킷으로 남습니다. 이전 버킷에 있는 파일은 옮기기 전까지 계속 읽을 수 있습니다. 새 파일은 새 버킷에 저장됩니다.",
+        "confirm_unverified": "그래도 저장"
       },
       "backup": {
         "name": "원격 백업",
@@ -895,7 +908,8 @@
           "account_deleting": "계정 건너뜀: 삭제 중입니다",
           "account_unavailable": "계정 건너뜀: 파일을 열 수 없습니다",
           "account_disabled": "계정 건너뜀: 비활성화되어 있습니다. 활성화한 뒤 재개하거나 다시 이동하세요.",
-          "file_move_failed": "이동 실패"
+          "file_move_failed": "이동 실패",
+          "same_physical_bucket": "대상이 원본과 같은 버킷입니다"
         },
         "reconcile_title": "대조",
         "reconcile_help": "파일 레코드를 이 서버의 디스크 및 버킷과 대조합니다. 누락된 파일, 크기 또는 체크섬 불일치, 고아 오브젝트를 찾습니다.",
@@ -949,8 +963,25 @@
           "file_store_not_configured": "먼저 오브젝트 스토리지를 설정하세요.",
           "no_running_move": "실행 중인 파일 이동이 없습니다.",
           "no_paused_move": "재개할 일시 중지된 파일 이동이 없습니다.",
-          "no_active_move": "취소할 파일 이동이 없습니다."
-        }
+          "no_active_move": "취소할 파일 이동이 없습니다.",
+          "disk_space_low": "이 서버의 디스크에 이 파일들을 둘 공간이 부족합니다. 먼저 공간을 확보하세요.",
+          "no_previous_bucket": "파일을 옮겨 올 이전 버킷이 없습니다.",
+          "file_store_generation_in_use": "이 버킷에 아직 파일이 있습니다. 먼저 현재 버킷으로 옮기세요.",
+          "generation_cleanup_pending": "이 버킷에서는 삭제된 파일이 보존 기간이 지나기를 기다리고 있습니다.",
+          "generation_not_found": "폐기할 이전 버킷이 없습니다.",
+          "generation_busy": "이 버킷은 방금 교체되었거나 가져오기가 아직 끝나지 않았습니다. 나중에 다시 시도하세요.",
+          "same_physical_bucket": "대상이 원본과 같은 버킷입니다"
+        },
+        "to_current": "현재 버킷으로 이동",
+        "direction_to_generation": "이전 버킷에서 현재 버킷으로",
+        "previous_title": "이전 버킷",
+        "previous_line": "이전 버킷 {{bucket}} · {{date}}에 교체됨",
+        "previous_files": "파일 {{files}}개({{size}})",
+        "previous_empty": "남은 파일 없음",
+        "retire": "폐기",
+        "retire_question": "이 버킷을 폐기할까요? 액세스 키가 이 서버에서 삭제됩니다.",
+        "cleanup_pending": "이 버킷에서는 삭제된 파일이 보존 기간이 지나기를 기다리고 있습니다.",
+        "needs_current_destination": "현재 버킷으로 옮기려면 먼저 “새 파일 저장 위치”를 오브젝트 스토리지로 설정하세요."
       }
     }
   },

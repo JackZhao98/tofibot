@@ -706,7 +706,11 @@
         "invalid_bucket": "请填写存储桶名称。",
         "invalid_prefix": "前缀只能包含小写字母、数字、点、短横线和斜杠。",
         "invalid_grace": "已删除文件保留 1 到 365 天。",
-        "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能更改其地址，也不能移除。"
+        "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能移除。",
+        "file_store_location_in_use": "该存储桶已经是旧存储桶。请先迁走其中的文件，或先将其停用。",
+        "file_store_cannot_compare": "无法连接到之前的存储桶，因此 TOFI 无法确认新存储桶是另一个存储桶。仍要保存吗？",
+        "file_store_same_bucket": "这是已在使用的存储桶。其中有文件时，不能更改前缀。",
+        "file_store_changed": "保存期间对象存储的设置已被更改。请刷新后重试。"
       },
       "missing_accounts_other": "{{count}} 个账户覆盖",
       "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
@@ -759,7 +763,16 @@
         "save": "测试并保存",
         "test": "测试连接",
         "test_ok": "连接已验证。",
-        "note": "Access key 对以密封形式保存，之后不再显示。请使用私有存储桶和仅限该桶的密钥。"
+        "note": "Access key 对以密封形式保存，之后不再显示。请使用私有存储桶和仅限该桶的密钥。",
+        "preset": "服务商预设",
+        "preset_custom": "自定义",
+        "preset_r2": "Cloudflare R2",
+        "preset_s3": "AWS S3",
+        "preset_b2": "Backblaze B2",
+        "preset_minio": "MinIO",
+        "preset_note": "预设只会填入 endpoint 的格式，请替换尖括号中的占位内容。",
+        "new_bucket_note": "保存不同的存储桶、endpoint 或前缀后，当前存储桶会作为旧存储桶保留。旧存储桶中的文件在迁走之前仍可读取，新文件会写入新存储桶。",
+        "confirm_unverified": "仍然保存"
       },
       "backup": {
         "name": "异地备份",
@@ -895,7 +908,8 @@
           "account_deleting": "已跳过账户：正在删除",
           "account_unavailable": "已跳过账户：无法打开其文件",
           "account_disabled": "已跳过账户：已被停用。请先启用，再继续或重新移动。",
-          "file_move_failed": "移动失败"
+          "file_move_failed": "移动失败",
+          "same_physical_bucket": "目标与来源是同一个存储桶"
         },
         "reconcile_title": "对账",
         "reconcile_help": "将文件记录与本服务器磁盘和存储桶对照：缺失文件、大小或校验和不一致，以及孤立对象。",
@@ -949,8 +963,25 @@
           "file_store_not_configured": "请先设置对象存储。",
           "no_running_move": "当前没有正在进行的文件移动。",
           "no_paused_move": "没有可继续的已暂停文件移动。",
-          "no_active_move": "没有可取消的文件移动。"
-        }
+          "no_active_move": "没有可取消的文件移动。",
+          "disk_space_low": "此服务器的磁盘没有足够空间存放这些文件，请先腾出空间。",
+          "no_previous_bucket": "没有可迁出文件的旧存储桶。",
+          "file_store_generation_in_use": "此存储桶中仍有文件，请先迁到当前存储桶。",
+          "generation_cleanup_pending": "已删除的文件仍在此存储桶中等待保留期结束。",
+          "generation_not_found": "没有可停用的旧存储桶。",
+          "generation_busy": "此存储桶刚刚被替换，或有导入仍在完成。请稍后再试。",
+          "same_physical_bucket": "目标与来源是同一个存储桶"
+        },
+        "to_current": "迁到当前存储桶",
+        "direction_to_generation": "旧存储桶到当前存储桶",
+        "previous_title": "旧存储桶",
+        "previous_line": "旧存储桶 {{bucket}} · 于 {{date}} 替换",
+        "previous_files": "{{files}} 个文件（{{size}}）",
+        "previous_empty": "已无文件",
+        "retire": "停用",
+        "retire_question": "要停用这个存储桶吗？其访问密钥会从此服务器删除。",
+        "cleanup_pending": "已删除的文件仍在此存储桶中等待保留期结束。",
+        "needs_current_destination": "要迁到当前存储桶，请先把“新文件存放位置”设为对象存储。"
       }
     }
   },
