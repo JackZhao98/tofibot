@@ -854,6 +854,94 @@
           "backup_account_not_in_snapshot": "해당 계정은 스냅샷에 없습니다.",
           "backup_failed": "백업에 실패했습니다."
         }
+      },
+      "file_move": {
+        "title": "파일 이동",
+        "help": "기존 파일을 이 서버의 디스크와 버킷 사이에서 이동합니다. 각 파일은 레코드를 전환하기 전에 SHA-256으로 검증됩니다. 일시 중지할 수 있으며 재시작 후에도 이어집니다.",
+        "on_disk": "이 서버의 디스크에 파일 {{files}}개 ({{size}})",
+        "in_bucket": "버킷에 파일 {{files}}개 ({{size}})",
+        "to_bucket": "버킷으로 이동",
+        "to_disk": "디스크로 이동",
+        "needs_bucket_destination": "파일을 버킷으로 이동하려면 먼저 “새 파일 저장 위치”를 오브젝트 스토리지로 설정하세요.",
+        "needs_disk_destination": "파일을 디스크로 되돌리려면 먼저 “새 파일 저장 위치”를 이 서버의 디스크로 설정하세요.",
+        "direction_to_bucket": "디스크 → 버킷",
+        "direction_to_disk": "버킷 → 디스크",
+        "progress": "파일 {{done}}/{{total}}개 · {{size}} / {{totalSize}}",
+        "pause": "일시 중지",
+        "resume": "재개",
+        "cancel": "이동 취소",
+        "cancel_question": "이동을 취소할까요? 이미 이동한 파일은 그대로 유지됩니다.",
+        "failed_count": "파일 {{count}}개를 이동하지 못했습니다",
+        "status": {
+          "running": "이동 중",
+          "paused": "일시 중지됨",
+          "paused_store_unavailable": "일시 중지됨: 버킷에 연결할 수 없습니다",
+          "paused_store_misconfigured": "일시 중지됨: 버킷이 액세스 키를 거부했습니다",
+          "paused_disk_full": "일시 중지됨: 디스크 여유 공간이 부족합니다",
+          "cancelled": "취소됨",
+          "done": "완료",
+          "done_with_errors": "오류와 함께 완료"
+        },
+        "code": {
+          "file_missing_on_disk": "이 서버의 디스크에 없음",
+          "file_missing_in_store": "버킷에 없음",
+          "file_size_mismatch": "크기가 레코드와 다름",
+          "file_digest_mismatch": "SHA-256이 레코드와 다름",
+          "file_verify_failed": "쓰기 후 읽기 검증 실패",
+          "file_key_conflict": "대상에 이미 다른 내용이 있음",
+          "file_store_key_out_of_scope": "오브젝트 키가 계정 범위를 벗어남",
+          "file_move_failed": "이동 실패"
+        },
+        "reconcile_title": "대조",
+        "reconcile_help": "파일 레코드를 이 서버의 디스크 및 버킷과 대조합니다. 누락된 파일, 크기 또는 체크섬 불일치, 고아 오브젝트를 찾습니다.",
+        "deep": "내용 검증 (모든 파일을 읽음)",
+        "reconcile": "대조하기",
+        "report_running": "실행 중…",
+        "report_failed": "실행이 중단되었습니다: {{reason}}",
+        "report_reconcile": "대조 보고서",
+        "report_sweep": "고아 오브젝트 정리 보고서",
+        "report_sweep_dry": "고아 오브젝트 정리 시뮬레이션 (삭제 없음)",
+        "age_days": "{{count}}일 경과",
+        "sweep": "고아 오브젝트 삭제",
+        "sweep_dry": "시뮬레이션",
+        "sweep_question": "버킷에서 고아 오브젝트 {{count}}개를 삭제할까요? 되돌릴 수 없습니다.",
+        "orphan_note": "레코드도 삭제 대기 항목도 없고 삭제 보관 기간보다 오래된 오브젝트만 제거됩니다.",
+        "count": {
+          "rows": "파일 레코드",
+          "missing_in_store": "버킷에 없음",
+          "missing_on_disk": "디스크에 없음",
+          "size_mismatch": "크기 불일치",
+          "sha_mismatch": "체크섬 불일치",
+          "orphans": "고아 오브젝트",
+          "orphans_young": "보관 기간 내의 고아 오브젝트",
+          "deleted": "삭제됨",
+          "delete_failed": "삭제하지 못함"
+        },
+        "issue": {
+          "orphan": "고아 오브젝트",
+          "missing_in_store": "버킷에 없음",
+          "missing_on_disk": "디스크에 없음",
+          "size_mismatch": "크기 불일치",
+          "sha_mismatch": "체크섬 불일치"
+        },
+        "report_code": {
+          "file_store_unavailable": "버킷에 연결할 수 없음",
+          "file_store_misconfigured": "버킷이 액세스 키를 거부함",
+          "interrupted": "서버가 재시작됨",
+          "file_scan_failed": "내부 오류"
+        },
+        "error": {
+          "generic": "파일 이동 요청에 실패했습니다.",
+          "file_move_active": "파일 이동이 이미 진행 중이거나 일시 중지되어 있습니다. 먼저 재개하거나 취소하세요.",
+          "file_job_running": "다른 파일 작업이 실행 중입니다. 끝난 뒤 다시 시도하세요.",
+          "nothing_to_move": "해당 방향으로 이동할 파일이 없습니다.",
+          "destination_is_disk": "새 파일은 이 서버의 디스크에 저장되도록 설정되어 있습니다. 먼저 저장 위치를 오브젝트 스토리지로 바꾸세요.",
+          "destination_is_bucket": "새 파일은 버킷에 저장되도록 설정되어 있습니다. 먼저 저장 위치를 이 서버의 디스크로 바꾸세요.",
+          "file_store_not_configured": "먼저 오브젝트 스토리지를 설정하세요.",
+          "no_running_move": "실행 중인 파일 이동이 없습니다.",
+          "no_paused_move": "재개할 일시 중지된 파일 이동이 없습니다.",
+          "no_active_move": "취소할 파일 이동이 없습니다."
+        }
       }
     }
   },

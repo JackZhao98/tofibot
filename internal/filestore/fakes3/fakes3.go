@@ -22,6 +22,7 @@ import (
 type object struct {
 	data []byte
 	meta http.Header
+	at   time.Time
 }
 
 type Server struct {
@@ -75,7 +76,14 @@ func (s *Server) Delete(key string) {
 func (s *Server) Set(key string, data []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.objects[key] = object{data: data, meta: http.Header{}}
+	s.objects[key] = object{data: data, meta: http.Header{}, at: time.Now()}
+}
+
+// SetAt writes an object whose last-modified time is at, for age checks.
+func (s *Server) SetAt(key string, data []byte, at time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.objects[key] = object{data: data, meta: http.Header{}, at: at}
 }
 
 func etagOf(b []byte) string { return fmt.Sprintf("%x", md5.Sum(b)) }
@@ -143,7 +151,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		for _, h := range []string{"Content-Type", "Content-Disposition", "X-Amz-Meta-Sha256"} {
 			meta.Set(h, r.Header.Get(h))
 		}
-		s.objects[key] = object{data: body, meta: meta}
+		s.objects[key] = object{data: body, meta: meta, at: time.Now()}
 		w.Header().Set("ETag", `"`+etagOf(body)+`"`)
 	case http.MethodGet, http.MethodHead:
 		o, ok := s.objects[key]
@@ -170,8 +178,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) list(w http.ResponseWriter, prefix string) {
 	type contents struct {
-		Key  string
-		Size int
+		Key          string
+		Size         int
+		LastModified string
 	}
 	out := struct {
 		XMLName  xml.Name `xml:"ListBucketResult"`
@@ -181,7 +190,7 @@ func (s *Server) list(w http.ResponseWriter, prefix string) {
 	}{Name: s.Bucket}
 	for k, o := range s.objects {
 		if strings.HasPrefix(k, prefix) {
-			out.Contents = append(out.Contents, contents{k, len(o.data)})
+			out.Contents = append(out.Contents, contents{k, len(o.data), o.at.UTC().Format("2006-01-02T15:04:05.000Z")})
 		}
 	}
 	sort.Slice(out.Contents, func(i, j int) bool { return out.Contents[i].Key < out.Contents[j].Key })

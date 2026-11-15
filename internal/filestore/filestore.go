@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 )
 
 var (
@@ -30,6 +31,8 @@ type ObjectInfo struct {
 	Key  string
 	Size int64
 	ETag string
+	// Modified is when the object was last written; zero when the backend did not say.
+	Modified time.Time
 }
 
 type Store interface {

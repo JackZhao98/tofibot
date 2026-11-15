@@ -47,6 +47,7 @@ func (d Disk) Put(_ context.Context, key string, src io.ReadSeeker, _ ObjectMeta
 		return ErrExists
 	}
 	tmp := "." + key + ".tmp"
+	_ = root.Remove(tmp) // a crashed earlier write left it; keys are written by one writer
 	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -132,7 +133,7 @@ func (d Disk) List(_ context.Context, prefix string, fn func(ObjectInfo) error) 
 		if err != nil {
 			continue
 		}
-		if err = fn(ObjectInfo{Key: e.Name(), Size: info.Size()}); err != nil {
+		if err = fn(ObjectInfo{Key: e.Name(), Size: info.Size(), Modified: info.ModTime()}); err != nil {
 			return err
 		}
 	}

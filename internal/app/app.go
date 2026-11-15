@@ -456,8 +456,10 @@ type Store struct {
 	// storage is the quota and host-space policy for new files (S3).
 	storage storageGate
 	// storageReserved is the bytes promised to uploads in flight (storageAdmit).
-	storageReserved    int64
-	storageReserveMu   sync.Mutex
+	storageReserved  int64
+	storageReserveMu sync.Mutex
+	// bucketPhysical caches the daily bucket byte sum counted as physical bytes.
+	bucketPhysical     bucketPhysicalCache
 	scheduleSchemaOnce sync.Once
 	scheduleSchemaErr  error
 	// onReturnQueued wakes the queue of a return run created inside a

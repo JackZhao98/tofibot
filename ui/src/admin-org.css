@@ -104,3 +104,4 @@
 .backup-settings > .provider-key-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px; align-items: center; gap: 12px; }
 .backup-settings > .provider-key-row > label { margin: 0; }
 .backup-snapshots { margin: 0; padding-left: 18px; }
+.file-move, .file-move-job, .file-move-failures, .file-move-report { display: grid; gap: 8px; margin-top: 16px; }

@@ -854,6 +854,94 @@
           "backup_account_not_in_snapshot": "该账户不在这份快照中。",
           "backup_failed": "备份失败。"
         }
+      },
+      "file_move": {
+        "title": "移动文件",
+        "help": "在本服务器磁盘与存储桶之间移动现有文件。每个文件在切换记录前都会用 SHA-256 校验，移动可以暂停，重启后会继续。",
+        "on_disk": "本服务器磁盘上有 {{files}} 个文件（{{size}}）",
+        "in_bucket": "存储桶中有 {{files}} 个文件（{{size}}）",
+        "to_bucket": "移到存储桶",
+        "to_disk": "移到磁盘",
+        "needs_bucket_destination": "要把文件移到存储桶，请先将“新文件保存到”设为对象存储。",
+        "needs_disk_destination": "要把文件移回磁盘，请先将“新文件保存到”设为本服务器磁盘。",
+        "direction_to_bucket": "磁盘到存储桶",
+        "direction_to_disk": "存储桶到磁盘",
+        "progress": "{{done}} / {{total}} 个文件 · {{size}} / {{totalSize}}",
+        "pause": "暂停",
+        "resume": "继续",
+        "cancel": "取消移动",
+        "cancel_question": "要取消移动吗？已经移动的文件保持原位。",
+        "failed_count": "有 {{count}} 个文件未能移动",
+        "status": {
+          "running": "移动中",
+          "paused": "已暂停",
+          "paused_store_unavailable": "已暂停：无法连接存储桶",
+          "paused_store_misconfigured": "已暂停：存储桶拒绝了访问密钥",
+          "paused_disk_full": "已暂停：磁盘可用空间不足",
+          "cancelled": "已取消",
+          "done": "已完成",
+          "done_with_errors": "已完成，但有错误"
+        },
+        "code": {
+          "file_missing_on_disk": "本服务器磁盘上缺失",
+          "file_missing_in_store": "存储桶中缺失",
+          "file_size_mismatch": "大小与记录不符",
+          "file_digest_mismatch": "SHA-256 与记录不符",
+          "file_verify_failed": "写入后回读校验失败",
+          "file_key_conflict": "目标位置已存在不同内容",
+          "file_store_key_out_of_scope": "对象键超出账户范围",
+          "file_move_failed": "移动失败"
+        },
+        "reconcile_title": "对账",
+        "reconcile_help": "将文件记录与本服务器磁盘和存储桶对照：缺失文件、大小或校验和不一致，以及孤立对象。",
+        "deep": "校验内容（会读取每个文件）",
+        "reconcile": "开始对账",
+        "report_running": "进行中…",
+        "report_failed": "运行已停止：{{reason}}",
+        "report_reconcile": "对账报告",
+        "report_sweep": "孤立对象清理报告",
+        "report_sweep_dry": "孤立对象清理试运行（未删除任何内容）",
+        "age_days": "已存在 {{count}} 天",
+        "sweep": "删除孤立对象",
+        "sweep_dry": "试运行",
+        "sweep_question": "要从存储桶中删除 {{count}} 个孤立对象吗？此操作无法撤销。",
+        "orphan_note": "只会删除没有记录、没有待删除条目且超过删除保留期的对象。",
+        "count": {
+          "rows": "文件记录",
+          "missing_in_store": "存储桶中缺失",
+          "missing_on_disk": "磁盘上缺失",
+          "size_mismatch": "大小不一致",
+          "sha_mismatch": "校验和不一致",
+          "orphans": "孤立对象",
+          "orphans_young": "保留期内的孤立对象",
+          "deleted": "已删除",
+          "delete_failed": "删除失败"
+        },
+        "issue": {
+          "orphan": "孤立对象",
+          "missing_in_store": "存储桶中缺失",
+          "missing_on_disk": "磁盘上缺失",
+          "size_mismatch": "大小不一致",
+          "sha_mismatch": "校验和不一致"
+        },
+        "report_code": {
+          "file_store_unavailable": "无法连接存储桶",
+          "file_store_misconfigured": "存储桶拒绝了访问密钥",
+          "interrupted": "服务器已重启",
+          "file_scan_failed": "内部错误"
+        },
+        "error": {
+          "generic": "文件移动请求失败。",
+          "file_move_active": "已有文件移动正在进行或已暂停。请先继续或取消它。",
+          "file_job_running": "另一个文件任务正在运行，请在其完成后重试。",
+          "nothing_to_move": "该方向上没有可移动的文件。",
+          "destination_is_disk": "新文件当前保存到本服务器磁盘。请先把保存位置设为对象存储。",
+          "destination_is_bucket": "新文件当前保存到存储桶。请先把保存位置设为本服务器磁盘。",
+          "file_store_not_configured": "请先设置对象存储。",
+          "no_running_move": "当前没有正在进行的文件移动。",
+          "no_paused_move": "没有可继续的已暂停文件移动。",
+          "no_active_move": "没有可取消的文件移动。"
+        }
       }
     }
   },

@@ -90,6 +90,7 @@ type AccountGateway struct {
 	orgE2B    orgE2BGate
 	orgBuilds sync.WaitGroup
 	// Remote backups (org_backup.go): one job at a time; restoring fences an account.
+	fileJob      fileJobGate
 	backupMu     sync.Mutex
 	backupBusy   atomic.Bool
 	backupCancel context.CancelFunc
@@ -159,6 +160,10 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 		root.Close()
 		return nil, err
 	}
+	if _, err = tx.Exec(fileMoveDDL); err != nil {
+		root.Close()
+		return nil, err
+	}
 	if err = tx.Commit(); err != nil {
 		root.Close()
 		return nil, err
@@ -200,6 +205,7 @@ func NewAccountGateway(c Config) (*AccountGateway, error) {
 	}
 	g.startExportSweeper()
 	g.startBackupScheduler()
+	g.startFileMove()
 	return g, nil
 }
 func (g *AccountGateway) Close() error {
@@ -220,6 +226,7 @@ func (g *AccountGateway) Close() error {
 	workspaces := g.workspaces
 	g.workspaces = map[string]*Server{}
 	g.mu.Unlock()
+	g.shutdownFileJobs()
 	g.stopOrgE2BBuilds()
 	g.policyApply.Wait()
 	for _, s := range workspaces {
@@ -659,6 +666,9 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if g.adminBackups(w, r, a) {
+		return
+	}
+	if g.adminFileMove(w, r, a) {
 		return
 	}
 	if g.manageAccount(w, r, a) {

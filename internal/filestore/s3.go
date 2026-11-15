@@ -152,7 +152,7 @@ func (s *S3) List(ctx context.Context, prefix string, fn func(ObjectInfo) error)
 		if o.Err != nil {
 			return mapErr(o.Err)
 		}
-		if err := fn(ObjectInfo{Key: o.Key, Size: o.Size, ETag: o.ETag}); err != nil {
+		if err := fn(ObjectInfo{Key: o.Key, Size: o.Size, ETag: o.ETag, Modified: o.LastModified}); err != nil {
 			return err
 		}
 	}
