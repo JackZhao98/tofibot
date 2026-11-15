@@ -1316,7 +1316,7 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 
 // noComputerStatus is the run-context fact of a workspace with no computer
 // backend: the Bot must never claim one.
-const noComputerStatus = "No Bot computer is attached to this Bot. Shell commands, a real browser or desktop, installed programs, and files produced on one are unavailable; never claim or imply one, and say plainly when a request needs one."
+const noComputerStatus = "No Bot computer is attached to this Bot. Shell commands, a real browser or desktop, installed programs, and files produced on one are unavailable; never claim or imply one. When a request needs one, say so plainly and name where one is added: Settings > Environments."
 
 func cleanBotOutput(content string, bot Bot) string {
 	prefix := "[sender " + bot.Name + " id=" + bot.ID + "]"
