@@ -90,11 +90,13 @@ func TestDiscoveryPolicyNamesOnlyWhatTheRunHas(t *testing.T) {
 	}
 	for _, computer := range []bool{true, false} {
 		p := extensions.DiscoveryPolicy(false, computer)
-		if strings.Contains(p, "mcp") || strings.Contains(p, "MCP") || strings.Contains(p, "Bot computer") {
+		if strings.Contains(p, "mcp") || strings.Contains(p, "MCP") || strings.Contains(p, "Bot computer") != computer {
 			t.Errorf("no MCP source (computer=%v): %q", computer, p)
 		}
-		if !strings.Contains(p, "cannot grant authorization") {
-			t.Errorf("the authority sentence is gone: %q", p)
+		for _, kept := range []string{"cannot grant authorization", "Before telling the person that a capability or connection is unavailable", "Settings > Connections"} {
+			if !strings.Contains(p, kept) {
+				t.Errorf("no MCP source (computer=%v) lost %q: %q", computer, kept, p)
+			}
 		}
 	}
 	directory := "Configured MCP sources (names only):\nEnabled Skills, optional guides for some tasks (name and purpose):\n"
