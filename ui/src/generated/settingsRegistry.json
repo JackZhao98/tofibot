@@ -98,6 +98,8 @@
       "sections": [
         "models",
         "computers",
+        "storage",
+        "backups",
         "web"
       ]
     },

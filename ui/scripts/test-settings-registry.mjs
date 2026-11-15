@@ -56,7 +56,7 @@ const source = async path => readFile(join(root, "src", path), "utf8");
   assert.ok(checked > 40, "most registry links are checked");
 
   // 4. Every section id is in the component that owns it.
-  const pages = (await Promise.all(["settings/SettingsPages.tsx", "AutomationSettings.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx", "AdminGroups.tsx", "AdminResources.tsx"].map(source))).join("\n");
+  const pages = (await Promise.all(["settings/SettingsPages.tsx", "AutomationSettings.tsx", "EnvironmentsPage.tsx", "StandingAllowances.tsx", "FollowupsSettings.tsx", "DictationSettings.tsx", "AdminGroups.tsx", "AdminResources.tsx", "AdminBackups.tsx"].map(source))).join("\n");
   const ids = new Set([...pages.matchAll(/(?:<SectionAnchor|<SettingsSection)[^>]*?\bid="([a-z-]+)"/g)].map(match => match[1]));
   const automation = await source("AutomationSettings.tsx");
   // System > Behavior: its common rows are `behavior`, its folded groups are the other group ids, in order; the rest are on their own pages.

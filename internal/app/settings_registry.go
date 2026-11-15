@@ -138,7 +138,7 @@ var settingsTabPages = []settingsPage{
 	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"}},
 	{"admin", "settings:shell.page.admin.name", []string{"accounts", "version"}},
 	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
-	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "web"}},
+	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "storage", "backups", "web"}},
 	{"admin-design", "settings:shell.page.admin-design.name", []string{}},
 }
 

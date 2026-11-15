@@ -6180,6 +6180,11 @@ def parse_args(argv):
     restore_parser.add_argument('backup_id', nargs='?', help='an id from `tofi backups` (or a unique prefix)')
     restore_parser.add_argument('--from-remote', dest='from_remote', action='store_true',
                                 help='rebuild this host from the encrypted off-site backups (asks for the bucket and the Recovery Key)')
+    restore_parser.add_argument('--account', metavar='USERNAME|ID',
+                                help='with --from-remote: restore only this account from a remote snapshot, '
+                                     'while the server keeps running (with --undo: go back to the data it had before)')
+    restore_parser.add_argument('--snapshot', metavar='NAME', help='with --account: the restore point (default: ask)')
+    restore_parser.add_argument('--undo', action='store_true', help='with --account: undo the last single-account restore')
     restore_parser.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
     restore_parser.add_argument('--no-disks', action='store_true',
                                 help='keep the current computer disks even if the backup carries them')
@@ -6349,6 +6354,108 @@ def verify_staged_etc(path, listed, reported):
     if actual != listed:
         raise HostError('backup_etc_mismatch: the downloaded /etc/tofi copy does not match the snapshot manifest; '
                         'nothing was changed.')
+
+
+ACCOUNT_RESTORE_ERRORS = {
+    'not_found': 'no account with that username or id (a deleted account cannot be restored alone; use --from-remote without --account)',
+    'account_restore_unsupported_legacy': 'the original owner account lives in the root database and can only be restored with the whole server (--from-remote without --account)',
+    'backup_instance_mismatch': 'that snapshot belongs to another server; move an account between servers with the encrypted export instead',
+    'schema_too_new': 'that snapshot is newer than the installed TOFI; run `sudo tofi update` first',
+    'backup_in_progress': 'a backup job is running; try again when it has finished',
+    'nothing_to_undo': 'there is no saved copy of that account to go back to (copies are kept for 14 days)',
+    'restore_no_disk_space': 'there is not enough free disk space; nothing was changed',
+    'restore_space_unknown': 'the free disk space could not be measured; nothing was changed',
+    'backup_remote_off': 'remote backup is not turned on',
+    'host_route_missing': 'this App release has no account restore channel; run `sudo tofi update`',
+    'app_unreachable': 'the App did not answer; is TOFI running?',
+    'backup_store_misconfigured': 'remote backup is not configured',
+    'backup_store_unavailable': 'the backup storage did not answer',
+    'backup_key_missing': 'the backup key is missing',
+}
+
+
+def account_restore_call(env, operation, body, timeout=120):
+    """One account-restore call on the host channel; failures become a HostError with a named code
+    (never the App's own text)."""
+    try:
+        return host_control(env, operation, body, timeout=timeout, route=HOST_BACKUP_ROUTE)
+    except HostControlUnavailable as error:
+        code = error.code or ('host_route_missing' if error.status == 404 else 'app_unreachable')
+        raise HostError('%s: %s.' % (code, ACCOUNT_RESTORE_ERRORS.get(code, 'the restore stopped; the account was not changed')))
+
+
+def choose_account_snapshot(points, wanted, assume_yes):
+    """The restore point: --snapshot (exact name or unique prefix), the newest with --yes, else asked."""
+    if wanted:
+        found = [item for item in points if item.get('name') == wanted] or \
+                [item for item in points if str(item.get('name', '')).startswith(wanted)]
+        if len(found) != 1:
+            raise HostError('restore_snapshot_not_found: %s. Run without --snapshot to see the restore points.'
+                            % ('no restore point of this account has that name' if not found else 'that prefix matches several'))
+        return found[0]
+    if assume_yes:
+        return points[0]
+    if not sys.stdin.isatty():
+        raise HostError('Name a restore point with --snapshot (or use --yes for the newest) when there is no terminal.')
+    say('Restore points of this account, newest first:')
+    for index, item in enumerate(points, 1):
+        rows = item.get('rows') or {}
+        say('  %d. %s  %s  (%s conversations, %s messages, %s files)' % (
+            index, item.get('at') or '-', item.get('reason') or '-', rows.get('conversations', 0),
+            rows.get('messages', 0), item.get('files', 0)))
+    try:
+        answer = input('Which one? [1] ').strip() or '1'
+    except EOFError:
+        answer = ''
+    if not answer.isdigit() or not 1 <= int(answer) <= len(points):
+        raise HostError('Restore cancelled; nothing was changed.')
+    return points[int(answer) - 1]
+
+
+def restore_account(account, snapshot=None, undo=False, assume_yes=False):
+    """`tofi restore --from-remote --account <username-or-id> [--snapshot NAME]` and `tofi restore --account X --undo`.
+
+    One account, through the running App's own single-account restore (the one the admin page uses) over the
+    host channel; the server keeps running and other accounts are not touched. Sign-in, role, group and quota
+    stay as they are; the current data is kept for 14 days for the undo."""
+    state = load_state()
+    if state is None or state['phase'] != 'installed':
+        raise HostError('Restore needs an installed TOFI in phase installed; run `sudo tofi install` first.')
+    env = read_env()
+    listing = account_restore_call(env, 'account-snapshots', {'account': account})
+    username = listing.get('username') or account
+    if undo:
+        if not listing.get('undo_available'):
+            raise HostError('nothing_to_undo: %s.' % ACCOUNT_RESTORE_ERRORS['nothing_to_undo'])
+        say('Undo the last restore of %s: its current data is saved (14 days) and the copy kept from before the restore '
+            'comes back.' % username)
+    else:
+        points = listing.get('snapshots') or []
+        if not points:
+            raise HostError('No remote snapshot holds the account %s.' % username)
+        chosen = choose_account_snapshot(points, snapshot, assume_yes)
+        say('Restore %s to the snapshot of %s.' % (username, chosen.get('at') or chosen.get('name')))
+        say("The account's chats, Bots, files and settings are replaced with the copy in the snapshot. Sign-in, role, "
+            'group and quota stay as they are. The current data is kept for 14 days so you can undo with '
+            '`sudo tofi restore --account %s --undo`. The original owner account can only be restored with the whole '
+            'server.' % username)
+    if not assume_yes:
+        if not sys.stdin.isatty():
+            raise HostError('Confirmation needs a terminal; use --yes to confirm without one.')
+        try:
+            typed = input('Type the username to confirm: ').strip()
+        except EOFError:
+            typed = ''
+        if typed != username:
+            raise HostError('Restore cancelled; nothing was changed.')
+    if undo:
+        account_restore_call(env, 'account-undo', {'account': account}, timeout=REMOTE_RUN_TIMEOUT)
+        say('Undone: %s is back to the data it had before the restore.' % username)
+        return
+    answer = account_restore_call(env, 'account-restore', {'account': account, 'snapshot': chosen['name']},
+                                  timeout=REMOTE_RUN_TIMEOUT)
+    say('Restored %s. The previous data is kept until %s; undo with `sudo tofi restore --account %s --undo`.'
+        % (username, answer.get('undo_until') or '14 days from now', username))
 
 
 def restore_from_remote(wait=0, force=False):
@@ -6524,6 +6631,17 @@ def main(argv=None):
                 sys.stdout.write(render_backups(backups, remote, remote_error))
             return 0
         if args.command == 'restore':
+            if args.account or args.snapshot or args.undo:
+                if not args.account:
+                    raise HostError('--snapshot and --undo need --account.')
+                if args.backup_id:
+                    raise HostError('--account takes no backup id.')
+                if args.undo and args.snapshot:
+                    raise HostError('--undo takes no --snapshot.')
+                if not args.undo and not args.from_remote:
+                    raise HostError('Restoring one account takes --from-remote, e.g. `sudo tofi restore --from-remote --account NAME`.')
+                restore_account(args.account, args.snapshot, args.undo, args.yes)
+                return 0
             if args.from_remote:
                 if args.backup_id:
                     raise HostError('--from-remote takes no backup id.')
