@@ -970,7 +970,10 @@
           "generation_cleanup_pending": "このバケットでは、削除済みファイルが保持期間の経過を待っています。",
           "generation_not_found": "廃止できる以前のバケットがありません。",
           "generation_busy": "このバケットは直前に置き換えられたか、インポートがまだ完了していません。しばらくしてからもう一度お試しください。",
-          "same_physical_bucket": "移動先が移動元と同じバケットです"
+          "same_physical_bucket": "移動先が移動元と同じバケットです",
+          "file_store_unavailable": "バケットが応答しませんでした。少し待ってからもう一度お試しください。",
+          "file_store_misconfigured": "バケットのキーがないか、拒否されました。オブジェクトストレージを確認してください。",
+          "previous_bucket_refused": "以前のバケットがそのキーを拒否したため、現在のバケットと別のバケットかどうかを TOFI が確認できません。何も移動していません。そのキーにバケットの読み取り権限を戻してください。"
         },
         "to_current": "現在のバケットへ移動",
         "direction_to_generation": "以前のバケットから現在のバケット",

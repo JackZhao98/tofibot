@@ -604,15 +604,72 @@ func (g *AccountGateway) generationsDistinct(ctx context.Context, cfg fileStoreC
 		if oerr != nil || old == nil {
 			return "file_store_misconfigured", fileStoreMessage(codeFileStoreMisconfigured), nil
 		}
-		switch _, serr := old.Stat(ctx, key); {
-		case serr == nil:
+		switch g.probeAnswer(ctx, old, p.Gen, key) {
+		case probeVisible:
 			return codeSamePhysicalBucket, "The current bucket is the same bucket as an earlier one. Nothing was moved.", nil
-		case errors.Is(serr, filestore.ErrNotFound), noSuchBucket(serr):
+		case probeAbsent:
+		case probeRefused:
+			return codePreviousBucketRefused, "An earlier bucket refused its key, so it cannot be checked that it is a different bucket from the current one. Nothing was moved.", nil
 		default:
 			return "file_store_unavailable", fileStoreMessage(codeFileStoreUnavailable), nil
 		}
 	}
 	return "", "", nil
+}
+
+// probeResult is what one generation's store says about a probe just written into another bucket.
+type probeResult int
+
+const (
+	probeUnanswered probeResult = iota // outage or timeout: no answer either way
+	probeAbsent                        // not there: another bucket
+	probeVisible                       // there: the same bucket under another name
+	probeRefused                       // the key is refused, so the store cannot tell
+)
+
+// probeAnswer asks st (generation gen) for the probe key. A missing bucket is another bucket: MinIO
+// names it in x-minio-error-code on a HEAD (NoSuchBucket), S3 answers 404. S3 answers 403, not 404, for
+// a missing key when the key may not list the bucket (no s3:ListBucket); such a key still reads, so
+// when it reads an object this generation is known to hold, the 403 means the probe is not there.
+func (g *AccountGateway) probeAnswer(ctx context.Context, st filestore.Store, gen, key string) probeResult {
+	_, err := st.Stat(ctx, key)
+	switch {
+	case err == nil:
+		return probeVisible
+	case errors.Is(err, filestore.ErrNotFound), noSuchBucket(err):
+		return probeAbsent
+	case !errors.Is(err, filestore.ErrDenied):
+		return probeUnanswered
+	}
+	known, ok := g.knownObjectKey(ctx, gen)
+	if !ok {
+		return probeRefused
+	}
+	if _, kerr := st.Stat(ctx, known); kerr != nil {
+		return probeRefused
+	}
+	return probeAbsent
+}
+
+// knownObjectKey is the key of one object a row of generation gen names, from the first running
+// workspace that has one (disabled accounts are not opened, as for a job).
+func (g *AccountGateway) knownObjectKey(ctx context.Context, gen string) (string, bool) {
+	accounts, err := g.fileJobAccounts(ctx)
+	if err != nil {
+		return "", false
+	}
+	for _, a := range accounts {
+		st, code := g.fileJobStore(a)
+		if code != "" {
+			continue
+		}
+		var disk string
+		if st.db.QueryRowContext(ctx, `SELECT disk_name FROM attachments WHERE disk_name>='obj:' AND disk_name<'obj;' AND `+genOfDisk+`=? LIMIT 1`, gen).Scan(&disk) == nil {
+			_, k := objectRef(disk)
+			return k, true
+		}
+	}
+	return "", false
 }
 
 // noSuchBucket: the bucket itself is gone, so it cannot be the same one as another.

@@ -980,7 +980,10 @@
           "generation_cleanup_pending": "Gelöschte Dateien warten in diesem Bucket noch die Aufbewahrungsfrist ab.",
           "generation_not_found": "Es gibt keinen früheren Bucket, der freigegeben werden könnte.",
           "generation_busy": "Dieser Bucket wurde gerade erst ersetzt, oder ein Import dorthin läuft noch. Versuche es später erneut.",
-          "same_physical_bucket": "Das Ziel ist derselbe Bucket wie die Quelle"
+          "same_physical_bucket": "Das Ziel ist derselbe Bucket wie die Quelle",
+          "file_store_unavailable": "Ein Bucket hat nicht geantwortet. Versuche es gleich noch einmal.",
+          "file_store_misconfigured": "Der Schlüssel eines Buckets fehlt oder wurde abgelehnt. Prüfe den Objektspeicher.",
+          "previous_bucket_refused": "Ein früherer Bucket hat seinen Schlüssel abgelehnt. Deshalb kann TOFI nicht prüfen, ob er ein anderer Bucket als der aktuelle ist. Es wurde nichts verschoben. Gib diesem Schlüssel wieder Lesezugriff auf seinen Bucket."
         },
         "to_current": "In aktuellen Bucket verschieben",
         "direction_to_generation": "Früherer Bucket in aktuellen Bucket",

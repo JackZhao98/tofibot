@@ -39,6 +39,12 @@ type Server struct {
 	Paths []string
 	// NoConditional ignores If-None-Match; NoRange ignores Range.
 	NoConditional, NoRange bool
+	// NoList is a key without list permission (s3:ListBucket): a listing is
+	// refused and a HEAD or GET of a missing key answers 403 AccessDenied, as S3 does.
+	NoList bool
+	// MinIOHeaders adds x-minio-error-code to error answers, as a MinIO server
+	// does; it is the only code a HEAD answer carries (HEAD has no body).
+	MinIOHeaders bool
 }
 
 func New(bucket, accessKey string) *Server {
@@ -88,7 +94,10 @@ func (s *Server) SetAt(key string, data []byte, at time.Time) {
 
 func etagOf(b []byte) string { return fmt.Sprintf("%x", md5.Sum(b)) }
 
-func fail(w http.ResponseWriter, status int, code string) {
+func (s *Server) fail(w http.ResponseWriter, status int, code string) {
+	if s.MinIOHeaders {
+		w.Header().Set("X-Minio-Error-Code", code)
+	}
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(status)
 	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><Error><Code>%s</Code><Message>%s</Message></Error>`, code, code)
@@ -96,26 +105,26 @@ func fail(w http.ResponseWriter, status int, code string) {
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
-	down, public := s.Down, s.Public
+	down, public, noList := s.Down, s.Public, s.NoList
 	s.Paths = append(s.Paths, r.Method+" "+r.URL.Path)
 	s.mu.Unlock()
 	if down {
-		fail(w, 503, "ServiceUnavailable")
+		s.fail(w, 503, "ServiceUnavailable")
 		return
 	}
 	auth := r.Header.Get("Authorization")
 	switch {
 	case auth == "" && !(public && (r.Method == http.MethodGet || r.Method == http.MethodHead)):
-		fail(w, 403, "AccessDenied")
+		s.fail(w, 403, "AccessDenied")
 		return
 	case auth != "" && !strings.Contains(auth, "Credential="+s.AccessKey+"/"):
-		fail(w, 403, "InvalidAccessKeyId")
+		s.fail(w, 403, "InvalidAccessKeyId")
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	bucket, key, _ := strings.Cut(path, "/")
 	if bucket != s.Bucket {
-		fail(w, 404, "NoSuchBucket")
+		s.fail(w, 404, "NoSuchBucket")
 		return
 	}
 	s.mu.Lock()
@@ -125,6 +134,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></LocationConstraint>`)
 			return
 		}
+		if noList {
+			s.fail(w, 403, "AccessDenied")
+			return
+		}
 		s.list(w, r.URL.Query().Get("prefix"))
 		return
 	}
@@ -132,19 +145,19 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		if inm := r.Header.Get("If-None-Match"); inm == "*" && !s.NoConditional {
 			if _, ok := s.objects[key]; ok {
-				fail(w, 412, "PreconditionFailed")
+				s.fail(w, 412, "PreconditionFailed")
 				return
 			}
 		}
 		if im := strings.Trim(r.Header.Get("If-Match"), `"`); im != "" {
 			if o, ok := s.objects[key]; !ok || etagOf(o.data) != im {
-				fail(w, 412, "PreconditionFailed")
+				s.fail(w, 412, "PreconditionFailed")
 				return
 			}
 		}
 		body, err := readBody(r)
 		if err != nil {
-			fail(w, 400, "IncompleteBody")
+			s.fail(w, 400, "IncompleteBody")
 			return
 		}
 		meta := http.Header{}
@@ -155,8 +168,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("ETag", `"`+etagOf(body)+`"`)
 	case http.MethodGet, http.MethodHead:
 		o, ok := s.objects[key]
+		if !ok && noList {
+			s.fail(w, 403, "AccessDenied")
+			return
+		}
 		if !ok {
-			fail(w, 404, "NoSuchKey")
+			s.fail(w, 404, "NoSuchKey")
 			return
 		}
 		for k, v := range o.meta {
@@ -172,7 +189,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		delete(s.objects, key)
 		w.WriteHeader(204)
 	default:
-		fail(w, 405, "MethodNotAllowed")
+		s.fail(w, 405, "MethodNotAllowed")
 	}
 }
 

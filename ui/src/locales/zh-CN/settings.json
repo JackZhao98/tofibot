@@ -970,7 +970,10 @@
           "generation_cleanup_pending": "已删除的文件仍在此存储桶中等待保留期结束。",
           "generation_not_found": "没有可停用的旧存储桶。",
           "generation_busy": "此存储桶刚刚被替换，或有导入仍在完成。请稍后再试。",
-          "same_physical_bucket": "目标与来源是同一个存储桶"
+          "same_physical_bucket": "目标与来源是同一个存储桶",
+          "file_store_unavailable": "有存储桶没有响应。请稍后再试。",
+          "file_store_misconfigured": "有存储桶的密钥缺失或被拒绝。请检查对象存储。",
+          "previous_bucket_refused": "旧存储桶拒绝了它的密钥，TOFI 无法确认它与当前存储桶是不同的桶。没有移动任何文件。请恢复这把密钥对该存储桶的读取权限。"
         },
         "to_current": "迁到当前存储桶",
         "direction_to_generation": "旧存储桶到当前存储桶",

@@ -330,3 +330,73 @@ func TestRemovingTheBucketWaitsForPendingDeletions(t *testing.T) {
 	f.ws.store.db.Exec(`DELETE FROM deleted_attachment_files`)
 	f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 200)
 }
+
+// An earlier bucket's key without list permission (s3:ListBucket) is answered 403, not 404, for the
+// alias probe it cannot see. When that key still reads the files the generation holds, the 403 means
+// the probe is not there: the job starts and moves everything.
+func TestMoveToGenerationStartsWhenTheEarlierKeyCannotList(t *testing.T) {
+	quietPeriodOff(t)
+	f := newMoveFixture(t, 2)
+	moveAll(t, f.ws.store, moveToBucket)
+	second := fakes3.New("bkt2", testAccessKeyID)
+	t.Cleanup(second.Close)
+	putSecondBucket(f, t, second, "bkt2", 200)
+	f.srv.NoList = true
+	f.admin_(t, "POST", "/api/admin/file-move", `{"direction":"to_generation"}`, 202)
+	v := f.waitJob(t, moveDone, moveDoneWithError)
+	f.waitIdle(t)
+	if v.Job.Status != moveDone || v.Job.FilesDone != 2 {
+		t.Fatalf("job %+v failures %+v", v.Job, v.Failures)
+	}
+	f.checkRows(t, true)
+	for id := range f.bodies {
+		if _, p, _ := f.ws.store.Attachment(id); !strings.HasPrefix(p, "obj:g2|") {
+			t.Fatalf("row %s is at %q", id, p)
+		}
+	}
+}
+
+// A key the earlier bucket refuses outright cannot tell the buckets apart: the job does not start, and
+// the refusal is named for what it is, not as a bucket that did not answer.
+func TestMoveToGenerationNamesARefusedEarlierKey(t *testing.T) {
+	f := newMoveFixture(t, 1)
+	moveAll(t, f.ws.store, moveToBucket)
+	second := fakes3.New("bkt2", testAccessKeyID)
+	t.Cleanup(second.Close)
+	putSecondBucket(f, t, second, "bkt2", 200)
+	f.srv.AccessKey = "ANOTHERKEYID" // the stored g1 key is now refused for everything
+	if code := orgErrCode(t, f.admin_(t, "POST", "/api/admin/file-move", `{"direction":"to_generation"}`, 409)); code != codePreviousBucketRefused {
+		t.Fatalf("code %s", code)
+	}
+	if len(second.Keys()) != 0 {
+		t.Fatalf("probe left in the current bucket: %v", second.Keys())
+	}
+}
+
+// MinIO names a missing bucket in the x-minio-error-code header of a HEAD answer: an earlier bucket
+// that is gone is another bucket, not a refusal.
+func TestProbeAnswerReadsMinIONoSuchBucket(t *testing.T) {
+	f := newMoveFixture(t, 0)
+	f.srv.MinIOHeaders = true
+	gone, err := filestore.NewS3(filestore.S3Config{Endpoint: f.srv.URL, Region: "us-east-1", Bucket: "gone", AccessKeyID: testAccessKeyID, Secret: testSecretKey, PathStyle: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.g.probeAnswer(context.Background(), gone, "g1", "tofi/v1/x/_probe/p"); got != probeAbsent {
+		t.Fatalf("answer %v", got)
+	}
+}
+
+// The same 403 on a save: an earlier key that cannot list but reads its files tells the new bucket
+// apart without asking the administrator to confirm an unverified change.
+func TestChangingTheBucketNeedsNoConfirmationWhenTheEarlierKeyCannotList(t *testing.T) {
+	f := newMoveFixture(t, 1)
+	moveAll(t, f.ws.store, moveToBucket)
+	f.srv.NoList = true
+	second := fakes3.New("bkt2", testAccessKeyID)
+	t.Cleanup(second.Close)
+	putSecondBucket(f, t, second, "bkt2", 200)
+	if cfg := readConfig(t, f); cfg.Gen != "g2" || len(cfg.Prev) != 1 {
+		t.Fatalf("config %+v", cfg)
+	}
+}

@@ -990,7 +990,10 @@
           "generation_cleanup_pending": "Des fichiers supprimés attendent encore la fin de la période de rétention dans ce bucket.",
           "generation_not_found": "Il n'y a aucun ancien bucket à retirer.",
           "generation_busy": "Ce bucket vient d'être remplacé, ou un import y est encore en cours. Réessayez plus tard.",
-          "same_physical_bucket": "La destination est le même bucket que la source"
+          "same_physical_bucket": "La destination est le même bucket que la source",
+          "file_store_unavailable": "Un bucket n'a pas répondu. Réessayez dans un instant.",
+          "file_store_misconfigured": "La clé d'un bucket est absente ou a été refusée. Vérifiez le stockage objet.",
+          "previous_bucket_refused": "Un ancien bucket a refusé sa clé : TOFI ne peut donc pas vérifier qu'il s'agit d'un bucket différent de l'actuel. Rien n'a été déplacé. Redonnez à cette clé l'accès en lecture à son bucket."
         },
         "to_current": "Déplacer vers le bucket actuel",
         "direction_to_generation": "Ancien bucket vers bucket actuel",
