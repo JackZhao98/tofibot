@@ -242,25 +242,38 @@ func TestBackupAndFileStepExcludeEachOther(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("the step never ran after the backup ended")
 	}
-	// A starting backup waits for a step in flight.
+	// The run endpoint answers 202 at once even while a step is in flight; the wait is inside the job.
 	f.g.fileStepMu.Lock()
-	got := make(chan bool, 1)
-	go func() { got <- f.g.beginBackupJob() }()
+	done := make(chan struct{})
+	go func() { f.admin_(t, "POST", "/api/admin/backups/run", `{}`, 202); close(done) }()
 	select {
-	case <-got:
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the backup run endpoint waited for a file step")
+	}
+	f.g.fileStepMu.Unlock()
+	for i := 0; i < 500 && f.g.backupBusy.Load(); i++ {
+		time.Sleep(20 * time.Millisecond)
+	}
+	// Starting a backup never blocks the caller; the capture waits inside the job.
+	f.g.fileStepMu.Lock()
+	if !f.g.beginBackupJob() {
+		t.Fatal("slot busy")
+	}
+	waited := make(chan struct{})
+	go func() { f.g.waitFileStep(); close(waited) }()
+	select {
+	case <-waited:
 		t.Fatal("a backup captured while a file step was in flight")
 	case <-time.After(150 * time.Millisecond):
 	}
 	f.g.fileStepMu.Unlock()
 	select {
-	case ok := <-got:
-		if !ok {
-			t.Fatal("slot busy")
-		}
-		f.g.endBackupJob()
+	case <-waited:
 	case <-time.After(3 * time.Second):
-		t.Fatal("the backup never started after the step ended")
+		t.Fatal("the capture never went on after the step ended")
 	}
+	f.g.endBackupJob()
 }
 
 // 2: a journal entry left by an earlier move must not follow the file back.
@@ -297,8 +310,8 @@ func TestMoveBackClearsStaleJournalEntries(t *testing.T) {
 	f.checkRows(t, false)
 }
 
-// 3: accounts the job cannot walk keep it from reporting done; disabled accounts are moved.
-func TestMoveCoversDisabledAccountsAndReportsSkippedOnes(t *testing.T) {
+// 3: a job never opens a disabled account: it is one named failure line, so the job cannot end done.
+func TestMoveSkipsDisabledAndRestoringAccountsByName(t *testing.T) {
 	f := newMoveFixture(t, 2)
 	f.admin_(t, "PUT", "/api/admin/org/resources/file_store", `{"kind":"s3"}`, 200)
 	run := func() moveView {
@@ -324,14 +337,25 @@ func TestMoveCoversDisabledAccountsAndReportsSkippedOnes(t *testing.T) {
 	if _, err := f.g.root.store.db.Exec(`UPDATE accounts SET disabled=1 WHERE id=?`, f.member.ID); err != nil {
 		t.Fatal(err)
 	}
-	if files, _, err := f.g.moveTotals(context.Background(), moveToBucket); err != nil || files != 2 {
-		t.Fatalf("totals skip a disabled account: %d %v", files, err)
+	// Nothing is opened for a disabled account: its files are left out of the counts and are not touched.
+	var raw struct {
+		Disk             struct{ Files int64 }
+		DisabledAccounts int64 `json:"disabled_accounts"`
+	}
+	if err := json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/file-move", "", 200)), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if raw.Disk.Files != 0 || raw.DisabledAccounts != 1 {
+		t.Fatalf("view counted a disabled account: %+v", raw)
 	}
 	v = run()
-	if v.Job.Status != moveDone || v.Job.FilesDone != 2 || v.Failures.Count != 0 {
+	if v.Job.Status != moveDoneWithError || v.Failures.ByCode[codeAccountDisabled] != 1 || v.Job.FilesDone != 0 {
 		t.Fatalf("job %+v failures %+v", v.Job, v.Failures)
 	}
-	f.checkRows(t, true)
+	f.checkRows(t, false) // every row is still where it was, on disk
+	if len(f.srv.Keys()) != 0 {
+		t.Fatalf("a disabled account's files reached the bucket: %v", f.srv.Keys())
+	}
 }
 
 // 4: a file the deep check cannot read is counted, not dropped.

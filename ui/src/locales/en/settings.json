@@ -880,6 +880,7 @@
         "cancel": "Cancel move",
         "cancel_question": "Cancel the move? Files already moved stay where they are.",
         "failed_count": "{{count}} files could not be moved",
+        "disabled_note": "{{count}} disabled accounts are not counted or moved. Enable them, then move again.",
         "status": {
           "running": "Moving",
           "paused": "Paused",
@@ -901,6 +902,7 @@
           "account_restoring": "Account skipped: it is being restored",
           "account_deleting": "Account skipped: it is being deleted",
           "account_unavailable": "Account skipped: its files could not be opened",
+          "account_disabled": "Account skipped: it is disabled. Enable it, then resume or move again.",
           "file_move_failed": "Move failed"
         },
         "reconcile_title": "Reconcile",

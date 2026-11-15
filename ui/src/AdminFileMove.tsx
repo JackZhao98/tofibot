@@ -45,6 +45,7 @@ export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
     <h4>{t("admin.org.file_move.title")}</h4>
     <p className="field-note">{t("admin.org.file_move.help")}</p>
     <p className="field-note" data-field="counts">{t("admin.org.file_move.on_disk", {files: view.disk.files, size: formatBytes(view.disk.bytes)})} · {t("admin.org.file_move.in_bucket", {files: view.bucket.files, size: formatBytes(view.bucket.bytes)})}</p>
+    {view.disabled_accounts > 0 && <p className="field-note" data-field="disabled-accounts">{t("admin.org.file_move.disabled_note", {count: view.disabled_accounts})}</p>}
     {!active && <div className="provider-actions">
       <button type="button" className="st-button" data-action="move-to-bucket" disabled={!canStart("to_bucket")} onClick={() => void act(() => fileMoveApi.start("to_bucket"))}>{t("admin.org.file_move.to_bucket")}</button>
       <button type="button" className="st-button" data-action="move-to-disk" disabled={!canStart("to_disk")} onClick={() => void act(() => fileMoveApi.start("to_disk"))}>{t("admin.org.file_move.to_disk")}</button>

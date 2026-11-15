@@ -872,6 +872,7 @@
         "cancel": "取消移動",
         "cancel_question": "要取消移動嗎？已經移動的檔案保持原位。",
         "failed_count": "有 {{count}} 個檔案未能移動",
+        "disabled_note": "有 {{count}} 個已停用的帳號未計入也不會移動。請先啟用它們，再重新移動。",
         "status": {
           "running": "移動中",
           "paused": "已暫停",
@@ -893,6 +894,7 @@
           "account_restoring": "已略過帳號：正在還原",
           "account_deleting": "已略過帳號：正在刪除",
           "account_unavailable": "已略過帳號：無法開啟其檔案",
+          "account_disabled": "已略過帳號：已停用。請先啟用，再繼續或重新移動。",
           "file_move_failed": "移動失敗"
         },
         "reconcile_title": "對帳",

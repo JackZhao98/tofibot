@@ -880,6 +880,7 @@
         "cancel": "Verschieben abbrechen",
         "cancel_question": "Verschieben abbrechen? Bereits verschobene Dateien bleiben am neuen Ort.",
         "failed_count": "{{count}} Dateien konnten nicht verschoben werden",
+        "disabled_note": "{{count}} deaktivierte Konten werden weder gezählt noch verschoben. Aktiviere sie und starte das Verschieben erneut.",
         "status": {
           "running": "Wird verschoben",
           "paused": "Pausiert",
@@ -901,6 +902,7 @@
           "account_restoring": "Konto übersprungen: Es wird wiederhergestellt",
           "account_deleting": "Konto übersprungen: Es wird gelöscht",
           "account_unavailable": "Konto übersprungen: Seine Dateien ließen sich nicht öffnen",
+          "account_disabled": "Konto übersprungen: Es ist deaktiviert. Aktiviere es und setze das Verschieben fort oder starte es erneut.",
           "file_move_failed": "Verschieben fehlgeschlagen"
         },
         "reconcile_title": "Abgleich",

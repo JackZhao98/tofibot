@@ -872,6 +872,7 @@
         "cancel": "取消移动",
         "cancel_question": "要取消移动吗？已经移动的文件保持原位。",
         "failed_count": "有 {{count}} 个文件未能移动",
+        "disabled_note": "有 {{count}} 个已停用的账户未计入也不会移动。请先启用它们，再重新移动。",
         "status": {
           "running": "移动中",
           "paused": "已暂停",
@@ -893,6 +894,7 @@
           "account_restoring": "已跳过账户：正在恢复",
           "account_deleting": "已跳过账户：正在删除",
           "account_unavailable": "已跳过账户：无法打开其文件",
+          "account_disabled": "已跳过账户：已被停用。请先启用，再继续或重新移动。",
           "file_move_failed": "移动失败"
         },
         "reconcile_title": "对账",

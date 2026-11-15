@@ -8,7 +8,7 @@ package app
 // goes nowhere, and no log line names a user's file.
 //
 // Two locks keep it honest. `fileStepMu` is held for the whole of one file step
-// and taken by a starting backup, so a snapshot never sees a row between two
+// and waited on by a backup capture (waitFileStep), so a snapshot never sees a row between two
 // places. `fileJob.state` serialises every write of the job's state: the
 // pause/resume/cancel handlers and the runner, so a cancel is never overwritten.
 
@@ -18,7 +18,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +46,7 @@ const (
 const (
 	codeAccountRestoring   = "account_restoring"
 	codeAccountDeleting    = "account_deleting"
+	codeAccountDisabled    = "account_disabled"
 	codeAccountUnavailable = "account_unavailable"
 	accountSkipItem        = "-"
 )
@@ -230,55 +230,49 @@ func (g *AccountGateway) fileJobAccounts(ctx context.Context) ([]Account, error)
 	return out, rows.Err()
 }
 
-// fileJobStore gives a job the account's store. A running workspace lends its own; a disabled
-// account (no runtime) is opened on its own for the job. An account being deleted or restored,
-// or one that cannot be opened, comes back with a code instead: the job reports it.
-func (g *AccountGateway) fileJobStore(a Account) (*Store, func(), string) {
-	if a.Deleting {
-		return nil, nil, codeAccountDeleting
+// fileJobStore gives a job the account's running workspace store. It never opens a store of its own:
+// a disabled account has no runtime (a restore or a deletion could race a private copy), so it, an
+// account being deleted or restored, and one that cannot be reached come back with a code. The
+// job records that code as one failure line and cannot end `done` while it stands.
+func (g *AccountGateway) fileJobStore(a Account) (*Store, string) {
+	switch {
+	case a.Deleting:
+		return nil, codeAccountDeleting
+	case a.Disabled:
+		return nil, codeAccountDisabled
 	}
 	ws, err := g.workspace(a)
 	if err == nil {
-		return ws.store, func() {}, ""
+		return ws.store, ""
 	}
 	if errors.Is(err, errAccountRestoring) {
-		return nil, nil, codeAccountRestoring
+		return nil, codeAccountRestoring
 	}
-	if !a.Disabled {
-		return nil, nil, codeAccountUnavailable
-	}
-	dir := filepath.Join(g.config.DataDir, "accounts", a.ID)
-	if a.Legacy {
-		dir = g.config.DataDir
-	}
-	st, oerr := openStore(dir, false)
-	if oerr != nil {
-		return nil, nil, codeAccountUnavailable
-	}
-	id := a.ID
-	st.files = func(ctx context.Context) (FileBackend, error) { return g.fileBackendFor(ctx, id) }
-	return st, func() { _ = st.Close() }, ""
+	return nil, codeAccountUnavailable
 }
 
-// moveTotals sums what is left in one direction across the accounts the job can open.
-func (g *AccountGateway) moveTotals(ctx context.Context, dir string) (files, bytes int64, err error) {
+// moveTotals sums what is left in one direction across the running workspaces; disabled
+// accounts are not opened and are returned as a count instead.
+func (g *AccountGateway) moveTotals(ctx context.Context, dir string) (files, bytes, disabled int64, err error) {
 	accounts, err := g.fileJobAccounts(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	for _, a := range accounts {
-		st, closeStore, code := g.fileJobStore(a)
+		st, code := g.fileJobStore(a)
+		if code == codeAccountDisabled {
+			disabled++
+		}
 		if code != "" {
 			continue // the job reports this account when it walks it
 		}
 		f, b, cerr := st.moveCount(dir)
-		closeStore()
 		if cerr != nil {
-			return 0, 0, cerr
+			return 0, 0, 0, cerr
 		}
 		files, bytes = files+f, bytes+b
 	}
-	return files, bytes, nil
+	return files, bytes, disabled, nil
 }
 
 // ---- the move runner ----
@@ -301,7 +295,7 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 			settle(ctx.Err())
 			return
 		}
-		st, closeStore, code := g.fileJobStore(a)
+		st, code := g.fileJobStore(a)
 		if code != "" {
 			// Not walked: one named failure line for the account, so the job cannot end `done`.
 			_, _ = db.Exec(`INSERT INTO file_move_items(account_id,attachment_id,code,size,kind) VALUES(?,?,?,0,'')
@@ -317,7 +311,6 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 				return e
 			})
 			if merr != nil {
-				closeStore()
 				settle(merr)
 				return
 			}
@@ -336,7 +329,6 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 			}
 			g.saveRunnerJob(&job, nil)
 		}
-		closeStore()
 	}
 	var failed int
 	_ = db.QueryRow(`SELECT COUNT(*) FROM file_move_items`).Scan(&failed)
@@ -412,13 +404,12 @@ func (g *AccountGateway) runFileReport(ctx context.Context, kind string, deep, s
 			fail("interrupted")
 			return
 		}
-		st, closeStore, code := g.fileJobStore(a)
+		st, code := g.fileJobStore(a)
 		if code != "" {
 			rep.SkippedAccounts++
 			continue
 		}
 		scan, serr := st.scanFiles(ctx, scanOpts{Deep: deep, Sweep: sweep, DryRun: dry})
-		closeStore()
 		total.add(scan, a.Username)
 		if serr != nil {
 			var fe *fileStoreError
@@ -446,12 +437,14 @@ type filePlace struct {
 }
 
 type fileMoveView struct {
-	Configured bool         `json:"configured"`
-	Kind       string       `json:"kind"` // where new files go: s3 | disk
-	Disk       filePlace    `json:"disk"`
-	Bucket     filePlace    `json:"bucket"`
-	Job        *fileMoveJob `json:"job"`
-	Failures   struct {
+	Configured bool      `json:"configured"`
+	Kind       string    `json:"kind"` // where new files go: s3 | disk
+	Disk       filePlace `json:"disk"`
+	Bucket     filePlace `json:"bucket"`
+	// DisabledAccounts are not opened by a job and are left out of the counts above.
+	DisabledAccounts int64        `json:"disabled_accounts"`
+	Job              *fileMoveJob `json:"job"`
+	Failures         struct {
 		Count  int64            `json:"count"`
 		ByCode map[string]int64 `json:"by_code"`
 		Items  []reportItem     `json:"items"`
@@ -473,10 +466,10 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 		}
 	}
 	var err error
-	if v.Disk.Files, v.Disk.Bytes, err = g.moveTotals(ctx, moveToBucket); err != nil {
+	if v.Disk.Files, v.Disk.Bytes, v.DisabledAccounts, err = g.moveTotals(ctx, moveToBucket); err != nil {
 		return v, err
 	}
-	if v.Bucket.Files, v.Bucket.Bytes, err = g.moveTotals(ctx, moveToDisk); err != nil {
+	if v.Bucket.Files, v.Bucket.Bytes, _, err = g.moveTotals(ctx, moveToDisk); err != nil {
 		return v, err
 	}
 	if job, ok := g.loadMoveJob(); ok {
@@ -661,7 +654,7 @@ func (g *AccountGateway) startMove(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 409, "file_move_active", "A file move is already running or paused. Resume or cancel it first.")
 		return
 	}
-	files, bytes, err := g.moveTotals(ctx, in.Direction)
+	files, bytes, _, err := g.moveTotals(ctx, in.Direction)
 	if err != nil {
 		storageFailure(w, "count files", err)
 		return

@@ -106,7 +106,7 @@ export type FileReport = {
   rows: number; missing_in_store: number; missing_on_disk: number; size_mismatch: number; sha_mismatch: number; unreadable: number; skipped_accounts: number; orphans: number; orphan_bytes: number; orphans_young: number; deleted: number; delete_failed: number; items: FileReportItem[] | null;
 };
 export type FileMoveView = {
-  configured: boolean; kind: "s3" | "disk"; disk: {files: number; bytes: number}; bucket: {files: number; bytes: number};
+  configured: boolean; kind: "s3" | "disk"; disk: {files: number; bytes: number}; bucket: {files: number; bytes: number}; disabled_accounts: number;
   job: FileMoveJob | null; failures: {count: number; by_code: Record<string, number>; items: FileReportItem[]}; report: FileReport | null; busy: string;
 };
 export const fileMoveApi = {

@@ -888,6 +888,7 @@
         "cancel": "Annuler le déplacement",
         "cancel_question": "Annuler le déplacement ? Les fichiers déjà déplacés restent où ils sont.",
         "failed_count": "{{count}} fichiers n’ont pas pu être déplacés",
+        "disabled_note": "{{count}} comptes désactivés ne sont ni comptés ni déplacés. Activez-les, puis relancez le déplacement.",
         "status": {
           "running": "En cours",
           "paused": "En pause",
@@ -909,6 +910,7 @@
           "account_restoring": "Compte ignoré : restauration en cours",
           "account_deleting": "Compte ignoré : suppression en cours",
           "account_unavailable": "Compte ignoré : ses fichiers n’ont pas pu être ouverts",
+          "account_disabled": "Compte ignoré : il est désactivé. Activez-le, puis reprenez ou relancez le déplacement.",
           "file_move_failed": "Échec du déplacement"
         },
         "reconcile_title": "Rapprochement",

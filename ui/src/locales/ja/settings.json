@@ -872,6 +872,7 @@
         "cancel": "移動を中止",
         "cancel_question": "移動を中止しますか？すでに移動したファイルはそのままです。",
         "failed_count": "{{count}} 件のファイルを移動できませんでした",
+        "disabled_note": "無効なアカウント {{count}} 件は集計も移動もされません。有効にしてからもう一度移動してください。",
         "status": {
           "running": "移動中",
           "paused": "一時停止中",
@@ -893,6 +894,7 @@
           "account_restoring": "アカウントをスキップ：復元中です",
           "account_deleting": "アカウントをスキップ：削除中です",
           "account_unavailable": "アカウントをスキップ：ファイルを開けませんでした",
+          "account_disabled": "アカウントをスキップ：無効です。有効にしてから再開または再実行してください。",
           "file_move_failed": "移動に失敗しました"
         },
         "reconcile_title": "照合",
