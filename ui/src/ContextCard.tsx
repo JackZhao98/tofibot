@@ -8,7 +8,7 @@ import { WidgetGrip, WidgetGripContext, type WidgetGripApi } from "./widgetGrip"
 import { SortableList, SortableStatus, useSortableItem } from "./SortableList";
 import "./context-column.css";
 
-const TITLE_KEY = { computer: "contextCard.title.desktop", members: "contextCard.title.members", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
+const TITLE_KEY = { computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
 
 /**
  * One widget in the column inside the chat (docs/design/widgets-and-sidebar.md): title on the left; fold and close on

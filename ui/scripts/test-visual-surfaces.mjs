@@ -30,13 +30,14 @@ test("popup keyframes fade in place without corner origins or translation", () =
   }
   assert.doesNotMatch(read("FloatingDesktop.tsx"), /transformOrigin:/, "mini window never flies from a corner");
   assert.doesNotMatch(read("AttachmentLightbox.tsx"), /transform:|translate\(/, "image dialog opens in place");
-  assert.match(read("v2-app.css"), /prefers-reduced-motion:reduce\)\s*\{\s*:root:root[^{}]+\{ animation:none;/, "reduced motion overrides closed-state selectors too");
+  assert.match(read("v2-app.css"), /prefers-reduced-motion:reduce\)\s*\{\s*(?:\.tofi-pop\[data-state\],\s*)?:root:root[^{}]+\{ animation:none;/, "reduced motion overrides closed-state selectors too");
 });
 
-test("native collapsed controls clear traffic lights and use no-drag hit targets", () => {
+test("native title row controls clear traffic lights and use no-drag hit targets", () => {
   const css = read("desktop-system.css");
-  assert.match(css, /\.sidebar-top\{[^}]*left:78px/);
-  assert.match(css, /\.sidebar-top button\{[^}]*-webkit-app-region:no-drag/);
-  // Collapsed: one title row; the header drag layer starts after the rail buttons.
-  assert.match(css, /\.sidebar-collapsed \.chat-header>\.chat-header-drag\{left:calc\(206px/);
+  // Option C (owner 2026-11-14): the toggle sits at 78 px inside the card (86 px in the window), after the lights at 22 px.
+  assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor\) \{[^}]*left:78px/);
+  assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor>\.icon-button\) \{[^}]*-webkit-app-region:no-drag/);
+  // Collapsed or narrow: the header drag layer starts after the capsule.
+  assert.match(css, /:is\(\.sidebar-collapsed,\.mac-narrow\) \.chat-header > \.chat-header-drag \{ left:200px/);
 });

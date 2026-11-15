@@ -126,6 +126,8 @@ const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module
 // Shown only before the first Bot exists.
 /** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
 const WorkTrace = lazy(() => import("./WorkTrace"));
+/** The Mac app's narrow window (it is never under 820 px): the sidebar is a capsule that opens over the chat. */
+const MAC_NARROW = "(min-width:768px) and (max-width:1023px)";
 import { traceUnderReply } from "./workTraceLayout";
 const DayOneTemplates = lazy(() => import("./DayOneTemplates"));
 const HandoverChips = lazy(() => import("./HandoverChips"));
@@ -462,6 +464,25 @@ function Workspace() {
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns, reveal: revealRun }), [showActivity, revealedRuns, revealRun]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
+  // Mac app between 768 and 1023 px (option C, owner 2026-11-14): the sidebar rests as the title-bar capsule and opens as a card over
+  // the chat until a conversation is picked or the scrim is clicked. The saved wide-window choice (sidebarCollapsed) is not touched.
+  const [macNarrow, setMacNarrow] = useState(() => isDesktop && window.tofiDesktop?.platform === "darwin" && matchMedia(MAC_NARROW).matches);
+  const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
+  useEffect(() => {
+    if (!isDesktop || window.tofiDesktop?.platform !== "darwin") return;
+    const query = matchMedia(MAC_NARROW);
+    const change = () => { setMacNarrow(query.matches); setNarrowSidebarOpen(false); };
+    query.addEventListener("change", change);
+    return () => query.removeEventListener("change", change);
+  }, []);
+  const macNarrowRef = useRef(macNarrow);
+  macNarrowRef.current = macNarrow;
+  /** What the sidebar shows: the capsule (folded) or the card. */
+  const sidebarFolded = macNarrow ? !narrowSidebarOpen : sidebarCollapsed;
+  const setSidebarFolded = useCallback((next: boolean | ((folded: boolean) => boolean)) => {
+    if (macNarrowRef.current) setNarrowSidebarOpen(open => !(typeof next === "function" ? next(!open) : next));
+    else setSidebarCollapsed(next);
+  }, []);
   const sidebarListRef = useRef<HTMLDivElement | null>(null);
   const sidebarRects = useRef(new Map<string, { x: number; y: number }>());
   const sidebarAnimations = useRef(new WeakMap<HTMLElement, Animation>());
@@ -626,7 +647,7 @@ function Workspace() {
     const search = withSideParam(window.location.search, sidebarId === "conversation" || sidebarId === "usage" ? null : sidebarId);
     if (search !== window.location.search) window.history.replaceState(window.history.state, "", window.location.pathname + search + window.location.hash);
   }, [sidebarId]);
-  useEffect(() => subscribeSidebarDeepLinks(openSidebarId), [openSidebarId]);
+  useEffect(() => subscribeSidebarDeepLinks(id => id === "terminal" ? openTerminalRef.current() : openSidebarId(id)), [openSidebarId]);
   // Each surface plays its exit before it leaves the tree: widgets one by one, the sidebar's content while the track closes,
   // a cover while it fades (leaving is shorter than entering, motion tokens in the CSS).
   const displayedSidebar = useSurfacePresence(sidebarId, 220);
@@ -645,6 +666,10 @@ function Workspace() {
   const [compactViewport, setCompactViewport] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1099px)").matches);
   // Wide web windows give the context panels their own column; the drawer below keeps one panel at a time.
   const columnMode = !compactViewport;
+  // Terminal is a widget in the column on a wide window and a sidebar view in the narrow drawer (owner 2026-11-14: cards, not a panel).
+  const openTerminalSurface = useCallback(() => { if (columnMode) openWidgetId("terminal"); else openSidebarId("terminal"); }, [columnMode, openWidgetId, openSidebarId]);
+  const openTerminalRef = useRef(openTerminalSurface);
+  openTerminalRef.current = openTerminalSurface;
   // The computer opens as a small floating window; the last size lives only as long as this page.
   const [desktopSize, setDesktopSize] = useState<"small" | "big">("small");
   const [desktopSheet, setDesktopSheet] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 700px)").matches);
@@ -686,7 +711,7 @@ function Workspace() {
   function openRelatedChat(target: ViewOnlyChatTarget) {
     viewOnlyChatTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // On wide browser windows the read-only chat is a sidebar view; elsewhere a full-screen modal.
-    if (columnMode) openSidebarId("conversation");
+    if (columnMode) openWidgetId("conversation");
     setViewOnlyChat(target);
   }
   const showCreateMenu = useSurfacePresence(createMenuOpen ? "open" : null);
@@ -745,8 +770,11 @@ function Workspace() {
   }, [activeId, loadedId, messageRecords, runs]);
   // The widget column reserves room in the chat while any widget is open (the shared computer is a floating window below 1100 px).
   const contextPanelOpen = columnMode && surfaces.widgets.length > 0;
-  // On the wide layout the read-only chat lives in the sidebar: once the sidebar is gone (or shows something else for good) it is released.
-  useEffect(() => { if (columnMode && viewOnlyChat && displayedSidebar !== "conversation") setViewOnlyChat(null); }, [columnMode, viewOnlyChat, displayedSidebar]);
+  // On the wide layout the read-only chat is a widget: closing the card releases it, and a card left behind without a chat (back in a
+  // conversation whose widgets were stashed) closes.
+  const conversationWidgetOpen = surfaces.widgets.includes("conversation");
+  useEffect(() => { if (columnMode && viewOnlyChat && !conversationWidgetOpen && displayedSidebar !== "conversation") setViewOnlyChat(null); }, [columnMode, viewOnlyChat, conversationWidgetOpen, displayedSidebar]);
+  useEffect(() => { if (columnMode && conversationWidgetOpen && !viewOnlyChat) setSurfaces(state => closeWidget(state, "conversation")); }, [columnMode, conversationWidgetOpen, viewOnlyChat]);
   // The Settings window and the narrow drawer are modal panes (focus trap, backdrop); the other covers are Radix dialogs of their own.
   const modalPanelOpen = Boolean(cover === "settings" || (compactViewport && surfaces.sidebar && !cover));
   // Below 1100 px the widget column does not exist: the computer is a floating window, the other widgets open as covers.
@@ -850,6 +878,8 @@ function Workspace() {
   }, []);
 
   useEffect(() => { updateDesktopState({ ...(activeId ? { activeConversation: activeId } : {}), sidebarCollapsed }); }, [activeId, sidebarCollapsed]);
+  // Picking a conversation in the narrow Mac window closes the card it was picked from.
+  useEffect(() => { setNarrowSidebarOpen(false); }, [activeId]);
   // The Mac app's main process notifies; it needs to know which conversation is in view. A browser ignores this.
   useEffect(() => { attentionNotifier.setView(activeId ?? null); }, [attentionNotifier, activeId]);
   // The cursor belongs to one account's database: a sign-out or another account starts from the tail again.
@@ -870,8 +900,8 @@ function Workspace() {
     if (focus instanceof Element && focus.closest(".terminal-panel,.remote-desktop-surface,.remote-desktop.in-control,.xterm")) return;
     if (document.querySelector('[aria-modal="true"]') && command !== "settings") return;
     if (command === "settings") { setSettingsEntry(current => ({ seq: current.seq + 1, view: "home" })); setSurfaces(state => state.cover === "settings" ? closeAll(state) : openCover(state, "settings")); }
-    else if (command === "toggle-sidebar") setSidebarCollapsed(value => !value);
-    else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarCollapsed(false); closeCoverPanel(); }
+    else if (command === "toggle-sidebar") setSidebarFolded(value => !value);
+    else if (command === "new-conversation") { setCreateMenuOpen(true); setSidebarFolded(false); closeCoverPanel(); }
     else if (command === "search") setSearchOpen(true);
     else if (command === "focus-composer") document.querySelector<HTMLTextAreaElement>('.composer textarea')?.focus();
   }), []);
@@ -1323,14 +1353,15 @@ function Workspace() {
       const botId = (event as CustomEvent<{ botId?: string }>).detail?.botId;
       if (!botId) return;
       setTerminalBotId(botId);
-      openSidebarId("terminal");
+      openTerminalRef.current();
     };
     window.addEventListener("tofi:open-terminal", open);
     return () => window.removeEventListener("tofi:open-terminal", open);
   }, []);
+  const terminalWidgetOpen = surfaces.widgets.includes("terminal");
   useEffect(() => {
-    if (sidebarId !== "terminal") setTerminalBotId(null);
-  }, [sidebarId]);
+    if (sidebarId !== "terminal" && !terminalWidgetOpen) setTerminalBotId(null);
+  }, [sidebarId, terminalWidgetOpen]);
   // Ownership is only worth a 1 s poll while a computer is ready or the desktop panel is open.
   const desktopPresence = useDesktopPresence(Boolean(activeId) && !noComputer && (computerShown || (computerInfo ? computerInfo.state === "ready" : desktopReady)));
   const currentDesktopOwner = desktopPresence.ownership?.owner;
@@ -1362,7 +1393,7 @@ function Workspace() {
   const sectionedConversationIds = new Set(Object.values(customSidebarSections).flat().map((conversation) => conversation.id));
   const defaultSidebarConversations = visibleSidebarConversations.filter((conversation) => !conversation.pinned && !sectionedConversationIds.has(conversation.id));
   // Drag, drop and Alt+Arrow move work on the plain list and the pinned tiles.
-  const sidebarDndEnabled = !sidebarCollapsed;
+  const sidebarDndEnabled = !sidebarFolded;
   // Spoken status for moves. Written straight to the live region: a lift must not re-render the whole workspace.
   const sidebarLiveRef = useRef<HTMLDivElement | null>(null);
   const setSidebarAnnouncement = (text: string) => { if (sidebarLiveRef.current) sidebarLiveRef.current.textContent = text; };
@@ -2436,7 +2467,7 @@ function Workspace() {
     const task = conversation.task_state;
     const unread = conversation.unread_count ?? 0;
     const indicator = rowIndicator(task, unread, motion === "working");
-    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarCollapsed ? conversation.name : undefined}
+    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
       className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`} data-unread={unread > 0 ? "" : undefined}
       onClick={() => focusTask(conversation)}
@@ -2651,9 +2682,10 @@ function Workspace() {
       {workspaceErrorShown && indexInitialized.current && !proxyChallenged && <Suspense fallback={null}><WorkspaceToast onRetry={() => void refreshIndex()} /></Suspense>}
       {nativePanel.failure && <Suspense fallback={null}><WorkspaceToast key={nativePanel.failure} failure={nativePanel.failure} message={browserT(`browser.status.${nativePanel.failure}`)} /></Suspense>}
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.guest_outdated_required ? t("computer.outdated_required") : computerInfo.error_code === "org_resource_missing" ? t("computer.org_missing") : computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error && !computerInfo.guest_outdated_required ? ` · ${computerInfo.error}` : ""}</span>{computerInfo.guest_outdated_required ? <button className="secondary-button" onClick={() => openSettings("computer")}>{t("computer.open_environments")}</button> : (computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
-      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarCollapsed ? " sidebar-collapsed" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
+      <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarFolded ? " sidebar-collapsed" : ""}${macNarrow ? " mac-narrow" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
+        {macNarrow && narrowSidebarOpen && <div className="sidebar-scrim" aria-hidden="true" onClick={() => setNarrowSidebarOpen(false)} />}
         <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
-          <div className="sidebar-top">{sidebarCollapsed ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarCollapsed(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarCollapsed && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarCollapsed(true)}><Icon name="sidebar" size={20} /></button>}<button className="icon-button search-trigger" type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" data-hint={t("search.open")} onClick={() => setSearchOpen(true)}><Icon name="search" size={18} /></button><div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" {...pressToggle(() => setCreateMenuOpen(open => !open))} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarCollapsed && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); openCoverPanel("new-group"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
+          <div className="sidebar-top">{sidebarFolded ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarFolded(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarFolded && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarFolded(true)}><Icon name="sidebar" size={20} /></button>}<button className="icon-button search-trigger" type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" data-hint={t("search.open")} onClick={() => setSearchOpen(true)}><Icon name="search" size={18} /></button><div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" {...pressToggle(() => setCreateMenuOpen(open => !open))} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarFolded && !isDesktop && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); openCoverPanel("new-group"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
           <div className="contact-section" ref={sidebarListRef}>
             <PinDropZone label={t("sidebar.drop_to_pin")} hint={t("sidebar.drop_to_pin_hint")}>{pinnedConversations.length > 0 ? <PinDock label={t("sidebar.pinned")}>{pinnedConversations.map(pinTile)}</PinDock> : null}</PinDropZone>
             {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(item => conversationRow(item))}</section>)}
@@ -2680,7 +2712,7 @@ function Workspace() {
 
         <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
-            <div className="chat-header" ref={chatHeaderRef}><span className="chat-header-drag" aria-hidden="true" /><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : openCoverPanel("bot-settings")} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{nativePanel.bridge && <button type="button" className="computer-button" data-native-browser-toggle="" title={browserT("browser.panel")} aria-label={browserT("browser.panel")} aria-pressed={nativePanel.open} onClick={() => nativePanel.request(!nativePanel.open)}><Icon name="globe" size={17}/></button>}{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setSurfaces(closeAll); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{active.kind === "dm" && computerButton}<button className="computer-button" data-hint={t("header.open_artifacts")} aria-label={t("header.open_artifacts")} aria-pressed={artifactsOn} onClick={() => { setTeamBoardOpen(false); if (columnMode) toggleWidgetId("artifacts"); else { setArtifactsMode("artifacts-group"); openCoverPanel("artifacts"); } }}><Icon name="folder" size={18} variant={artifactsOn ? "filled" : "outline"} /></button>{active.kind === "group" && computerButton}{active.kind === "dm" && <button className="computer-button" data-hint={t("header.tasks")} aria-label={t("header.tasks")} aria-pressed={sidebarId === "tasks"} onClick={() => toggleSidebarId("tasks")}><Icon name="checklist" size={18} variant={sidebarId === "tasks" ? "filled" : "outline"} /></button>}<div className="header-more"><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} {...pressToggle(() => setHeaderMenuOpen(open => !open))} onKeyDown={arrowOpens(setHeaderMenuOpen)}><Icon name="more" size={17} /></button>{headerMenuOpen && <OverlayMenu open={headerMenuOpen} onOpenChange={setHeaderMenuOpen} id="conversation-more-menu" className="more-menu" label={t("header.more")} trigger={headerMenuTriggerRef} align="end" sideOffset={6}>{desktopBot && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openSidebarId("terminal"); }}>{t("header.terminal")}</button>}<button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openSidebarId("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); if (columnMode) openWidgetId("usage"); else openSidebarId("usage"); }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("approvals"); }}>{t("header.remembered_approvals")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button>{active.kind === "dm" ? <button onClick={() => { headerMenuTriggerRef.current?.focus(); openCoverPanel("bot-settings"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button> : <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("group-settings"); }}>{t("header.group_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></OverlayMenu>}</div></div></div>
+            <div className="chat-header" ref={chatHeaderRef}><span className="chat-header-drag" aria-hidden="true" /><div className="chat-title"><button className="back-button" onClick={() => setMobileList(true)} aria-label={t("route.back_to_list")}><Icon name="arrow-left" size={19} /></button><button className="chat-identity" onClick={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : openCoverPanel("bot-settings")} aria-label={t("header.open_members")}><span className="member-avatar-stack">{(active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id]).slice(0, 4).map((id) => <Avatar key={id} label={botById.get(id)?.name ?? active.name} id={id} mini motion={conversationMotion(active, id)} />)}</span><span className="chat-name-pill"><h1>{active.name}</h1>{active.kind === "group" && <small>{t("header.member_count", { count: active.bot_ids.length })}</small>}</span></button></div><div className="header-actions">{nativePanel.bridge && <button type="button" className="computer-button" data-native-browser-toggle="" title={browserT("browser.panel")} aria-label={browserT("browser.panel")} aria-pressed={nativePanel.open} onClick={() => nativePanel.request(!nativePanel.open)}><Icon name="globe" size={17}/></button>}{active.kind === "group" && <button className="computer-button" data-hint={t("header.team_board")} aria-label={teamBoardOpen ? t("header.back_to_chat") : t("header.open_team_board")} aria-pressed={teamBoardOpen} onClick={() => { setSurfaces(closeAll); setTeamBoardOpen(value => !value); }}><Icon name="layout-grid" size={18} variant={teamBoardOpen ? "filled" : "outline"} /></button>}{active.kind === "dm" && computerButton}<button className="computer-button" data-hint={t("header.open_artifacts")} aria-label={t("header.open_artifacts")} aria-pressed={artifactsOn} onClick={() => { setTeamBoardOpen(false); if (columnMode) toggleWidgetId("artifacts"); else { setArtifactsMode("artifacts-group"); openCoverPanel("artifacts"); } }}><Icon name="folder" size={18} variant={artifactsOn ? "filled" : "outline"} /></button>{active.kind === "group" && computerButton}{active.kind === "dm" && <button className="computer-button" data-hint={t("header.tasks")} aria-label={t("header.tasks")} aria-pressed={sidebarId === "tasks"} onClick={() => toggleSidebarId("tasks")}><Icon name="checklist" size={18} variant={sidebarId === "tasks" ? "filled" : "outline"} /></button>}<div className="header-more"><button ref={headerMenuTriggerRef} className="ghost-button" data-hint={t("header.more")} aria-label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} {...pressToggle(() => setHeaderMenuOpen(open => !open))} onKeyDown={arrowOpens(setHeaderMenuOpen)}><Icon name="more" size={17} /></button>{headerMenuOpen && <OverlayMenu open={headerMenuOpen} onOpenChange={setHeaderMenuOpen} id="conversation-more-menu" className="more-menu" label={t("header.more")} trigger={headerMenuTriggerRef} align="end" sideOffset={6}>{desktopBot && <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openTerminalSurface(); }}>{t("header.terminal")}</button>}<button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openSidebarId("memory"); }}>{active.kind === "group" ? t("header.group_memory") : t("header.bot_memory")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); if (columnMode) openWidgetId("usage"); else openSidebarId("usage"); }}>{t("header.usage")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("approvals"); }}>{t("header.remembered_approvals")}</button><button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); void copyConversationLink(active); }}>{t("header.copy_link")}</button>{active.kind === "dm" ? <button onClick={() => { headerMenuTriggerRef.current?.focus(); openCoverPanel("bot-settings"); setHeaderMenuOpen(false); }}>{t("header.bot_settings")}</button> : <button onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); openCoverPanel("group-settings"); }}>{t("header.group_settings")}</button>}<button className="delete-menu-action" onClick={() => { headerMenuTriggerRef.current?.focus(); setHeaderMenuOpen(false); confirmDelete(active); }}>{active.kind === "dm" ? t("header.delete_bot") : t("header.delete_group")}</button></OverlayMenu>}</div></div></div>
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); openSidebarId("tasks"); }} /></Suspense> : <>
             <div className="chat-body">

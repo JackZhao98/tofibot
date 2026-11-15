@@ -59,6 +59,23 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 /* The computer's screen sits in the card body instead of floating over the chat. */
 .workspace .context-card .desktop-floating-shell.is-docked:not(.is-expanded) { position:relative; inset:auto; z-index:auto; width:auto; padding:0 0 4px; pointer-events:auto; }
 
+/* Terminal and the read-only chat between Bots are cards like the others (owner 2026-11-14), not a panel at the window edge:
+   a fixed height that scrolls inside, the card is the surface, no frame of their own and no glass. The card header carries
+   the title and the close. In the Mac app the chat header must not become a window drag region inside a card. */
+.context-card .terminal-panel { width:100%; height:min(340px,55dvh); min-height:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.context-card .terminal-header { min-height:0; padding:0 14px 8px; border-bottom:0; background:transparent; }
+.context-card .terminal-header > div:first-child > span { display:none; }
+.context-card .terminal-tabs { padding:0 14px; border-bottom:0; background:transparent; }
+.context-card .terminal-tabs button { border:0; border-radius:var(--radius-sm); }
+.context-card .terminal-tabs .is-active { background:var(--surface-2); }
+.context-card .terminal-stage { padding:8px 14px 10px; background:transparent; }
+.context-card .terminal-status { min-height:0; padding:6px 14px 10px; border-top:0; background:transparent; }
+.context-card .view-only-chat.is-sidebar { position:static; z-index:auto; display:flex; flex-direction:column; width:100%; height:min(420px,60dvh); border:0; border-radius:0; background:transparent; box-shadow:none; animation:none; }
+.context-card .view-only-chat.is-sidebar .view-only-chat-header { min-height:0; padding:0 14px 8px; border:0; background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; -webkit-app-region:no-drag; user-select:auto; }
+.context-card .view-only-chat.is-sidebar .view-only-chat-body { flex:1 1 auto; min-height:0; padding:4px 14px 12px; }
+.context-card .view-only-chat.is-sidebar .view-only-message-copy { max-width:92%; }
+.context-card .view-only-chat.is-sidebar .view-only-chat-footer { min-height:0; padding:8px 14px; justify-content:flex-start; border:0; border-top:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; color:var(--muted); font:var(--type-meta); }
+
 @media (prefers-reduced-motion:reduce) {
   .widget-slot, .widget-slot[data-leaving] { animation:none; transition:none; }
   .context-card, .context-card-grip, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }

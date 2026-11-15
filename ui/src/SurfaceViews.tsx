@@ -82,7 +82,15 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
 
 /** One widget's content (inside its card). */
 export function WidgetView({ id, ctx }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx }) {
+  const { t } = useTranslation("chat");
   const { active } = ctx;
+  // Terminal and the read-only chat are cards like the others on a wide window (owner 2026-11-14): the card's header carries the title
+  // and the close, so the views draw no close of their own and no glass.
+  if (id === "terminal") {
+    const bot = (ctx.terminalBotId && ctx.botById.get(ctx.terminalBotId)) || ctx.desktopBot;
+    return bot ? <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={bot.id} botId={bot.id} botName={bot.name} /></Suspense> : null;
+  }
+  if (id === "conversation") return ctx.viewOnlyChat ? <Suspense fallback={<SurfaceSkeleton/>}><ViewOnlyChat target={ctx.viewOnlyChat} bots={ctx.bots} sidebar onClose={() => ctx.setViewOnlyChat(null)} /></Suspense> : null;
   if (id === "members") return active?.kind === "group" ? <MembersWidget conversation={active} bots={ctx.bots} tasksByBot={ctx.roster} onOpen={ctx.openConversation} onSettings={() => ctx.surf(current => openCover(current, "group-settings"))} /> : null;
   if (id === "usage") return active ? <Suspense fallback={<SurfaceSkeleton/>}><UsageWidget conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings} /></Suspense> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
