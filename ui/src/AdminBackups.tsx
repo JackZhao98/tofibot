@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useId, useRef, useState, type FormEvent} from "react";
 import {adminApi, type AdminAccount} from "./adminApi";
 import {adminOrgApi, backupApi, backupError, orgError, type BackupSnapshot, type BackupView, type OrgResource} from "./adminOrgApi";
+import {ApiError} from "./api";
 import {useTranslation} from "./i18n";
 import {ConfirmAction} from "./InteractionSystem";
 import {CardHead, formatVerified} from "./ProviderSettings";
@@ -160,7 +161,11 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
   </SettingsSection>;
 }
 
-/** Restore one account from a snapshot: the account, the restore point, the typed username. Undo is offered for 14 days. */
+/**
+ * Restore one account from a snapshot: the account, the restore point, the typed username. Undo is offered for 14 days.
+ * While the account has Bot runs at work the server refuses (`account_busy`) and nothing changes; the refusal offers to
+ * interrupt them, which is the only way this panel stops a run.
+ */
 function AccountRestore({onError, onNotice}: {onError: (message: string) => void; onNotice: (message: string) => void}) {
   const {t} = useTranslation("settings");
   const {timezone} = useUserTimezone();
@@ -172,20 +177,25 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
   const [snapshot, setSnapshot] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [held, setHeld] = useState<"restore" | "undo" | null>(null);
   useEffect(() => { void adminApi.accounts().then(list => setAccounts(list.filter(item => !item.deleting))).catch(() => {}); }, []);
   async function pick(id: string) {
-    setAccount(id); setPoints([]); setSnapshot(""); setName(""); onError("");
+    setAccount(id); setPoints([]); setSnapshot(""); setName(""); setHeld(null); onError("");
     if (!id) return;
     try { const out = await backupApi.accountSnapshots(id); setPoints(out.snapshots); setUndo(out.undo_available); setSnapshot(out.snapshots[0]?.name ?? ""); } catch (cause) { onError(backupError(cause)); }
   }
   const target = accounts.find(item => item.id === account);
-  async function restore() {
-    setBusy(true); onError(""); onNotice("");
-    try { await backupApi.restoreAccount(account, {snapshot, confirm_username: name}); onNotice(t("admin.org.backup.restore_done")); setName(""); await pick(account); } catch (cause) { onError(backupError(cause)); } finally { setBusy(false); }
+  function failed(action: "restore" | "undo", cause: unknown) {
+    setHeld(cause instanceof ApiError && cause.code === "account_busy" ? action : null);
+    onError(backupError(cause));
   }
-  async function undoRestore() {
-    setBusy(true); onError(""); onNotice("");
-    try { await backupApi.undoRestore(account); onNotice(t("admin.org.backup.undo_done")); await pick(account); } catch (cause) { onError(backupError(cause)); } finally { setBusy(false); }
+  async function restore(interrupt = false) {
+    setBusy(true); setHeld(null); onError(""); onNotice("");
+    try { await backupApi.restoreAccount(account, {snapshot, confirm_username: name, ...(interrupt ? {interrupt: true} : {})}); onNotice(t("admin.org.backup.restore_done")); setName(""); await pick(account); } catch (cause) { failed("restore", cause); } finally { setBusy(false); }
+  }
+  async function undoRestore(interrupt = false) {
+    setBusy(true); setHeld(null); onError(""); onNotice("");
+    try { await backupApi.undoRestore(account, interrupt); onNotice(t("admin.org.backup.undo_done")); await pick(account); } catch (cause) { failed("undo", cause); } finally { setBusy(false); }
   }
   return <div className="backup-restore" data-section="restore-account">
     <h4>{t("admin.org.backup.restore_title")}</h4>
@@ -201,5 +211,6 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
       <button type="button" className="st-button" data-action="restore-account" disabled={busy || !snapshot || !target || name !== target.username} onClick={() => void restore()}>{t("admin.org.backup.restore_button")}</button>
     </>}
     {account && undo && <button type="button" className="text-button" data-action="undo-restore" disabled={busy} onClick={() => void undoRestore()}>{t("admin.org.backup.undo")}</button>}
+    {held && <button type="button" className="text-button" data-action="interrupt-runs" disabled={busy || (held === "restore" && name !== target?.username)} onClick={() => void (held === "restore" ? restore(true) : undoRestore(true))}>{t(held === "restore" ? "admin.org.backup.interrupt_and_restore" : "admin.org.backup.interrupt_and_undo")}</button>}
   </div>;
 }

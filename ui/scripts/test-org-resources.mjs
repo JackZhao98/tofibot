@@ -605,6 +605,54 @@ try {
     console.log("PASS backups: Run, Verify and the snapshot list wait for the confirmed Recovery Key (Verify also for a snapshot)");
   }
 
+  // A single-account restore while the account has Bot runs at work is refused (account_busy) and changes nothing; the panel
+  // says so and offers to interrupt them, and only that click sends `interrupt`. The same holds for the undo.
+  {
+    stub.reset();
+    const base = stub.handle(new URL("http://fixture.test/api/admin/backups"), "GET")[1];
+    const configured = {...base, configured: true, settings: {...base.settings, bucket: "tofi-backups", endpoint: "https://r2.example.test", remote: "on"}, key: {present: true, fingerprint: "ab12", confirmed_at: "2026-11-10T00:00:00Z"}, status: {running: false, last_status: "ok", last_success_at: "2026-11-11T03:00:00Z"}};
+    const posts = [];
+    let undoAvailable = false;
+    const withRestore = {...stub, handle: (url, method, body) => {
+      const path = new URL(url).pathname;
+      if (path === "/api/admin/backups" && method === "GET") return [200, configured];
+      if (path === "/api/admin/accounts/acct_two/backups" && method === "GET") return [200, {snapshots: [{name: "20261111T030000Z-scheduled", at: "2026-11-11T03:00:00Z", reason: "scheduled", rows: {conversations: 3, messages: 40}, files: 2}], undo_available: undoAvailable}];
+      if (/^\/api\/admin\/accounts\/acct_two\/restore(\/undo)?$/.test(path) && method === "POST") {
+        posts.push({path, body});
+        if (!body?.interrupt) return [409, {error: {code: "account_busy", runs: 2, message: "busy"}}];
+        undoAvailable = true;
+        return [200, path.endsWith("/undo") ? {undone: true} : {restored: true}];
+      }
+      return stub.handle(url, method, body);
+    }};
+    const view = await openSettings({browser, fixture, stub: withRestore, errors, params: {tab: "admin-resources"}});
+    const panel = card(view.page, "backup_store").locator('[data-section="restore-account"]');
+    await panel.locator("select").first().selectOption("acct_two");
+    await panel.locator('input[name="backup-restore-confirm"]').fill("Sam Example");
+    await panel.locator('[data-action="restore-account"]').click();
+    const refusal = card(view.page, "backup_store").locator('[role="alert"]');
+    await refusal.waitFor({timeout: 10_000});
+    assert.match(await text(refusal), /at work.*Nothing was changed/, "the refusal names why and that nothing changed");
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].body.interrupt, undefined, "the first restore never interrupts");
+    await shot(view.page, "backups-restore-busy-light-1440");
+    await panel.locator('[data-action="interrupt-runs"]').waitFor({timeout: 10_000}); // the refusal offers the choice
+    await panel.locator('[data-action="interrupt-runs"]').click();
+    await card(view.page, "backup_store").getByText("Restored.").waitFor({timeout: 10_000});
+    assert.equal(posts.length, 2);
+    assert.equal(posts[1].body.interrupt, true, "only the explicit choice interrupts");
+    assert.equal(await panel.locator('[data-action="interrupt-runs"]').count(), 0, "the choice goes away after the restore");
+    await panel.locator('[data-action="undo-restore"]').click();
+    await panel.locator('[data-action="interrupt-runs"]').waitFor({timeout: 10_000});
+    assert.match(await text(panel.locator('[data-action="interrupt-runs"]')), /undo/);
+    assert.equal(posts.at(-1).path.endsWith("/undo") && posts.at(-1).body.interrupt === undefined, true, "the undo asks first too");
+    await panel.locator('[data-action="interrupt-runs"]').click();
+    await card(view.page, "backup_store").getByText("Restore undone.").waitFor({timeout: 10_000});
+    assert.equal(posts.at(-1).body.interrupt, true);
+    await view.close();
+    console.log("PASS backups: a restore or undo of a busy account is refused, and only the Interrupt choice stops its runs");
+  }
+
   // ---- 8. Every language renders the page without raw keys.
   for (const language of ["zh-CN", "zh-TW", "ja", "ko", "de", "fr"]) {
     stub.reset();

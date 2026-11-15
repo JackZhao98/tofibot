@@ -838,6 +838,8 @@
         "restore_done": "已復原。",
         "undo": "還原上次復原",
         "undo_done": "已還原復原。",
+        "interrupt_and_restore": "中斷並還原",
+        "interrupt_and_undo": "中斷並復原",
         "error": {
           "generic": "備份要求失敗。",
           "backup_store_unavailable": "備份儲存沒有回應。",
@@ -866,7 +868,7 @@
           "backup_no_snapshot": "儲存庫裡還沒有快照。",
           "backup_account_not_in_snapshot": "該帳號不在這份快照中。",
           "backup_failed": "備份失敗。",
-          "account_busy": "這個帳戶的 Bot 執行正在進行。沒有做任何變更。請等它們結束後再還原。"
+          "account_busy": "這個帳戶的 Bot 執行正在進行。沒有做任何變更。請等它們結束後再還原，或中斷它們。"
         }
       },
       "file_move": {

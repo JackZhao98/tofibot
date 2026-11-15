@@ -838,6 +838,8 @@
         "restore_done": "已恢复。",
         "undo": "撤销上次恢复",
         "undo_done": "已撤销恢复。",
+        "interrupt_and_restore": "中断并恢复",
+        "interrupt_and_undo": "中断并撤销",
         "error": {
           "generic": "备份请求失败。",
           "backup_store_unavailable": "备份存储没有响应。",
@@ -866,7 +868,7 @@
           "backup_no_snapshot": "仓库里还没有快照。",
           "backup_account_not_in_snapshot": "该账户不在这份快照中。",
           "backup_failed": "备份失败。",
-          "account_busy": "这个账户的 Bot 运行正在进行。没有做任何更改。请等它们结束后再恢复。"
+          "account_busy": "这个账户的 Bot 运行正在进行。没有做任何更改。请等它们结束后再恢复，或中断它们。"
         }
       },
       "file_move": {

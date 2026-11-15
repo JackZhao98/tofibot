@@ -838,6 +838,8 @@
         "restore_done": "復元しました。",
         "undo": "直前の復元を元に戻す",
         "undo_done": "復元を元に戻しました。",
+        "interrupt_and_restore": "中断して復元",
+        "interrupt_and_undo": "中断して元に戻す",
         "error": {
           "generic": "バックアップのリクエストに失敗しました。",
           "backup_store_unavailable": "バックアップストレージが応答しません。",
@@ -866,7 +868,7 @@
           "backup_no_snapshot": "リポジトリにはまだスナップショットがありません。",
           "backup_account_not_in_snapshot": "そのアカウントはスナップショットにありません。",
           "backup_failed": "バックアップに失敗しました。",
-          "account_busy": "このアカウントの Bot の実行が進行中です。何も変更していません。終わるのを待ってから、もう一度復元してください。"
+          "account_busy": "このアカウントの Bot の実行が進行中です。何も変更していません。終わるのを待ってからもう一度復元するか、実行を中断してください。"
         }
       },
       "file_move": {

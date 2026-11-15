@@ -91,8 +91,9 @@ const backupApi = {
   confirmKey: () => request<BackupView>("/api/admin/backups/recovery-key/confirm", send("POST", {})),
   snapshots: () => request<{snapshots: BackupSnapshot[]}>("/api/admin/backups/snapshots"),
   accountSnapshots: (id: string) => request<{snapshots: BackupSnapshot[]; undo_available: boolean}>(`/api/admin/accounts/${enc(id)}/backups`),
-  restoreAccount: (id: string, body: {snapshot: string; confirm_username: string}) => request<{restored: boolean}>(`/api/admin/accounts/${enc(id)}/restore`, send("POST", body)),
-  undoRestore: (id: string) => request<{undone: boolean}>(`/api/admin/accounts/${enc(id)}/restore/undo`, send("POST", {})),
+  /** `interrupt` stops the account's working Bot runs; without it the server refuses with `account_busy` while one is at work. */
+  restoreAccount: (id: string, body: {snapshot: string; confirm_username: string; interrupt?: boolean}) => request<{restored: boolean}>(`/api/admin/accounts/${enc(id)}/restore`, send("POST", body)),
+  undoRestore: (id: string, interrupt = false) => request<{undone: boolean}>(`/api/admin/accounts/${enc(id)}/restore/undo`, send("POST", interrupt ? {interrupt: true} : {})),
 };
 export {backupApi};
 

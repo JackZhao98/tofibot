@@ -846,6 +846,8 @@
         "restore_done": "Wiederhergestellt.",
         "undo": "Letzte Wiederherstellung rückgängig machen",
         "undo_done": "Wiederherstellung rückgängig gemacht.",
+        "interrupt_and_restore": "Unterbrechen und wiederherstellen",
+        "interrupt_and_undo": "Unterbrechen und rückgängig machen",
         "error": {
           "generic": "Die Backup-Anfrage ist fehlgeschlagen.",
           "backup_store_unavailable": "Der Backup-Speicher antwortet nicht.",
@@ -874,7 +876,7 @@
           "backup_no_snapshot": "Das Repository enthält noch keinen Snapshot.",
           "backup_account_not_in_snapshot": "Dieses Konto ist nicht im Snapshot.",
           "backup_failed": "Das Backup ist fehlgeschlagen.",
-          "account_busy": "In diesem Konto arbeiten gerade Bot-Läufe. Es wurde nichts geändert. Warte, bis sie fertig sind, und stelle dann erneut wieder her."
+          "account_busy": "In diesem Konto arbeiten gerade Bot-Läufe. Es wurde nichts geändert. Warte, bis sie fertig sind, und stelle dann erneut wieder her, oder unterbrich sie."
         }
       },
       "file_move": {
