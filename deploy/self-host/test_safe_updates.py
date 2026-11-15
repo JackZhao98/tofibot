@@ -2108,3 +2108,99 @@ class DiskBackupTests(BackupCase):
         self.stopped.assert_not_called()
         with mock.patch.object(tofi_host, 'free_bytes', return_value=need + expected):
             tofi_host.backup_now()
+
+
+class RemoteBackupTests(BackupCase):
+    """Backups P2: the pre-update remote snapshot, /etc/tofi in it, the merged listing, space checks."""
+
+    STATE = {'configured': True, 'remote': 'on', 'before_update': 'attempt', 'last_success_at': '', 'last_snapshot': ''}
+
+    def calls(self, state=None, run=None):
+        """Patch host_control: `state` answers the state call, `run` (a dict or an exception) the run call."""
+        seen = []
+
+        def fake(env, operation, body=None, timeout=60, route=tofi_host.HOST_CONTROL_ROUTE):
+            seen.append((route, operation, body))
+            if operation == 'state':
+                if isinstance(state, Exception):
+                    raise state
+                return dict(self.STATE, **(state or {}))
+            if isinstance(run, Exception):
+                raise run
+            return run or {'snapshot_id': '20261110T030000Z-pre-update', 'at': '2026-11-10T03:00:00Z'}
+
+        mock.patch.object(tofi_host, 'host_control', side_effect=fake).start()
+        return seen
+
+    def test_snapshot_is_requested_once_with_etc_staged_for_the_app(self):
+        self.seed()
+        (self.P.etc / 'secret.env').write_text('TOKEN=never-printed')
+        seen = self.calls()
+        result = self.real_pre_update_remote(tofi_host.read_env())
+        self.assertEqual((result['status'], result['snapshot_id']), ('ok', '20261110T030000Z-pre-update'))
+        self.assertEqual(seen[-1], (tofi_host.HOST_BACKUP_ROUTE, 'run', {'reason': 'pre-update'}))
+        staged = self.P.data / tofi_host.HOST_ETC_DIR / tofi_host.HOST_ETC_FILE
+        self.assertEqual(staged.stat().st_mode & 0o777, 0o400)
+        self.assertIn('secret.env', self.names(staged))
+
+    def test_skips_when_not_configured_off_or_recent_and_never_asks_then(self):
+        self.seed()
+        env = tofi_host.read_env()
+        for state, reason in ((dict(configured=False), 'not_configured'), (dict(remote='off'), 'not_configured'),
+                              (dict(before_update='off'), 'setting_off')):
+            seen = self.calls(state)
+            self.assertEqual(self.real_pre_update_remote(env)['reason'], reason)
+            self.assertEqual([operation for _, operation, _ in seen], ['state'])
+        now = tofi_host.parse_utc('2026-11-10T06:00:00')
+        seen = self.calls(dict(last_success_at='2026-11-10T03:00:00Z', last_snapshot='snap-1'))
+        recent = self.real_pre_update_remote(env, now=now)
+        self.assertEqual((recent['reason'], recent['snapshot_id']), ('recent', 'snap-1'))
+        self.assertEqual(len(seen), 1)
+        old = self.real_pre_update_remote(env, now=now + 4 * 3600)  # 7 hours after the last snapshot
+        self.assertEqual(old['status'], 'ok')
+
+    def test_attempt_continues_and_records_require_stops_before_anything_is_touched(self):
+        self.seed()
+        failure = {'status': 'failed', 'code': 'backup_store_unavailable', 'policy': 'attempt'}
+        self.remote.return_value = failure
+        tofi_host.upgrade(manifest_path=str(self.write_manifest(base.manifest())))
+        meta = tofi_host.list_backups()[0]['meta']
+        self.assertEqual(meta['remote'], {'status': 'failed', 'code': 'backup_store_unavailable'})
+        history = [json.loads(line) for line in self.P.update_history.read_text().splitlines()]
+        self.assertEqual((history[-1]['result'], history[-1]['remote']['code']), ('updated', 'backup_store_unavailable'))
+        # require: a named error before the services stop.
+        self.remote.return_value = dict(failure, policy='require')
+        self.stopped.reset_mock()
+        with self.assertRaisesRegex(HostError, 'backup_store_unavailable.*require'):
+            tofi_host.upgrade(manifest_path=str(self.write_manifest(base.manifest('v0.3.0', '2'))))
+        self.stopped.assert_not_called()
+        history = [json.loads(line) for line in self.P.update_history.read_text().splitlines()]
+        self.assertEqual((history[-1]['result'], history[-1]['remote']['status']), ('failed', 'failed'))
+
+    def test_a_downloaded_etc_archive_goes_into_the_local_backup(self):
+        self.seed()
+        staging = Path(self.temp.name) / 'incoming-etc.tar.gz'
+        tofi_host.write_archive(staging, 'gz', self.P.etc, exclude=tofi_host.etc_excluded)
+        meta = tofi_host.backup_data('remote', check_space=False, etc_archive=staging)
+        item = tofi_host.find_backup(meta['id'])
+        self.assertEqual(tofi_host.sha256_file(item['path'] / 'etc.tar.gz'), tofi_host.sha256_file(staging))
+        self.assertEqual(tofi_host.verify_backup(item['path'])['reason'], 'remote')
+
+    def test_listing_merges_local_and_remote_and_names_why_remote_is_missing(self):
+        self.seed()
+        local = self.backup('manual')
+        remote = [{'name': '20261110T030000Z-scheduled', 'at': '2026-11-10T03:00:00Z', 'version': 'v0.1.9',
+                   'reason': 'scheduled', 'size_bytes': 5 << 20}]
+        text = tofi_host.render_backups(tofi_host.list_backups(), remote)
+        self.assertIn('LOCATION', text)
+        self.assertRegex(text, r'%s .* local' % local['id'])
+        self.assertRegex(text, r'20261110T030000Z-scheduled .* remote')
+        down = tofi_host.render_backups(tofi_host.list_backups(), [], 'backup_store_misconfigured')
+        self.assertIn(local['id'], down)
+        self.assertIn('Remote snapshots could not be listed: backup_store_misconfigured', down)
+
+    def test_remote_restore_is_refused_by_name_when_the_snapshot_would_not_fit(self):
+        with mock.patch.object(tofi_host, 'free_bytes', return_value=3 << 30):
+            tofi_host.check_remote_restore_space(1 << 30)  # 2 GiB + 1 GiB fits exactly
+            with self.assertRaisesRegex(HostError, 'restore_no_disk_space'):
+                tofi_host.check_remote_restore_space(2 << 30)

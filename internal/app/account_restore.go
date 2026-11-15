@@ -101,6 +101,13 @@ func (g *AccountGateway) restoreAccount(ctx context.Context, id, confirm, snap s
 	if m.InstanceID != g.root.instance.ID {
 		return nil, &restoreError{409, "backup_instance_mismatch"}
 	}
+	for _, e := range m.Accounts {
+		if e.ID == id {
+			if err = checkRestoreSpace(g.accountsDir(), entryBytes(e)); err != nil {
+				return nil, err
+			}
+		}
+	}
 	release, err := g.fence(id)
 	if err != nil {
 		return nil, err

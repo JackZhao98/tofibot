@@ -472,7 +472,7 @@ func (g *AccountGateway) handle(w http.ResponseWriter, r *http.Request) {
 		g.root.handle(w, r)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, hostControlRoute) && g.serveHost(w, r) {
+	if (strings.HasPrefix(r.URL.Path, hostControlRoute) || strings.HasPrefix(r.URL.Path, hostBackupRoute)) && g.serveHost(w, r) {
 		return
 	}
 	if g.config.AccountMaintenance && r.Method != http.MethodGet && r.Method != http.MethodHead && r.URL.Path != "/api/auth/login" && r.URL.Path != "/api/auth/logout" {

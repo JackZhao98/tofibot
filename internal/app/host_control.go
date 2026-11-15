@@ -147,9 +147,15 @@ func (g *AccountGateway) provisioner() string {
 	return g.config.AccountProvisionerSocket
 }
 
-// serveHost answers /api/host/computer/*. It returns false for any other path.
+// serveHost answers /api/host/computer/* and /api/host/backup/*. It returns
+// false for any other path.
 func (g *AccountGateway) serveHost(w http.ResponseWriter, r *http.Request) bool {
 	op, ok := strings.CutPrefix(r.URL.Path, hostControlRoute)
+	backupRoute := false
+	if !ok {
+		op, ok = strings.CutPrefix(r.URL.Path, hostBackupRoute)
+		backupRoute = true
+	}
 	if !ok || strings.Contains(op, "/") {
 		return false
 	}
@@ -162,6 +168,10 @@ func (g *AccountGateway) serveHost(w http.ResponseWriter, r *http.Request) bool 
 	}
 	if !hostAuthorized(r, g.config.HostControlTokenFile) {
 		writeErr(w, 401, "unauthorized", "host token required")
+		return true
+	}
+	if backupRoute {
+		g.serveHostBackup(w, r, op)
 		return true
 	}
 	switch op {

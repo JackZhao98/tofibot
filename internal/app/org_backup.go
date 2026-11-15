@@ -53,6 +53,7 @@ type backupConfig struct {
 	KeepMonthly     int    `json:"keep_monthly"`
 	Verify          string `json:"verify"` // weekly | monthly | manual
 	StaleAfterHours int    `json:"stale_after_hours"`
+	BeforeUpdate    string `json:"before_update"` // attempt | require | off: the remote snapshot `tofi update` asks for
 	KeyFingerprint  string `json:"key_fingerprint,omitempty"`
 	KeyConfirmedAt  string `json:"key_confirmed_at,omitempty"`
 }
@@ -78,6 +79,9 @@ func (c backupConfig) withDefaults() backupConfig {
 	}
 	if c.StaleAfterHours == 0 {
 		c.StaleAfterHours = 36
+	}
+	if c.BeforeUpdate == "" {
+		c.BeforeUpdate = "attempt"
 	}
 	return c
 }
@@ -208,7 +212,8 @@ func (g *AccountGateway) backupRepo(ctx context.Context) (*backup.Repo, backupCo
 }
 
 func (g *AccountGateway) backupSource() backup.Source {
-	return backup.Source{DataDir: g.config.DataDir, InstanceID: g.root.instance.ID, AppVersion: Version, Schema: SchemaVersion, Staging: filepath.Join(g.config.DataDir, "tmp", "backup")}
+	return backup.Source{DataDir: g.config.DataDir, InstanceID: g.root.instance.ID, AppVersion: Version, Schema: SchemaVersion, Staging: filepath.Join(g.config.DataDir, "tmp", "backup"),
+		EtcFile: filepath.Join(g.config.DataDir, hostEtcDir, hostEtcFile)}
 }
 
 // beginBackupJob claims the one backup/verify/restore slot.
@@ -599,6 +604,7 @@ func (g *AccountGateway) putBackupSettings(w http.ResponseWriter, r *http.Reques
 		KeepMonthly     *int    `json:"keep_monthly"`
 		Verify          *string `json:"verify"`
 		StaleAfterHours *int    `json:"stale_after_hours"`
+		BeforeUpdate    *string `json:"before_update"`
 	}
 	if decodeStrict(r, 4<<10, &in) != nil {
 		writeErr(w, 400, "invalid_request", "invalid request")
@@ -636,6 +642,13 @@ func (g *AccountGateway) putBackupSettings(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		cfg.Schedule = *in.Schedule
+	}
+	if in.BeforeUpdate != nil {
+		if !oneOf(*in.BeforeUpdate, "attempt", "require", "off") {
+			bad("before_update")
+			return
+		}
+		cfg.BeforeUpdate = *in.BeforeUpdate
 	}
 	if in.Verify != nil {
 		if !oneOf(*in.Verify, "weekly", "monthly", "manual") {

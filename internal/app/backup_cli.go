@@ -94,7 +94,7 @@ func RunRestoreRemote(ctx context.Context, in io.Reader, out io.Writer) int {
 			if merr != nil {
 				return failWith(merr)
 			}
-			list = append(list, map[string]any{"name": m.Snapshot, "at": m.CreatedAt, "version": m.AppVersion, "reason": m.Reason, "schema": m.Schema, "accounts": len(m.Accounts) + 1, "schema_supported": m.Schema <= SchemaVersion})
+			list = append(list, map[string]any{"name": m.Snapshot, "at": m.CreatedAt, "version": m.AppVersion, "reason": m.Reason, "schema": m.Schema, "accounts": len(m.Accounts) + 1, "size_bytes": m.Size(), "has_etc": m.Etc != nil, "schema_supported": m.Schema <= SchemaVersion})
 		}
 		return answer(map[string]any{"snapshots": list, "head_seq": 0}, 0)
 	}
@@ -107,6 +107,15 @@ func RunRestoreRemote(ctx context.Context, in io.Reader, out io.Writer) int {
 		return failWith(err)
 	}
 	res := map[string]any{"report": rep}
+	if req.Mode != "replica" {
+		// A takeover brings the host settings back too; a copy keeps its own.
+		had, eerr := repo.RestoreEtc(ctx, rep.Snapshot, filepath.Join(req.Out, hostEtcFile))
+		if eerr != nil {
+			_ = os.RemoveAll(dest)
+			return failWith(eerr)
+		}
+		res["etc"] = had
+	}
 	if req.Mode == "replica" {
 		// A second server: a new instance id (made on first start), no backup lineage, backups off.
 		_ = os.Remove(filepath.Join(dest, "instance.json"))
