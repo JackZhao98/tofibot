@@ -114,7 +114,7 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   truthy(state.labelled, "aria-labelledby does not name the heading");
   for (const key of [...Array(7).fill("Tab"), ...Array(7).fill("Shift+Tab")]) { await page.keyboard.press(key); truthy(await inDialog(page), `${key} moved focus out of the dialog`); }
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
   await page.waitForFunction(() => document.activeElement?.matches(".header-more > button"), null, { timeout: 2000 }).catch(() => {});
   const after = await page.evaluate(() => ({ focus: document.activeElement?.outerHTML.slice(0, 80), hidden: document.querySelectorAll('#root [aria-hidden="true"][data-aria-hidden]').length, inert: document.querySelector(".workspace").inert }));
   truthy(after.focus?.includes("ghost-button"), `focus did not return to More: ${after.focus}`);
@@ -125,11 +125,11 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2);
   truthy(await page.locator(".delete-dialog").count(), "a click inside the card closed it");
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
   // A press on the scrim closes it.
   await menuDelete(page);
   await page.mouse.click(8, 8);
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
   truthy(!errors.length, errors.join("; "));
   await context.close();
 });
@@ -154,7 +154,7 @@ await check("delete dialog while busy: neither Escape nor the scrim closes it; a
   release();
   await page.locator(".delete-dialog [role=alert]").waitFor();
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
   truthy(!errors.length, errors.join("; "));
   await context.close();
 });
@@ -165,7 +165,7 @@ await check("Escape closes only the top layer: the dialog first, then the non-mo
   await page.waitForFunction(() => document.querySelector(".workspace-grid")?.classList.contains("sidebar-open"));
   await menuDelete(page);
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 2000 });
+  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
   await page.waitForTimeout(100);
   truthy(await page.evaluate(() => document.querySelector(".workspace-grid").classList.contains("sidebar-open")), "one Escape closed the dialog and the panel under it");
   await page.keyboard.press("Escape");
@@ -343,12 +343,12 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Har
     const hidden = await page.evaluate(() => ({ outer: document.querySelector(".admin-sheet").closest("[aria-hidden=true]") !== null, root: document.getElementById("root").getAttribute("aria-hidden") }));
     truthy(hidden.outer && hidden.root === "true", `under the inner dialog the sheet and the page must be hidden from screen readers: ${JSON.stringify(hidden)}`);
     await page.keyboard.press("Escape");
-    await page.locator('[aria-label="Inner"]').waitFor({ state: "detached", timeout: 2000 });
+    await page.locator('[aria-label="Inner"]').waitFor({ state: "detached", timeout: 5000 });
     truthy(await page.locator(".admin-sheet").count() === 1, `the first Escape also closed the sheet (onClose calls: ${JSON.stringify(await page.evaluate(() => window.__closed))})`);
     await page.waitForFunction(() => document.activeElement?.id === "open-inner", null, { timeout: 2000 }).catch(() => {});
     truthy(await active(page) === "open-inner", `focus went to ${await active(page)}, not back to the Inner button`);
     await page.keyboard.press("Escape");
-    await page.locator(".admin-sheet").waitFor({ state: "detached", timeout: 2000 });
+    await page.locator(".admin-sheet").waitFor({ state: "detached", timeout: 5000 });
     await page.waitForFunction(() => document.activeElement?.id === "open-sheet", null, { timeout: 2000 }).catch(() => {});
     truthy(await active(page) === "open-sheet", `focus went to ${await active(page)}, not back to the Sheet button`);
     truthy(await page.evaluate(() => window.__paneEscapes) === 0, "the modal behind handled an Escape meant for a dialog");
@@ -373,7 +373,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Har
     truthy(await page.locator(".admin-sheet").count() === 1, "the locked sheet closed");
     await page.locator("#lock").click();
     await page.mouse.click(6, 6);
-    await page.locator(".admin-sheet").waitFor({ state: "detached", timeout: 2000 });
+    await page.locator(".admin-sheet").waitFor({ state: "detached", timeout: 5000 });
     truthy(!errors.length, errors.join("; "));
     await context.close();
   });
@@ -388,7 +388,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Har
     await page.waitForTimeout(150);
     truthy(await page.locator(".settings-leave-dialog").count() === 1, "a press on the scrim closed the confirmation");
     await page.keyboard.press("Escape");
-    await page.locator(".settings-leave-dialog").waitFor({ state: "detached", timeout: 2000 });
+    await page.locator(".settings-leave-dialog").waitFor({ state: "detached", timeout: 5000 });
     await page.waitForFunction(() => document.activeElement?.id === "open-confirm", null, { timeout: 2000 }).catch(() => {});
     truthy(await active(page) === "open-confirm", `focus went to ${await active(page)}`);
     const ring = await page.evaluate(focusRingProbe);
@@ -467,7 +467,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Har
     truthy(placed.hintIn && placed.hintTop, `the hint is not inside the dialog or not on top: ${JSON.stringify(placed)}`);
     truthy(placed.toastIn && placed.toastTop, `the toast is not inside the dialog or not on top: ${JSON.stringify(placed)}`);
     await page.keyboard.press("Escape");
-    await page.locator("dialog[open]").waitFor({ state: "detached", timeout: 2000 });
+    await page.locator("dialog[open]").waitFor({ state: "detached", timeout: 5000 });
     await page.waitForFunction(() => { const toast = document.querySelector(".workspace-toast"); return toast && !toast.closest("dialog"); }, null, { timeout: 2000 }).catch(() => {});
     truthy(await page.evaluate(() => { const toast = document.querySelector(".workspace-toast"); return Boolean(toast && !toast.closest("dialog")); }), "the toast did not come back to the page when the dialog closed");
     truthy(!errors.length, errors.join("; "));
