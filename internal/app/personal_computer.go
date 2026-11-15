@@ -262,14 +262,15 @@ func personalJobError(status, message, action string) error {
 	case "capability_not_granted":
 		return capabilityNotGrantedOutcome(action).Err()
 	case "folder_not_granted":
-		_, rest, _ := strings.Cut(message, ":")
-		rest = strings.TrimSpace(rest)
-		if rest == "" {
-			rest = "The person has not granted this folder to TOFI. They can add it in the TOFI desktop app's folder settings."
-		}
-		return tooloutcome.New(tooloutcome.Denied, code, "not_executed", rest, "explain_blocker").Err()
+		// The words are the server's, never the Mac's text after the code.
+		return folderNotGrantedOutcome("").Err()
 	case codeComputerLost:
 		return tooloutcome.New(tooloutcome.Permanent, codeComputerLost, "unknown", "The computer stopped answering while this step ran. Whether the step finished on it is unknown; continue without it.", "explain_blocker").Err()
+	}
+	if strings.HasPrefix(action, "folders.") {
+		if o, ok := macFolderError(code); ok {
+			return o.Err()
+		}
 	}
 	_ = status
 	return errors.New(message)

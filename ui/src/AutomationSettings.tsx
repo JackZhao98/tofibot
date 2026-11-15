@@ -18,7 +18,7 @@ export type AutomationKey =
   | "remembered_approval_hours" | "provider_retries" | "schedule_receipt_review" | "desktop_idle_seconds"
   | "group_triage" | "group_triage_model" | "group_followup_to_working" | "task_retention_days" | "upload_retention_days" | "bots_can_keep_files" | "command_check_minutes" | "computer_idle_off_minutes" | "task_stall_rounds" | "task_tree_idle_message_limit"
   | "task_fanout_width" | "task_fanout_depth" | "task_part_deadline_minutes" | "task_part_deadline_scheduled_minutes"
-  | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine" | "personal_input_review"
+  | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine" | "personal_input_review" | "mac_folder_review"
   | "environment_order_web" | "environment_order_app" | "environment_failover"
   | "work_trace" | "work_plan" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
 /** Where a row is shown (the server's `group`): the Behavior page's own groups, or beside the setting it belongs with. */
@@ -67,6 +67,7 @@ function formatValue(item: AutomationItem, value: Value, {t, catalog}: Names): s
   if (item.kind === "enum" && item.key === "browser_engine") return t(`automation.option.browser_engine.${String(value) as "classic" | "playwright"}`);
   if (item.kind === "enum" && item.key === "desktop_engine") return t(`automation.option.desktop_engine.${String(value) as "classic" | "a11y"}`);
   if (item.kind === "enum" && item.key === "personal_input_review") return t(`automation.option.personal_input_review.${String(value) as "declared" | "commands" | "all"}`);
+  if (item.kind === "enum" && item.key === "mac_folder_review") return t(`automation.option.mac_folder_review.${String(value) as "commands" | "changes"}`);
   if (item.kind === "enum") return t(`automation.option.mcp_auto_review.${String(value) as "off" | "shadow" | "auto"}`);
   if (item.kind === "model") {
     const id = String(value ?? "");
@@ -105,7 +106,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
   }
   if (item.kind === "text") return <TextControl id={id} value={typeof item.value === "string" ? item.value : ""} disabled={disabled} label={label} onCommit={value => onChange(value)}/>;
   // The reviewer mode lives in one place, Settings > Permissions; this row shows the value (D15) and links there.
-  if (item.kind === "enum" && (item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "environment_order_web" || item.key === "environment_order_app")) {
+  if (item.kind === "enum" && (item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "mac_folder_review" || item.key === "environment_order_web" || item.key === "environment_order_app")) {
     return <Select id={id} value={String(item.value ?? item.default ?? "")} disabled={disabled} onValueChange={value => onChange(value)}>{(item.options ?? []).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;
   }
   if (item.kind === "enum") {
@@ -136,7 +137,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
   const defaultText = item.key === "background_model" || item.key === "group_triage_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
-  const resettable = changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "environment_order_web" || item.key === "environment_order_app");
+  const resettable = changed && !item.locked && item.kind !== "readonly" && (item.kind !== "enum" || item.key === "browser_engine" || item.key === "desktop_engine" || item.key === "personal_input_review" || item.key === "mac_folder_review" || item.key === "environment_order_web" || item.key === "environment_order_app");
   // A value equal to its default says nothing; a changed one reads "Changed · default X · Reset".
   const meta = <span className="auto-meta" data-source={item.source}>
     {item.kind === "readonly" && <span>{t("automation.managed")}</span>}

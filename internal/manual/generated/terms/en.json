@@ -79,6 +79,8 @@
   "settings:automation.item.own_replies_verbatim.what": "A Bot sees this many of its latest replies word for word. Older ones shrink to a one-line gist so it stops copying its own phrasing.",
   "settings:automation.item.personal_input_review.name": "Review input on your Mac",
   "settings:automation.item.personal_input_review.what": "The reviewer checks input a Bot sends to your own paired Mac before it runs. Choose how much of that input it sees.",
+  "settings:automation.item.mac_folder_review.name": "Review changes in Mac folders",
+  "settings:automation.item.mac_folder_review.what": "Commands a Bot runs in folders on your Mac are always reviewed unless they only read. Choose whether file writes and edits there are reviewed too.",
   "settings:automation.item.provider_retries.name": "Automatic retries",
   "settings:automation.item.provider_retries.what": "Temporary model errors, such as overload or a dropped connection, are retried this many times before a run fails. 0 turns retries off.",
   "settings:automation.item.remembered_approval_hours.name": "Remembered approvals last",

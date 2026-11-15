@@ -1,0 +1,21 @@
+/* Settings > Environments > Folders on this Mac. The card, row and menu are the page's own (environments.css, settings-components.css). */
+.mf-section{margin-top:4px}
+.mf-head-copy{min-width:0}
+.workspace .settings-page-body .mf-head-copy h4.mf-title{margin:0 0 4px;color:var(--ink);font:600 16px/1.4 var(--display,var(--body))}
+.workspace .settings-page-body .mf-head-copy p{margin:0}
+.mf-section .env-head{align-items:flex-start}
+.mf-path{margin:0;color:var(--muted);font:12px/1.5 var(--mono);overflow-wrap:anywhere}
+.mf-bots{color:var(--muted)}
+.workspace .settings-page-body .mf-row .settings-row-copy p{padding-left:26px}
+.mf-menu-title{margin:0;padding:6px 10px 4px;color:var(--muted);font:500 12px/1.4 var(--body)}
+.mf-note{margin:10px 0 0;color:var(--muted);font:12.5px/1.6 var(--body);overflow-wrap:anywhere}
+.mf-note.is-error{color:var(--danger-text)}
+.mf-tools{margin-top:12px}
+.mf-tools-trigger{display:flex;align-items:center;gap:6px;padding:6px 0;border:0;background:none;color:var(--ink-soft);font:500 13px/1.4 var(--body);cursor:pointer}
+.mf-tools-trigger:hover{color:var(--ink)}
+.mf-tools-trigger:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring,var(--focus));outline-offset:2px;border-radius:6px}
+.mf-tools-trigger .disclosure-chevron{transition:transform .15s}
+.mf-tools[data-state="open"] .mf-tools-trigger .disclosure-chevron,.mf-tools-trigger[data-state="open"] .disclosure-chevron{transform:rotate(180deg)}
+.mf-tools-list{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:4px}
+.mf-tools-list code{color:var(--ink-soft);font:12px/1.5 var(--mono);overflow-wrap:anywhere}
+@media(max-width:700px){.workspace .settings-page-body .mf-row .settings-row-copy p{padding-left:0}}

@@ -79,6 +79,8 @@
   "settings:automation.item.own_replies_verbatim.what": "Bot 只會逐字看到自己最近這幾則回覆，更早的縮成一句摘要，避免照搬自己的措辭。",
   "settings:automation.item.personal_input_review.name": "審核 Mac 上的輸入",
   "settings:automation.item.personal_input_review.what": "Bot 在你自己已配對的 Mac 上的輸入，執行前會先經過審核。這裡選擇哪些輸入需要審核。",
+  "settings:automation.item.mac_folder_review.name": "審查這台 Mac 資料夾中的變更",
+  "settings:automation.item.mac_folder_review.what": "Bot 在這台 Mac 的資料夾中執行的指令，除非只讀，否則一律審查。選擇是否同時審查該處的檔案寫入與編輯。",
   "settings:automation.item.provider_retries.name": "自動重試次數",
   "settings:automation.item.provider_retries.what": "模型服務出現過載、斷線等暫時性錯誤時，最多重試這麼多次才判定失敗。設為 0 即不重試。",
   "settings:automation.item.remembered_approval_hours.name": "記住的核准有效期",

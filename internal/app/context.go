@@ -1311,6 +1311,9 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 	if line := s.environmentsRunContext(r); line != "" {
 		note += "\n" + line
 	}
+	if line := s.macFoldersRunContext(r); line != "" {
+		note += "\n" + line
+	}
 	return note + "\n[/run context]"
 }
 

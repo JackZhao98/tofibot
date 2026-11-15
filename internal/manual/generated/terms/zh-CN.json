@@ -79,6 +79,8 @@
   "settings:automation.item.own_replies_verbatim.what": "Bot 只会逐字看到自己最近这几条回复，更早的缩成一句摘要，避免照搬自己的措辞。",
   "settings:automation.item.personal_input_review.name": "审核 Mac 上的输入",
   "settings:automation.item.personal_input_review.what": "Bot 在你自己已配对的 Mac 上的输入，执行前会先经过审核。这里选择哪些输入需要审核。",
+  "settings:automation.item.mac_folder_review.name": "审查这台 Mac 文件夹中的更改",
+  "settings:automation.item.mac_folder_review.what": "Bot 在这台 Mac 的文件夹中运行的命令，除非只读，否则一律审查。选择是否同时审查那里的文件写入和编辑。",
   "settings:automation.item.provider_retries.name": "自动重试次数",
   "settings:automation.item.provider_retries.what": "模型服务出现过载、断线等临时错误时，最多重试这么多次才判定失败。设为 0 即不重试。",
   "settings:automation.item.remembered_approval_hours.name": "记住的审批有效期",
