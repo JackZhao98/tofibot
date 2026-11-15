@@ -898,6 +898,9 @@
           "file_verify_failed": "Read-back check failed",
           "file_key_conflict": "The target already holds different content",
           "file_store_key_out_of_scope": "Object key outside the account",
+          "account_restoring": "Account skipped: it is being restored",
+          "account_deleting": "Account skipped: it is being deleted",
+          "account_unavailable": "Account skipped: its files could not be opened",
           "file_move_failed": "Move failed"
         },
         "reconcile_title": "Reconcile",
@@ -920,12 +923,15 @@
           "missing_on_disk": "Missing on disk",
           "size_mismatch": "Size mismatches",
           "sha_mismatch": "Checksum mismatches",
+          "unreadable": "Unreadable files",
+          "skipped_accounts": "Accounts skipped",
           "orphans": "Orphaned objects",
           "orphans_young": "Orphaned objects within the retention period",
           "deleted": "Deleted",
           "delete_failed": "Could not delete"
         },
         "issue": {
+          "unreadable": "Unreadable",
           "orphan": "Orphaned object",
           "missing_in_store": "Missing in the bucket",
           "missing_on_disk": "Missing on disk",

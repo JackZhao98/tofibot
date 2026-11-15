@@ -103,7 +103,7 @@ export type FileMoveJob = {direction: FileMoveDirection; status: FileMoveStatus;
 export type FileReportItem = {account?: string; issue: string; kind?: string; size: number; age_days?: number};
 export type FileReport = {
   kind: "reconcile" | "sweep"; status: "running" | "done" | "failed"; code?: string; deep?: boolean; dry_run?: boolean; started_at: string; finished_at?: string;
-  rows: number; missing_in_store: number; missing_on_disk: number; size_mismatch: number; sha_mismatch: number; orphans: number; orphan_bytes: number; orphans_young: number; deleted: number; delete_failed: number; items: FileReportItem[] | null;
+  rows: number; missing_in_store: number; missing_on_disk: number; size_mismatch: number; sha_mismatch: number; unreadable: number; skipped_accounts: number; orphans: number; orphan_bytes: number; orphans_young: number; deleted: number; delete_failed: number; items: FileReportItem[] | null;
 };
 export type FileMoveView = {
   configured: boolean; kind: "s3" | "disk"; disk: {files: number; bytes: number}; bucket: {files: number; bytes: number};

@@ -6,6 +6,11 @@ package app
 // `file_move_items`), the rows themselves say what is left, so a restart picks a
 // `running` job up where it stopped. Failures carry named codes; upstream text
 // goes nowhere, and no log line names a user's file.
+//
+// Two locks keep it honest. `fileStepMu` is held for the whole of one file step
+// and taken by a starting backup, so a snapshot never sees a row between two
+// places. `fileJob.state` serialises every write of the job's state: the
+// pause/resume/cancel handlers and the runner, so a cancel is never overwritten.
 
 import (
 	"context"
@@ -13,6 +18,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -37,11 +43,22 @@ const (
 	moveDoneWithError = "done_with_errors"
 )
 
+// Per-account codes: an account the job could not walk is one failure line with attachment id "-".
+const (
+	codeAccountRestoring   = "account_restoring"
+	codeAccountDeleting    = "account_deleting"
+	codeAccountUnavailable = "account_unavailable"
+	accountSkipItem        = "-"
+)
+
 var (
 	errMovePause   = errors.New("move paused")
 	errMoveCancel  = errors.New("move cancelled")
 	errJobShutdown = errors.New("server stopping")
 )
+
+// fileStepPoll is how long a move waits between looks at a running backup; tests shorten it.
+var fileStepPoll = 2 * time.Second
 
 type fileMoveJob struct {
 	Direction  string `json:"direction"`
@@ -62,19 +79,21 @@ func (j fileMoveJob) active() bool {
 
 // fileReport is the last reconciliation or sweep.
 type fileReport struct {
-	Kind       string `json:"kind"` // reconcile | sweep
-	Status     string `json:"status"`
-	Code       string `json:"code,omitempty"`
-	Deep       bool   `json:"deep,omitempty"`
-	DryRun     bool   `json:"dry_run,omitempty"`
-	StartedAt  string `json:"started_at"`
-	FinishedAt string `json:"finished_at,omitempty"`
+	Kind            string `json:"kind"` // reconcile | sweep
+	Status          string `json:"status"`
+	Code            string `json:"code,omitempty"`
+	Deep            bool   `json:"deep,omitempty"`
+	DryRun          bool   `json:"dry_run,omitempty"`
+	StartedAt       string `json:"started_at"`
+	FinishedAt      string `json:"finished_at,omitempty"`
+	SkippedAccounts int64  `json:"skipped_accounts"`
 	fileScan
 }
 
 // fileJobGate is the one slot for move, reconcile and sweep.
 type fileJobGate struct {
 	mu      sync.Mutex
+	state   sync.Mutex // serialises the move job's state writes
 	running string
 	cancel  context.CancelCauseFunc
 	wg      sync.WaitGroup
@@ -129,6 +148,26 @@ func (g *AccountGateway) shutdownFileJobs() {
 	g.fileJob.wg.Wait()
 }
 
+// withFileStep runs one file step with the step lock held, and never while a backup runs.
+// beginBackupJob sets the busy flag and then waits for the lock, so either the step finishes
+// before the backup captures anything or it does not start.
+func (g *AccountGateway) withFileStep(ctx context.Context, fn func() error) error {
+	for {
+		g.fileStepMu.Lock()
+		if !g.backupBusy.Load() {
+			err := fn()
+			g.fileStepMu.Unlock()
+			return err
+		}
+		g.fileStepMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(fileStepPoll):
+		}
+	}
+}
+
 // ---- state ----
 
 func (g *AccountGateway) loadMoveState(key string, v any) bool {
@@ -157,9 +196,25 @@ func (g *AccountGateway) saveMoveJob(j *fileMoveJob) {
 	g.saveMoveState("job", j)
 }
 
-// fileJobAccounts lists the accounts whose workspaces a job walks.
+// saveRunnerJob is the runner's only write of the job. It carries the counters onto the stored
+// job and applies `final`, but never overwrites a cancel an administrator already recorded.
+func (g *AccountGateway) saveRunnerJob(job *fileMoveJob, final func(cur *fileMoveJob)) {
+	g.fileJob.state.Lock()
+	defer g.fileJob.state.Unlock()
+	cur, ok := g.loadMoveJob()
+	if !ok || cur.Status == moveCancelled {
+		return
+	}
+	cur.FilesDone, cur.BytesDone = job.FilesDone, job.BytesDone
+	if final != nil {
+		final(&cur)
+	}
+	g.saveMoveJob(&cur)
+}
+
+// fileJobAccounts lists every account a job walks, disabled ones included.
 func (g *AccountGateway) fileJobAccounts(ctx context.Context) ([]Account, error) {
-	rows, err := g.root.store.db.QueryContext(ctx, `SELECT id,username,email,role,disabled,legacy,deleting FROM accounts WHERE disabled=0 AND deleting=0 ORDER BY id`)
+	rows, err := g.root.store.db.QueryContext(ctx, `SELECT id,username,email,role,disabled,legacy,deleting FROM accounts ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -175,36 +230,55 @@ func (g *AccountGateway) fileJobAccounts(ctx context.Context) ([]Account, error)
 	return out, rows.Err()
 }
 
-// moveTotals sums what is left in one direction across the accounts.
+// fileJobStore gives a job the account's store. A running workspace lends its own; a disabled
+// account (no runtime) is opened on its own for the job. An account being deleted or restored,
+// or one that cannot be opened, comes back with a code instead: the job reports it.
+func (g *AccountGateway) fileJobStore(a Account) (*Store, func(), string) {
+	if a.Deleting {
+		return nil, nil, codeAccountDeleting
+	}
+	ws, err := g.workspace(a)
+	if err == nil {
+		return ws.store, func() {}, ""
+	}
+	if errors.Is(err, errAccountRestoring) {
+		return nil, nil, codeAccountRestoring
+	}
+	if !a.Disabled {
+		return nil, nil, codeAccountUnavailable
+	}
+	dir := filepath.Join(g.config.DataDir, "accounts", a.ID)
+	if a.Legacy {
+		dir = g.config.DataDir
+	}
+	st, oerr := openStore(dir, false)
+	if oerr != nil {
+		return nil, nil, codeAccountUnavailable
+	}
+	id := a.ID
+	st.files = func(ctx context.Context) (FileBackend, error) { return g.fileBackendFor(ctx, id) }
+	return st, func() { _ = st.Close() }, ""
+}
+
+// moveTotals sums what is left in one direction across the accounts the job can open.
 func (g *AccountGateway) moveTotals(ctx context.Context, dir string) (files, bytes int64, err error) {
 	accounts, err := g.fileJobAccounts(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
 	for _, a := range accounts {
-		ws, werr := g.workspace(a)
-		if werr != nil {
-			continue
+		st, closeStore, code := g.fileJobStore(a)
+		if code != "" {
+			continue // the job reports this account when it walks it
 		}
-		f, b, cerr := ws.store.moveCount(dir)
+		f, b, cerr := st.moveCount(dir)
+		closeStore()
 		if cerr != nil {
 			return 0, 0, cerr
 		}
 		files, bytes = files+f, bytes+b
 	}
 	return files, bytes, nil
-}
-
-// waitBackupIdle holds a move while a backup runs, so a snapshot never sees a file between places.
-func (g *AccountGateway) waitBackupIdle(ctx context.Context) error {
-	for g.backupBusy.Load() {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(2 * time.Second):
-		}
-	}
-	return ctx.Err()
 }
 
 // ---- the move runner ----
@@ -215,34 +289,7 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 	if !ok {
 		return
 	}
-	job.Status, job.Code, job.FinishedAt = moveRunning, "", ""
-	g.saveMoveJob(&job)
-	settle := func(err error) {
-		if ctx.Err() != nil {
-			switch context.Cause(ctx) {
-			case errMovePause:
-				job.Status, job.Code = movePaused, ""
-			case errMoveCancel:
-				job.Status, job.Code, job.FinishedAt = moveCancelled, "", now()
-			default:
-				return // the server is stopping: the job stays `running` and resumes at start
-			}
-			g.saveMoveJob(&job)
-			return
-		}
-		var fe *fileStoreError
-		switch {
-		case errors.Is(err, errMoveDiskFull):
-			job.Status, job.Code = moveDiskFull, "disk_full"
-		case errors.As(err, &fe) && fe.code == codeFileStoreMisconfigured:
-			job.Status, job.Code = moveStoreRefused, fe.code
-		case errors.As(err, &fe):
-			job.Status, job.Code = moveStoreDown, fe.code
-		default:
-			job.Status, job.Code = movePaused, "file_move_internal"
-		}
-		g.saveMoveJob(&job)
-	}
+	settle := func(err error) { g.settleMoveJob(ctx, &job, err) }
 	accounts, err := g.fileJobAccounts(ctx)
 	if err != nil {
 		settle(err)
@@ -254,18 +301,23 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 			settle(ctx.Err())
 			return
 		}
-		ws, werr := g.workspace(a)
-		if werr != nil {
-			continue // disabled or being restored: it is picked up on the next resume
+		st, closeStore, code := g.fileJobStore(a)
+		if code != "" {
+			// Not walked: one named failure line for the account, so the job cannot end `done`.
+			_, _ = db.Exec(`INSERT INTO file_move_items(account_id,attachment_id,code,size,kind) VALUES(?,?,?,0,'')
+			 ON CONFLICT(account_id,attachment_id) DO UPDATE SET code=excluded.code`, a.ID, accountSkipItem, code)
+			continue
 		}
+		_, _ = db.Exec(`DELETE FROM file_move_items WHERE account_id=? AND attachment_id=?`, a.ID, accountSkipItem)
 		after := ""
 		for {
-			if err = g.waitBackupIdle(ctx); err != nil {
-				settle(err)
-				return
-			}
-			res, merr := ws.store.moveNextFile(ctx, job.Direction, after)
+			var res moveResult
+			merr := g.withFileStep(ctx, func() (e error) {
+				res, e = st.moveNextFile(ctx, job.Direction, after)
+				return e
+			})
 			if merr != nil {
+				closeStore()
 				settle(merr)
 				return
 			}
@@ -282,17 +334,47 @@ func (g *AccountGateway) runFileMove(ctx context.Context) {
 				job.FilesDone++
 				job.BytesDone += res.Size
 			}
-			g.saveMoveJob(&job)
+			g.saveRunnerJob(&job, nil)
 		}
+		closeStore()
 	}
 	var failed int
 	_ = db.QueryRow(`SELECT COUNT(*) FROM file_move_items`).Scan(&failed)
-	job.Status, job.Code, job.FinishedAt = moveDone, "", now()
-	if failed > 0 {
-		job.Status, job.Code = moveDoneWithError, "file_move_failed"
-	}
-	g.saveMoveJob(&job)
+	g.saveRunnerJob(&job, func(cur *fileMoveJob) {
+		cur.Status, cur.Code, cur.FinishedAt = moveDone, "", now()
+		if failed > 0 {
+			cur.Status, cur.Code = moveDoneWithError, "file_move_failed"
+		}
+	})
 	log.Printf("[files] move %s finished: %d moved, %d failed", job.Direction, job.FilesDone, failed)
+}
+
+// settleMoveJob records why the runner stopped: a pause, a cancel, or a named stop.
+func (g *AccountGateway) settleMoveJob(ctx context.Context, job *fileMoveJob, err error) {
+	var status, code, finished string
+	if ctx.Err() != nil {
+		switch context.Cause(ctx) {
+		case errMovePause:
+			status = movePaused
+		case errMoveCancel:
+			status, finished = moveCancelled, now()
+		default:
+			return // the server is stopping: the job stays `running` and resumes at start
+		}
+	} else {
+		var fe *fileStoreError
+		switch {
+		case errors.Is(err, errMoveDiskFull):
+			status, code = moveDiskFull, "disk_full"
+		case errors.As(err, &fe) && fe.code == codeFileStoreMisconfigured:
+			status, code = moveStoreRefused, fe.code
+		case errors.As(err, &fe):
+			status, code = moveStoreDown, fe.code
+		default:
+			status, code = movePaused, "file_move_internal"
+		}
+	}
+	g.saveRunnerJob(job, func(cur *fileMoveJob) { cur.Status, cur.Code, cur.FinishedAt = status, code, finished })
 }
 
 // startFileMove resumes a job the last process left running, and settles a report it left half done.
@@ -330,11 +412,13 @@ func (g *AccountGateway) runFileReport(ctx context.Context, kind string, deep, s
 			fail("interrupted")
 			return
 		}
-		ws, werr := g.workspace(a)
-		if werr != nil {
+		st, closeStore, code := g.fileJobStore(a)
+		if code != "" {
+			rep.SkippedAccounts++
 			continue
 		}
-		scan, serr := ws.store.scanFiles(ctx, scanOpts{Deep: deep, Sweep: sweep, DryRun: dry})
+		scan, serr := st.scanFiles(ctx, scanOpts{Deep: deep, Sweep: sweep, DryRun: dry})
+		closeStore()
 		total.add(scan, a.Username)
 		if serr != nil {
 			var fe *fileStoreError
@@ -435,6 +519,28 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 	return v, items.Err()
 }
 
+// moveDestinationProblem is what start and resume both check: the resource exists and the
+// destination switch points where the files are going.
+func (g *AccountGateway) moveDestinationProblem(ctx context.Context, dir string) (code, msg string, err error) {
+	row, found, err := g.getOrgResource(ctx, orgFileStoreID)
+	if err != nil {
+		return "", "", err
+	}
+	var cfg fileStoreConfig
+	if found {
+		_ = json.Unmarshal([]byte(row.Config), &cfg)
+	}
+	switch {
+	case !found:
+		return "file_store_not_configured", "Set up File storage first.", nil
+	case dir == moveToBucket && cfg.Kind == fileStoreKindDisk:
+		return "destination_is_disk", "New files are set to go to this server's disk. Set the destination to the bucket first.", nil
+	case dir == moveToDisk && cfg.Kind != fileStoreKindDisk:
+		return "destination_is_bucket", "New files are set to go to the bucket. Set the destination to this server's disk first.", nil
+	}
+	return "", "", nil
+}
+
 func (g *AccountGateway) adminFileMove(w http.ResponseWriter, r *http.Request, a Account) bool {
 	const prefix = "/api/admin/file-move"
 	if r.URL.Path != prefix && !strings.HasPrefix(r.URL.Path, prefix+"/") {
@@ -457,15 +563,28 @@ func (g *AccountGateway) adminFileMove(w http.ResponseWriter, r *http.Request, a
 	case rest == "" && r.Method == http.MethodPost:
 		g.startMove(w, r)
 	case rest == "pause" && r.Method == http.MethodPost:
+		g.fileJob.state.Lock()
+		defer g.fileJob.state.Unlock()
 		if job, ok := g.loadMoveJob(); !ok || job.Status != moveRunning || g.fileJobKind() != "move" || !g.stopFileJob(errMovePause) {
 			writeErr(w, 409, "no_running_move", "No file move is running.")
 			return true
 		}
 		writeJSON(w, 202, map[string]any{"ok": true})
 	case rest == "resume" && r.Method == http.MethodPost:
+		g.fileJob.state.Lock()
+		defer g.fileJob.state.Unlock()
 		job, ok := g.loadMoveJob()
 		if !ok || !strings.HasPrefix(job.Status, movePaused) {
 			writeErr(w, 409, "no_paused_move", "No paused file move to resume.")
+			return true
+		}
+		code, msg, err := g.moveDestinationProblem(ctx, job.Direction)
+		if err != nil {
+			storageFailure(w, "read resource", err)
+			return true
+		}
+		if code != "" {
+			writeErr(w, 409, code, msg)
 			return true
 		}
 		jobCtx, started := g.startFileJob("move")
@@ -473,21 +592,25 @@ func (g *AccountGateway) adminFileMove(w http.ResponseWriter, r *http.Request, a
 			writeErr(w, 409, "file_job_running", "Another file job is running.")
 			return true
 		}
+		job.Status, job.Code = moveRunning, ""
+		g.saveMoveJob(&job)
 		go g.runFileMove(jobCtx)
 		writeJSON(w, 202, map[string]any{"ok": true})
 	case rest == "cancel" && r.Method == http.MethodPost:
+		g.fileJob.state.Lock()
+		defer g.fileJob.state.Unlock()
 		job, ok := g.loadMoveJob()
-		switch {
-		case !ok || !job.active():
+		if !ok || !job.active() {
 			writeErr(w, 409, "no_active_move", "No file move to cancel.")
-		case g.fileJobKind() == "move":
-			g.stopFileJob(errMoveCancel)
-			writeJSON(w, 202, map[string]any{"ok": true})
-		default: // paused: nothing runs, settle it here
-			job.Status, job.Code, job.FinishedAt = moveCancelled, "", now()
-			g.saveMoveJob(&job)
-			writeJSON(w, 202, map[string]any{"ok": true})
+			return true
 		}
+		// Recorded first, under the lock: the runner never overwrites it, whatever it was doing.
+		job.Status, job.Code, job.FinishedAt = moveCancelled, "", now()
+		g.saveMoveJob(&job)
+		if g.fileJobKind() == "move" {
+			g.stopFileJob(errMoveCancel)
+		}
+		writeJSON(w, 202, map[string]any{"ok": true})
 	case (rest == "reconcile" || rest == "sweep") && r.Method == http.MethodPost:
 		var in struct {
 			Deep   bool `json:"deep"`
@@ -523,24 +646,15 @@ func (g *AccountGateway) startMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	row, found, err := g.getOrgResource(ctx, orgFileStoreID)
+	g.fileJob.state.Lock()
+	defer g.fileJob.state.Unlock()
+	code, msg, err := g.moveDestinationProblem(ctx, in.Direction)
 	if err != nil {
 		storageFailure(w, "read resource", err)
 		return
 	}
-	var cfg fileStoreConfig
-	if found {
-		_ = json.Unmarshal([]byte(row.Config), &cfg)
-	}
-	switch {
-	case !found:
-		writeErr(w, 409, "file_store_not_configured", "Set up File storage first.")
-		return
-	case in.Direction == moveToBucket && cfg.Kind == fileStoreKindDisk:
-		writeErr(w, 409, "destination_is_disk", "New files are set to go to this server's disk. Set the destination to the bucket first.")
-		return
-	case in.Direction == moveToDisk && cfg.Kind != fileStoreKindDisk:
-		writeErr(w, 409, "destination_is_bucket", "New files are set to go to the bucket. Set the destination to this server's disk first.")
+	if code != "" {
+		writeErr(w, 409, code, msg)
 		return
 	}
 	if job, ok := g.loadMoveJob(); ok && job.active() {

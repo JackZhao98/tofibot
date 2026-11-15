@@ -890,6 +890,9 @@
           "file_verify_failed": "쓰기 후 읽기 검증 실패",
           "file_key_conflict": "대상에 이미 다른 내용이 있음",
           "file_store_key_out_of_scope": "오브젝트 키가 계정 범위를 벗어남",
+          "account_restoring": "계정 건너뜀: 복원 중입니다",
+          "account_deleting": "계정 건너뜀: 삭제 중입니다",
+          "account_unavailable": "계정 건너뜀: 파일을 열 수 없습니다",
           "file_move_failed": "이동 실패"
         },
         "reconcile_title": "대조",
@@ -912,12 +915,15 @@
           "missing_on_disk": "디스크에 없음",
           "size_mismatch": "크기 불일치",
           "sha_mismatch": "체크섬 불일치",
+          "unreadable": "읽을 수 없는 파일",
+          "skipped_accounts": "건너뛴 계정",
           "orphans": "고아 오브젝트",
           "orphans_young": "보관 기간 내의 고아 오브젝트",
           "deleted": "삭제됨",
           "delete_failed": "삭제하지 못함"
         },
         "issue": {
+          "unreadable": "읽을 수 없음",
           "orphan": "고아 오브젝트",
           "missing_in_store": "버킷에 없음",
           "missing_on_disk": "디스크에 없음",

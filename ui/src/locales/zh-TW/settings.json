@@ -890,6 +890,9 @@
           "file_verify_failed": "寫入後回讀驗證失敗",
           "file_key_conflict": "目標位置已存在不同內容",
           "file_store_key_out_of_scope": "物件鍵超出帳號範圍",
+          "account_restoring": "已略過帳號：正在還原",
+          "account_deleting": "已略過帳號：正在刪除",
+          "account_unavailable": "已略過帳號：無法開啟其檔案",
           "file_move_failed": "移動失敗"
         },
         "reconcile_title": "對帳",
@@ -912,12 +915,15 @@
           "missing_on_disk": "磁碟上缺少",
           "size_mismatch": "大小不一致",
           "sha_mismatch": "檢查碼不一致",
+          "unreadable": "無法讀取的檔案",
+          "skipped_accounts": "略過的帳號",
           "orphans": "孤立物件",
           "orphans_young": "保留期內的孤立物件",
           "deleted": "已刪除",
           "delete_failed": "刪除失敗"
         },
         "issue": {
+          "unreadable": "無法讀取",
           "orphan": "孤立物件",
           "missing_in_store": "儲存桶中缺少",
           "missing_on_disk": "磁碟上缺少",

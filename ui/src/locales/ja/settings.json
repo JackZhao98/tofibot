@@ -890,6 +890,9 @@
           "file_verify_failed": "書き込み後の読み戻し検証に失敗しました",
           "file_key_conflict": "移動先に異なる内容がすでにあります",
           "file_store_key_out_of_scope": "オブジェクトキーがアカウントの範囲外です",
+          "account_restoring": "アカウントをスキップ：復元中です",
+          "account_deleting": "アカウントをスキップ：削除中です",
+          "account_unavailable": "アカウントをスキップ：ファイルを開けませんでした",
           "file_move_failed": "移動に失敗しました"
         },
         "reconcile_title": "照合",
@@ -912,12 +915,15 @@
           "missing_on_disk": "ディスクにない",
           "size_mismatch": "サイズ不一致",
           "sha_mismatch": "チェックサム不一致",
+          "unreadable": "読み取れないファイル",
+          "skipped_accounts": "スキップしたアカウント",
           "orphans": "孤立オブジェクト",
           "orphans_young": "保持期間内の孤立オブジェクト",
           "deleted": "削除済み",
           "delete_failed": "削除できなかった"
         },
         "issue": {
+          "unreadable": "読み取れません",
           "orphan": "孤立オブジェクト",
           "missing_in_store": "バケットにない",
           "missing_on_disk": "ディスクにない",

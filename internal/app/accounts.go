@@ -90,7 +90,9 @@ type AccountGateway struct {
 	orgE2B    orgE2BGate
 	orgBuilds sync.WaitGroup
 	// Remote backups (org_backup.go): one job at a time; restoring fences an account.
-	fileJob      fileJobGate
+	fileJob fileJobGate
+	// fileStepMu is held for one file move step and waited on by a starting backup.
+	fileStepMu   sync.Mutex
 	backupMu     sync.Mutex
 	backupBusy   atomic.Bool
 	backupCancel context.CancelFunc

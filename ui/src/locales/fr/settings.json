@@ -906,6 +906,9 @@
           "file_verify_failed": "Échec de la relecture de contrôle",
           "file_key_conflict": "La destination contient déjà un autre contenu",
           "file_store_key_out_of_scope": "Clé d’objet hors du compte",
+          "account_restoring": "Compte ignoré : restauration en cours",
+          "account_deleting": "Compte ignoré : suppression en cours",
+          "account_unavailable": "Compte ignoré : ses fichiers n’ont pas pu être ouverts",
           "file_move_failed": "Échec du déplacement"
         },
         "reconcile_title": "Rapprochement",
@@ -928,12 +931,15 @@
           "missing_on_disk": "Absents du disque",
           "size_mismatch": "Tailles différentes",
           "sha_mismatch": "Sommes de contrôle différentes",
+          "unreadable": "Fichiers illisibles",
+          "skipped_accounts": "Comptes ignorés",
           "orphans": "Objets orphelins",
           "orphans_young": "Objets orphelins dans la période de conservation",
           "deleted": "Supprimés",
           "delete_failed": "Suppression impossible"
         },
         "issue": {
+          "unreadable": "Illisible",
           "orphan": "Objet orphelin",
           "missing_in_store": "Absent du bucket",
           "missing_on_disk": "Absent du disque",

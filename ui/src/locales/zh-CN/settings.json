@@ -890,6 +890,9 @@
           "file_verify_failed": "写入后回读校验失败",
           "file_key_conflict": "目标位置已存在不同内容",
           "file_store_key_out_of_scope": "对象键超出账户范围",
+          "account_restoring": "已跳过账户：正在恢复",
+          "account_deleting": "已跳过账户：正在删除",
+          "account_unavailable": "已跳过账户：无法打开其文件",
           "file_move_failed": "移动失败"
         },
         "reconcile_title": "对账",
@@ -912,12 +915,15 @@
           "missing_on_disk": "磁盘上缺失",
           "size_mismatch": "大小不一致",
           "sha_mismatch": "校验和不一致",
+          "unreadable": "无法读取的文件",
+          "skipped_accounts": "跳过的账户",
           "orphans": "孤立对象",
           "orphans_young": "保留期内的孤立对象",
           "deleted": "已删除",
           "delete_failed": "删除失败"
         },
         "issue": {
+          "unreadable": "无法读取",
           "orphan": "孤立对象",
           "missing_in_store": "存储桶中缺失",
           "missing_on_disk": "磁盘上缺失",

@@ -223,6 +223,10 @@ func (g *AccountGateway) beginBackupJob() bool {
 		return false
 	}
 	g.backupBusy.Store(true)
+	// A file move step in flight finishes first (and no new one starts while the flag is set),
+	// so the capture never sees a row between two places.
+	g.fileStepMu.Lock()
+	g.fileStepMu.Unlock() //nolint:staticcheck // waiting for the step is the point
 	return true
 }
 

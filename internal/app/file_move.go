@@ -198,6 +198,11 @@ func (s *Store) moveToBucket(ctx context.Context, b FileBackend, r moveRow) (boo
 		}
 		return false, moveCodeErr(codeMoveKeyConflict)
 	}
+	if s.moveStepHook != nil {
+		if herr := s.moveStepHook("after_put"); herr != nil {
+			return false, herr // tests: the process "dies" here, the object stays
+		}
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		drop()
@@ -213,7 +218,12 @@ func (s *Store) moveToBucket(ctx context.Context, b FileBackend, r moveRow) (boo
 		drop() // the row was deleted or changed meanwhile
 		return false, nil
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO deleted_attachment_files(disk_name) VALUES(?)`, r.disk); err != nil {
+	// The destination is live again: an entry left by an earlier move the other way must not remove it.
+	if _, err = tx.ExecContext(ctx, `DELETE FROM deleted_attachment_files WHERE disk_name=?`, objPrefix+key); err != nil {
+		drop()
+		return false, err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO deleted_attachment_files(disk_name,delete_after) VALUES(?,NULL) ON CONFLICT(disk_name) DO UPDATE SET delete_after=excluded.delete_after`, r.disk); err != nil {
 		drop()
 		return false, err
 	}
@@ -317,8 +327,14 @@ func (s *Store) moveToDisk(ctx context.Context, b FileBackend, r moveRow) (bool,
 		drop()
 		return false, nil
 	}
-	// The object stays for the deletion grace, so a restored older backup still finds it.
-	if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO deleted_attachment_files(disk_name,delete_after) VALUES(?,?)`, r.disk, s.deleteDeadline(ctx)); err != nil {
+	// The destination file is live: an entry left by an earlier move the other way must not remove it.
+	if _, err = tx.ExecContext(ctx, `DELETE FROM deleted_attachment_files WHERE disk_name=?`, name); err != nil {
+		drop()
+		return false, err
+	}
+	// The object stays for the deletion grace, so a restored older backup still finds it. The
+	// deadline is rewritten: an old entry for the same key must not carry an expired one.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO deleted_attachment_files(disk_name,delete_after) VALUES(?,?) ON CONFLICT(disk_name) DO UPDATE SET delete_after=excluded.delete_after`, r.disk, s.deleteDeadline(ctx)); err != nil {
 		drop()
 		return false, err
 	}
@@ -349,6 +365,7 @@ type fileScan struct {
 	MissingOnDisk  int64        `json:"missing_on_disk"`
 	SizeMismatch   int64        `json:"size_mismatch"`
 	ShaMismatch    int64        `json:"sha_mismatch"`
+	Unreadable     int64        `json:"unreadable"`
 	Orphans        int64        `json:"orphans"`
 	OrphanBytes    int64        `json:"orphan_bytes"`
 	OrphansYoung   int64        `json:"orphans_young"` // no row yet but younger than the grace: a write may be in flight
@@ -363,6 +380,7 @@ func (a *fileScan) add(o fileScan, account string) {
 	a.MissingOnDisk += o.MissingOnDisk
 	a.SizeMismatch += o.SizeMismatch
 	a.ShaMismatch += o.ShaMismatch
+	a.Unreadable += o.Unreadable
 	a.Orphans += o.Orphans
 	a.OrphanBytes += o.OrphanBytes
 	a.OrphansYoung += o.OrphansYoung
@@ -444,7 +462,12 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 				out.SizeMismatch++
 				add(reportItem{Issue: "size_mismatch", Kind: attachmentKind(d.origin), Size: d.size})
 			case o.Deep && d.digest != "":
-				if got, herr := hashFile(path); herr == nil && got != d.digest {
+				got, herr := hashFile(path)
+				switch {
+				case herr != nil:
+					out.Unreadable++
+					add(reportItem{Issue: "unreadable", Kind: attachmentKind(d.origin), Size: d.size})
+				case got != d.digest:
 					out.ShaMismatch++
 					add(reportItem{Issue: "sha_mismatch", Kind: attachmentKind(d.origin), Size: d.size})
 				}
@@ -481,10 +504,16 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 				add(reportItem{Issue: "size_mismatch", Kind: attachmentKind(row.origin), Size: row.size})
 			case o.Deep && row.digest != "":
 				got, _, herr := hashObject(ctx, b.Store, obj.Key)
-				if herr != nil && ctx.Err() != nil {
+				var fe *fileStoreError
+				switch {
+				case ctx.Err() != nil:
 					return ctx.Err()
-				}
-				if herr == nil && got != row.digest {
+				case errors.As(herr, &fe) && fe.code != codeFileMissingInStore:
+					return herr // the bucket is down or refusing: the report fails with that code
+				case herr != nil:
+					out.Unreadable++
+					add(reportItem{Issue: "unreadable", Kind: attachmentKind(row.origin), Size: row.size})
+				case got != row.digest:
 					out.ShaMismatch++
 					add(reportItem{Issue: "sha_mismatch", Kind: attachmentKind(row.origin), Size: row.size})
 				}
@@ -506,6 +535,9 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 		return nil
 	})
 	if err != nil {
+		if _, named := asFileStoreError(err); named {
+			return out, err
+		}
 		return out, fileStoreFailure(err)
 	}
 	for key, r := range objRows {

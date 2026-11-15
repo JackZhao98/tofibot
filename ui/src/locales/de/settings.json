@@ -898,6 +898,9 @@
           "file_verify_failed": "Rücklesekontrolle fehlgeschlagen",
           "file_key_conflict": "Das Ziel enthält bereits anderen Inhalt",
           "file_store_key_out_of_scope": "Objektschlüssel außerhalb des Kontos",
+          "account_restoring": "Konto übersprungen: Es wird wiederhergestellt",
+          "account_deleting": "Konto übersprungen: Es wird gelöscht",
+          "account_unavailable": "Konto übersprungen: Seine Dateien ließen sich nicht öffnen",
           "file_move_failed": "Verschieben fehlgeschlagen"
         },
         "reconcile_title": "Abgleich",
@@ -920,12 +923,15 @@
           "missing_on_disk": "Fehlen auf dem Datenträger",
           "size_mismatch": "Abweichende Größen",
           "sha_mismatch": "Abweichende Prüfsummen",
+          "unreadable": "Nicht lesbare Dateien",
+          "skipped_accounts": "Übersprungene Konten",
           "orphans": "Verwaiste Objekte",
           "orphans_young": "Verwaiste Objekte innerhalb der Aufbewahrungsfrist",
           "deleted": "Gelöscht",
           "delete_failed": "Nicht löschbar"
         },
         "issue": {
+          "unreadable": "Nicht lesbar",
           "orphan": "Verwaistes Objekt",
           "missing_in_store": "Fehlt im Bucket",
           "missing_on_disk": "Fehlt auf dem Datenträger",

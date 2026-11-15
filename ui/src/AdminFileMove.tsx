@@ -4,8 +4,8 @@ import {useTranslation} from "./i18n";
 import {ConfirmAction} from "./InteractionSystem";
 import {formatBytes} from "./storageApi";
 
-const REPORT_COUNTS = ["rows", "missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "orphans", "orphans_young"] as const;
-const REPORT_PROBLEMS = new Set<string>(["missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "orphans"]);
+const REPORT_COUNTS = ["rows", "missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans", "orphans_young"] as const;
+const REPORT_PROBLEMS = new Set<string>(["missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans"]);
 
 /**
  * Inside the File storage card: move existing files between this server's disk and the bucket (progress, pause, resume, cancel;
