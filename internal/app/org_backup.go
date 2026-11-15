@@ -111,6 +111,11 @@ type backupStatus struct {
 	VerifyStatus   string `json:"verify_status,omitempty"` // ok | failed
 	VerifyCode     string `json:"verify_code,omitempty"`
 	VerifyMs       int64  `json:"verify_duration_ms,omitempty"`
+	// What the administrators were told already, so one failure episode makes one event
+	// (backup_alerts.go).
+	AlertCode       string `json:"alert_code,omitempty"`        // the backup failure code of the open episode
+	StaleAlerted    bool   `json:"stale_alerted,omitempty"`     // backup_stale was sent for the open episode
+	VerifyAlertCode string `json:"verify_alert_code,omitempty"` // the verify failure code of the open episode
 }
 
 func (g *AccountGateway) loadBackupStatus() backupStatus {
@@ -271,10 +276,12 @@ func (g *AccountGateway) runBackupLocked(ctx context.Context, reason string) err
 		case "backup_store_unavailable":
 			go g.recordOrgRejection(orgBackupStoreID, "endpoint_unreachable")
 		}
+		g.alertBackupFailure(&st, code)
 		g.saveBackupStatus(st)
 		log.Printf("[backup] run failed: %s", code)
 		return err
 	}
+	g.alertBackupRecovered(&st)
 	st.LastStatus, st.LastCode, st.LastAccount, st.LastSuccessAt, st.LastSnapshot = "ok", "", "", now(), m.Snapshot
 	st.LastEtcAt = ""
 	if m.Etc != nil {
@@ -301,9 +308,11 @@ func (g *AccountGateway) runVerifyLocked(ctx context.Context) error {
 	st.VerifyAt, st.VerifyMs = now(), time.Since(started).Milliseconds()
 	if err != nil {
 		st.VerifyStatus, st.VerifyCode = "failed", firstCode(err)
+		g.alertVerifyFailure(&st, st.VerifyCode)
 		log.Printf("[backup] verify failed: %s", st.VerifyCode)
 	} else {
 		st.VerifyStatus, st.VerifyCode, st.VerifySnapshot = "ok", "", rep.Snapshot
+		st.VerifyAlertCode = "" // the episode ends quietly: the card shows the passing check
 	}
 	g.saveBackupStatus(st)
 	return err
@@ -351,6 +360,7 @@ func (g *AccountGateway) backupTick(ctx context.Context, at time.Time) {
 		_ = g.runVerifyLocked(ctx)
 		g.endBackupJob()
 	}
+	g.alertIfStale(cfg, at)
 	g.sweepRestoreLeftovers(at)
 }
 
@@ -360,6 +370,7 @@ func (g *AccountGateway) startBackupScheduler() {
 	g.backupCancel = cancel
 	if st := g.loadBackupStatus(); st.Running {
 		st.Running, st.LastStatus, st.LastCode = false, "failed", "backup_interrupted"
+		g.alertBackupFailure(&st, "backup_interrupted")
 		g.saveBackupStatus(st)
 	}
 	_ = os.RemoveAll(g.backupSource().Staging)
