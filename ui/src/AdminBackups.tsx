@@ -49,6 +49,10 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
   };
   const status = view?.status;
   const failed = status?.last_status === "failed" || status?.last_status === "blocked";
+  // Run, Verify and the snapshot list open the repository with the data key: before the Recovery Key is created and
+  // confirmed they could only fail (and a failed check alerts every admin). Verify also needs a snapshot to check.
+  const keyReady = Boolean(view?.key.present && view?.key.confirmed_at);
+  const hasSnapshot = Boolean(status?.last_success_at);
   const state: BadgeState = !view?.configured ? "need" : failed || view.stale || status?.verify_status === "failed" ? "bad" : view.settings.remote === "on" ? "ok" : "need";
   const showForm = !view?.configured || editing;
   const set = (key: keyof typeof form) => (event: {target: {value: string}}) => { setForm(value => ({...value, [key]: event.target.value})); setError(""); };
@@ -142,10 +146,11 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <p>{t("admin.org.backup.last_verified")}: {status.verified_at ? `${when(status.verified_at)}${status.verify_duration_ms ? ` · ${Math.max(1, Math.round(status.verify_duration_ms / 1000))} s` : ""}` : t("admin.org.backup.never")}</p>
         {status.verify_status === "failed" && <p className="is-failed" data-status="verify_failed">{t("admin.org.backup.failed", {reason: t(`admin.org.backup.error.${status.verify_code}` as "admin.org.backup.error.generic", {defaultValue: t("admin.org.backup.error.generic")}), account: ""})}</p>}
         <div className="provider-actions">
-          <button type="button" className="st-button" data-action="run" disabled={running} onClick={() => void act(() => backupApi.run(), t("admin.org.backup.started"))}>{t("admin.org.backup.run_now")}</button>
-          <button type="button" className="st-button" data-action="verify" disabled={running} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</button>
-          <button type="button" className="text-button" onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</button>
+          <button type="button" className="st-button" data-action="run" disabled={running || !keyReady} onClick={() => void act(() => backupApi.run(), t("admin.org.backup.started"))}>{t("admin.org.backup.run_now")}</button>
+          <button type="button" className="st-button" data-action="verify" disabled={running || !keyReady || !hasSnapshot} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</button>
+          <button type="button" className="text-button" data-action="snapshots" disabled={!keyReady} onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</button>
         </div>
+        {!keyReady && <p className="field-note" data-hint="key-not-ready">{t("admin.org.backup.error.backup_not_ready")}</p>}
         {snapshots && (snapshots.length === 0 ? <p className="field-note">{t("admin.org.backup.snapshots_none")}</p> : <ul className="backup-snapshots">{[...snapshots].reverse().map(item => <li key={item.name}>{when(item.at)} · {item.reason}</li>)}</ul>)}
       </div>}
       {view?.configured && <AccountRestore onError={setError} onNotice={setNotice}/>}

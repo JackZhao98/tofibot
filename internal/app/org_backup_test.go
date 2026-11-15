@@ -28,20 +28,32 @@ func newBackupFixture(t *testing.T) *backupFixture {
 	log.SetOutput(logs)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	b := &backupFixture{orgFixture: newOrgFixture(t), logs: logs}
-	b.srv = fakes3.New("bkt", testAccessKeyID)
-	t.Cleanup(b.srv.Close)
-	b.all.WriteString(b.admin_(t, "PUT", "/api/admin/org/resources/backup_store", `{"endpoint":"`+b.srv.URL+`","region":"us-east-1","bucket":"bkt","path_style":true,"access_key_id":"`+testAccessKeyID+`","key":"`+testSecretKey+`"}`, 200))
-	out := b.admin_(t, "POST", "/api/admin/backups/recovery-key", `{}`, 200)
+	b.srv, b.key = setUpBackups(t, b.orgFixture, &b.all)
+	return b
+}
+
+// setUpBackups gives f a backup store on a fake bucket of its own, a confirmed Recovery Key and remote backups on.
+// Every response body goes to seen when it is not nil.
+func setUpBackups(t *testing.T, f *orgFixture, seen *strings.Builder) (*fakes3.Server, string) {
+	t.Helper()
+	srv := fakes3.New("bkt", testAccessKeyID)
+	t.Cleanup(srv.Close)
+	record := func(body string) {
+		if seen != nil {
+			seen.WriteString(body)
+		}
+	}
+	record(f.admin_(t, "PUT", "/api/admin/org/resources/backup_store", `{"endpoint":"`+srv.URL+`","region":"us-east-1","bucket":"bkt","path_style":true,"access_key_id":"`+testAccessKeyID+`","key":"`+testSecretKey+`"}`, 200))
+	out := f.admin_(t, "POST", "/api/admin/backups/recovery-key", `{}`, 200)
 	var k struct {
 		RecoveryKey string `json:"recovery_key"`
 	}
 	if json.Unmarshal([]byte(out), &k) != nil || k.RecoveryKey == "" {
 		t.Fatalf("no key: %s", out)
 	}
-	b.key = k.RecoveryKey
-	b.admin_(t, "POST", "/api/admin/backups/recovery-key/confirm", `{}`, 200)
-	b.all.WriteString(b.admin_(t, "PUT", "/api/admin/backups/settings", `{"remote":"on"}`, 200))
-	return b
+	f.admin_(t, "POST", "/api/admin/backups/recovery-key/confirm", `{}`, 200)
+	record(f.admin_(t, "PUT", "/api/admin/backups/settings", `{"remote":"on"}`, 200))
+	return srv, k.RecoveryKey
 }
 
 func (b *backupFixture) run(t *testing.T) backupStatus {
@@ -176,6 +188,45 @@ func TestBackupSettingsNeedAConfirmedKeyAndValidate(t *testing.T) {
 	var v backupView
 	if json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/backups", "", 200)), &v) != nil || v.Settings.Schedule != "daily" || v.Settings.KeepDaily != 7 || v.Settings.KeepWeekly != 4 || v.Settings.KeepMonthly != 12 || v.Settings.Remote != "off" || v.Settings.StaleAfterHours != 36 {
 		t.Fatalf("defaults: %+v", v.Settings)
+	}
+}
+
+// Run, Verify and the snapshot list need the confirmed Recovery Key, and Verify a snapshot of this server. An early
+// press is refused before any job starts: the card does not turn failed and no admin is alerted.
+func TestBackupActionsWaitForTheRecoveryKey(t *testing.T) {
+	f := newOrgFixture(t)
+	refused := func(path, want string) {
+		t.Helper()
+		if got := orgErrCode(t, f.admin_(t, "POST", "/api/admin/backups/"+path, `{}`, 409)); got != want {
+			t.Fatalf("%s: %s, want %s", path, got, want)
+		}
+	}
+	refused("run", "backup_not_ready") // nothing configured
+	srv := fakes3.New("bkt", testAccessKeyID)
+	t.Cleanup(srv.Close)
+	f.admin_(t, "PUT", "/api/admin/org/resources/backup_store", `{"endpoint":"`+srv.URL+`","region":"us-east-1","bucket":"bkt","path_style":true,"access_key_id":"`+testAccessKeyID+`","key":"`+testSecretKey+`"}`, 200)
+	refused("run", "backup_not_ready")
+	refused("verify", "backup_not_ready")
+	f.admin_(t, "POST", "/api/admin/backups/recovery-key", `{}`, 200)
+	refused("verify", "backup_not_ready") // created, not yet confirmed
+	f.admin_(t, "POST", "/api/admin/backups/recovery-key/confirm", `{}`, 200)
+	refused("verify", "backup_no_snapshot")
+	if st := f.g.loadBackupStatus(); st.VerifyStatus != "" || st.VerifyAlertCode != "" || st.LastStatus != "" || f.g.backupBusy.Load() {
+		t.Fatalf("a refused press touched the status: %+v", st)
+	}
+	f.admin_(t, "POST", "/api/admin/backups/run", `{}`, 202)
+	for i := 0; i < 500 && f.g.backupBusy.Load(); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := f.g.loadBackupStatus(); st.LastStatus != "ok" {
+		t.Fatalf("run: %+v", st)
+	}
+	f.admin_(t, "POST", "/api/admin/backups/verify", `{}`, 202)
+	for i := 0; i < 500 && f.g.backupBusy.Load(); i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := f.g.loadBackupStatus(); st.VerifyStatus != "ok" {
+		t.Fatalf("verify: %+v", st)
 	}
 }
 

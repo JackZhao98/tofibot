@@ -63,7 +63,7 @@ export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
       {!active && view.kind === "disk" && view.to_current.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_current_destination")}</p>}
     </div>}
     {!active && view.kind === "disk" && view.disk.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_bucket_destination")}</p>}
-    {!active && view.kind === "s3" && view.bucket.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_disk_destination")}</p>}
+    {!active && view.kind === "s3" && view.bucket.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_disk_destination", {setting: t("admin.org.file_store.destination")})}</p>}
     {job && <div className="file-move-job" role="status" data-status={job.status}>
       <p>{t(`admin.org.file_move.direction_${job.direction}` as "admin.org.file_move.direction_to_bucket")} · {t(`admin.org.file_move.status.${job.status}` as "admin.org.file_move.status.running")}</p>
       {active && <>

@@ -224,6 +224,7 @@ func moveAll(t *testing.T, s *Store, dir string) {
 // 1: a backup and a file step never overlap.
 func TestBackupAndFileStepExcludeEachOther(t *testing.T) {
 	f := newMoveFixture(t, 1)
+	setUpBackups(t, f.orgFixture, nil)
 	old := fileStepPoll
 	fileStepPoll = 10 * time.Millisecond
 	t.Cleanup(func() { fileStepPoll = old })

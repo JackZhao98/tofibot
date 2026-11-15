@@ -884,7 +884,7 @@
         "to_bucket": "In den Bucket verschieben",
         "to_disk": "Auf den Datenträger verschieben",
         "needs_bucket_destination": "Um Dateien in den Bucket zu verschieben, stelle zuerst „Neue Dateien gehen nach“ auf Objektspeicher.",
-        "needs_disk_destination": "Um Dateien zurück auf den Datenträger zu verschieben, stelle zuerst „Neue Dateien gehen nach“ auf den Datenträger dieses Servers.",
+        "needs_disk_destination": "Um Dateien zurück auf den Datenträger zu verschieben, stelle zuerst „{{setting}}“ auf den Datenträger dieses Servers.",
         "direction_to_bucket": "Datenträger zu Bucket",
         "direction_to_disk": "Bucket zu Datenträger",
         "progress": "{{done}} von {{total}} Dateien · {{size}} von {{totalSize}}",

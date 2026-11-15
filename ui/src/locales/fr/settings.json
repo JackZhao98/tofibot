@@ -892,7 +892,7 @@
         "to_bucket": "Déplacer vers le bucket",
         "to_disk": "Déplacer vers le disque",
         "needs_bucket_destination": "Pour déplacer des fichiers vers le bucket, réglez d’abord « Les nouveaux fichiers vont vers » sur Stockage objet.",
-        "needs_disk_destination": "Pour ramener les fichiers sur le disque, réglez d’abord « Les nouveaux fichiers vont vers » sur le disque de ce serveur.",
+        "needs_disk_destination": "Pour ramener les fichiers sur le disque, réglez d’abord « {{setting}} » sur le disque de ce serveur.",
         "direction_to_bucket": "Disque vers bucket",
         "direction_to_disk": "Bucket vers disque",
         "progress": "{{done}} sur {{total}} fichiers · {{size}} sur {{totalSize}}",
