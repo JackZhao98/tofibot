@@ -551,6 +551,34 @@ try {
     console.log("PASS malformed backup view: the card shows its error state without a page error");
   }
 
+  // Backups P2: the snapshot `tofi update` asks for is a setting on the card (attempt by default; require stops the update).
+  {
+    stub.reset();
+    const base = stub.handle(new URL("http://fixture.test/api/admin/backups"), "GET")[1];
+    const configured = {...base, configured: true, settings: {...base.settings, bucket: "tofi-backups", endpoint: "https://r2.example.test", remote: "on"}, key: {present: true, fingerprint: "ab12", confirmed_at: "2026-11-10T00:00:00Z"}};
+    const puts = [];
+    const withBackups = {...stub, handle: (url, method, body) => {
+      const path = new URL(url).pathname;
+      if (path === "/api/admin/backups" && method === "GET") return [200, configured];
+      if (path === "/api/admin/backups/settings" && method === "PUT") { puts.push(body); configured.settings = {...configured.settings, ...body}; return [200, configured]; }
+      return stub.handle(url, method, body);
+    }};
+    const view = await openSettings({browser, fixture, stub: withBackups, errors, params: {tab: "admin-resources"}});
+    const select = card(view.page, "backup_store").locator('select[data-field="before_update"]');
+    await select.waitFor();
+    assert.equal(await select.inputValue(), "attempt", "the default is best effort");
+    assert.match(await text(card(view.page, "backup_store").locator(".backup-hint")), /Required.*stops the update/);
+    await select.selectOption("require");
+    await card(view.page, "backup_store").locator('[data-action="save-settings"]').click();
+    await view.page.waitForFunction(() => true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.equal(puts.at(-1)?.before_update, "require", "saving sends the choice");
+    await card(view.page, "backup_store").scrollIntoViewIfNeeded();
+    await shot(view.page, "backups-before-update-light-1440");
+    await view.close();
+    console.log("PASS backups: the snapshot before updates is a setting on the card and saving sends it");
+  }
+
   // ---- 8. Every language renders the page without raw keys.
   for (const language of ["zh-CN", "zh-TW", "ja", "ko", "de", "fr"]) {
     stub.reset();

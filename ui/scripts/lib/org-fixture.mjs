@@ -168,7 +168,7 @@ export function createOrgStub() {
     // The unconfigured view still includes settings, key and status (org_backup.go).
     if (path === "/api/admin/backups" && method === "GET") return [200, {
       configured: false, stale: false,
-      settings: {endpoint: "", region: "", bucket: "", prefix: "", path_style: false, remote: "off", schedule: "daily", keep_daily: 7, keep_weekly: 4, keep_monthly: 12, verify: "weekly", stale_after_hours: 36},
+      settings: {endpoint: "", region: "", bucket: "", prefix: "", path_style: false, remote: "off", schedule: "daily", keep_daily: 7, keep_weekly: 4, keep_monthly: 12, verify: "weekly", stale_after_hours: 36, before_update: "attempt"},
       key: {present: false, fingerprint: "", confirmed_at: ""}, status: {running: false},
     }];
     if (path === "/api/admin/deleted-exports") return [200, []];
