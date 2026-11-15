@@ -134,7 +134,9 @@ for (const size of SIZES) {
   let page = await open(size);
   await check(page, "conversation", size);
 
-  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  // Option C (owner 2026-11-14): below 1024 px the Mac sidebar already rests as the title-bar capsule.
+  const narrow = size.width < 1024;
+  if (!narrow) await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
   await page.locator(".workspace-grid.sidebar-collapsed").waitFor();
   await check(page, "collapsed conversation", size);
   const collapsed = await page.evaluate(() => ({
@@ -153,8 +155,10 @@ for (const size of SIZES) {
   const controlMiddle = (collapsed.controls[0].top + collapsed.controls[0].bottom) / 2;
   assert.ok(collapsed.identity.left >= lastRight, `the chat title starts after the rail buttons (${collapsed.identity.left} >= ${lastRight})`);
   assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
-  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
-  await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();
+  if (!narrow) {
+    await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+    await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();
+  }
 
   await page.getByRole("button", { name: /^Bot computer/ }).first().click();
   await page.locator(".computer-hide-button, [aria-label='Close Bot computer']").first().waitFor();

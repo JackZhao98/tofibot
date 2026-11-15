@@ -15,11 +15,9 @@ html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .cha
    Everything drawn over the strips (dialogs, native <dialog> such as the image viewer, menus, popovers, the enlarged Bot
    computer, the mini window (it is dragged under the title bar), the drawer that overlays the chat up to 1120 px) cuts its own hole.
    test:desktop-drag-regions rebuilds the drag area the way Electron does and fails on any covered control. */
-html[data-desktop="darwin"] :is(dialog,[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper],.computer-detail.is-expanded,.desktop-floating-shell.is-small,.detail-pane.visible,.widget-slot[data-dragging],.web-row[data-dragging]){-webkit-app-region:no-drag}
+html[data-desktop="darwin"] :is(dialog,[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper],.computer-detail.is-expanded,.desktop-floating-shell.is-small,.detail-pane.visible,.sidebar-pane,.widget-slot[data-dragging],.web-row[data-dragging]){-webkit-app-region:no-drag}
 /* The macOS drag strip stays over the sidebar column and over a drawer's backdrop, as it always has: one step above --z-panel. */
 html[data-desktop="darwin"] .native-titlebar{position:fixed;inset:0 auto auto 0;width:var(--native-sidebar-width,272px);height:48px;z-index:calc(var(--z-panel) + 1);-webkit-app-region:drag;user-select:none}
-html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed){--native-sidebar-width:var(--sidebar-collapsed)}
-html[data-desktop="darwin"] .workspace:has(.sidebar-collapsed) .native-titlebar{width:var(--sidebar-collapsed)}
 html[data-desktop="darwin"] .sidebar-collapsed .contact-pane{padding-top:58px}
 html[data-desktop="darwin"] .sidebar-collapsed .sidebar-top{margin-top:0}
 html[data-desktop="darwin"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 78%,transparent)}
@@ -65,19 +63,73 @@ html[data-desktop="darwin"] .desktop-floating-shell.is-expanded{z-index:var(--z-
 
 /* Keep the native material close to the reading plane in dark mode. The light material is unchanged. */
 html[data-desktop="darwin"][data-theme="dark"] .contact-pane{background:var(--sidebar-bg);border-right-color:var(--line-soft)}
-/* In the collapsed layout the rail's existing controls occupy the titlebar after the traffic lights.
-   The full strip drags the window; buttons cut their own no-drag holes. */
-@media(min-width:768px){
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace:has(.sidebar-collapsed) .native-titlebar{width:100%;pointer-events:none}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-top{position:fixed;top:4px;left:78px;display:flex;flex-direction:row;align-items:center;gap:4px;margin:0;min-height:40px}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed :is(.sidebar-actions,.create-menu-anchor){width:auto;flex-direction:row;gap:4px}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-top button{width:40px;height:40px;-webkit-app-region:no-drag}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-art{display:none}
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .sidebar-logo-arrow{opacity:1;transform:none}
-  /* One title row, as in Claude and ChatGPT: traffic lights, the three rail buttons (they end at 78 + 3 x 40 + 2 x 4 = 206 px), then the chat title. */
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header{min-height:48px;padding-top:3px;padding-bottom:3px;padding-left:calc(206px + 14px - var(--sidebar-collapsed))}
-  /* The header's drag layer starts after the rail buttons, so the buttons never sit on a drag area. */
-  html[data-desktop="darwin"]:not([data-fullscreen="true"]) .workspace .sidebar-collapsed .chat-header>.chat-header-drag{left:calc(206px + 4px - var(--sidebar-collapsed))}
-}
 /* A drawer's backdrop starts under the titlebar strip: the strip keeps moving the window and the traffic lights stay clear. */
 html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto;-webkit-app-region:no-drag}
+
+/* Mac title area, option C (owner 2026-11-14). From 768 px the sidebar is a card floating 8 px inside the window, with the traffic
+   lights in its top-left corner (the app places them at 22,26). The card's first row is the title row: the lights, the sidebar
+   toggle at 86 px, Search and New at the card's right edge. Collapsed, the same card shrinks in place into a 44 px capsule: the
+   lights and the toggle do not move, Search and New slide in behind the toggle, the list fades out, and the chat (its track goes
+   to 0) follows the capsule. Full screen has no lights, so the row starts at 16 px. On a narrow window (768-1023 px, .mac-narrow)
+   the capsule is the resting state and the open card lies over the chat on a scrim. One duration and curve for the morph, the
+   chat's track and the header (--m-panel-in, --ease-out); reduced motion is instant. */
+@media (min-width:768px) {
+  html[data-desktop="darwin"] .workspace-grid { background:var(--bg); }
+  html[data-desktop="darwin"] .workspace .workspace-grid { --sidebar-width:280px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) { --sidebar-width:0px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid > .chat-pane { grid-column:2; grid-row:1; }
+  html[data-desktop="darwin"] .native-titlebar { width:100%; pointer-events:none; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane {
+    position:fixed; left:8px; top:8px; z-index:var(--z-panel); display:flex; flex-direction:column; width:264px; height:calc(var(--viewport-height,100dvh) - 16px);
+    padding:52px 8px 10px; border:0; border-radius:18px; background:var(--surface); box-shadow:var(--card-elevation); overflow:clip;
+    transition:width var(--m-panel-in) var(--ease-out),height var(--m-panel-in) var(--ease-out),top var(--m-panel-in) var(--ease-out),border-radius var(--m-panel-in) var(--ease-out);
+  }
+  html[data-desktop="darwin"] .workspace .workspace-grid.sidebar-collapsed .contact-pane { top:10px; width:190px; height:44px; padding:0; border-radius:22px; }
+  /* Everything below the title row keeps the card's width, so the shrinking card clips it while it fades. */
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane > :not(.sidebar-top) { width:248px; flex-shrink:0; transition:opacity var(--m-quick) var(--ease-out); }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane > .contact-section { flex:1 1 auto; min-height:0; }
+  html[data-desktop="darwin"] .workspace .workspace-grid.sidebar-collapsed .contact-pane > :not(.sidebar-top) { opacity:0; visibility:hidden; pointer-events:none; transition:opacity var(--m-press) var(--ease-out),visibility 0s linear var(--m-press); }
+
+  /* The title row: four 32 px buttons placed on the window's own grid, so the open card and the capsule share their positions. */
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top { position:absolute; top:8px; left:0; right:0; display:block; height:32px; min-height:0; margin:0; padding:0; transition:top var(--m-panel-in) var(--ease-out); }
+  html[data-desktop="darwin"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top { top:6px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top > .brand-logo { display:none; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-actions { display:contents; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand,.search-trigger,.create-menu-anchor) { position:absolute; top:0; left:78px; margin:0; transition:left var(--m-panel-in) var(--ease-out); }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top .search-trigger { left:186px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top .create-menu-anchor { left:220px; width:32px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top .search-trigger { left:114px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top .create-menu-anchor { left:150px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand,.search-trigger,.create-menu-anchor>.icon-button) {
+    display:grid; place-items:center; width:32px; height:32px; min-width:0; min-height:0; padding:0; border:0; border-radius:10px;
+    background:transparent; color:var(--ink-soft); box-shadow:none; transform:none; -webkit-app-region:no-drag;
+    transition:left var(--m-panel-in) var(--ease-out),background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out);
+  }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand,.search-trigger,.create-menu-anchor>.icon-button):is(:hover,:focus-visible,[aria-expanded="true"]) { background:var(--surface-2); color:var(--ink); }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand,.search-trigger,.create-menu-anchor>.icon-button) svg { width:18px; height:18px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-logo-art { display:none; }
+  html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-logo-arrow { opacity:1; transform:none; }
+
+  /* Full screen: no traffic lights, the row starts at 16 px and the capsule is shorter. */
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand) { left:8px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid.sidebar-collapsed .contact-pane { width:120px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top .search-trigger { left:44px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top .create-menu-anchor { left:80px; }
+
+  /* The chat header follows: 8 px after the card, 8 px after the capsule. Its drag strip starts after the capsule. */
+  html[data-desktop="darwin"] .workspace .chat-header { padding-left:8px; transition:padding-left var(--m-panel-in) var(--ease-out); }
+  html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { padding-left:206px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { padding-left:136px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header > .chat-header-drag { left:200px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header > .chat-header-drag { left:130px; }
+
+  /* Narrow window: the open card lies over the chat; the scrim under it closes it. */
+  html[data-desktop="darwin"] .workspace .mac-narrow:not(.sidebar-collapsed) .contact-pane { z-index:calc(var(--z-panel) + 2); box-shadow:var(--card-lift); }
+  html[data-desktop="darwin"] .workspace .sidebar-scrim { position:fixed; inset:0; z-index:calc(var(--z-panel) + 1); background:var(--scrim); -webkit-app-region:no-drag; animation:sidebar-scrim-in var(--m-quick) var(--ease-out) both; }
+  @keyframes sidebar-scrim-in { from { opacity:0; } }
+}
+.sidebar-scrim { display:none; }
+@media (min-width:768px) { html[data-desktop="darwin"] .sidebar-scrim { display:block; } }
+@media (prefers-reduced-motion:reduce) {
+  html[data-desktop="darwin"] .workspace :is(.contact-pane,.contact-pane > *,.sidebar-top,.sidebar-top *,.chat-header,.sidebar-scrim) { transition:none; animation:none; }
+}
