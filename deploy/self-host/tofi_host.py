@@ -2877,7 +2877,7 @@ def remove_backup(backup_id):
 
 
 REMOTE_LIST_ERRORS = {
-    'backup_store_misconfigured': 'remote backup is not configured',
+    'backup_store_misconfigured': 'the backup storage refused the access key, or the bucket does not exist',
     'backup_store_unavailable': 'the backup storage did not answer',
     'backup_key_missing': 'the backup key is missing',
     'app_unreachable': 'the App did not answer',
@@ -2889,6 +2889,13 @@ def describe_remote_error(code):
     return '%s (%s)' % (code, REMOTE_LIST_ERRORS[code]) if code in REMOTE_LIST_ERRORS else code
 
 
+def remote_note(remote_error):
+    """The line under the backup table about remote snapshots: not set up is a state, the rest are failures."""
+    if remote_error == 'not_configured':
+        return '  Remote backup is not set up (Settings › Organization resources › Backups).'
+    return '  Remote snapshots could not be listed: %s.' % describe_remote_error(remote_error)
+
+
 def render_backups(backups, remote=None, remote_error=None):
     """One table, local and remote snapshots, newest first, with a LOCATION column.
 
@@ -2896,7 +2903,7 @@ def render_backups(backups, remote=None, remote_error=None):
     remote = remote or []
     if not backups and not remote:
         return ('No backups yet. One is taken before every update; `sudo tofi backup` takes one now.\n'
-                + ('Remote snapshots could not be listed: %s.\n' % describe_remote_error(remote_error) if remote_error else ''))
+                + ('%s\n' % remote_note(remote_error).strip() if remote_error else ''))
     entries = [(item['meta'].get('created_at') or '', [item['id'], item['meta'].get('created_at') or '-',
                                                        item['meta'].get('version') or '-', human_bytes(item['size']),
                                                        item['meta'].get('reason') or '-', 'local']) for item in backups]
@@ -2906,7 +2913,7 @@ def render_backups(backups, remote=None, remote_error=None):
     entries.sort(key=lambda entry: entry[0], reverse=True)
     lines = format_table(['ID', 'CREATED (UTC)', 'VERSION', 'SIZE', 'REASON', 'LOCATION'], [row for _, row in entries])
     if remote_error:
-        lines += ['', '  Remote snapshots could not be listed: %s.' % describe_remote_error(remote_error)]
+        lines += ['', remote_note(remote_error)]
     if remote:
         lines += ['', '  Restore a remote snapshot with: sudo tofi restore --from-remote']
     in_store = [item for item in backups if item['meta'].get('file_store')]
@@ -5725,11 +5732,13 @@ def remote_meta(remote):
 
 
 def remote_snapshots(env):
-    """Remote snapshots for `tofi backups`: (list, None) or ([], error code)."""
+    """Remote snapshots for `tofi backups`: (list, None), ([], 'not_configured'), or ([], error code)."""
     try:
         answer = host_control(env, 'snapshots', route=HOST_BACKUP_ROUTE, timeout=120)
     except HostControlUnavailable as error:
         return [], error.code or ('host_route_missing' if error.status == 404 else 'app_unreachable')
+    if answer.get('configured') is False:
+        return [], 'not_configured'
     return answer.get('snapshots') or [], None
 
 

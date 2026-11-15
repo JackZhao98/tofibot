@@ -2870,6 +2870,19 @@ class ObjectStoreRowsTests(HostCase):
         self.assertIn('keeps 2 files in bucket tofi-cloud', text)
         self.assertNotIn('https://x', text)
 
+    def test_backup_listing_says_remote_is_not_set_up(self):
+        backups = [{'id': 'b1', 'size': 1, 'meta': {'created_at': 'now', 'version': 'v1', 'reason': 'manual'}}]
+        text = tofi_host.render_backups(backups, remote_error='not_configured')
+        self.assertIn('Remote backup is not set up', text)
+        self.assertNotIn('could not be listed', text)
+        self.assertIn('Remote backup is not set up', tofi_host.render_backups([], remote_error='not_configured'))
+        failed = tofi_host.render_backups(backups, remote_error='backup_store_misconfigured')
+        self.assertIn('could not be listed: backup_store_misconfigured (the backup storage refused the access key', failed)
+        with mock.patch.object(tofi_host, 'host_control', return_value={'snapshots': [], 'configured': False}):
+            self.assertEqual(tofi_host.remote_snapshots({}), ([], 'not_configured'))
+        with mock.patch.object(tofi_host, 'host_control', return_value={'snapshots': [{'name': 's'}], 'configured': True}):
+            self.assertEqual(tofi_host.remote_snapshots({}), ([{'name': 's'}], None))
+
 
 class ProgressTests(unittest.TestCase):
     def test_plain_progress_keeps_step_numbers(self):
