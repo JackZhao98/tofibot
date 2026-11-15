@@ -802,6 +802,9 @@ class LifecycleBase(HostCase):
             'status': 'skipped', 'reason': 'not_configured', 'policy': 'attempt'}).start()
         mock.patch.object(tofi_host, 'remote_snapshots', return_value=([], 'backup_store_misconfigured')).start()
         self.object_rows = mock.patch.object(tofi_host, 'object_rows', return_value=(0, 0, [])).start()
+        # The placeholder databases of these tests hold no files, in any bucket generation.
+        self.generation_rows = mock.patch.object(tofi_host, 'generation_rows', return_value=({}, [])).start()
+        mock.patch.object(tofi_host, 'file_store_has_previous_generations', return_value=False).start()
         self.addCleanup(mock.patch.stopall)
 
     def write_manifest(self, value):
@@ -2824,6 +2827,15 @@ class ObjectStoreRowsTests(HostCase):
         self.database('', [('1', 'obj:g2|k/1', 10)], config={'bucket': 'b2', 'gen': 'g2', 'prev': [{'gen': 'g1'}]})
         with self.assertRaises(tofi_host.HostError):
             tofi_host.check_object_rows('v0.6.3-rc.16')
+
+    def test_an_unreadable_database_blocks_a_release_before_generations(self):
+        folder = self.P.data / 'accounts' / 'bad'
+        folder.mkdir(parents=True)
+        (folder / 'tofi.db').write_bytes(b'not a database at all' * 50)
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.check_object_rows('v0.6.3-rc.16')
+        self.assertIn('could not be read', str(caught.exception))
+        self.assertIn('Nothing was changed', str(caught.exception))
 
     def test_an_older_release_is_fine_without_obj_rows(self):
         self.database('', [('1', '1.upload', 10)])
