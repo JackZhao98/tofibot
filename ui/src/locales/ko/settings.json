@@ -865,7 +865,8 @@
           "backup_repo_missing": "이 위치에 저장소가 없습니다.",
           "backup_no_snapshot": "저장소에 아직 스냅샷이 없습니다.",
           "backup_account_not_in_snapshot": "해당 계정은 스냅샷에 없습니다.",
-          "backup_failed": "백업에 실패했습니다."
+          "backup_failed": "백업에 실패했습니다.",
+          "account_busy": "이 계정의 Bot 실행이 진행 중입니다. 아무것도 바뀌지 않았습니다. 끝날 때까지 기다린 뒤 다시 복원하세요."
         }
       },
       "file_move": {

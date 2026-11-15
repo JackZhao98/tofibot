@@ -873,7 +873,8 @@
           "backup_repo_missing": "No repository at this location.",
           "backup_no_snapshot": "The repository has no snapshot yet.",
           "backup_account_not_in_snapshot": "That account is not in the snapshot.",
-          "backup_failed": "The backup failed."
+          "backup_failed": "The backup failed.",
+          "account_busy": "Bot runs of this account are at work. Nothing was changed. Wait for them to finish, then restore again."
         }
       },
       "file_move": {

@@ -865,7 +865,8 @@
           "backup_repo_missing": "この場所にリポジトリはありません。",
           "backup_no_snapshot": "リポジトリにはまだスナップショットがありません。",
           "backup_account_not_in_snapshot": "そのアカウントはスナップショットにありません。",
-          "backup_failed": "バックアップに失敗しました。"
+          "backup_failed": "バックアップに失敗しました。",
+          "account_busy": "このアカウントの Bot の実行が進行中です。何も変更していません。終わるのを待ってから、もう一度復元してください。"
         }
       },
       "file_move": {

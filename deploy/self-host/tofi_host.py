@@ -6461,7 +6461,50 @@ ACCOUNT_RESTORE_ERRORS = {
     'backup_store_misconfigured': 'remote backup is not configured',
     'backup_store_unavailable': 'the backup storage did not answer',
     'backup_key_missing': 'the backup key is missing',
+    'account_busy': 'Bot runs of this account are at work; nothing was changed. Wait for them to finish, allow longer '
+                    'with --wait MINUTES, or add --force to interrupt them',
 }
+
+
+def account_working_runs(account_id):
+    """Runs of one account that are doing something now (queued or running), read-only like
+    active_runs. A run parked on a question or a command is not counted: replacing the account's data
+    ends it either way. The App counts again before it restores, so a file that cannot be read counts 0."""
+    if not account_id or account_id.startswith('.') or '/' in account_id or '\\' in account_id:
+        return 0
+    entry = P.data / 'accounts' / account_id
+    database = entry / 'tofi.db'
+    if entry.is_symlink() or not entry.is_dir() or not database.is_file():
+        return 0
+    try:
+        connection = sqlite3.connect('file:%s?mode=ro' % urllib.parse.quote(str(database)), uri=True, timeout=5)
+        try:
+            row = connection.execute("SELECT COUNT(*) FROM runs WHERE status IN ('queued','running')").fetchone()
+        finally:
+            connection.close()
+    except (sqlite3.Error, OSError):
+        return 0
+    return int(row[0])
+
+
+def wait_for_account_runs(account_id, username, wait_minutes):
+    """Wait up to `wait_minutes` (polling every 15 s) for the account's working runs to end, or raise
+    the named account_busy refusal."""
+    count = account_working_runs(account_id)
+    if not count:
+        return
+    attempts = max(0, int(wait_minutes)) * 60 // RUN_POLL_SECONDS
+    if attempts:
+        say('%s of %s %s at work; waiting up to %s for %s to finish before the restore.'
+            % (plural(count, 'Bot run'), username, 'is' if count == 1 else 'are', plural(int(wait_minutes), 'minute'),
+               'it' if count == 1 else 'them'))
+    for _ in range(attempts):
+        time.sleep(RUN_POLL_SECONDS)
+        count = account_working_runs(account_id)
+        if not count:
+            say('Bot runs finished.')
+            return
+    raise HostError('account_busy: %s (%s).' % (ACCOUNT_RESTORE_ERRORS['account_busy'], plural(count, 'Bot run')))
 
 
 def account_restore_call(env, operation, body, timeout=120):
@@ -6502,12 +6545,13 @@ def choose_account_snapshot(points, wanted, assume_yes):
     return points[int(answer) - 1]
 
 
-def restore_account(account, snapshot=None, undo=False, assume_yes=False):
+def restore_account(account, snapshot=None, undo=False, assume_yes=False, wait=0, force=False):
     """`tofi restore --from-remote --account <username-or-id> [--snapshot NAME]` and `tofi restore --account X --undo`.
 
     One account, through the running App's own single-account restore (the one the admin page uses) over the
     host channel; the server keeps running and other accounts are not touched. Sign-in, role, group and quota
-    stay as they are; the current data is kept for 14 days for the undo."""
+    stay as they are; the current data is kept for 14 days for the undo. The account's working Bot runs are
+    waited for (`wait` minutes) and the App refuses while any is left, unless `force` interrupts them."""
     state = load_state()
     if state is None or state['phase'] != 'installed':
         raise HostError('Restore needs an installed TOFI in phase installed; run `sudo tofi install` first.')
@@ -6538,11 +6582,19 @@ def restore_account(account, snapshot=None, undo=False, assume_yes=False):
             typed = ''
         if typed != username:
             raise HostError('Restore cancelled; nothing was changed.')
+    if force:
+        count = account_working_runs(listing.get('account') or '')
+        if count:
+            warn('%s of %s %s at work; --force interrupts %s.' % (plural(count, 'Bot run'), username,
+                                                                  'is' if count == 1 else 'are', 'it' if count == 1 else 'them'))
+    else:
+        wait_for_account_runs(listing.get('account') or '', username, wait)
+    extra = {'interrupt': True} if force else {}
     if undo:
-        account_restore_call(env, 'account-undo', {'account': account}, timeout=REMOTE_RUN_TIMEOUT)
+        account_restore_call(env, 'account-undo', dict({'account': account}, **extra), timeout=REMOTE_RUN_TIMEOUT)
         say('Undone: %s is back to the data it had before the restore.' % username)
         return
-    answer = account_restore_call(env, 'account-restore', {'account': account, 'snapshot': chosen['name']},
+    answer = account_restore_call(env, 'account-restore', dict({'account': account, 'snapshot': chosen['name']}, **extra),
                                   timeout=REMOTE_RUN_TIMEOUT)
     say('Restored %s. The previous data is kept until %s; undo with `sudo tofi restore --account %s --undo`.'
         % (username, answer.get('undo_until') or '14 days from now', username))
@@ -6730,7 +6782,8 @@ def main(argv=None):
                     raise HostError('--undo takes no --snapshot.')
                 if not args.undo and not args.from_remote:
                     raise HostError('Restoring one account takes --from-remote, e.g. `sudo tofi restore --from-remote --account NAME`.')
-                restore_account(args.account, args.snapshot, args.undo, args.yes)
+                restore_account(args.account, args.snapshot, args.undo, args.yes,
+                                *guard_options(args, interactive_default=not args.yes))
                 return 0
             if args.from_remote:
                 if args.backup_id:

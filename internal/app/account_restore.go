@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,12 +44,27 @@ func (g *AccountGateway) beforeRestoreDirs(id string) []string {
 }
 
 // fence stops the account's runtime and answers its requests with
-// account_restoring until the returned release is called.
-func (g *AccountGateway) fence(id string) (release func(), err error) {
+// account_restoring until the returned release is called. Unless interrupt,
+// it first refuses with restoreBusyError while the account has Bot runs at
+// work (queued or running): replacing the data must not cut a run off
+// mid-step. The count and the fence are one critical section, so no request
+// starts a run in between (a runtime's own scheduler still can, and that run
+// is interrupted as before).
+func (g *AccountGateway) fence(id string, interrupt bool) (release func(), err error) {
 	g.mu.Lock()
 	if g.closed {
 		g.mu.Unlock()
 		return nil, errors.New("account gateway closed")
+	}
+	if rt := g.workspaces[id]; rt != nil && !interrupt {
+		n, cerr := rt.store.workingRuns()
+		if cerr == nil && n > 0 {
+			cerr = &restoreBusyError{runs: n}
+		}
+		if cerr != nil {
+			g.mu.Unlock()
+			return nil, cerr
+		}
 	}
 	if g.restoring == nil {
 		g.restoring = map[string]bool{}
@@ -71,8 +87,21 @@ type restoreError struct {
 
 func (e *restoreError) Error() string { return e.code }
 
+// restoreBusyError: the account has Bot runs at work; wait for them or interrupt them.
+type restoreBusyError struct{ runs int }
+
+func (e *restoreBusyError) Error() string { return "account_busy" }
+
+// workingRuns counts the runs that are doing something now. A run parked on a question or a
+// command (waiting) is not counted: replacing the data ends it whether or not the restore waits.
+func (s *Store) workingRuns() (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE status IN ('queued','running')`).Scan(&n)
+	return n, err
+}
+
 // restoreAccount replaces the account's data with the copy in snapshot snap.
-func (g *AccountGateway) restoreAccount(ctx context.Context, id, confirm, snap string) (*backup.Report, error) {
+func (g *AccountGateway) restoreAccount(ctx context.Context, id, confirm, snap string, interrupt bool) (*backup.Report, error) {
 	var username string
 	var legacy bool
 	err := g.root.store.db.QueryRowContext(ctx, `SELECT username,legacy FROM accounts WHERE id=? AND deleting=0`, id).Scan(&username, &legacy)
@@ -108,7 +137,7 @@ func (g *AccountGateway) restoreAccount(ctx context.Context, id, confirm, snap s
 			}
 		}
 	}
-	release, err := g.fence(id)
+	release, err := g.fence(id, interrupt)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +170,7 @@ func (g *AccountGateway) swapAccountDir(id, next string) error {
 }
 
 // undoAccountRestore swaps the newest saved copy back; the copy it replaces is saved in turn.
-func (g *AccountGateway) undoAccountRestore(ctx context.Context, id string) error {
+func (g *AccountGateway) undoAccountRestore(ctx context.Context, id string, interrupt bool) error {
 	saved := g.beforeRestoreDirs(id)
 	if len(saved) == 0 {
 		return &restoreError{404, "nothing_to_undo"}
@@ -150,7 +179,7 @@ func (g *AccountGateway) undoAccountRestore(ctx context.Context, id string) erro
 		return &restoreError{409, "backup_in_progress"}
 	}
 	defer g.endBackupJob()
-	release, err := g.fence(id)
+	release, err := g.fence(id, interrupt)
 	if err != nil {
 		return err
 	}
@@ -207,19 +236,27 @@ func (g *AccountGateway) adminAccountBackups(w http.ResponseWriter, r *http.Requ
 		var in struct {
 			Snapshot        string `json:"snapshot"`
 			ConfirmUsername string `json:"confirm_username"`
+			Interrupt       bool   `json:"interrupt"`
 		}
 		if decodeStrict(r, 4<<10, &in) != nil || in.Snapshot == "" {
 			writeErr(w, 400, "invalid_request", "snapshot and confirm_username are required")
 			return
 		}
-		rep, err := g.restoreAccount(ctx, id, in.ConfirmUsername, in.Snapshot)
+		rep, err := g.restoreAccount(ctx, id, in.ConfirmUsername, in.Snapshot, in.Interrupt)
 		if err != nil {
 			fail(err)
 			return
 		}
 		writeJSON(w, 200, map[string]any{"restored": true, "report": rep, "undo_until": time.Now().Add(restoreKeepDays * 24 * time.Hour).UTC().Format(time.RFC3339)})
 	case action == "restore/undo" && r.Method == http.MethodPost:
-		if err := g.undoAccountRestore(ctx, id); err != nil {
+		var in struct {
+			Interrupt bool `json:"interrupt"`
+		}
+		if err := decodeStrict(r, 1<<10, &in); err != nil && !errors.Is(err, io.EOF) {
+			writeErr(w, 400, "invalid_request", "the body is an optional JSON object")
+			return
+		}
+		if err := g.undoAccountRestore(ctx, id, in.Interrupt); err != nil {
 			fail(err)
 			return
 		}
@@ -232,8 +269,12 @@ func (g *AccountGateway) adminAccountBackups(w http.ResponseWriter, r *http.Requ
 // writeRestoreFailure maps a restore error to its named HTTP answer; upstream text never leaves.
 func writeRestoreFailure(w http.ResponseWriter, err error) {
 	var re *restoreError
+	var busy *restoreBusyError
 	code, _ := errorCode(err)
 	switch {
+	case errors.As(err, &busy):
+		writeJSON(w, 409, map[string]any{"error": map[string]any{"code": "account_busy", "runs": busy.runs,
+			"message": "Bot runs of this account are at work; wait for them to finish or interrupt them. Nothing was changed."}})
 	case errors.As(err, &re):
 		writeErr(w, re.status, re.code, "restore refused")
 	case code == "backup_schema_too_new":

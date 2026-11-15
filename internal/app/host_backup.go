@@ -176,8 +176,9 @@ func (g *AccountGateway) serveHostAccountRestore(w http.ResponseWriter, r *http.
 		return
 	}
 	var in struct {
-		Account  string `json:"account"`
-		Snapshot string `json:"snapshot"`
+		Account   string `json:"account"`
+		Snapshot  string `json:"snapshot"`
+		Interrupt bool   `json:"interrupt"`
 	}
 	if decodeStrict(r, 4<<10, &in) != nil || in.Account == "" || len(in.Account) > 200 || (op == "account-restore" && in.Snapshot == "") {
 		writeErr(w, 400, "invalid_request", "account (and snapshot for a restore) are required")
@@ -215,7 +216,7 @@ func (g *AccountGateway) serveHostAccountRestore(w http.ResponseWriter, r *http.
 	case "account-restore":
 		ctx, cancel := context.WithTimeout(g.backupJobContext(), hostRunTimeout)
 		defer cancel()
-		rep, err := g.restoreAccount(ctx, id, username, in.Snapshot)
+		rep, err := g.restoreAccount(ctx, id, username, in.Snapshot, in.Interrupt)
 		if err != nil {
 			writeRestoreFailure(w, err)
 			return
@@ -223,7 +224,7 @@ func (g *AccountGateway) serveHostAccountRestore(w http.ResponseWriter, r *http.
 		writeJSON(w, 200, map[string]any{"restored": true, "account": id, "username": username, "report": rep,
 			"undo_until": time.Now().Add(restoreKeepDays * 24 * time.Hour).UTC().Format(time.RFC3339)})
 	case "account-undo":
-		if err := g.undoAccountRestore(ctx, id); err != nil {
+		if err := g.undoAccountRestore(ctx, id, in.Interrupt); err != nil {
 			writeRestoreFailure(w, err)
 			return
 		}

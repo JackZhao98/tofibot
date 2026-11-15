@@ -865,7 +865,8 @@
           "backup_repo_missing": "此位置没有仓库。",
           "backup_no_snapshot": "仓库里还没有快照。",
           "backup_account_not_in_snapshot": "该账户不在这份快照中。",
-          "backup_failed": "备份失败。"
+          "backup_failed": "备份失败。",
+          "account_busy": "这个账户的 Bot 运行正在进行。没有做任何更改。请等它们结束后再恢复。"
         }
       },
       "file_move": {

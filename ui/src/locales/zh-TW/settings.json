@@ -865,7 +865,8 @@
           "backup_repo_missing": "此位置沒有儲存庫。",
           "backup_no_snapshot": "儲存庫裡還沒有快照。",
           "backup_account_not_in_snapshot": "該帳號不在這份快照中。",
-          "backup_failed": "備份失敗。"
+          "backup_failed": "備份失敗。",
+          "account_busy": "這個帳戶的 Bot 執行正在進行。沒有做任何變更。請等它們結束後再還原。"
         }
       },
       "file_move": {
