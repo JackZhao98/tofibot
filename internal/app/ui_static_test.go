@@ -63,6 +63,20 @@ func TestServeUICompressionAndCaching(t *testing.T) {
 			t.Fatalf("%s cache-control %q", p, cc)
 		}
 	}
+	// A brand file with a version in its URL is kept like a hashed asset; without one it is checked each time.
+	if err := os.MkdirAll(filepath.Join(dir, "brand"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(dir, "brand", "cat.svg"), []byte("<svg/>"), 0o600)
+	if cc := get("/brand/cat.svg?v=3", "").Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+		t.Fatalf("versioned brand cache-control %q", cc)
+	}
+	if cc := get("/brand/cat.svg", "").Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Fatalf("unversioned brand cache-control %q", cc)
+	}
+	if cc := get("/logo.png?v=3", "").Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Fatalf("a version outside /brand/ is not trusted: %q", cc)
+	}
 	if get("/logo.png", "gzip").Header().Get("Content-Encoding") != "" {
 		t.Fatal("binary files must not be compressed")
 	}

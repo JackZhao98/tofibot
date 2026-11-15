@@ -57,7 +57,13 @@ interface Visit {
   gestureAt: number;
   /** A primary press on the content that is still down: the pane holds still until it is released (see onPress). */
   press: { id: number; top: number; following: boolean } | null;
+  /** The list's last block and its top in the pane at the last sync: the anchor that keeps the newest content still while growth lands above it. */
+  tail: { node: Element; top: number } | null;
 }
+
+/** The message list's last block. While the reader follows the bottom it is what they are looking at. */
+const tailOf = (el: HTMLElement) => el.querySelector(".message-list")?.lastElementChild ?? null;
+const topIn = (el: HTMLElement, node: Element) => node.getBoundingClientRect().top - el.getBoundingClientRect().top;
 
 /** A follow-bottom scroll tween in flight. The target is read live every frame, so growth that lands mid-glide is followed. */
 interface Glide { raf: number; from: number; start: number; duration: number; height: number; fresh: boolean; }
@@ -145,7 +151,7 @@ export function useConversationScroll(options: Options) {
     visit.current = { id, readSeq: options.conversation?.read_seq ?? 0, entryMax: snapshot?.entryMax ?? null,
       resume: snapshot, positioned: false, landing: snapshot ? (snapshot.atBottom ? "bottom" : "elsewhere") : null, atBottom: snapshot?.atBottom ?? true, nearBottom: true, width: 0, height: 0, listWidth: -1,
       contentHeight: 0, baseline: 0, detached: snapshot?.detached ?? false, resumeIntent: false, lastScrollTop: 0,
-      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0, press: null };
+      prepend: null, followNext: false, loadingBoundary: false, boundaryFailed: false, hold: null, glide: null, lastGrowth: 0, bottomTop: 0, dipFrame: -1, positionedAt: 0, lastRecordId: "", distance: 0, gestureAt: 0, press: null, tail: null };
   }
 
   const isVisible = useCallback(() => document.visibilityState === "visible" &&
@@ -184,6 +190,8 @@ export function useConversationScroll(options: Options) {
     if (fromUserScroll && v.detached && returnedToBottom) { v.detached = false; v.bottomTop = el.scrollTop; }
     v.resumeIntent = false;
     v.lastScrollTop = el.scrollTop;
+    const tail = tailOf(el);
+    v.tail = tail ? { node: tail, top: topIn(el, tail) } : null;
     const following = !v.detached && bottom;
     const changed = v.atBottom !== following || v.nearBottom !== bottom;
     v.nearBottom = bottom;
@@ -258,7 +266,10 @@ export function useConversationScroll(options: Options) {
       const p = Math.min(1, Math.max(0, (time - glide.start) / glide.duration));
       const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
       const next = Math.min(wanted, node.scrollTop + GLIDE_STEP_MAX);
+      const before = node.scrollTop;
       node.scrollTop = p >= 1 && end - node.scrollTop <= GLIDE_STEP_MAX ? end : Math.max(next, node.scrollTop);
+      // The hop moves the last block up on purpose; keep its anchor in step so position() reads only growth above it as a shift.
+      if (v.tail) v.tail.top -= node.scrollTop - before;
       // Growth this frame reads first never reaches followBottom (the height already matches), so it is a stream here:
       // without this, the next hop after a quiet-looking gap would glide GLIDE_MS instead of GLIDE_STREAM_MS.
       if (node.scrollHeight > glide.height) v.lastGrowth = performance.now();
@@ -355,6 +366,15 @@ export function useConversationScroll(options: Options) {
       // A reader still near the end of the conversation, even one whose small scroll detached them, gets a reply brought into view.
       if (!v.atBottom && arrived && newest.role !== "user" && v.distance <= followZone(el) && performance.now() - v.gestureAt > FOLLOW_GESTURE_MS) { v.detached = false; v.atBottom = true; }
       if (v.atBottom) {
+        // Growth above the newest block (a card or an image filling in, a lazy chunk) is not an arrival. Chromium's scroll anchoring
+        // absorbs it; WebKit has none, so the bottom of the chat was pushed down and the follow glide pulled it back: a twitch per
+        // late block while a conversation opens. Put the last block back where it was in this same frame; only growth of the last
+        // block itself (streaming) or a new block is left to the glide. Not under a press: what is pressed must not move.
+        const tail = v.tail;
+        if (tail && !arrived && !v.press && tail.node.isConnected && tail.node === tailOf(el)) {
+          const shift = topIn(el, tail.node) - tail.top;
+          if (shift > 0.5) el.scrollTop += shift;
+        }
         // The reader's own message lands where they are looking: it arrives by its send flight, not by a scroll.
         const own = newest?.role === "user" && arrived;
         // A whole bot message that was not streamed in place arrives by the cascade.

@@ -3328,7 +3328,7 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("Content-Type")
 	path := filepath.Join(s.uiDir, filepath.Clean("/"+r.URL.Path))
 	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		serveUIFile(w, r, path, info, strings.HasPrefix(r.URL.Path, "/assets/"))
+		serveUIFile(w, r, path, info, strings.HasPrefix(r.URL.Path, "/assets/") || versionedBrandAsset(r))
 		return
 	}
 	index := filepath.Join(s.uiDir, "index.html")

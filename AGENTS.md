@@ -482,7 +482,10 @@ decides; an unread divider, a restored position or a pending task focus draw eve
 Task cards (decision 0060 part C) follow the same rules: `ui/src/taskCards.ts` is plain data (`TaskCardModel`, one object per task whose identity holds until its content changes, `anchorCards` for the message a card sits under), `work_item` events reach the Workspace through `coalesce` (<= 1 state update a second), and `RowModel.taskCards` holds the models, never rendered nodes. `TaskCard` is collapsed to one line; `MemberTask` is the member list's line. `npm --prefix ui run test:task-cards` holds the logic. Budgets, each enforced by a script: `test:stream-cost` (<= 4 ms per streamed chunk, <= 16 ms at 4x CPU, no frame over 34 ms),
 `test:switch-budget` (cached switch p95 < 60 ms, < 100 ms at 4x, also in WebKit), `test:chat-switch` (also `CHAT_SWITCH_ENGINE=webkit`),
 `test:timeline-rows`, `test:perf-structure`. WebKit has no native scroll anchoring: whatever changes layout above the reader after the position
-was set (sender marks, a prepended block) must be followed by `viewport.reposition()` or an anchor.
+was set (sender marks, a prepended block) must be followed by `viewport.reposition()` or an anchor. While the reader follows the bottom,
+`useConversationScroll` anchors on the list's last block: growth above it (a schedule card, an image, a lazy chunk filling in late) is
+put back in the same frame; only growth of the last block or a new block glides (`test:arrival-glide`, "late growth above", also in WebKit).
+A `/brand/` file requested with `?v=` is served immutable: change the version in the UI whenever the file changes.
 
 # Fast UI preview against a running server
 
