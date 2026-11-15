@@ -871,8 +871,8 @@
         "resume": "继续",
         "cancel": "取消移动",
         "cancel_question": "要取消移动吗？已经移动的文件保持原位。",
-        "failed_count": "有 {{count}} 个文件未能移动",
-        "disabled_note": "有 {{count}} 个已停用的账户未计入也不会移动。请先启用它们，再重新移动。",
+        "failed_count_other": "有 {{count}} 个文件未能移动",
+        "disabled_note_other": "有 {{count}} 个已停用的账户未计入也不会移动。请先启用它们，再重新移动。",
         "status": {
           "running": "移动中",
           "paused": "已暂停",
@@ -904,6 +904,7 @@
         "report_running": "进行中…",
         "report_failed": "运行已停止：{{reason}}",
         "report_reconcile": "对账报告",
+        "no_issues": "未发现问题",
         "report_sweep": "孤立对象清理报告",
         "report_sweep_dry": "孤立对象清理试运行（未删除任何内容）",
         "age_days": "已存在 {{count}} 天",

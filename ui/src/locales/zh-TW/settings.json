@@ -871,8 +871,8 @@
         "resume": "繼續",
         "cancel": "取消移動",
         "cancel_question": "要取消移動嗎？已經移動的檔案保持原位。",
-        "failed_count": "有 {{count}} 個檔案未能移動",
-        "disabled_note": "有 {{count}} 個已停用的帳號未計入也不會移動。請先啟用它們，再重新移動。",
+        "failed_count_other": "有 {{count}} 個檔案未能移動",
+        "disabled_note_other": "有 {{count}} 個已停用的帳號未計入也不會移動。請先啟用它們，再重新移動。",
         "status": {
           "running": "移動中",
           "paused": "已暫停",
@@ -904,6 +904,7 @@
         "report_running": "進行中…",
         "report_failed": "執行已停止：{{reason}}",
         "report_reconcile": "對帳報告",
+        "no_issues": "未發現問題",
         "report_sweep": "孤立物件清理報告",
         "report_sweep_dry": "孤立物件清理試執行（未刪除任何內容）",
         "age_days": "已存在 {{count}} 天",

@@ -66,8 +66,8 @@ export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
       </div>}
     </div>}
     {view.failures.count > 0 && <div className="file-move-failures" data-section="failures">
-      <p className="is-failed">{t("admin.org.file_move.failed_count", {count: view.failures.count})}</p>
-      <ul className="backup-snapshots">{Object.entries(view.failures.by_code).map(([code, count]) => <li key={code}>{t(`admin.org.file_move.code.${code}` as "admin.org.file_move.code.file_move_failed", {defaultValue: t("admin.org.file_move.code.file_move_failed")})} · {count}</li>)}</ul>
+      <p className="file-move-subhead is-failed">{t("admin.org.file_move.failed_count", {count: view.failures.count})}</p>
+      <dl className="file-move-stats">{Object.entries(view.failures.by_code).map(([code, count]) => <div key={code} data-code={code}><dt>{t(`admin.org.file_move.code.${code}` as "admin.org.file_move.code.file_move_failed", {defaultValue: t("admin.org.file_move.code.file_move_failed")})}</dt><dd>{count}</dd></div>)}</dl>
     </div>}
 
     <h4>{t("admin.org.file_move.reconcile_title")}</h4>
@@ -87,13 +87,15 @@ function ReportView({report, busy, onSweep}: {report: FileReport; busy: boolean;
   if (report.status === "failed") return <p className="is-failed" role="status" data-section="report">{t("admin.org.file_move.report_failed", {reason: t(`admin.org.file_move.report_code.${report.code}` as "admin.org.file_move.report_code.file_scan_failed", {defaultValue: t("admin.org.file_move.report_code.file_scan_failed")})})}</p>;
   const items = report.items ?? [];
   return <div className="file-move-report" role="status" data-section="report" data-kind={report.kind}>
-    <p>{t(report.kind === "sweep" ? (report.dry_run ? "admin.org.file_move.report_sweep_dry" : "admin.org.file_move.report_sweep") : "admin.org.file_move.report_reconcile")}</p>
-    <ul className="backup-snapshots">
-      {REPORT_COUNTS.map(key => <li key={key} className={report[key] > 0 && REPORT_PROBLEMS.has(key) ? "is-failed" : undefined} data-count={key}>{t(`admin.org.file_move.count.${key}` as "admin.org.file_move.count.rows")}: {report[key]}{key === "orphans" && report.orphans > 0 ? ` (${formatBytes(report.orphan_bytes)})` : ""}</li>)}
-      {report.kind === "sweep" && !report.dry_run && <li data-count="deleted">{t("admin.org.file_move.count.deleted")}: {report.deleted}</li>}
-      {report.delete_failed > 0 && <li className="is-failed" data-count="delete_failed">{t("admin.org.file_move.count.delete_failed")}: {report.delete_failed}</li>}
-    </ul>
-    {items.length > 0 && <ul className="backup-snapshots" data-section="report-items">{items.map((item, index) => <li key={index}>{t(`admin.org.file_move.issue.${item.issue}` as "admin.org.file_move.issue.orphan", {defaultValue: item.issue})}{item.account ? ` · ${item.account}` : ""}{item.kind ? ` · ${item.kind}` : ""} · {formatBytes(item.size)}{item.age_days ? ` · ${t("admin.org.file_move.age_days", {count: item.age_days})}` : ""}</li>)}</ul>}
+    <p className="file-move-subhead">{t(report.kind === "sweep" ? (report.dry_run ? "admin.org.file_move.report_sweep_dry" : "admin.org.file_move.report_sweep") : "admin.org.file_move.report_reconcile")}</p>
+    {/* Counts that are zero are left out (a clean report is one line); the record count always shows. */}
+    <dl className="file-move-stats">
+      {REPORT_COUNTS.filter(key => key === "rows" || report[key] > 0).map(key => <div key={key} className={REPORT_PROBLEMS.has(key) ? "is-failed" : undefined} data-count={key}><dt>{t(`admin.org.file_move.count.${key}` as "admin.org.file_move.count.rows")}</dt><dd>{report[key]}{key === "orphans" ? ` · ${formatBytes(report.orphan_bytes)}` : ""}</dd></div>)}
+      {report.kind === "sweep" && !report.dry_run && <div data-count="deleted"><dt>{t("admin.org.file_move.count.deleted")}</dt><dd>{report.deleted}</dd></div>}
+      {report.delete_failed > 0 && <div className="is-failed" data-count="delete_failed"><dt>{t("admin.org.file_move.count.delete_failed")}</dt><dd>{report.delete_failed}</dd></div>}
+    </dl>
+    {REPORT_COUNTS.every(key => !REPORT_PROBLEMS.has(key) || report[key] === 0) && !report.delete_failed && <p className="field-note" data-field="no-issues">{t("admin.org.file_move.no_issues")}</p>}
+    {items.length > 0 && <ul className="file-move-items" data-section="report-items">{items.map((item, index) => <li key={index}>{t(`admin.org.file_move.issue.${item.issue}` as "admin.org.file_move.issue.orphan", {defaultValue: item.issue})}{item.account ? ` · ${item.account}` : ""}{item.kind ? ` · ${item.kind}` : ""} · {formatBytes(item.size)}{item.age_days ? ` · ${t("admin.org.file_move.age_days", {count: item.age_days})}` : ""}</li>)}</ul>}
     {report.orphans > 0 && <div className="provider-actions">
       <button type="button" className="st-button" data-action="sweep-dry-run" disabled={busy} onClick={() => void onSweep(true)}>{t("admin.org.file_move.sweep_dry")}</button>
       <ConfirmAction label={t("admin.org.file_move.sweep")} question={t("admin.org.file_move.sweep_question", {count: report.orphans})} disabled={busy} onConfirm={() => onSweep(false)}/>

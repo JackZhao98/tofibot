@@ -871,8 +871,8 @@
         "resume": "再開",
         "cancel": "移動を中止",
         "cancel_question": "移動を中止しますか？すでに移動したファイルはそのままです。",
-        "failed_count": "{{count}} 件のファイルを移動できませんでした",
-        "disabled_note": "無効なアカウント {{count}} 件は集計も移動もされません。有効にしてからもう一度移動してください。",
+        "failed_count_other": "{{count}} 件のファイルを移動できませんでした",
+        "disabled_note_other": "無効なアカウント {{count}} 件は集計も移動もされません。有効にしてからもう一度移動してください。",
         "status": {
           "running": "移動中",
           "paused": "一時停止中",
@@ -904,6 +904,7 @@
         "report_running": "実行中…",
         "report_failed": "実行が停止しました：{{reason}}",
         "report_reconcile": "照合レポート",
+        "no_issues": "問題は見つかりませんでした",
         "report_sweep": "孤立オブジェクト削除レポート",
         "report_sweep_dry": "孤立オブジェクト削除のドライラン（削除なし）",
         "age_days": "{{count}} 日前",

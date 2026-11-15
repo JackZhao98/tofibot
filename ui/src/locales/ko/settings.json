@@ -871,8 +871,8 @@
         "resume": "재개",
         "cancel": "이동 취소",
         "cancel_question": "이동을 취소할까요? 이미 이동한 파일은 그대로 유지됩니다.",
-        "failed_count": "파일 {{count}}개를 이동하지 못했습니다",
-        "disabled_note": "비활성화된 계정 {{count}}개는 집계와 이동에서 제외됩니다. 활성화한 뒤 다시 이동하세요.",
+        "failed_count_other": "파일 {{count}}개를 이동하지 못했습니다",
+        "disabled_note_other": "비활성화된 계정 {{count}}개는 집계와 이동에서 제외됩니다. 활성화한 뒤 다시 이동하세요.",
         "status": {
           "running": "이동 중",
           "paused": "일시 중지됨",
@@ -904,6 +904,7 @@
         "report_running": "실행 중…",
         "report_failed": "실행이 중단되었습니다: {{reason}}",
         "report_reconcile": "대조 보고서",
+        "no_issues": "발견된 문제가 없습니다",
         "report_sweep": "고아 오브젝트 정리 보고서",
         "report_sweep_dry": "고아 오브젝트 정리 시뮬레이션 (삭제 없음)",
         "age_days": "{{count}}일 경과",
