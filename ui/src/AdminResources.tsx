@@ -2,6 +2,7 @@ import {useCallback, useEffect, useId, useMemo, useState, type FormEvent, type R
 import {ApiError} from "./api";
 import {useGroups} from "./AdminGroupBits";
 import {BackupsSection} from "./AdminBackups";
+import {FileMovePanel} from "./AdminFileMove";
 import {adminOrgApi, createOrgWebToolsAdapter, orgError, type OrgMissing, type OrgResource, type OrgResourceId, type OrgResourceInput} from "./adminOrgApi";
 import {useHostHasComputer} from "./computerCapability";
 import {useTranslation} from "./i18n";
@@ -380,6 +381,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
       <p className="field-note">{t("admin.org.file_store.note")}</p>
     </form>}
+    {resource && !editing && <FileMovePanel resourceKey={resource.updated_at}/>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;
 }

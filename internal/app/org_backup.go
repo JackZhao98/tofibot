@@ -226,6 +226,13 @@ func (g *AccountGateway) beginBackupJob() bool {
 	return true
 }
 
+// waitFileStep blocks until a file move step in flight has finished. The caller holds the backup
+// slot, so no new step starts; the capture that follows never sees a row between two places.
+func (g *AccountGateway) waitFileStep() {
+	g.fileStepMu.Lock()
+	g.fileStepMu.Unlock() //nolint:staticcheck // waiting for the step is the point
+}
+
 func (g *AccountGateway) endBackupJob() {
 	g.backupBusy.Store(false)
 	g.backupMu.Unlock()
@@ -241,6 +248,7 @@ func errorCode(err error) (code, account string) {
 
 // runBackupLocked takes one snapshot and applies retention. The caller holds the slot.
 func (g *AccountGateway) runBackupLocked(ctx context.Context, reason string) error {
+	g.waitFileStep() // inside the job, never in the HTTP handler
 	st := g.loadBackupStatus()
 	st.Running, st.LastAttemptAt, st.PruneCode = true, now(), ""
 	g.saveBackupStatus(st)

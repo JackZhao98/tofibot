@@ -357,7 +357,7 @@ func (s *Store) reconcileStorage(ctx context.Context) (StorageReport, error) {
 	if err = s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))),0),COUNT(*) FROM messages`).Scan(&msgBytes, &msgCount); err != nil {
 		return StorageReport{}, err
 	}
-	physical := s.physicalAttachmentBytes()
+	physical := s.physicalAttachmentBytes() + s.physicalBucketBytes(ctx)
 	stamp := now()
 	for _, c := range []struct {
 		class        string

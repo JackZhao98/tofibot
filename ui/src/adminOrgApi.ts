@@ -96,6 +96,35 @@ const backupApi = {
 };
 export {backupApi};
 
+/** Moving existing files between this server's disk and the bucket, the reconciliation report and the orphan sweep. */
+export type FileMoveDirection = "to_bucket" | "to_disk";
+export type FileMoveStatus = "running" | "paused" | "paused_store_unavailable" | "paused_store_misconfigured" | "paused_disk_full" | "cancelled" | "done" | "done_with_errors";
+export type FileMoveJob = {direction: FileMoveDirection; status: FileMoveStatus; code?: string; files_total: number; files_done: number; bytes_total: number; bytes_done: number; started_at: string; updated_at: string; finished_at?: string};
+export type FileReportItem = {account?: string; issue: string; kind?: string; size: number; age_days?: number};
+export type FileReport = {
+  kind: "reconcile" | "sweep"; status: "running" | "done" | "failed"; code?: string; deep?: boolean; dry_run?: boolean; started_at: string; finished_at?: string;
+  rows: number; missing_in_store: number; missing_on_disk: number; size_mismatch: number; sha_mismatch: number; unreadable: number; skipped_accounts: number; orphans: number; orphan_bytes: number; orphans_young: number; deleted: number; delete_failed: number; items: FileReportItem[] | null;
+};
+export type FileMoveView = {
+  configured: boolean; kind: "s3" | "disk"; disk: {files: number; bytes: number}; bucket: {files: number; bytes: number}; disabled_accounts: number;
+  job: FileMoveJob | null; failures: {count: number; by_code: Record<string, number>; items: FileReportItem[]}; report: FileReport | null; busy: string;
+};
+export const fileMoveApi = {
+  state: () => request<FileMoveView>("/api/admin/file-move"),
+  start: (direction: FileMoveDirection) => request<{started: boolean}>("/api/admin/file-move", send("POST", {direction})),
+  pause: () => request<{ok: boolean}>("/api/admin/file-move/pause", send("POST", {})),
+  resume: () => request<{ok: boolean}>("/api/admin/file-move/resume", send("POST", {})),
+  cancel: () => request<{ok: boolean}>("/api/admin/file-move/cancel", send("POST", {})),
+  reconcile: (deep: boolean) => request<{started: boolean}>("/api/admin/file-move/reconcile", send("POST", {deep})),
+  sweep: (dryRun: boolean) => request<{started: boolean}>("/api/admin/file-move/sweep", send("POST", {dry_run: dryRun})),
+};
+
+/** Words for a failed file-move call, from the server's stable code. */
+export function fileMoveError(cause: unknown): string {
+  if (cause instanceof ApiError && cause.code) return i18n.t(`settings:admin.org.file_move.error.${cause.code}` as "settings:admin.org.file_move.error.generic", {defaultValue: orgError(cause)});
+  return i18n.t("settings:admin.org.file_move.error.generic");
+}
+
 /** Words for a failed backup call, from the server's stable code; the account is named when the server names one. */
 export function backupError(cause: unknown): string {
   if (cause instanceof ApiError && cause.code) return i18n.t(`settings:admin.org.backup.error.${cause.code}` as "settings:admin.org.backup.error.generic", {defaultValue: orgError(cause)});
