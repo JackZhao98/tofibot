@@ -715,8 +715,9 @@
         "invalid_grace": "Deleted files are kept 1 to 365 days.",
         "file_store_in_use": "Files are stored in this bucket. It cannot be removed until they are moved.",
         "file_store_location_in_use": "That bucket is already an earlier bucket. Move its files or retire it first.",
-        "file_store_cannot_compare": "Could not compare the new bucket with the current and earlier ones. Check that they are reachable and try again.",
-        "file_store_same_bucket": "This is the bucket already in use. Its prefix cannot change while files are stored in it."
+        "file_store_cannot_compare": "The previous bucket could not be reached, so TOFI cannot check that the new one is a different bucket. Save anyway?",
+        "file_store_same_bucket": "This is the bucket already in use. Its prefix cannot change while files are stored in it.",
+        "file_store_changed": "File storage was changed while you were saving. Reload and try again."
       },
       "missing_accounts_one": "{{count}} account override",
       "missing_accounts_other": "{{count}} account overrides",
@@ -778,7 +779,8 @@
         "preset_b2": "Backblaze B2",
         "preset_minio": "MinIO",
         "preset_note": "A preset only fills in the endpoint format. Replace the placeholders in angle brackets.",
-        "new_bucket_note": "Saving a different bucket, endpoint or prefix keeps the current bucket as a previous bucket. Files already in the old bucket stay readable until you move them. New files go to the new bucket."
+        "new_bucket_note": "Saving a different bucket, endpoint or prefix keeps the current bucket as a previous bucket. Files already in the old bucket stay readable until you move them. New files go to the new bucket.",
+        "confirm_unverified": "Save anyway"
       },
       "backup": {
         "name": "Remote backups",
@@ -977,7 +979,8 @@
           "file_store_generation_in_use": "Files are still stored in this bucket. Move them to the current bucket first.",
           "generation_cleanup_pending": "Deleted files are still waiting out the retention period in this bucket.",
           "generation_not_found": "There is no previous bucket to retire.",
-          "generation_busy": "This bucket was replaced a moment ago, or an import to it is still finishing. Try again later."
+          "generation_busy": "This bucket was replaced a moment ago, or an import to it is still finishing. Try again later.",
+          "same_physical_bucket": "The destination is the same bucket as the source"
         },
         "to_current": "Move to current bucket",
         "direction_to_generation": "Previous bucket to current bucket",

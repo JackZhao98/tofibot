@@ -13,6 +13,7 @@ package app
 // pause/resume/cancel handlers and the runner, so a cancel is never overwritten.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -424,6 +425,9 @@ func (g *AccountGateway) runFileReport(ctx context.Context, kind string, deep, s
 			return
 		}
 	}
+	if sweep && !dry {
+		total.Deleted += g.sweepProbes(ctx, time.Now())
+	}
 	rep.fileScan = total
 	rep.Status, rep.FinishedAt = "done", now()
 	g.saveMoveState("report", &rep)
@@ -569,7 +573,106 @@ func (g *AccountGateway) moveDestinationProblem(ctx context.Context, dir string)
 	case dir == moveToGeneration && len(cfg.Prev) == 0:
 		return "no_previous_bucket", "There is no earlier bucket to move files from.", nil
 	}
+	if dir == moveToGeneration {
+		return g.generationsDistinct(ctx, cfg)
+	}
 	return "", "", nil
+}
+
+// generationsDistinct is the one check that the earlier buckets are not the current bucket under another
+// name, made when a to_generation job starts or resumes: a unique probe is put into the current bucket and
+// looked for through every earlier generation. Visible means one physical bucket, and the job must not run
+// (it would journal the only copy of each file for deletion). The probe is removed either way.
+func (g *AccountGateway) generationsDistinct(ctx context.Context, cfg fileStoreConfig) (code, msg string, err error) {
+	b, err := g.fileBackendFor(ctx, "-")
+	if err != nil {
+		return "", "", err
+	}
+	if b.Store == nil {
+		return "file_store_not_configured", "Set up File storage first.", nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+	defer cancel()
+	key := cfg.Prefix + fileStoreLayoutV1 + "/" + g.root.instance.ID + "/_probe/" + newID()
+	payload := []byte("tofi-alias-probe")
+	if perr := b.Store.Put(ctx, key, bytes.NewReader(payload), filestore.ObjectMeta{Size: int64(len(payload)), SHA256: "probe", SafeMIME: "application/octet-stream"}); perr != nil {
+		return "file_store_unavailable", fileStoreMessage(codeFileStoreUnavailable), nil
+	}
+	defer deleteProbe(b.Store, key)
+	for _, p := range cfg.Prev {
+		old, oerr := b.Old(p.Gen)
+		if oerr != nil || old == nil {
+			return "file_store_misconfigured", fileStoreMessage(codeFileStoreMisconfigured), nil
+		}
+		switch _, serr := old.Stat(ctx, key); {
+		case serr == nil:
+			return codeSamePhysicalBucket, "The current bucket is the same bucket as an earlier one. Nothing was moved.", nil
+		case errors.Is(serr, filestore.ErrNotFound), noSuchBucket(serr):
+		default:
+			return "file_store_unavailable", fileStoreMessage(codeFileStoreUnavailable), nil
+		}
+	}
+	return "", "", nil
+}
+
+// noSuchBucket: the bucket itself is gone, so it cannot be the same one as another.
+func noSuchBucket(err error) bool {
+	return errors.Is(err, filestore.ErrDenied) && filestore.ErrorCode(err) == "NoSuchBucket"
+}
+
+// deleteProbe removes a probe object, once more if the first delete fails.
+func deleteProbe(st filestore.Store, key string) {
+	for i := 0; i < 2; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err := st.Delete(ctx, key)
+		cancel()
+		if err == nil {
+			return
+		}
+	}
+}
+
+// sweepProbes removes probe objects older than a day under the current and every earlier bucket
+// (a probe left behind by a failed delete). Best effort: it returns how many it removed.
+func (g *AccountGateway) sweepProbes(ctx context.Context, now time.Time) int64 {
+	row, found, err := g.getOrgResource(ctx, orgFileStoreID)
+	if err != nil || !found {
+		return 0
+	}
+	var cfg fileStoreConfig
+	if json.Unmarshal([]byte(row.Config), &cfg) != nil {
+		return 0
+	}
+	b, err := g.fileBackendFor(ctx, "-")
+	if err != nil || b.Store == nil {
+		return 0
+	}
+	type target struct {
+		st     filestore.Store
+		prefix string
+	}
+	targets := []target{{b.Store, cfg.Prefix + fileStoreLayoutV1 + "/" + g.root.instance.ID + "/_probe/"}}
+	for _, p := range cfg.Prev {
+		if old, oerr := b.Old(p.Gen); oerr == nil && old != nil {
+			targets = append(targets, target{old, p.Prefix + fileStoreLayoutV1 + "/" + g.root.instance.ID + "/_probe/"})
+		}
+	}
+	var removed int64
+	for _, t := range targets {
+		var keys []string
+		_ = t.st.List(ctx, t.prefix, func(o filestore.ObjectInfo) error {
+			if !o.Modified.IsZero() && o.Modified.Before(now.Add(-24*time.Hour)) {
+				keys = append(keys, o.Key)
+			}
+			return nil
+		})
+		for _, k := range keys {
+			if t.st.Delete(ctx, k) == nil {
+				removed++
+			}
+		}
+	}
+	return removed
 }
 
 func (g *AccountGateway) adminFileMove(w http.ResponseWriter, r *http.Request, a Account) bool {

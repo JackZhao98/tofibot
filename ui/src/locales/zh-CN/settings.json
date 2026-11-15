@@ -708,8 +708,9 @@
         "invalid_grace": "已删除文件保留 1 到 365 天。",
         "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能移除。",
         "file_store_location_in_use": "该存储桶已经是旧存储桶。请先迁走其中的文件，或先将其停用。",
-        "file_store_cannot_compare": "无法将新存储桶与当前及旧存储桶进行比较。请确认它们可以访问，然后重试。",
-        "file_store_same_bucket": "这是已在使用的存储桶。其中有文件时，不能更改前缀。"
+        "file_store_cannot_compare": "无法连接到之前的存储桶，因此 TOFI 无法确认新存储桶是另一个存储桶。仍要保存吗？",
+        "file_store_same_bucket": "这是已在使用的存储桶。其中有文件时，不能更改前缀。",
+        "file_store_changed": "保存期间对象存储的设置已被更改。请刷新后重试。"
       },
       "missing_accounts_other": "{{count}} 个账户覆盖",
       "intro": "这些密钥属于这台服务器，供所在组由组织提供资源的账户使用；它们不是你的个人密钥，你的在 设置 › AI 模型、环境、搜索与抓取。",
@@ -770,7 +771,8 @@
         "preset_b2": "Backblaze B2",
         "preset_minio": "MinIO",
         "preset_note": "预设只会填入 endpoint 的格式，请替换尖括号中的占位内容。",
-        "new_bucket_note": "保存不同的存储桶、endpoint 或前缀后，当前存储桶会作为旧存储桶保留。旧存储桶中的文件在迁走之前仍可读取，新文件会写入新存储桶。"
+        "new_bucket_note": "保存不同的存储桶、endpoint 或前缀后，当前存储桶会作为旧存储桶保留。旧存储桶中的文件在迁走之前仍可读取，新文件会写入新存储桶。",
+        "confirm_unverified": "仍然保存"
       },
       "backup": {
         "name": "异地备份",
@@ -967,7 +969,8 @@
           "file_store_generation_in_use": "此存储桶中仍有文件，请先迁到当前存储桶。",
           "generation_cleanup_pending": "已删除的文件仍在此存储桶中等待保留期结束。",
           "generation_not_found": "没有可停用的旧存储桶。",
-          "generation_busy": "此存储桶刚刚被替换，或有导入仍在完成。请稍后再试。"
+          "generation_busy": "此存储桶刚刚被替换，或有导入仍在完成。请稍后再试。",
+          "same_physical_bucket": "目标与来源是同一个存储桶"
         },
         "to_current": "迁到当前存储桶",
         "direction_to_generation": "旧存储桶到当前存储桶",

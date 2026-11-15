@@ -2837,6 +2837,18 @@ class ObjectStoreRowsTests(HostCase):
         self.assertIn('could not be read', str(caught.exception))
         self.assertIn('Nothing was changed', str(caught.exception))
 
+    def test_an_unreadable_file_store_config_blocks_a_release_before_generations(self):
+        self.database('', [('1', 'obj:k/1', 10)], config={'bucket': 'b'})
+        import sqlite3 as sqlite
+        connection = sqlite.connect(str(self.P.data / 'tofi.db'))
+        connection.execute("UPDATE org_resources SET config='{not json'")
+        connection.commit()
+        connection.close()
+        with self.assertRaises(tofi_host.HostError) as caught:
+            tofi_host.check_object_rows('v0.6.3-rc.16')
+        self.assertIn('earlier buckets', str(caught.exception))
+        self.assertIn('Nothing was changed', str(caught.exception))
+
     def test_an_older_release_is_fine_without_obj_rows(self):
         self.database('', [('1', '1.upload', 10)])
         tofi_host.check_object_rows('v0.6.2')

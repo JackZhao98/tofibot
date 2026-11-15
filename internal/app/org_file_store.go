@@ -267,33 +267,37 @@ func (g *AccountGateway) deleteAccountFiles(ctx context.Context, accountID strin
 // aliasedGeneration writes a probe object through the new configuration and looks for it
 // through the current generation and every earlier one. It returns the generation that can
 // read it (the same physical bucket under another name), or "" when none can. A generation
-// that cannot be asked is an error: nothing is minted on a guess.
-func (g *AccountGateway) aliasedGeneration(ctx context.Context, cfg, prev fileStoreConfig, accessKey, secret string) (string, error) {
+// that is gone (no such bucket) is not the same bucket; one that cannot be asked (denied,
+// unreachable) leaves the answer unverified, and the caller decides whether to go on.
+func (g *AccountGateway) aliasedGeneration(ctx context.Context, cfg, prev fileStoreConfig, accessKey, secret string) (alias string, unverified bool, err error) {
 	s3, err := filestore.NewS3(cfg.s3(accessKey, secret))
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 	key := cfg.Prefix + fileStoreLayoutV1 + "/" + g.root.instance.ID + "/_probe/" + newID()
 	payload := []byte("tofi-alias-probe")
 	if err = s3.Put(ctx, key, bytes.NewReader(payload), filestore.ObjectMeta{Size: int64(len(payload)), SHA256: "probe", SafeMIME: "application/octet-stream"}); err != nil {
-		return "", err
+		return "", false, err
 	}
-	defer func() { _ = s3.Delete(context.WithoutCancel(ctx), key) }()
+	defer deleteProbe(s3, key)
 	gens := append([]fileStoreGen{prev.asGen("")}, prev.Prev...)
 	for _, c := range gens {
-		st, err := g.openGenStore(prev, c)
-		if err != nil {
-			return "", err
+		st, oerr := g.openGenStore(prev, c)
+		if oerr != nil {
+			unverified = true
+			continue
 		}
-		if _, err = st.Stat(ctx, key); err == nil {
-			return c.Gen, nil
-		} else if !errors.Is(err, filestore.ErrNotFound) {
-			return "", err
+		switch _, serr := st.Stat(ctx, key); {
+		case serr == nil:
+			return c.Gen, false, nil
+		case errors.Is(serr, filestore.ErrNotFound), noSuchBucket(serr):
+		default:
+			unverified = true
 		}
 	}
-	return "", nil
+	return "", unverified, nil
 }
 
 // openGenStore builds a client for one generation straight from the vault (no cache).
@@ -327,6 +331,8 @@ type fileStoreIn struct {
 	Key             string  `json:"key"`
 	DeleteGraceDays int     `json:"delete_grace_days"`
 	ConfirmPublic   bool    `json:"confirm_public"`
+	// ConfirmUnverified accepts a new bucket although an earlier one could not be reached to compare.
+	ConfirmUnverified bool `json:"confirm_unverified"`
 }
 
 func fileStoreFail(code, msg string) orgVerifyResult {
@@ -374,6 +380,9 @@ func (g *AccountGateway) verifyFileStore(ctx context.Context, cfg fileStoreConfi
 	return orgVerifyResult{ok: true}
 }
 
+// fileStoreBeforeLock lets a test change the resource between the network work and the save.
+var fileStoreBeforeLock func()
+
 func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request, sp orgResourceSpec) {
 	var in fileStoreIn
 	if decodeStrict(r, orgBodyLimit, &in) != nil {
@@ -381,9 +390,8 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	ctx := r.Context()
-	// Read under the lock: two saves must not both start from the same stored config.
-	g.orgWriteMu.Lock()
-	defer g.orgWriteMu.Unlock()
+	// The network work (connection test, same-bucket probe) happens before the lock; the lock is then
+	// taken, the resource re-read, and the save aborted if it changed in the meantime.
 	old, found, err := g.getOrgResource(ctx, sp.ID)
 	if err != nil {
 		storageFailure(w, "read resource", err)
@@ -397,12 +405,21 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 	// "disk" turns new files back to this server's disk and keeps the bucket
 	// readable: rows already in it are still read from it.
 	if in.Kind == fileStoreKindDisk {
-		if !found {
+		g.orgWriteMu.Lock()
+		defer g.orgWriteMu.Unlock()
+		cur, ok, rerr := g.getOrgResource(ctx, sp.ID)
+		if rerr != nil {
+			storageFailure(w, "read resource", rerr)
+			return
+		}
+		if !ok {
 			writeErr(w, 404, "not_found", "resource not found")
 			return
 		}
-		cfg.Kind = fileStoreKindDisk
-		g.saveFileStoreConfig(w, ctx, old, cfg)
+		var current fileStoreConfig
+		_ = json.Unmarshal([]byte(cur.Config), &current)
+		current.Kind = fileStoreKindDisk
+		g.saveFileStoreConfig(w, ctx, cur, current)
 		return
 	}
 	if in.Kind != "" && in.Kind != fileStoreKindS3 {
@@ -487,12 +504,15 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		verified = true
-		alias, aerr := g.aliasedGeneration(ctx, cfg, prev, accessKey, secretKey)
+		alias, unverified, aerr := g.aliasedGeneration(ctx, cfg, prev, accessKey, secretKey)
 		if aerr != nil {
-			writeErr(w, 502, "file_store_cannot_compare", "Could not compare the new bucket with the current and earlier ones. Check that they are reachable and try again.")
+			writeErr(w, 502, "endpoint_unreachable", fileStoreProbeMessages["endpoint_unreachable"])
 			return
 		}
 		switch {
+		case alias == "" && unverified && !in.ConfirmUnverified:
+			writeErr(w, 409, "file_store_cannot_compare", "An earlier bucket could not be reached, so it cannot be checked that the new one is a different bucket. Confirm to save anyway.")
+			return
 		case alias == "":
 			newGen = true
 		case alias != prevGenName(prev):
@@ -521,6 +541,18 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 			writeErr(w, res.status, res.code, res.msg)
 			return
 		}
+	}
+	if fileStoreBeforeLock != nil {
+		fileStoreBeforeLock()
+	}
+	g.orgWriteMu.Lock()
+	defer g.orgWriteMu.Unlock()
+	if cur, ok, rerr := g.getOrgResource(ctx, sp.ID); rerr != nil {
+		storageFailure(w, "read resource", rerr)
+		return
+	} else if ok != found || (found && cur.UpdatedAt != old.UpdatedAt) {
+		writeErr(w, 409, "file_store_changed", "File storage was changed while you were saving. Reload and try again.")
+		return
 	}
 	cfgJSON, err := json.Marshal(cfg)
 	if err != nil {

@@ -715,8 +715,9 @@
         "invalid_grace": "Gelöschte Dateien werden 1 bis 365 Tage behalten.",
         "file_store_in_use": "In diesem Bucket liegen Dateien. Er lässt sich erst entfernen, wenn sie verschoben sind.",
         "file_store_location_in_use": "Dieser Bucket ist bereits ein früherer Bucket. Verschiebe seine Dateien oder gib ihn zuerst frei.",
-        "file_store_cannot_compare": "Der neue Bucket ließ sich nicht mit dem aktuellen und den früheren vergleichen. Prüfe, ob sie erreichbar sind, und versuche es erneut.",
-        "file_store_same_bucket": "Das ist der Bucket, der bereits verwendet wird. Sein Präfix lässt sich nicht ändern, solange Dateien darin liegen."
+        "file_store_cannot_compare": "Der frühere Bucket war nicht erreichbar, daher kann TOFI nicht prüfen, ob der neue ein anderer Bucket ist. Trotzdem speichern?",
+        "file_store_same_bucket": "Das ist der Bucket, der bereits verwendet wird. Sein Präfix lässt sich nicht ändern, solange Dateien darin liegen.",
+        "file_store_changed": "Der Objektspeicher wurde geändert, während du gespeichert hast. Lade neu und versuche es erneut."
       },
       "missing_accounts_one": "{{count}} Konto-Überschreibung",
       "missing_accounts_other": "{{count}} Konto-Überschreibungen",
@@ -778,7 +779,8 @@
         "preset_b2": "Backblaze B2",
         "preset_minio": "MinIO",
         "preset_note": "Eine Vorlage füllt nur das Endpoint-Format aus. Ersetze die Platzhalter in spitzen Klammern.",
-        "new_bucket_note": "Wenn du einen anderen Bucket, Endpoint oder ein anderes Präfix speicherst, bleibt der aktuelle Bucket als früherer Bucket erhalten. Dateien im alten Bucket bleiben lesbar, bis du sie verschiebst. Neue Dateien gehen in den neuen Bucket."
+        "new_bucket_note": "Wenn du einen anderen Bucket, Endpoint oder ein anderes Präfix speicherst, bleibt der aktuelle Bucket als früherer Bucket erhalten. Dateien im alten Bucket bleiben lesbar, bis du sie verschiebst. Neue Dateien gehen in den neuen Bucket.",
+        "confirm_unverified": "Trotzdem speichern"
       },
       "backup": {
         "name": "Remote-Backups",
@@ -977,7 +979,8 @@
           "file_store_generation_in_use": "In diesem Bucket liegen noch Dateien. Verschiebe sie zuerst in den aktuellen Bucket.",
           "generation_cleanup_pending": "Gelöschte Dateien warten in diesem Bucket noch die Aufbewahrungsfrist ab.",
           "generation_not_found": "Es gibt keinen früheren Bucket, der freigegeben werden könnte.",
-          "generation_busy": "Dieser Bucket wurde gerade erst ersetzt, oder ein Import dorthin läuft noch. Versuche es später erneut."
+          "generation_busy": "Dieser Bucket wurde gerade erst ersetzt, oder ein Import dorthin läuft noch. Versuche es später erneut.",
+          "same_physical_bucket": "Das Ziel ist derselbe Bucket wie die Quelle"
         },
         "to_current": "In aktuellen Bucket verschieben",
         "direction_to_generation": "Früherer Bucket in aktuellen Bucket",

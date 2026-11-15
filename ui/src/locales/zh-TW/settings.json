@@ -708,8 +708,9 @@
         "invalid_grace": "已刪除檔案保留 1 到 365 天。",
         "file_store_in_use": "檔案已存放在此儲存貯體中。在移走之前，不能移除。",
         "file_store_location_in_use": "該儲存貯體已經是舊儲存貯體。請先移走其中的檔案，或先將其停用。",
-        "file_store_cannot_compare": "無法將新儲存貯體與目前及舊儲存貯體進行比較。請確認它們可連線，然後重試。",
-        "file_store_same_bucket": "這是已在使用的儲存貯體。其中有檔案時，不能變更前綴。"
+        "file_store_cannot_compare": "無法連線到先前的儲存貯體，因此 TOFI 無法確認新儲存貯體是另一個儲存貯體。仍要儲存嗎？",
+        "file_store_same_bucket": "這是已在使用的儲存貯體。其中有檔案時，不能變更前綴。",
+        "file_store_changed": "儲存期間物件儲存的設定已被變更。請重新整理後再試。"
       },
       "missing_accounts_other": "{{count}} 個帳戶覆寫",
       "intro": "這些金鑰屬於這台伺服器，供所在群組由組織提供資源的帳戶使用；它們不是你的個人金鑰，你的在 設定 › AI 模型、環境、搜尋與擷取。",
@@ -770,7 +771,8 @@
         "preset_b2": "Backblaze B2",
         "preset_minio": "MinIO",
         "preset_note": "預設只會填入 endpoint 的格式，請替換角括號中的預留內容。",
-        "new_bucket_note": "儲存不同的儲存貯體、endpoint 或前綴後，目前的儲存貯體會作為舊儲存貯體保留。舊儲存貯體中的檔案在移走之前仍可讀取，新檔案會寫入新儲存貯體。"
+        "new_bucket_note": "儲存不同的儲存貯體、endpoint 或前綴後，目前的儲存貯體會作為舊儲存貯體保留。舊儲存貯體中的檔案在移走之前仍可讀取，新檔案會寫入新儲存貯體。",
+        "confirm_unverified": "仍然儲存"
       },
       "backup": {
         "name": "異地備份",
@@ -967,7 +969,8 @@
           "file_store_generation_in_use": "此儲存貯體中仍有檔案，請先移到目前儲存貯體。",
           "generation_cleanup_pending": "已刪除的檔案仍在此儲存貯體中等待保留期結束。",
           "generation_not_found": "沒有可停用的舊儲存貯體。",
-          "generation_busy": "此儲存貯體剛剛被替換，或有匯入仍在完成。請稍後再試。"
+          "generation_busy": "此儲存貯體剛剛被替換，或有匯入仍在完成。請稍後再試。",
+          "same_physical_bucket": "目的地與來源是同一個儲存貯體"
         },
         "to_current": "移到目前儲存貯體",
         "direction_to_generation": "舊儲存貯體到目前儲存貯體",

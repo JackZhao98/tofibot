@@ -722,8 +722,9 @@
         "invalid_grace": "Les fichiers supprimés sont conservés de 1 à 365 jours.",
         "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Il ne peut pas être retiré tant qu'ils ne sont pas déplacés.",
         "file_store_location_in_use": "Ce bucket est déjà un ancien bucket. Déplacez ses fichiers ou retirez-le d'abord.",
-        "file_store_cannot_compare": "Impossible de comparer le nouveau bucket avec l'actuel et les anciens. Vérifiez qu'ils sont joignables et réessayez.",
-        "file_store_same_bucket": "C'est le bucket déjà utilisé. Son préfixe ne peut pas changer tant que des fichiers y sont stockés."
+        "file_store_cannot_compare": "Le bucket précédent n'a pas pu être joint, TOFI ne peut donc pas vérifier que le nouveau en est un autre. Enregistrer quand même ?",
+        "file_store_same_bucket": "C'est le bucket déjà utilisé. Son préfixe ne peut pas changer tant que des fichiers y sont stockés.",
+        "file_store_changed": "Le stockage objet a été modifié pendant l'enregistrement. Rechargez et réessayez."
       },
       "missing_accounts_one": "{{count}} exception de compte",
       "missing_accounts_many": "{{count}} exceptions de compte",
@@ -786,7 +787,8 @@
         "preset_b2": "Backblaze B2",
         "preset_minio": "MinIO",
         "preset_note": "Un modèle ne renseigne que le format de l'endpoint. Remplacez les éléments entre chevrons.",
-        "new_bucket_note": "Enregistrer un autre bucket, endpoint ou préfixe conserve le bucket actuel comme ancien bucket. Les fichiers déjà présents dans l'ancien bucket restent lisibles jusqu'à ce que vous les déplaciez. Les nouveaux fichiers vont dans le nouveau bucket."
+        "new_bucket_note": "Enregistrer un autre bucket, endpoint ou préfixe conserve le bucket actuel comme ancien bucket. Les fichiers déjà présents dans l'ancien bucket restent lisibles jusqu'à ce que vous les déplaciez. Les nouveaux fichiers vont dans le nouveau bucket.",
+        "confirm_unverified": "Enregistrer quand même"
       },
       "backup": {
         "name": "Sauvegardes distantes",
@@ -987,7 +989,8 @@
           "file_store_generation_in_use": "Des fichiers sont encore stockés dans ce bucket. Déplacez-les d'abord vers le bucket actuel.",
           "generation_cleanup_pending": "Des fichiers supprimés attendent encore la fin de la période de rétention dans ce bucket.",
           "generation_not_found": "Il n'y a aucun ancien bucket à retirer.",
-          "generation_busy": "Ce bucket vient d'être remplacé, ou un import y est encore en cours. Réessayez plus tard."
+          "generation_busy": "Ce bucket vient d'être remplacé, ou un import y est encore en cours. Réessayez plus tard.",
+          "same_physical_bucket": "La destination est le même bucket que la source"
         },
         "to_current": "Déplacer vers le bucket actuel",
         "direction_to_generation": "Ancien bucket vers bucket actuel",

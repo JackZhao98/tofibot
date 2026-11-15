@@ -36,8 +36,8 @@ const (
 	codeMoveVerifyFailed   = "file_verify_failed"
 	codeMoveKeyConflict    = "file_key_conflict"
 	codeMoveFailed         = "file_move_failed"
-	// codeSamePhysicalBucket: the destination key already exists and the source bucket reads that same key,
-	// so both generations are one bucket. Adopting it would journal the only copy for deletion.
+	// codeSamePhysicalBucket: a probe written to the destination bucket is readable through the source generation,
+	// so both are one bucket. The job refuses to start: moving would journal the only copy for deletion.
 	codeSamePhysicalBucket = "same_physical_bucket"
 )
 
@@ -426,14 +426,8 @@ func (s *Store) moveToGeneration(ctx context.Context, b FileBackend, r moveRow) 
 	key := b.objectKey(r.origin, r.id)
 	created := true
 	if err = b.Store.Put(ctx, key, f, filestore.ObjectMeta{Size: n, SHA256: sum, SafeMIME: r.mime}); errors.Is(err, filestore.ErrExists) {
-		// An earlier attempt may have written it to the new bucket. But if the old bucket reads this very
-		// key, the two generations are one physical bucket: refuse, never adopt (the journal would then
-		// delete the only copy).
-		if _, serr := st.Stat(ctx, key); serr == nil {
-			return false, moveCodeErr(codeSamePhysicalBucket)
-		} else if !errors.Is(serr, filestore.ErrNotFound) {
-			return false, fileStoreFailure(serr)
-		}
+		// A leftover of an interrupted attempt: adopted below only if its content matches. That the two
+		// generations are not one bucket was settled once, when the job started.
 		created, err = false, nil
 	}
 	if err != nil {
@@ -446,6 +440,7 @@ func (s *Store) moveToGeneration(ctx context.Context, b FileBackend, r moveRow) 
 	}
 	got, gotSize, err := hashObject(ctx, b.Store, key)
 	if err != nil {
+		drop()
 		return false, err
 	}
 	if got != sum || gotSize != n {
@@ -630,12 +625,31 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 	}
 	// Rows of every generation protect an object from the sweep (two generations may be one bucket);
 	// only the current generation's rows are compared with the listing.
-	anyRow := make(map[string]bool, len(objRows))
+	// Every key some row or journal entry names, in any generation, loaded once.
+	named := make(map[string]bool, len(objRows))
+	gensSeen := map[string]bool{b.Gen: true}
 	for key, g := range rowGen {
-		anyRow[key] = true
+		named[key], gensSeen[g] = true, true
 		if g != b.Gen {
 			delete(objRows, key) // an earlier bucket: its files are moved, not reconciled here
 		}
+	}
+	jrows, jerr := s.db.QueryContext(ctx, `SELECT disk_name FROM deleted_attachment_files WHERE disk_name>='obj:' AND disk_name<'obj;'`)
+	if jerr != nil {
+		return out, jerr
+	}
+	for jrows.Next() {
+		var name string
+		if err = jrows.Scan(&name); err != nil {
+			jrows.Close()
+			return out, err
+		}
+		g, key := objectRef(name)
+		named[key], gensSeen[g] = true, true
+	}
+	jrows.Close()
+	if err = jrows.Err(); err != nil {
+		return out, err
 	}
 	grace := b.GraceDays
 	if grace <= 0 {
@@ -673,12 +687,8 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 			}
 			return nil
 		}
-		if anyRow[obj.Key] {
-			return nil // another generation's row names it
-		}
-		var journaled int
-		if s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM deleted_attachment_files WHERE `+keyRefSQL, "obj:"+obj.Key, "obj:%|"+obj.Key).Scan(&journaled) == nil && journaled > 0 {
-			return nil // already queued for removal (in any generation)
+		if named[obj.Key] {
+			return nil // a row of some generation, or a pending removal, names it
 		}
 		if obj.Modified.IsZero() || obj.Modified.After(cutoff) {
 			out.OrphansYoung++
@@ -710,8 +720,15 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 			return out, err
 		}
 		// Check again right before the delete: a row or journal entry may have appeared since the listing.
+		// Exact names only (indexed), one per generation seen.
+		names := make([]any, 0, len(gensSeen))
+		marks := make([]string, 0, len(gensSeen))
+		for g := range gensSeen {
+			names, marks = append(names, objectDisk(g, obj.Key)), append(marks, "?")
+		}
+		in := strings.Join(marks, ",")
 		var n int
-		if s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE `+keyRefSQL+`)+(SELECT COUNT(*) FROM deleted_attachment_files WHERE `+keyRefSQL+`)`, "obj:"+obj.Key, "obj:%|"+obj.Key, "obj:"+obj.Key, "obj:%|"+obj.Key).Scan(&n) != nil || n > 0 {
+		if s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE disk_name IN (`+in+`))+(SELECT COUNT(*) FROM deleted_attachment_files WHERE disk_name IN (`+in+`))`, append(append([]any{}, names...), names...)...).Scan(&n) != nil || n > 0 {
 			continue
 		}
 		if derr := b.Store.Delete(ctx, obj.Key); derr != nil {
@@ -725,9 +742,6 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 	}
 	return out, nil
 }
-
-// keyRefSQL matches a disk name that refers to one key in any generation (`obj:<key>` or `obj:<gen>|<key>`).
-const keyRefSQL = `(disk_name=? OR disk_name LIKE ?)`
 
 // objectKeyKind is the kind segment of a key under the prefix, never user text.
 func objectKeyKind(key, prefix string) string {

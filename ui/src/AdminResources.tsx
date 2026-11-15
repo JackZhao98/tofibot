@@ -327,6 +327,8 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
   const [form, setForm] = useState({endpoint: "", region: "", bucket: "", prefix: "", pathStyle: false, accessKey: "", secret: "", grace: "14"});
   const [confirmPublic, setConfirmPublic] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [needsUnverified, setNeedsUnverified] = useState(false);
+  const [confirmUnverified, setConfirmUnverified] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preset, setPreset] = useState<"" | FileStorePreset>("");
   const actions = useResourceActions("file_store", onChange, onDropped);
@@ -350,12 +352,13 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
     if (saving || !ready) return;
     setSaving(true); actions.setError(""); actions.setNotice("");
     try {
-      onChange(await adminOrgApi.putResource("file_store", {kind: "s3", endpoint: form.endpoint.trim(), region: form.region.trim(), bucket: form.bucket.trim(), prefix: form.prefix.trim(), path_style: form.pathStyle, delete_grace_days: Number(form.grace) || 14, confirm_public: confirmPublic,
+      onChange(await adminOrgApi.putResource("file_store", {kind: "s3", endpoint: form.endpoint.trim(), region: form.region.trim(), bucket: form.bucket.trim(), prefix: form.prefix.trim(), path_style: form.pathStyle, delete_grace_days: Number(form.grace) || 14, confirm_public: confirmPublic, ...(needsUnverified && confirmUnverified ? {confirm_unverified: true} : {}),
         ...(form.accessKey.trim() && form.secret.trim() ? {access_key_id: form.accessKey.trim(), key: form.secret.trim()} : {})}));
-      setForm(value => ({...value, accessKey: "", secret: ""})); setEditing(false); setNeedsConfirm(false); actions.setNotice(t("admin.org.saved", {name: t("admin.org.file_store.name")}));
+      setForm(value => ({...value, accessKey: "", secret: ""})); setEditing(false); setNeedsConfirm(false); setNeedsUnverified(false); setConfirmUnverified(false); actions.setNotice(t("admin.org.saved", {name: t("admin.org.file_store.name")}));
     } catch (cause) {
       actions.setError(orgError(cause));
       setNeedsConfirm(cause instanceof ApiError && cause.code === "bucket_is_public");
+      setNeedsUnverified(cause instanceof ApiError && cause.code === "file_store_cannot_compare");
     } finally { setSaving(false); }
   }
   async function destination(kind: "s3" | "disk") {
@@ -405,8 +408,9 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <label htmlFor={`${formId}-grace`}>{t("admin.org.file_store.grace")}</label>
       <input id={`${formId}-grace`} name="org-file-store-grace" type="number" min={1} max={365} value={form.grace} disabled={saving} onChange={set("grace")}/>
       {needsConfirm && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-public" checked={confirmPublic} onChange={event => setConfirmPublic(event.target.checked)}/>{t("admin.org.file_store.confirm_public")}</label>}
+      {needsUnverified && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-unverified" checked={confirmUnverified} onChange={event => setConfirmUnverified(event.target.checked)}/>{t("admin.org.file_store.confirm_unverified")}</label>}
       {relocates && <p className="field-note" role="status" data-field="new-bucket-note">{t("admin.org.file_store.new_bucket_note")}</p>}
-      <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
+      <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic) || (needsUnverified && !confirmUnverified)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
       <p className="field-note">{t("admin.org.file_store.note")}</p>
     </form>}
     {resource && !editing && <FileMovePanel resourceKey={resource.updated_at}/>}

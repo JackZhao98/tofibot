@@ -2018,17 +2018,28 @@ def generation_rows():
 
 
 def file_store_has_previous_generations():
-    """True when the File storage config lists an earlier bucket generation."""
+    """True when the File storage config lists an earlier bucket generation. A config that cannot be read
+    is a refusal, like an unreadable database: nothing here guesses "no".
+    No root database, no org_resources table or no file_store row means there is no config."""
+    database = P.data / 'tofi.db'
+    if not database.exists():
+        return False
     try:
-        uri = 'file:%s?mode=ro' % urllib.parse.quote(str(P.data / 'tofi.db'))
+        uri = 'file:%s?mode=ro' % urllib.parse.quote(str(database))
         connection = sqlite3.connect(uri, uri=True, timeout=5)
         try:
             row = connection.execute("SELECT config FROM org_resources WHERE id='file_store'").fetchone()
         finally:
             connection.close()
         return bool(row and (json.loads(row[0]) or {}).get('prev'))
+    except sqlite3.OperationalError as error:
+        if str(error).startswith('no such table'):
+            return False
+        raise HostError('Cannot tell whether File storage has earlier buckets: %s could not be read. '
+                        'Nothing was changed.' % database)
     except (sqlite3.Error, OSError, ValueError, TypeError, AttributeError):
-        return False
+        raise HostError('Cannot tell whether File storage has earlier buckets: %s could not be read. '
+                        'Nothing was changed.' % database)
 
 
 def object_rows():
