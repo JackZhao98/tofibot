@@ -2255,6 +2255,24 @@ class RemoteBackupTests(BackupCase):
         self.assertEqual((result['status'], result['snapshot_id']), ('ok', 'sched-1'))
         self.assertEqual(len(sleeps), 2)
 
+    def test_a_slot_freed_by_a_job_that_is_not_a_snapshot_gets_one_more_request(self):
+        self.seed()
+        env = tofi_host.read_env()
+        runs = iter([tofi_host.HostControlUnavailable('busy', 409, 'backup_in_progress'),
+                     {'snapshot_id': 'mine-1', 'at': '2026-11-10T03:00:00Z'}])
+
+        def fake(env, operation, body=None, timeout=60, route=None):
+            if operation == 'run':
+                value = next(runs)
+                if isinstance(value, Exception):
+                    raise value
+                return value
+            return dict(self.STATE, running=False, last_status='ok', last_snapshot='old', last_success_at='2020-01-01T00:00:00Z')
+
+        with mock.patch.object(tofi_host, 'host_control', side_effect=fake):
+            result = self.real_pre_update_remote(env, sleep=lambda seconds: None)
+        self.assertEqual((result['status'], result['snapshot_id']), ('ok', 'mine-1'))
+
     def test_host_control_names_unreadable_oversized_and_cut_off_answers(self):
         self.installed()
         env = tofi_host.read_env()
@@ -2321,7 +2339,9 @@ class RemoteBackupTests(BackupCase):
         self.installed()
         add_custom_env(self)
         current = tofi_host.read_env()
-        old_server = dict(current, TOFI_VERSION='v0.0.9', TOFI_APP_IMAGE=base.image('app', '7'), CUSTOM_X='from-old-server')
+        old_server = dict(current, TOFI_VERSION='v0.0.9', TOFI_APP_IMAGE=base.image('app', '7'), CUSTOM_X='from-old-server',
+                          TOFI_COMPUTER_BACKEND='none' if current.get('TOFI_COMPUTER_BACKEND') == 'kvm' else 'kvm',
+                          TOFI_WORKER_IMAGE='other/worker@sha256:' + '5' * 64)
         tofi_host.write_env(old_server)
         staged = Path(self.temp.name) / 'incoming-etc.tar.gz'
         tofi_host.write_archive(staged, 'gz', self.P.etc, exclude=tofi_host.etc_excluded)
@@ -2332,5 +2352,7 @@ class RemoteBackupTests(BackupCase):
             tofi_host.restore_backup(meta['id'], yes=True)
         env = tofi_host.read_env()
         self.assertEqual((env['TOFI_VERSION'], env['TOFI_APP_IMAGE']), (current['TOFI_VERSION'], current['TOFI_APP_IMAGE']))
+        self.assertEqual((env['TOFI_COMPUTER_BACKEND'], env.get('TOFI_WORKER_IMAGE')),
+                         (current.get('TOFI_COMPUTER_BACKEND'), current.get('TOFI_WORKER_IMAGE')))
         self.assertEqual(env['CUSTOM_X'], 'from-old-server')  # everything the release does not own comes from the snapshot
         self.assertEqual(self.start_services.call_args[0][0]['TOFI_VERSION'], current['TOFI_VERSION'])

@@ -4177,6 +4177,9 @@ def restore_manifest(version):
     return fetch_manifest(version)
 
 
+COMPUTER_ENV_KEYS = ('TOFI_COMPUTER_BACKEND', 'TOFI_CPU_BUDGET', 'TOFI_MEMORY_BUDGET_MIB', 'TOFI_WORKER_MEMORY_LIMIT',
+                     'TOFI_ACCOUNT_PROVISIONER_SOCKET', 'TOFI_ACCOUNT_COMPUTER_SOCKET_ROOT',
+                     'TOFI_ACCOUNT_COMPUTER_DISK_GIB')
 RELEASE_ENV_KEYS = ('TOFI_VERSION', 'TOFI_APP_IMAGE', 'TOFI_CADDY_IMAGE', 'TOFI_WORKER_IMAGE', 'TOFI_GUEST_VERSION')
 
 
@@ -4194,6 +4197,13 @@ def adopt_candidate_release(env, candidate, manifest, from_remote):
         elif from_remote:
             env.pop(key, None)
     if from_remote:
+        # The computer belongs to this host, not to the server the snapshot came from: a takeover onto a
+        # host without one must not bring `kvm` and an empty Worker image, nor the reverse.
+        for key in COMPUTER_ENV_KEYS:
+            if key in candidate:
+                env[key] = candidate[key]
+            else:
+                env.pop(key, None)
         for key in RUNNER_ENV_KEYS:
             env.pop(key, None)
         env.update(runner_env(manifest))
@@ -5539,7 +5549,9 @@ def remember_remote_policy(policy):
 
 
 def wait_for_running_backup(env, policy, sleep=time.sleep):
-    """A scheduled backup holds the slot: wait for it (bounded) and use its result."""
+    """The slot is busy: wait for it (bounded). A fresh successful snapshot is the result; when the slot frees
+    without one (the job was a verify or an account restore, or a scheduled backup failed) it returns None and
+    the caller asks once more."""
     started = int(time.time())
     for _ in range(REMOTE_WAIT_SECONDS // REMOTE_WAIT_POLL):
         sleep(REMOTE_WAIT_POLL)
@@ -5552,7 +5564,7 @@ def wait_for_running_backup(env, policy, sleep=time.sleep):
             if state.get('last_status') == 'ok' and state.get('last_snapshot') and last is not None and last >= started - 1:
                 return {'status': 'ok', 'snapshot_id': state['last_snapshot'], 'at': state['last_success_at'],
                         'policy': policy}
-            return {'status': 'failed', 'code': state.get('last_code') or 'backup_failed', 'policy': policy}
+            return None
     return {'status': 'failed', 'code': 'backup_in_progress', 'policy': policy}
 
 
@@ -5598,9 +5610,15 @@ def pre_update_remote_snapshot(env, now=None, sleep=time.sleep):
     try:
         answer = host_control(env, 'run', {'reason': 'pre-update'}, timeout=REMOTE_RUN_TIMEOUT, route=HOST_BACKUP_ROUTE)
     except HostControlUnavailable as error:
-        if error.code == 'backup_in_progress':
-            return wait_for_running_backup(env, policy, sleep)
-        return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': policy}
+        if error.code != 'backup_in_progress':
+            return {'status': 'failed', 'code': error.code or 'app_unreachable', 'policy': policy}
+        waited = wait_for_running_backup(env, policy, sleep)
+        if waited is not None:
+            return waited
+        try:  # the busy job was not a usable snapshot: one more request of our own
+            answer = host_control(env, 'run', {'reason': 'pre-update'}, timeout=REMOTE_RUN_TIMEOUT, route=HOST_BACKUP_ROUTE)
+        except HostControlUnavailable as again:
+            return {'status': 'failed', 'code': again.code or 'app_unreachable', 'policy': policy}
     if not isinstance(answer.get('snapshot_id'), str) or not answer['snapshot_id']:
         return {'status': 'failed', 'code': 'response_invalid', 'policy': policy}
     return {'status': 'ok', 'snapshot_id': answer['snapshot_id'], 'at': answer.get('at'), 'policy': policy}
