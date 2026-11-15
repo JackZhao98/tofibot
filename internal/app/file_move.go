@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,8 +26,9 @@ import (
 )
 
 const (
-	moveToBucket = "to_bucket"
-	moveToDisk   = "to_disk"
+	moveToBucket     = "to_bucket"
+	moveToDisk       = "to_disk"
+	moveToGeneration = "to_generation" // an earlier bucket's files into the current bucket
 
 	codeMoveMissingOnDisk  = "file_missing_on_disk"
 	codeMoveSizeMismatch   = "file_size_mismatch"
@@ -50,9 +52,19 @@ const (
 	moveDiskRows = `(NOT (disk_name>='obj:' AND disk_name<'obj;') AND disk_name NOT LIKE 'vm:%' AND expired_at IS NULL)`
 )
 
-func moveSourcePredicate(dir string) string {
-	if dir == moveToDisk {
+var genNamePattern = regexp.MustCompile(`^g[0-9]+$`)
+
+// moveSourcePredicate is the row set a direction drains. to_disk takes every bucket
+// generation; to_generation takes the rows of every generation except the current one.
+func moveSourcePredicate(dir, cur string) string {
+	switch dir {
+	case moveToDisk:
 		return moveObjRows
+	case moveToGeneration:
+		if !genNamePattern.MatchString(cur) || cur == firstFileStoreGen {
+			return moveObjRows + ` AND instr(disk_name,'|')>0`
+		}
+		return moveObjRows + ` AND disk_name NOT LIKE 'obj:` + cur + `|%'`
 	}
 	return moveDiskRows
 }
@@ -75,7 +87,15 @@ type moveResult struct {
 
 // moveCount is what a direction has left to move.
 func (s *Store) moveCount(dir string) (files, bytes int64, err error) {
-	err = s.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(size),0) FROM attachments WHERE `+moveSourcePredicate(dir)).Scan(&files, &bytes)
+	cur := ""
+	if dir == moveToGeneration {
+		b, berr := s.fileBackend(context.Background())
+		if berr != nil {
+			return 0, 0, berr
+		}
+		cur = b.Gen
+	}
+	err = s.db.QueryRow(`SELECT COUNT(*),COALESCE(SUM(size),0) FROM attachments WHERE `+moveSourcePredicate(dir, cur)).Scan(&files, &bytes)
 	return
 }
 
@@ -83,7 +103,11 @@ func (s *Store) moveCount(dir string) (files, bytes int64, err error) {
 // bucket down or refusing, disk full, or the row query failed); a failure of one file is in Code.
 func (s *Store) moveNextFile(ctx context.Context, dir, after string) (moveResult, error) {
 	var r moveRow
-	err := s.db.QueryRowContext(ctx, `SELECT id,disk_name,size,COALESCE(sha256,''),origin,mime FROM attachments WHERE id>? AND `+moveSourcePredicate(dir)+` ORDER BY id LIMIT 1`, after).
+	b, err := s.fileBackend(ctx)
+	if err != nil {
+		return moveResult{}, err
+	}
+	err = s.db.QueryRowContext(ctx, `SELECT id,disk_name,size,COALESCE(sha256,''),origin,mime FROM attachments WHERE id>? AND `+moveSourcePredicate(dir, b.Gen)+` ORDER BY id LIMIT 1`, after).
 		Scan(&r.id, &r.disk, &r.size, &r.digest, &r.origin, &r.mime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -91,17 +115,16 @@ func (s *Store) moveNextFile(ctx context.Context, dir, after string) (moveResult
 		}
 		return moveResult{}, err
 	}
-	b, err := s.fileBackend(ctx)
-	if err != nil {
-		return moveResult{}, err
-	}
-	if b.Store == nil {
+	if b.Store == nil && dir != moveToDisk {
 		return moveResult{}, newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
 	}
 	var switched bool
-	if dir == moveToDisk {
+	switch dir {
+	case moveToDisk:
 		switched, err = s.moveToDisk(ctx, b, r)
-	} else {
+	case moveToGeneration:
+		switched, err = s.moveToGeneration(ctx, b, r)
+	default:
 		switched, err = s.moveToBucket(ctx, b, r)
 	}
 	res := moveResult{Found: true, ID: r.id, Size: r.size, Kind: attachmentKind(r.origin), Skipped: err == nil && !switched}
@@ -209,7 +232,7 @@ func (s *Store) moveToBucket(ctx context.Context, b FileBackend, r moveRow) (boo
 		return false, err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE attachments SET disk_name=?,store=?,sha256=CASE WHEN COALESCE(sha256,'')='' THEN ? ELSE sha256 END WHERE id=? AND disk_name=?`, objPrefix+key, b.Gen, sum, r.id, r.disk)
+	res, err := tx.ExecContext(ctx, `UPDATE attachments SET disk_name=?,store=?,sha256=CASE WHEN COALESCE(sha256,'')='' THEN ? ELSE sha256 END WHERE id=? AND disk_name=?`, objectDisk(b.Gen, key), b.Gen, sum, r.id, r.disk)
 	if err != nil {
 		drop()
 		return false, err
@@ -219,7 +242,7 @@ func (s *Store) moveToBucket(ctx context.Context, b FileBackend, r moveRow) (boo
 		return false, nil
 	}
 	// The destination is live again: an entry left by an earlier move the other way must not remove it.
-	if _, err = tx.ExecContext(ctx, `DELETE FROM deleted_attachment_files WHERE disk_name=?`, objPrefix+key); err != nil {
+	if _, err = tx.ExecContext(ctx, `DELETE FROM deleted_attachment_files WHERE disk_name=?`, objectDisk(b.Gen, key)); err != nil {
 		drop()
 		return false, err
 	}
@@ -239,8 +262,8 @@ func (s *Store) moveToBucket(ctx context.Context, b FileBackend, r moveRow) (boo
 }
 
 func (s *Store) moveToDisk(ctx context.Context, b FileBackend, r moveRow) (bool, error) {
-	key := strings.TrimPrefix(r.disk, objPrefix)
-	st, err := s.objStore(ctx, key)
+	_, key := objectRef(r.disk)
+	st, err := s.objStore(ctx, r.disk)
 	if err != nil {
 		return false, err
 	}
@@ -345,6 +368,114 @@ func (s *Store) moveToDisk(ctx context.Context, b FileBackend, r moveRow) (bool,
 	return true, nil
 }
 
+// moveToGeneration copies one object of an earlier bucket into the current bucket
+// (read, check, write-once, read back, switch the row, journal the source for the
+// grace). The bytes pass through a spool file, never through the disk attachments.
+func (s *Store) moveToGeneration(ctx context.Context, b FileBackend, r moveRow) (bool, error) {
+	srcGen, srcKey := objectRef(r.disk)
+	if srcGen == b.Gen {
+		return false, nil
+	}
+	st, err := s.objStore(ctx, r.disk)
+	if err != nil {
+		return false, err
+	}
+	root, err := s.attachmentRoot()
+	if err != nil {
+		return false, err
+	}
+	if floor := s.storage.floor(); floor > 0 {
+		free, _, perr := s.storage.probe(root)
+		if perr != nil || free < uint64(floor)+uint64(r.size) {
+			return false, errMoveDiskFull
+		}
+	}
+	rd, _, err := st.Open(ctx, srcKey)
+	if err != nil {
+		return false, fileStoreFailure(err)
+	}
+	defer rd.Close()
+	spoolDir := filepath.Join(root, spoolDirName)
+	if err = os.MkdirAll(spoolDir, 0700); err != nil {
+		return false, err
+	}
+	spoolPath := filepath.Join(spoolDir, "move-"+r.id)
+	f, err := os.OpenFile(spoolPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return false, err
+	}
+	defer func() { f.Close(); _ = os.Remove(spoolPath) }()
+	h := sha256.New()
+	n, err := io.Copy(io.MultiWriter(f, h), rd)
+	if err != nil {
+		return false, fileStoreFailure(err)
+	}
+	sum := hex.EncodeToString(h.Sum(nil))
+	if n != r.size {
+		return false, moveCodeErr(codeMoveSizeMismatch)
+	}
+	if r.digest != "" && r.digest != sum {
+		return false, moveCodeErr(codeMoveDigestMismatch)
+	}
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return false, err
+	}
+	key := b.objectKey(r.origin, r.id)
+	created := true
+	if err = b.Store.Put(ctx, key, f, filestore.ObjectMeta{Size: n, SHA256: sum, SafeMIME: r.mime}); errors.Is(err, filestore.ErrExists) {
+		created, err = false, nil
+	}
+	if err != nil {
+		return false, fileStoreFailure(err)
+	}
+	drop := func() {
+		if created {
+			_ = b.Store.Delete(context.WithoutCancel(ctx), key)
+		}
+	}
+	got, gotSize, err := hashObject(ctx, b.Store, key)
+	if err != nil {
+		return false, err
+	}
+	if got != sum || gotSize != n {
+		drop()
+		if created {
+			return false, moveCodeErr(codeMoveVerifyFailed)
+		}
+		return false, moveCodeErr(codeMoveKeyConflict)
+	}
+	dest := objectDisk(b.Gen, key)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		drop()
+		return false, err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE attachments SET disk_name=?,store=?,sha256=CASE WHEN COALESCE(sha256,'')='' THEN ? ELSE sha256 END WHERE id=? AND disk_name=?`, dest, b.Gen, sum, r.id, r.disk)
+	if err != nil {
+		drop()
+		return false, err
+	}
+	if changed, _ := res.RowsAffected(); changed == 0 {
+		drop()
+		return false, nil
+	}
+	if _, err = tx.ExecContext(ctx, `DELETE FROM deleted_attachment_files WHERE disk_name=?`, dest); err != nil {
+		drop()
+		return false, err
+	}
+	// The earlier bucket keeps the object for the deletion grace; the deadline is rewritten so an old entry cannot carry an expired one.
+	if _, err = tx.ExecContext(ctx, `INSERT INTO deleted_attachment_files(disk_name,delete_after) VALUES(?,?) ON CONFLICT(disk_name) DO UPDATE SET delete_after=excluded.delete_after`, r.disk, s.deleteDeadline(ctx)); err != nil {
+		drop()
+		return false, err
+	}
+	if err = tx.Commit(); err != nil {
+		drop()
+		return false, err
+	}
+	return true, nil
+}
+
 // ---- reconciliation and orphan sweep ----
 
 const reportItemCap = 20
@@ -425,6 +556,7 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 		size                 int64
 	}
 	objRows := map[string]fileRow{}
+	rowGen := map[string]string{}
 	var diskRows []fileRow
 	for rows.Next() {
 		var r fileRow
@@ -433,8 +565,9 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 			return out, err
 		}
 		out.Rows++
-		if key, ok := strings.CutPrefix(r.name, objPrefix); ok {
-			objRows[key] = r
+		if strings.HasPrefix(r.name, objPrefix) {
+			g, key := objectRef(r.name)
+			objRows[key], rowGen[key] = r, g
 		} else {
 			diskRows = append(diskRows, r)
 		}
@@ -484,6 +617,11 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 		}
 		return out, nil
 	}
+	for key, g := range rowGen {
+		if g != b.Gen {
+			delete(objRows, key) // an earlier bucket: its files are moved, not reconciled here
+		}
+	}
 	grace := b.GraceDays
 	if grace <= 0 {
 		grace = defaultDeleteGraceDay
@@ -521,7 +659,7 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 			return nil
 		}
 		var journaled int
-		if s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM deleted_attachment_files WHERE disk_name=?`, objPrefix+obj.Key).Scan(&journaled) == nil && journaled > 0 {
+		if s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM deleted_attachment_files WHERE disk_name=?`, objectDisk(b.Gen, obj.Key)).Scan(&journaled) == nil && journaled > 0 {
 			return nil // already queued for removal
 		}
 		if obj.Modified.IsZero() || obj.Modified.After(cutoff) {
@@ -555,7 +693,7 @@ func (s *Store) scanFiles(ctx context.Context, o scanOpts) (fileScan, error) {
 		}
 		// Check again right before the delete: a row or journal entry may have appeared since the listing.
 		var n int
-		if s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE disk_name=?)+(SELECT COUNT(*) FROM deleted_attachment_files WHERE disk_name=?)`, objPrefix+obj.Key, objPrefix+obj.Key).Scan(&n) != nil || n > 0 {
+		if s.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM attachments WHERE disk_name=?)+(SELECT COUNT(*) FROM deleted_attachment_files WHERE disk_name=?)`, objectDisk(b.Gen, obj.Key), objectDisk(b.Gen, obj.Key)).Scan(&n) != nil || n > 0 {
 			continue
 		}
 		if derr := b.Store.Delete(ctx, obj.Key); derr != nil {

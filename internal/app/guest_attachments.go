@@ -272,11 +272,12 @@ func (s *Store) copyGuestRows(ctx context.Context, limit int) (copied, failed in
 }
 
 func (s *Store) openAttachment(ctx context.Context, path string) (io.ReadCloser, error) {
-	if key, ok := strings.CutPrefix(path, objPrefix); ok {
-		st, err := s.objStore(ctx, key)
+	if strings.HasPrefix(path, objPrefix) {
+		st, err := s.objStore(ctx, path)
 		if err != nil {
 			return nil, err
 		}
+		_, key := objectRef(path)
 		f, _, err := st.Open(ctx, key)
 		if err != nil {
 			return nil, fileStoreFailure(err)
@@ -308,11 +309,12 @@ func (s *Store) openAttachment(ctx context.Context, path string) (io.ReadCloser,
 }
 
 func (s *Store) removeAttachmentFile(ctx context.Context, path string) error {
-	if key, ok := strings.CutPrefix(path, objPrefix); ok {
-		st, err := s.objStore(ctx, key)
+	if strings.HasPrefix(path, objPrefix) {
+		st, err := s.objStore(ctx, path)
 		if err != nil {
 			return err
 		}
+		_, key := objectRef(path)
 		return fileStoreFailure(st.Delete(ctx, key))
 	}
 	if strings.HasPrefix(path, guestAttachmentPrefix) {

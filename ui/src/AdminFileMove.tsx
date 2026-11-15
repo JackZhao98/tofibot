@@ -39,7 +39,7 @@ export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
   const paused = Boolean(job?.status.startsWith("paused"));
   const finished = job ? job.files_done + view.failures.count : 0;
   const percent = job && job.files_total > 0 ? Math.min(100, Math.round((finished / job.files_total) * 100)) : 0;
-  const canStart = (direction: FileMoveDirection) => !busy && !active && (direction === "to_bucket" ? view.kind === "s3" && view.disk.files > 0 : view.kind === "disk" && view.bucket.files > 0);
+  const canStart = (direction: FileMoveDirection) => !busy && !active && (direction === "to_bucket" ? view.kind === "s3" && view.disk.files > 0 : direction === "to_generation" ? view.kind === "s3" && view.to_current.files > 0 : view.kind === "disk" && view.bucket.files > 0);
   const report = view.report;
   return <div className="file-move" data-section="file-move">
     <h4>{t("admin.org.file_move.title")}</h4>
@@ -49,6 +49,18 @@ export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
     {!active && <div className="provider-actions">
       <button type="button" className="st-button" data-action="move-to-bucket" disabled={!canStart("to_bucket")} onClick={() => void act(() => fileMoveApi.start("to_bucket"))}>{t("admin.org.file_move.to_bucket")}</button>
       <button type="button" className="st-button" data-action="move-to-disk" disabled={!canStart("to_disk")} onClick={() => void act(() => fileMoveApi.start("to_disk"))}>{t("admin.org.file_move.to_disk")}</button>
+    </div>}
+    {view.previous.length > 0 && <div className="file-move-previous" data-section="previous-buckets">
+      <p className="file-move-subhead">{t("admin.org.file_move.previous_title")}</p>
+      {view.previous.map(previous => <div key={previous.gen} className="file-move-previous-row" data-previous-bucket={previous.bucket}>
+        <p>{t("admin.org.file_move.previous_line", {bucket: previous.bucket, date: new Date(previous.replaced_at).toLocaleDateString()})}</p>
+        <p className="field-note">{previous.files > 0 ? t("admin.org.file_move.previous_files", {files: previous.files, size: formatBytes(previous.bytes)}) : t("admin.org.file_move.previous_empty")}{previous.files === 0 && previous.pending > 0 ? ` · ${t("admin.org.file_move.cleanup_pending")}` : ""}</p>
+        {!active && <div className="provider-actions">
+          {previous.files > 0 && <button type="button" className="st-button" data-action="move-to-current" disabled={!canStart("to_generation")} onClick={() => void act(() => fileMoveApi.start("to_generation"))}>{t("admin.org.file_move.to_current")}</button>}
+          {previous.files === 0 && <ConfirmAction label={t("admin.org.file_move.retire")} question={t("admin.org.file_move.retire_question")} disabled={busy || previous.pending > 0} onConfirm={async () => { await act(() => fileMoveApi.retire(previous.gen)); }}/>}
+        </div>}
+      </div>)}
+      {!active && view.kind === "disk" && view.to_current.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_current_destination")}</p>}
     </div>}
     {!active && view.kind === "disk" && view.disk.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_bucket_destination")}</p>}
     {!active && view.kind === "s3" && view.bucket.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_disk_destination")}</p>}

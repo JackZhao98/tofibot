@@ -24,6 +24,7 @@ const (
 	fileStoreKindS3       = "s3"
 	defaultDeleteGraceDay = 14
 	fileStoreLayoutV1     = "v1"
+	firstFileStoreGen     = "g1"
 )
 
 // FileBackend is what the gateway resolves for one workspace.
@@ -40,6 +41,8 @@ type FileBackend struct {
 	Account string
 	// GraceDays is how long a deleted bucket object stays before it is removed.
 	GraceDays int
+	// Old opens the store of a previous generation (read, delete and move source only).
+	Old func(gen string) (filestore.Store, error)
 }
 
 // fileStoreError carries one of the named codes. Its text is the code alone.
@@ -102,19 +105,48 @@ func (s *Store) fileBackend(ctx context.Context) (FileBackend, error) {
 	return b, nil
 }
 
-// objStore is the bucket store a row's key lives in.
-func (s *Store) objStore(ctx context.Context, key string) (filestore.Store, error) {
+// objectRef splits an `obj:` disk name into its generation and key. Generation
+// g1 is written without a marker (`obj:<key>`); a later one is `obj:<gen>|<key>`
+// ('|' is never in a key), so a row names the bucket it lives in and the same
+// key in two buckets is two different journal entries.
+func objectRef(disk string) (gen, key string) {
+	rest := strings.TrimPrefix(disk, objPrefix)
+	if g, k, ok := strings.Cut(rest, "|"); ok {
+		return g, k
+	}
+	return firstFileStoreGen, rest
+}
+
+// objectDisk is the disk name of a key in a generation.
+func objectDisk(gen, key string) string {
+	if gen == "" || gen == firstFileStoreGen {
+		return objPrefix + key
+	}
+	return objPrefix + gen + "|" + key
+}
+
+// objStore is the bucket store the row (disk name `obj:...`) lives in. A row is
+// read only from its own generation, never from the current one by default.
+func (s *Store) objStore(ctx context.Context, disk string) (filestore.Store, error) {
 	b, err := s.fileBackend(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if b.Store == nil {
-		return nil, newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
-	}
+	gen, key := objectRef(disk)
 	if b.Account == "" || !strings.Contains(key, "/accounts/"+b.Account+"/") {
 		return nil, newFileStoreError(codeFileStoreOutOfScope, errors.New("key outside the account"))
 	}
-	return b.Store, nil
+	if b.Store != nil && gen == b.Gen {
+		return b.Store, nil
+	}
+	if b.Old == nil {
+		return nil, newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
+	}
+	st, err := b.Old(gen)
+	if err != nil || st == nil {
+		return nil, newFileStoreError(codeFileStoreMisconfigured, errors.New("bucket generation not available"))
+	}
+	return st, nil
 }
 
 // attachmentKind groups the origins into the key kinds (artifacts, files, traces, imports, uploads).
@@ -156,6 +188,46 @@ func (s *Store) objectRows() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE disk_name>='obj:' AND disk_name<'obj;'`).Scan(&n)
 	return n, err
+}
+
+// objectUsage counts, per generation, the rows that live in a bucket and the
+// journal entries still waiting to remove an object from it.
+type genUsage struct{ Files, Bytes, Pending int64 }
+
+const genOfDisk = `CASE WHEN instr(disk_name,'|')>0 THEN substr(disk_name,5,instr(disk_name,'|')-5) ELSE 'g1' END`
+
+func (s *Store) objectUsageByGen() (map[string]genUsage, error) {
+	out := map[string]genUsage{}
+	rows, err := s.db.Query(`SELECT ` + genOfDisk + `,COUNT(*),COALESCE(SUM(size),0) FROM attachments WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var g string
+		var u genUsage
+		if err = rows.Scan(&g, &u.Files, &u.Bytes); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[g] = u
+	}
+	rows.Close()
+	rows, err = s.db.Query(`SELECT ` + genOfDisk + `,COUNT(*) FROM deleted_attachment_files WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var g string
+		var n int64
+		if err = rows.Scan(&g, &n); err != nil {
+			return nil, err
+		}
+		u := out[g]
+		u.Pending = n
+		out[g] = u
+	}
+	return out, rows.Err()
 }
 
 func (b FileBackend) String() string { return fmt.Sprintf("file backend %s", b.Kind) }

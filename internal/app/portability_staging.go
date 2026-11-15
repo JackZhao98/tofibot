@@ -45,7 +45,7 @@ func portableServerDisk(id string) string { return id + ".upload" }
 // configured (kind imports), else <root>/<id>.upload.
 func portableLocation(b FileBackend, id string) (disk, store string) {
 	if b.Kind == fileStoreKindS3 {
-		return objPrefix + b.objectKey(attachmentOriginImport, id), b.Gen
+		return objectDisk(b.Gen, b.objectKey(attachmentOriginImport, id)), b.Gen
 	}
 	return portableServerDisk(id), ""
 }
@@ -60,7 +60,8 @@ func (s *Store) writePortableAttachmentFile(ctx context.Context, b FileBackend, 
 		if b.Store == nil {
 			return newFileStoreError(codeFileStoreMisconfigured, errors.New("no bucket configured"))
 		}
-		target, key = b.Store, strings.TrimPrefix(disk, objPrefix)
+		_, key = objectRef(disk)
+		target = b.Store
 	} else {
 		root, err := s.attachmentRoot()
 		if err != nil {

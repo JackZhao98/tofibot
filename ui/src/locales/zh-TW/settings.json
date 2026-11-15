@@ -706,7 +706,8 @@
         "invalid_bucket": "請填寫儲存貯體名稱。",
         "invalid_prefix": "前綴只能包含小寫字母、數字、點、連字號與斜線。",
         "invalid_grace": "已刪除檔案保留 1 到 365 天。",
-        "file_store_in_use": "檔案已存放在此儲存貯體中。在移走之前，不能變更其位址，也不能移除。"
+        "file_store_in_use": "檔案已存放在此儲存貯體中。在移走之前，不能移除。",
+        "file_store_location_in_use": "該儲存貯體已經是舊儲存貯體。請先移走其中的檔案，或先將其停用。"
       },
       "missing_accounts_other": "{{count}} 個帳戶覆寫",
       "intro": "這些金鑰屬於這台伺服器，供所在群組由組織提供資源的帳戶使用；它們不是你的個人金鑰，你的在 設定 › AI 模型、環境、搜尋與擷取。",
@@ -759,7 +760,15 @@
         "save": "測試並儲存",
         "test": "測試連線",
         "test_ok": "連線已驗證。",
-        "note": "Access key 組以密封形式保存，之後不再顯示。請使用私有儲存貯體與僅限該貯體的金鑰。"
+        "note": "Access key 組以密封形式保存，之後不再顯示。請使用私有儲存貯體與僅限該貯體的金鑰。",
+        "preset": "服務供應商預設",
+        "preset_custom": "自訂",
+        "preset_r2": "Cloudflare R2",
+        "preset_s3": "AWS S3",
+        "preset_b2": "Backblaze B2",
+        "preset_minio": "MinIO",
+        "preset_note": "預設只會填入 endpoint 的格式，請替換角括號中的預留內容。",
+        "new_bucket_note": "儲存不同的儲存貯體、endpoint 或前綴後，目前的儲存貯體會作為舊儲存貯體保留。舊儲存貯體中的檔案在移走之前仍可讀取，新檔案會寫入新儲存貯體。"
       },
       "backup": {
         "name": "異地備份",
@@ -949,8 +958,23 @@
           "file_store_not_configured": "請先設定物件儲存。",
           "no_running_move": "目前沒有進行中的檔案移動。",
           "no_paused_move": "沒有可繼續的已暫停檔案移動。",
-          "no_active_move": "沒有可取消的檔案移動。"
-        }
+          "no_active_move": "沒有可取消的檔案移動。",
+          "disk_space_low": "此伺服器的磁碟沒有足夠空間存放這些檔案，請先騰出空間。",
+          "no_previous_bucket": "沒有可移出檔案的舊儲存貯體。",
+          "file_store_generation_in_use": "此儲存貯體中仍有檔案，請先移到目前儲存貯體。",
+          "generation_cleanup_pending": "已刪除的檔案仍在此儲存貯體中等待保留期結束。",
+          "generation_not_found": "沒有可停用的舊儲存貯體。"
+        },
+        "to_current": "移到目前儲存貯體",
+        "direction_to_generation": "舊儲存貯體到目前儲存貯體",
+        "previous_title": "舊儲存貯體",
+        "previous_line": "舊儲存貯體 {{bucket}} · 於 {{date}} 替換",
+        "previous_files": "{{files}} 個檔案（{{size}}）",
+        "previous_empty": "已無檔案",
+        "retire": "停用",
+        "retire_question": "要停用這個儲存貯體嗎？其存取金鑰會從此伺服器刪除。",
+        "cleanup_pending": "已刪除的檔案仍在此儲存貯體中等待保留期結束。",
+        "needs_current_destination": "要移到目前儲存貯體，請先將「新檔案存放位置」設為物件儲存。"
       }
     }
   },

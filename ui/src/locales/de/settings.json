@@ -713,7 +713,8 @@
         "invalid_bucket": "Gib den Bucket-Namen ein.",
         "invalid_prefix": "Das Präfix erlaubt Kleinbuchstaben, Ziffern, Punkte, Bindestriche und Schrägstriche.",
         "invalid_grace": "Gelöschte Dateien werden 1 bis 365 Tage behalten.",
-        "file_store_in_use": "In diesem Bucket liegen Dateien. Seine Adresse lässt sich erst ändern und er lässt sich erst entfernen, wenn sie verschoben sind."
+        "file_store_in_use": "In diesem Bucket liegen Dateien. Er lässt sich erst entfernen, wenn sie verschoben sind.",
+        "file_store_location_in_use": "Dieser Bucket ist bereits ein früherer Bucket. Verschiebe seine Dateien oder gib ihn zuerst frei."
       },
       "missing_accounts_one": "{{count}} Konto-Überschreibung",
       "missing_accounts_other": "{{count}} Konto-Überschreibungen",
@@ -767,7 +768,15 @@
         "save": "Testen und speichern",
         "test": "Verbindung testen",
         "test_ok": "Verbindung geprüft.",
-        "note": "Das Access-Key-Paar wird versiegelt gespeichert und nie wieder angezeigt. Verwende einen privaten Bucket und einen auf ihn beschränkten Schlüssel."
+        "note": "Das Access-Key-Paar wird versiegelt gespeichert und nie wieder angezeigt. Verwende einen privaten Bucket und einen auf ihn beschränkten Schlüssel.",
+        "preset": "Anbieter-Vorlage",
+        "preset_custom": "Benutzerdefiniert",
+        "preset_r2": "Cloudflare R2",
+        "preset_s3": "AWS S3",
+        "preset_b2": "Backblaze B2",
+        "preset_minio": "MinIO",
+        "preset_note": "Eine Vorlage füllt nur das Endpoint-Format aus. Ersetze die Platzhalter in spitzen Klammern.",
+        "new_bucket_note": "Wenn du einen anderen Bucket, Endpoint oder ein anderes Präfix speicherst, bleibt der aktuelle Bucket als früherer Bucket erhalten. Dateien im alten Bucket bleiben lesbar, bis du sie verschiebst. Neue Dateien gehen in den neuen Bucket."
       },
       "backup": {
         "name": "Remote-Backups",
@@ -959,8 +968,23 @@
           "file_store_not_configured": "Richte zuerst den Objektspeicher ein.",
           "no_running_move": "Es läuft kein Verschieben.",
           "no_paused_move": "Kein pausiertes Verschieben zum Fortsetzen.",
-          "no_active_move": "Kein Verschieben zum Abbrechen."
-        }
+          "no_active_move": "Kein Verschieben zum Abbrechen.",
+          "disk_space_low": "Auf dem Datenträger dieses Servers ist nicht genug Platz für diese Dateien. Schaffe zuerst Platz.",
+          "no_previous_bucket": "Es gibt keinen früheren Bucket, aus dem Dateien verschoben werden könnten.",
+          "file_store_generation_in_use": "In diesem Bucket liegen noch Dateien. Verschiebe sie zuerst in den aktuellen Bucket.",
+          "generation_cleanup_pending": "Gelöschte Dateien warten in diesem Bucket noch die Aufbewahrungsfrist ab.",
+          "generation_not_found": "Es gibt keinen früheren Bucket, der freigegeben werden könnte."
+        },
+        "to_current": "In aktuellen Bucket verschieben",
+        "direction_to_generation": "Früherer Bucket in aktuellen Bucket",
+        "previous_title": "Frühere Buckets",
+        "previous_line": "Früherer Bucket {{bucket}} · ersetzt am {{date}}",
+        "previous_files": "{{files}} Dateien ({{size}})",
+        "previous_empty": "Keine Dateien mehr",
+        "retire": "Freigeben",
+        "retire_question": "Diesen Bucket freigeben? Sein Zugriffsschlüssel wird von diesem Server gelöscht.",
+        "cleanup_pending": "Gelöschte Dateien warten in diesem Bucket noch die Aufbewahrungsfrist ab.",
+        "needs_current_destination": "Um Dateien in den aktuellen Bucket zu verschieben, stelle „Neue Dateien gehen nach“ zuerst auf Objektspeicher."
       }
     }
   },

@@ -441,6 +441,10 @@ type fileMoveView struct {
 	Kind       string    `json:"kind"` // where new files go: s3 | disk
 	Disk       filePlace `json:"disk"`
 	Bucket     filePlace `json:"bucket"`
+	// BucketName is the current bucket; Previous are the earlier ones, with what is left in each.
+	BucketName string           `json:"bucket_name"`
+	ToCurrent  filePlace        `json:"to_current"`
+	Previous   []previousBucket `json:"previous"`
 	// DisabledAccounts are not opened by a job and are left out of the counts above.
 	DisabledAccounts int64        `json:"disabled_accounts"`
 	Job              *fileMoveJob `json:"job"`
@@ -460,10 +464,24 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 	} else if found {
 		var cfg fileStoreConfig
 		_ = json.Unmarshal([]byte(row.Config), &cfg)
-		v.Configured, v.Kind = true, cfg.Kind
+		v.Configured, v.Kind, v.BucketName = true, cfg.Kind, cfg.Bucket
 		if v.Kind != fileStoreKindDisk {
 			v.Kind = fileStoreKindS3
 		}
+		v.Previous = []previousBucket{}
+		if len(cfg.Prev) > 0 {
+			usage, uerr := g.fileStoreUsage(ctx, false)
+			if uerr != nil {
+				return v, uerr
+			}
+			for _, p := range cfg.Prev {
+				u := usage[p.Gen]
+				v.Previous = append(v.Previous, previousBucket{Gen: p.Gen, Bucket: p.Bucket, ReplacedAt: p.ReplacedAt, Files: u.Files, Bytes: u.Bytes, Pending: u.Pending})
+			}
+		}
+	}
+	if v.Previous == nil {
+		v.Previous = []previousBucket{}
 	}
 	var err error
 	if v.Disk.Files, v.Disk.Bytes, v.DisabledAccounts, err = g.moveTotals(ctx, moveToBucket); err != nil {
@@ -471,6 +489,11 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 	}
 	if v.Bucket.Files, v.Bucket.Bytes, _, err = g.moveTotals(ctx, moveToDisk); err != nil {
 		return v, err
+	}
+	if len(v.Previous) > 0 {
+		if v.ToCurrent.Files, v.ToCurrent.Bytes, _, err = g.moveTotals(ctx, moveToGeneration); err != nil {
+			return v, err
+		}
 	}
 	if job, ok := g.loadMoveJob(); ok {
 		v.Job = &job
@@ -512,6 +535,17 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 	return v, items.Err()
 }
 
+// previousBucket is an earlier bucket generation as the card shows it. `Gen` is only an
+// API handle for retire; the card shows the bucket name and the date.
+type previousBucket struct {
+	Gen        string `json:"gen"`
+	Bucket     string `json:"bucket"`
+	ReplacedAt string `json:"replaced_at"`
+	Files      int64  `json:"files"`
+	Bytes      int64  `json:"bytes"`
+	Pending    int64  `json:"pending"`
+}
+
 // moveDestinationProblem is what start and resume both check: the resource exists and the
 // destination switch points where the files are going.
 func (g *AccountGateway) moveDestinationProblem(ctx context.Context, dir string) (code, msg string, err error) {
@@ -530,6 +564,10 @@ func (g *AccountGateway) moveDestinationProblem(ctx context.Context, dir string)
 		return "destination_is_disk", "New files are set to go to this server's disk. Set the destination to the bucket first.", nil
 	case dir == moveToDisk && cfg.Kind != fileStoreKindDisk:
 		return "destination_is_bucket", "New files are set to go to the bucket. Set the destination to this server's disk first.", nil
+	case dir == moveToGeneration && cfg.Kind == fileStoreKindDisk:
+		return "destination_is_disk", "New files are set to go to this server's disk. Set the destination to the bucket first, or move the files to disk.", nil
+	case dir == moveToGeneration && len(cfg.Prev) == 0:
+		return "no_previous_bucket", "There is no earlier bucket to move files from.", nil
 	}
 	return "", "", nil
 }
@@ -604,6 +642,29 @@ func (g *AccountGateway) adminFileMove(w http.ResponseWriter, r *http.Request, a
 			g.stopFileJob(errMoveCancel)
 		}
 		writeJSON(w, 202, map[string]any{"ok": true})
+	case rest == "retire" && r.Method == http.MethodPost:
+		var in struct {
+			Gen string `json:"gen"`
+		}
+		if decodeStrict(r, 1<<10, &in) != nil || !genNamePattern.MatchString(in.Gen) {
+			writeErr(w, 400, "invalid_request", "name the earlier bucket")
+			return true
+		}
+		g.fileJob.state.Lock()
+		defer g.fileJob.state.Unlock()
+		if job, ok := g.loadMoveJob(); ok && job.active() {
+			writeErr(w, 409, "file_move_active", "A file move is running or paused. Finish or cancel it first.")
+			return true
+		}
+		code, msg, status, err := g.retireFileStoreGen(ctx, in.Gen)
+		switch {
+		case err != nil:
+			storageFailure(w, "retire earlier bucket", err)
+		case code != "":
+			writeErr(w, status, code, msg)
+		default:
+			writeJSON(w, 200, map[string]any{"retired": true})
+		}
 	case (rest == "reconcile" || rest == "sweep") && r.Method == http.MethodPost:
 		var in struct {
 			Deep   bool `json:"deep"`
@@ -634,8 +695,8 @@ func (g *AccountGateway) startMove(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Direction string `json:"direction"`
 	}
-	if decodeStrict(r, 1<<10, &in) != nil || (in.Direction != moveToBucket && in.Direction != moveToDisk) {
-		writeErr(w, 400, "invalid_request", "direction is to_bucket or to_disk")
+	if decodeStrict(r, 1<<10, &in) != nil || (in.Direction != moveToBucket && in.Direction != moveToDisk && in.Direction != moveToGeneration) {
+		writeErr(w, 400, "invalid_request", "direction is to_bucket, to_disk or to_generation")
 		return
 	}
 	ctx := r.Context()
@@ -662,6 +723,13 @@ func (g *AccountGateway) startMove(w http.ResponseWriter, r *http.Request) {
 	if files == 0 {
 		writeErr(w, 409, "nothing_to_move", "There are no files to move in that direction.")
 		return
+	}
+	if in.Direction == moveToDisk {
+		// The bytes stay on this server's disk: refuse by name when they do not fit under the host floor.
+		if free, _, perr := g.root.store.storage.probe(g.config.DataDir); perr != nil || free < uint64(max(g.root.store.storage.floor(), 0))+uint64(bytes) {
+			writeErr(w, 409, "disk_space_low", "This server's disk does not have room for these files. Free some space first.")
+			return
+		}
 	}
 	jobCtx, started := g.startFileJob("move")
 	if !started {

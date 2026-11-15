@@ -305,6 +305,15 @@ function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
   </article>;
 }
 
+/** Endpoint presets only fill the form; nothing about a provider is stored. The angle-bracket parts are for the administrator to replace. */
+const FILE_STORE_PRESETS = {
+  r2: {endpoint: "https://<account-id>.r2.cloudflarestorage.com", region: "auto", pathStyle: false},
+  s3: {endpoint: "https://s3.<region>.amazonaws.com", region: "", pathStyle: false},
+  b2: {endpoint: "https://s3.<region>.backblazeb2.com", region: "", pathStyle: false},
+  minio: {endpoint: "", region: "us-east-1", pathStyle: true},
+} as const;
+type FileStorePreset = keyof typeof FILE_STORE_PRESETS;
+
 /**
  * File storage: one S3-compatible bucket for the files people upload and Bots produce. Saving tests the connection first
  * (a failure is named and nothing is stored). The access key pair is write-only; a blank pair keeps the stored one for the
@@ -319,6 +328,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
   const [confirmPublic, setConfirmPublic] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [preset, setPreset] = useState<"" | FileStorePreset>("");
   const actions = useResourceActions("file_store", onChange, onDropped);
   const showForm = !resource || editing;
   const config = resource?.config;
@@ -327,6 +337,14 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
   }, [editing, config]);
   const set = (key: keyof typeof form) => (event: {target: {value: string}}) => { setForm(value => ({...value, [key]: event.target.value})); actions.setError(""); };
   const ready = form.endpoint.trim() && form.bucket.trim() && (resource || (form.accessKey.trim() && form.secret.trim()));
+  // A saved change of address makes a new bucket current and keeps this one readable: say so before saving.
+  const prefixOf = (value: string) => value.trim().replace(/^\/+|\/+$/g, "");
+  const relocates = Boolean(resource && config && editing && (form.endpoint.trim().replace(/\/+$/, "") !== (config.endpoint ?? "") || form.bucket.trim() !== (config.bucket ?? "") || prefixOf(form.prefix) !== prefixOf(config.prefix ?? "") || (form.region.trim() || "auto") !== (config.region ?? "") || form.pathStyle !== Boolean(config.path_style)));
+  function applyPreset(value: "" | FileStorePreset) {
+    setPreset(value);
+    if (value) setForm(current => ({...current, ...FILE_STORE_PRESETS[value]}));
+    actions.setError("");
+  }
   async function save(event: FormEvent) {
     event.preventDefault();
     if (saving || !ready) return;
@@ -362,6 +380,15 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} onConfirm={actions.remove}/>
     </div>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
+      <label htmlFor={`${formId}-preset`}>{t("admin.org.file_store.preset")}</label>
+      <select id={`${formId}-preset`} data-field="preset" value={preset} disabled={saving} onChange={event => applyPreset(event.target.value as "" | FileStorePreset)}>
+        <option value="">{t("admin.org.file_store.preset_custom")}</option>
+        <option value="r2">{t("admin.org.file_store.preset_r2")}</option>
+        <option value="s3">{t("admin.org.file_store.preset_s3")}</option>
+        <option value="b2">{t("admin.org.file_store.preset_b2")}</option>
+        <option value="minio">{t("admin.org.file_store.preset_minio")}</option>
+      </select>
+      {preset && <p className="field-note" data-field="preset-note">{t("admin.org.file_store.preset_note")}</p>}
       <label htmlFor={`${formId}-endpoint`}>{t("admin.org.file_store.endpoint")}</label>
       <input id={`${formId}-endpoint`} name="org-file-store-endpoint" type="url" autoComplete="off" spellCheck={false} placeholder="https://<account>.r2.cloudflarestorage.com" value={form.endpoint} disabled={saving} onChange={set("endpoint")}/>
       <label htmlFor={`${formId}-region`}>{t("admin.org.file_store.region")}</label>
@@ -378,6 +405,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <label htmlFor={`${formId}-grace`}>{t("admin.org.file_store.grace")}</label>
       <input id={`${formId}-grace`} name="org-file-store-grace" type="number" min={1} max={365} value={form.grace} disabled={saving} onChange={set("grace")}/>
       {needsConfirm && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-public" checked={confirmPublic} onChange={event => setConfirmPublic(event.target.checked)}/>{t("admin.org.file_store.confirm_public")}</label>}
+      {relocates && <p className="field-note" role="status" data-field="new-bucket-note">{t("admin.org.file_store.new_bucket_note")}</p>}
       <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
       <p className="field-note">{t("admin.org.file_store.note")}</p>
     </form>}

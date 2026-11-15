@@ -593,7 +593,8 @@ func (g *AccountGateway) orgCompatConfig(ctx context.Context) (compatConfig, boo
 
 func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Request, sp orgResourceSpec) {
 	ctx := r.Context()
-	if _, found, err := g.getOrgResource(ctx, sp.ID); err != nil {
+	cur, found, err := g.getOrgResource(ctx, sp.ID)
+	if err != nil {
 		storageFailure(w, "read resource", err)
 		return
 	} else if !found {
@@ -617,6 +618,15 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 	}
 	g.orgWriteMu.Lock()
 	err = v.remove(sp.ID)
+	if sp.ID == orgFileStoreID {
+		var fc fileStoreConfig
+		_ = json.Unmarshal([]byte(cur.Config), &fc)
+		for _, p := range fc.Prev { // no row refers to an earlier bucket either (counted above)
+			if err == nil {
+				err = v.remove(fileStoreGenVaultID(p.Gen))
+			}
+		}
+	}
 	if err == nil && sp.ID == e2bKeyVaultID {
 		g.orgE2BReset()
 	}

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,45 @@ type fileStoreConfig struct {
 	Kind            string `json:"kind"` // where new files go: "s3" or "disk"
 	DeleteGraceDays int    `json:"delete_grace_days"`
 	PublicOK        bool   `json:"public_ok,omitempty"`
+	// Prev are the earlier bucket generations, readable until their files are moved.
+	Prev []fileStoreGen `json:"prev,omitempty"`
+}
+
+// fileStoreGen is an earlier generation: where it is. Its access key is sealed in the
+// organization vault under fileStoreGenVaultID(Gen).
+type fileStoreGen struct {
+	Gen        string `json:"gen"`
+	Endpoint   string `json:"endpoint"`
+	Region     string `json:"region"`
+	Bucket     string `json:"bucket"`
+	Prefix     string `json:"prefix"`
+	PathStyle  bool   `json:"path_style"`
+	ReplacedAt string `json:"replaced_at"`
+}
+
+func fileStoreGenVaultID(gen string) string { return orgFileStoreID + ":" + gen }
+
+func (g fileStoreGen) config() fileStoreConfig {
+	return fileStoreConfig{Endpoint: g.Endpoint, Region: g.Region, Bucket: g.Bucket, Prefix: g.Prefix, PathStyle: g.PathStyle, Gen: g.Gen}
+}
+
+func (c fileStoreConfig) asGen(at string) fileStoreGen {
+	return fileStoreGen{Gen: prevGenName(c), Endpoint: c.Endpoint, Region: c.Region, Bucket: c.Bucket, Prefix: c.Prefix, PathStyle: c.PathStyle, ReplacedAt: at}
+}
+
+// nextGen is the generation after every one this configuration has used.
+func (c fileStoreConfig) nextGen() string {
+	max := 1
+	names := []string{c.Gen}
+	for _, p := range c.Prev {
+		names = append(names, p.Gen)
+	}
+	for _, g := range names {
+		if n, err := strconv.Atoi(strings.TrimPrefix(g, "g")); err == nil && n > max {
+			max = n
+		}
+	}
+	return "g" + strconv.Itoa(max+1)
 }
 
 func (c fileStoreConfig) s3(accessKey, secret string) filestore.S3Config {
@@ -59,6 +99,7 @@ type fileStoreCache struct {
 	mu        sync.Mutex
 	updatedAt string
 	store     filestore.Store
+	old       map[string]filestore.Store
 }
 
 // fileBackendFor is the resolver a workspace calls on each file operation.
@@ -77,6 +118,7 @@ func (g *AccountGateway) fileBackendFor(ctx context.Context, accountID string) (
 	g.fileCache.mu.Lock()
 	defer g.fileCache.mu.Unlock()
 	if g.fileCache.store == nil || g.fileCache.updatedAt != row.UpdatedAt {
+		g.fileCache.old = nil
 		secret, err := g.orgCredential(ctx, orgFileStoreID)
 		if err != nil {
 			return FileBackend{}, err
@@ -92,7 +134,45 @@ func (g *AccountGateway) fileBackendFor(ctx context.Context, accountID string) (
 	if kind != fileStoreKindDisk {
 		kind = fileStoreKindS3
 	}
-	return FileBackend{Kind: kind, Store: g.fileCache.store, Gen: cfg.Gen, Prefix: FileStoreKeyPrefix(cfg.Prefix, g.root.instance.ID, accountID), Account: accountID, GraceDays: cfg.DeleteGraceDays}, nil
+	stamp := row.UpdatedAt
+	old := func(want string) (filestore.Store, error) { return g.oldFileStore(cfg, stamp, want) }
+	return FileBackend{Kind: kind, Store: g.fileCache.store, Gen: prevGenName(cfg), Prefix: FileStoreKeyPrefix(cfg.Prefix, g.root.instance.ID, accountID), Account: accountID, GraceDays: cfg.DeleteGraceDays, Old: old}, nil
+}
+
+// oldFileStore opens a previous generation with its own sealed key. It is not watched:
+// an earlier bucket failing does not mark the current resource rejected.
+func (g *AccountGateway) oldFileStore(cfg fileStoreConfig, stamp, gen string) (filestore.Store, error) {
+	g.fileCache.mu.Lock()
+	defer g.fileCache.mu.Unlock()
+	if st, ok := g.fileCache.old[gen]; ok && g.fileCache.updatedAt == stamp {
+		return st, nil
+	}
+	for _, p := range cfg.Prev {
+		if p.Gen != gen {
+			continue
+		}
+		v, err := g.orgSecrets()
+		if err != nil {
+			return nil, err
+		}
+		got, ok := secretSource(v).secret(fileStoreGenVaultID(gen), orgFileStoreKind)
+		if !ok {
+			return nil, errOrgResourceMissing
+		}
+		accessKey, key, _ := strings.Cut(got.Value, "\x00")
+		st, err := filestore.NewS3(p.config().s3(accessKey, key))
+		if err != nil {
+			return nil, err
+		}
+		if g.fileCache.updatedAt == stamp {
+			if g.fileCache.old == nil {
+				g.fileCache.old = map[string]filestore.Store{}
+			}
+			g.fileCache.old[gen] = st
+		}
+		return st, nil
+	}
+	return nil, errOrgResourceMissing
 }
 
 func (g *AccountGateway) wireFileStore(c *Config, a Account) {
@@ -317,7 +397,7 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		}
 	}
 	if cfg.Gen == "" {
-		cfg.Gen = "g1"
+		cfg.Gen = firstFileStoreGen
 	}
 	switch {
 	case in.DeleteGraceDays != 0:
@@ -347,15 +427,26 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		writeErr(w, 400, "invalid_key", "Enter the full access key ID and secret.")
 		return
 	}
+	// A different bucket, endpoint or prefix is a migration, not an edit: while files live in the
+	// current bucket it becomes the next generation and the current one stays readable.
+	newGen := false
 	if found && !cfg.sameLocation(prev) {
-		n, err := g.objectRowsAnywhere(ctx)
+		for _, p := range prev.Prev {
+			if cfg.sameLocation(p.config()) {
+				writeErr(w, 409, "file_store_location_in_use", "That bucket is already an earlier bucket. Move its files or retire it first.")
+				return
+			}
+		}
+		usage, err := g.fileStoreUsage(ctx, true)
 		if err != nil {
 			storageFailure(w, "count stored files", err)
 			return
 		}
-		if n > 0 {
-			writeErr(w, 409, "file_store_in_use", "Files are stored in the current bucket. Its address cannot change until they are moved.")
-			return
+		u := usage[prevGenName(prev)]
+		newGen = u.Files > 0 || u.Pending > 0
+		if newGen {
+			cfg.Prev = append(append([]fileStoreGen{}, prev.Prev...), prev.asGen(now()))
+			cfg.Gen = prev.nextGen()
 		}
 	}
 	if res := g.verifyFileStore(ctx, cfg, accessKey, secretKey); !res.ok {
@@ -374,11 +465,31 @@ func (g *AccountGateway) putOrgFileStore(w http.ResponseWriter, r *http.Request,
 		storageFailure(w, "open organization vault", err)
 		return
 	}
+	var oldRec secretRecord
+	var oldExisted bool
+	oldID := ""
+	if newGen {
+		// The current key moves to the generation it belongs to before the new one takes its place.
+		stored, serr := g.orgCredential(ctx, sp.ID)
+		if serr != nil {
+			storageFailure(w, "read stored key", serr)
+			return
+		}
+		oldID = fileStoreGenVaultID(prevGenName(prev))
+		oldRec, oldExisted, err = v.put(secretRecord{ID: oldID, Name: sp.Name, Kind: sp.Kind, Target: sp.Target, Label: old.KeyHint, Status: "stored", CreatedAt: now()}, stored.Value)
+		if err != nil {
+			storageFailure(w, "store resource", err)
+			return
+		}
+	}
 	prevRec, existed, err := v.put(rec, accessKey+"\x00"+secretKey)
 	if err == nil {
 		if err = g.saveOrgResource(ctx, row); err != nil {
 			v.restore(rec.ID, prevRec, existed)
 		}
+	}
+	if err != nil && oldID != "" {
+		v.restore(oldID, oldRec, oldExisted)
 	}
 	if err != nil {
 		storageFailure(w, "store resource", err)
@@ -400,4 +511,95 @@ func (g *AccountGateway) saveFileStoreConfig(w http.ResponseWriter, ctx context.
 		return
 	}
 	writeJSON(w, 200, row.view())
+}
+
+func prevGenName(c fileStoreConfig) string {
+	if c.Gen == "" {
+		return firstFileStoreGen
+	}
+	return c.Gen
+}
+
+// fileStoreUsage sums, over every account, the rows and pending removals of each bucket
+// generation. Strict: an account whose workspace cannot be opened is an error (a retire or a
+// new generation must not be decided on partial counts); otherwise it is skipped.
+func (g *AccountGateway) fileStoreUsage(ctx context.Context, strict bool) (map[string]genUsage, error) {
+	accounts, err := g.fileJobAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]genUsage{}
+	for _, a := range accounts {
+		var st *Store
+		if strict {
+			ws, werr := g.workspace(a)
+			if werr != nil {
+				return nil, werr
+			}
+			st = ws.store
+		} else {
+			var code string
+			if st, code = g.fileJobStore(a); code != "" {
+				continue
+			}
+		}
+		per, err := st.objectUsageByGen()
+		if err != nil {
+			return nil, err
+		}
+		for gen, u := range per {
+			t := out[gen]
+			t.Files, t.Bytes, t.Pending = t.Files+u.Files, t.Bytes+u.Bytes, t.Pending+u.Pending
+			out[gen] = t
+		}
+	}
+	return out, nil
+}
+
+// retireFileStoreGen deletes an earlier generation's key and entry once nothing refers to it.
+func (g *AccountGateway) retireFileStoreGen(ctx context.Context, gen string) (code, msg string, status int, err error) {
+	g.orgWriteMu.Lock()
+	defer g.orgWriteMu.Unlock()
+	row, found, err := g.getOrgResource(ctx, orgFileStoreID)
+	if err != nil {
+		return "", "", 0, err
+	}
+	var cfg fileStoreConfig
+	if found {
+		_ = json.Unmarshal([]byte(row.Config), &cfg)
+	}
+	idx := -1
+	for i, p := range cfg.Prev {
+		if p.Gen == gen {
+			idx = i
+		}
+	}
+	if idx < 0 {
+		return "generation_not_found", "There is no earlier bucket to retire.", 404, nil
+	}
+	usage, err := g.fileStoreUsage(ctx, true)
+	if err != nil {
+		return "", "", 0, err
+	}
+	switch u := usage[gen]; {
+	case u.Files > 0:
+		return "file_store_generation_in_use", "Files are still stored in this bucket. Move them to the current bucket first.", 409, nil
+	case u.Pending > 0:
+		return "generation_cleanup_pending", "Deleted files are still waiting out their grace period in this bucket.", 409, nil
+	}
+	v, err := g.orgSecrets()
+	if err != nil {
+		return "", "", 0, err
+	}
+	cfg.Prev = append(append([]fileStoreGen{}, cfg.Prev[:idx]...), cfg.Prev[idx+1:]...)
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return "", "", 0, err
+	}
+	row.Config, row.UpdatedAt = string(raw), now()
+	if err = g.saveOrgResource(ctx, row); err != nil {
+		return "", "", 0, err
+	}
+	// The entry is gone first: a failed key removal leaves an unreachable sealed value, never a dangling generation.
+	return "", "", 0, v.remove(fileStoreGenVaultID(gen))
 }

@@ -720,7 +720,8 @@
         "invalid_bucket": "Saisissez le nom du bucket.",
         "invalid_prefix": "Le préfixe accepte les minuscules, les chiffres, les points, les tirets et les barres obliques.",
         "invalid_grace": "Les fichiers supprimés sont conservés de 1 à 365 jours.",
-        "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Son adresse ne peut pas changer, et il ne peut pas être retiré, tant qu'ils ne sont pas déplacés."
+        "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Il ne peut pas être retiré tant qu'ils ne sont pas déplacés.",
+        "file_store_location_in_use": "Ce bucket est déjà un ancien bucket. Déplacez ses fichiers ou retirez-le d'abord."
       },
       "missing_accounts_one": "{{count}} exception de compte",
       "missing_accounts_many": "{{count}} exceptions de compte",
@@ -775,7 +776,15 @@
         "save": "Tester et enregistrer",
         "test": "Tester la connexion",
         "test_ok": "Connexion vérifiée.",
-        "note": "La paire de clés d'accès est stockée scellée et ne s'affiche plus jamais. Utilisez un bucket privé et une clé limitée à ce bucket."
+        "note": "La paire de clés d'accès est stockée scellée et ne s'affiche plus jamais. Utilisez un bucket privé et une clé limitée à ce bucket.",
+        "preset": "Modèle de fournisseur",
+        "preset_custom": "Personnalisé",
+        "preset_r2": "Cloudflare R2",
+        "preset_s3": "AWS S3",
+        "preset_b2": "Backblaze B2",
+        "preset_minio": "MinIO",
+        "preset_note": "Un modèle ne renseigne que le format de l'endpoint. Remplacez les éléments entre chevrons.",
+        "new_bucket_note": "Enregistrer un autre bucket, endpoint ou préfixe conserve le bucket actuel comme ancien bucket. Les fichiers déjà présents dans l'ancien bucket restent lisibles jusqu'à ce que vous les déplaciez. Les nouveaux fichiers vont dans le nouveau bucket."
       },
       "backup": {
         "name": "Sauvegardes distantes",
@@ -969,8 +978,23 @@
           "file_store_not_configured": "Configurez d’abord le stockage objet.",
           "no_running_move": "Aucun déplacement en cours.",
           "no_paused_move": "Aucun déplacement en pause à reprendre.",
-          "no_active_move": "Aucun déplacement à annuler."
-        }
+          "no_active_move": "Aucun déplacement à annuler.",
+          "disk_space_low": "Le disque de ce serveur n'a pas assez de place pour ces fichiers. Libérez d'abord de l'espace.",
+          "no_previous_bucket": "Il n'y a aucun ancien bucket d'où déplacer des fichiers.",
+          "file_store_generation_in_use": "Des fichiers sont encore stockés dans ce bucket. Déplacez-les d'abord vers le bucket actuel.",
+          "generation_cleanup_pending": "Des fichiers supprimés attendent encore la fin de la période de rétention dans ce bucket.",
+          "generation_not_found": "Il n'y a aucun ancien bucket à retirer."
+        },
+        "to_current": "Déplacer vers le bucket actuel",
+        "direction_to_generation": "Ancien bucket vers bucket actuel",
+        "previous_title": "Anciens buckets",
+        "previous_line": "Ancien bucket {{bucket}} · remplacé le {{date}}",
+        "previous_files": "{{files}} fichiers ({{size}})",
+        "previous_empty": "Plus aucun fichier",
+        "retire": "Retirer",
+        "retire_question": "Retirer ce bucket ? Sa clé d'accès est supprimée de ce serveur.",
+        "cleanup_pending": "Des fichiers supprimés attendent encore la fin de la période de rétention dans ce bucket.",
+        "needs_current_destination": "Pour déplacer des fichiers vers le bucket actuel, réglez d'abord « Les nouveaux fichiers vont vers » sur Stockage objet."
       }
     }
   },
