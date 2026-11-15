@@ -89,7 +89,14 @@ const menuDelete = async page => {
   await page.locator(".header-more > button").click();
   await page.locator(".more-menu[data-state=open] .delete-menu-action").click();
   await page.locator(".delete-dialog").waitFor();
+  // The dialog takes Escape and an outside press only after Radix registers it as the top layer, one render after it
+  // shows; ModalDialog drops an Escape in that first frame on purpose. A key or click sent at once is lost when the
+  // machine is busy. Wait for its initial focus and two frames, then act.
+  await page.waitForFunction(() => Boolean(document.querySelector(".delete-dialog")?.contains(document.activeElement)), null, { timeout: 5000 });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 };
+const closed = (page, step) => page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 })
+  .catch(error => { throw new Error(`${step}: the dialog is still open (${error.message.split("\n")[0]})`); });
 const inDialog = page => page.evaluate(() => Boolean(document.querySelector(".delete-dialog")?.contains(document.activeElement)));
 
 await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria-modal, Escape closes, focus back on More", async () => {
@@ -114,7 +121,7 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   truthy(state.labelled, "aria-labelledby does not name the heading");
   for (const key of [...Array(7).fill("Tab"), ...Array(7).fill("Shift+Tab")]) { await page.keyboard.press(key); truthy(await inDialog(page), `${key} moved focus out of the dialog`); }
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
+  await closed(page, "Escape after Tab");
   await page.waitForFunction(() => document.activeElement?.matches(".header-more > button"), null, { timeout: 2000 }).catch(() => {});
   const after = await page.evaluate(() => ({ focus: document.activeElement?.outerHTML.slice(0, 80), hidden: document.querySelectorAll('#root [aria-hidden="true"][data-aria-hidden]').length, inert: document.querySelector(".workspace").inert }));
   truthy(after.focus?.includes("ghost-button"), `focus did not return to More: ${after.focus}`);
@@ -125,11 +132,11 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2);
   truthy(await page.locator(".delete-dialog").count(), "a click inside the card closed it");
   await page.keyboard.press("Escape");
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
+  await closed(page, "Escape after a click inside the card");
   // A press on the scrim closes it.
   await menuDelete(page);
   await page.mouse.click(8, 8);
-  await page.locator(".delete-dialog").waitFor({ state: "detached", timeout: 5000 });
+  await closed(page, "a press on the scrim");
   truthy(!errors.length, errors.join("; "));
   await context.close();
 });
