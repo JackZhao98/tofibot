@@ -150,6 +150,7 @@ func TestResourcefulTextIsPrincipleOnly(t *testing.T) {
 		"policy":      extensions.DiscoveryPolicy(true, true) + extensions.DiscoveryPolicy(false, false),
 		"no match":    noCloseMatch(nil, []string{"computer_shell"})["note"].(string) + noCloseMatch(nil, nil)["note"].(string),
 		"say outcome": sayOutcomeDescription,
+		"published":   publishedFilesFact,
 	}
 	if !strings.Contains(voiceGuidance, "what did not happen, what you tried and what you need") {
 		t.Error("the voice guidance must tell a block with what was tried")
@@ -161,5 +162,21 @@ func TestResourcefulTextIsPrincipleOnly(t *testing.T) {
 				t.Errorf("%s contains %q", name, banned)
 			}
 		}
+	}
+}
+
+// The run context says published files reach the person only when a Bot
+// computer is there to publish from.
+func TestPublishedFilesFactFollowsTheComputer(t *testing.T) {
+	s := noComputerServer(t, &captureEngine{})
+	if note := s.runContextNote(t.Context()); strings.Contains(note, publishedFilesFact) {
+		t.Fatalf("no-computer context claims published files: %s", note)
+	}
+	attachMissingComputer(t, s)
+	if note := s.runContextNote(t.Context()); !strings.Contains(note, publishedFilesFact) {
+		t.Fatalf("computer context lacks the published-files fact: %s", note)
+	}
+	if !strings.Contains(botComputerMeans(), "desktop.capture with share") {
+		t.Error("the capability sentence must name the shared capture route")
 	}
 }

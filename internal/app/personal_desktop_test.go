@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"image"
+	_ "image/png"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -560,15 +563,71 @@ func TestSharedCaptureBecomesAPublishedAttachmentOfTheRun(t *testing.T) {
 	}
 }
 
-func TestShareIsForCaptureOnAPersonalComputer(t *testing.T) {
+func TestShareIsForCaptureOnly(t *testing.T) {
 	s, _, _ := captureServer(t)
-	for _, raw := range []string{`{"action":"desktop.click","x":1,"y":2,"share":true}`, `{"action":"desktop.capture","share":true}`} {
-		if _, _, err := s.parseDesktopTool(json.RawMessage(raw)); err == nil {
-			t.Errorf("accepted %s", raw)
+	if _, _, err := s.parseDesktopTool(json.RawMessage(`{"action":"desktop.click","x":1,"y":2,"share":true}`)); err == nil {
+		t.Error("accepted share on a click")
+	}
+	for _, raw := range []string{`{"action":"desktop.capture","share":true}`, `{"action":"desktop.capture","share":true,"computer_id":"x"}`} {
+		if _, _, err := s.parseDesktopTool(json.RawMessage(raw)); err != nil && strings.Contains(err.Error(), "share applies") {
+			t.Errorf("refused %s: %v", raw, err)
 		}
 	}
-	if _, _, err := s.parseDesktopTool(json.RawMessage(`{"action":"desktop.capture","share":true,"computer_id":"x"}`)); err != nil && strings.Contains(err.Error(), "share applies") {
-		t.Errorf("refused a personal capture: %v", err)
+}
+
+// A Bot computer capture with share is attached to the reply at full size while
+// the model reads the overview copy; a Secret Input window withholds it.
+func TestBotComputerCaptureShareAttachesTheFullPicture(t *testing.T) {
+	s, _, run := captureServer(t)
+	if ok, err := s.store.SetRunStatus(run.ID, "running", ""); err != nil || !ok {
+		t.Fatalf("running %v %v", ok, err)
+	}
+	desktop, ok := toolNamed(s.microVMTools(run), "computer_desktop")
+	if !ok {
+		t.Fatal("no computer_desktop")
+	}
+	out, err := desktop.Execute(t.Context(), json.RawMessage(`{"action":"desktop.capture","detail":"overview","share":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Width  int `json:"width"`
+		Shared struct {
+			ID    string   `json:"attachment_id"`
+			Reply []string `json:"attached_to_reply"`
+		} `json:"shared"`
+	}
+	if json.Unmarshal([]byte(out), &res) != nil || res.Shared.ID == "" || len(res.Shared.Reply) != 1 {
+		t.Fatalf("result %.300s", out)
+	}
+	if res.Width >= 1280 {
+		t.Errorf("the model read the full picture, width %d", res.Width)
+	}
+	_, path, err := s.store.Attachment(res.Shared.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	config, _, err := image.DecodeConfig(f)
+	if err != nil || config.Width != 1280 || config.Height != 800 {
+		t.Errorf("attached picture %dx%d %v, want the full 1280x800", config.Width, config.Height, err)
+	}
+	plain, err := desktop.Execute(t.Context(), json.RawMessage(`{"action":"desktop.capture"}`))
+	if err != nil || strings.Contains(plain, `"shared"`) {
+		t.Errorf("a capture without share was shared: %v %.200s", err, plain)
+	}
+
+	s.store.openSecretWindow(run.ID)
+	_, err = desktop.Execute(t.Context(), json.RawMessage(`{"action":"desktop.capture","share":true}`))
+	if err == nil || !strings.Contains(err.Error(), "Nothing was shared") {
+		t.Fatalf("a Secret Input window did not withhold the picture: %v", err)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 1 {
+		t.Errorf("reply attachments %v, want only the first picture", names)
 	}
 }
 

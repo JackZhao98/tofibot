@@ -1305,6 +1305,9 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 		if fresh := s.freshComputerNote(); fresh != "" {
 			note += "\n" + fresh
 		}
+		if !strings.HasSuffix(status, " unknown") {
+			note += "\n" + publishedFilesFact
+		}
 	} else if s.computer() == nil && !s.hasOtherComputers() {
 		note += "\n" + noComputerStatus
 	}
@@ -1316,6 +1319,10 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 	}
 	return note + "\n[/run context]"
 }
+
+// publishedFilesFact counters the belief that a reply can only carry text:
+// models asked for pictures answered with links (2026-11-15).
+const publishedFilesFact = "Files you publish reach the person in this conversation; pictures show inline."
 
 // noComputerStatus is the run-context fact of a workspace with no computer
 // backend: the Bot must never claim one.
