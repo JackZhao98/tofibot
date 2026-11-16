@@ -200,7 +200,7 @@ func botComputerMeans() string {
 	for i, item := range botComputerToolbox {
 		names[i] = item.Name
 	}
-	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. Deliver a finished file with publish_file."
+	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. What the person asks to see or to have reaches them as the thing itself: a file through publish_file (downloaded into your own directory first when it is on the web), or a screen picture through desktop.capture with share."
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -521,8 +521,13 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
+			var sh struct {
+				Share bool `json:"share"`
+			}
+			_ = json.Unmarshal(raw, &sh)
+			share := sh.Share && name == "computer_desktop" && action == "desktop.capture"
 			if cid := s.desktopToolComputer(name, raw); cid != microVMComputerID {
-				return s.personalDesktop(ctx, r, cid, action, args, captureDetail, false)
+				return s.personalDesktop(ctx, r, cid, action, args, captureDetail, share)
 			}
 			inputs.ensure(ctx, s, r)
 			s.flushGeneratedImages(ctx, r)
@@ -643,7 +648,11 @@ func (s *Server) microVMTools(r Run) []Tool {
 			// An approval spent above comes back only if the action provably did nothing.
 			settle(err)
 			if err == nil {
+				picture := out
 				out, err = s.afterComputerAction(ctx, r, name, action, raw, args, out, captureDetail)
+				if err == nil && share {
+					out, err = s.shareBotCapture(ctx, r, picture, out)
+				}
 			}
 			return out, err
 		}}

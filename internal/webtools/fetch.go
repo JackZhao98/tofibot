@@ -196,10 +196,11 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 	}
 	final := resp.Request.URL
 	var title, text string
+	var images []string
 	partial := false
 	if kind == "html" {
 		doc := ParseHTML(ctx, string(body), final)
-		title, text = doc.Title, doc.Markdown
+		title, text, images = doc.Title, doc.Markdown, doc.Images
 		needsJS, maybe := shellText(doc, text)
 		if needsJS {
 			return Page{}, fail(NeedsJavaScript)
@@ -211,7 +212,7 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 	} else {
 		text = strings.TrimSpace(string(body))
 	}
-	page := Page{URL: final.String(), Title: title, Content: text, Truncated: cut}
+	page := Page{URL: final.String(), Title: title, Images: images, Content: text, Truncated: cut}
 	if partial {
 		page.Note = MaybePartialNote
 	}

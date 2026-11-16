@@ -82,6 +82,27 @@
       "id": "qrcode_nocomputer",
       "message": "给我生成一个二维码图片，扫出来是 https://tofibot.com",
       "no_computer": true
+    },
+    {
+      "id": "show_photos",
+      "message": "有没有网友自己拼好的乐高千年隼实拍图？找几张给我看看，不要官方产品图。"
+    },
+    {
+      "id": "show_photos_nocomputer",
+      "message": "有没有网友自己拼好的乐高千年隼实拍图？找几张给我看看，不要官方产品图。",
+      "no_computer": true
+    },
+    {
+      "id": "show_photos2",
+      "message": "我想看看别人家里的猫爬架都是怎么摆的，找几张真实的照片给我。"
+    },
+    {
+      "id": "show_photos3",
+      "message": "旧金山金门大桥起雾的时候是什么样子？给我看看照片。"
+    },
+    {
+      "id": "send_doc",
+      "message": "把 RFC 9110 的原文给我一份。"
     }
   ]
 }

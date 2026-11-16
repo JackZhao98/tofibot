@@ -4,6 +4,7 @@ import (
 	"context"
 	"html"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -17,6 +18,8 @@ type Doc struct {
 	// Shell marks a page whose markup shows it is built by scripts: an empty
 	// app mount point or a noscript notice asking for JavaScript.
 	Shell bool
+	// Images are the main picture addresses of the page (pageImages).
+	Images []string
 }
 
 type node struct {
@@ -344,6 +347,12 @@ func (r *renderer) text(s string) {
 }
 
 func (r *renderer) resolve(href string) string {
+	return resolveHref(r.base, href)
+}
+
+// resolveHref makes href absolute against base; only http and https
+// addresses are kept.
+func resolveHref(base *url.URL, href string) string {
 	href = strings.TrimSpace(href)
 	if href == "" || strings.HasPrefix(href, "#") || strings.HasPrefix(strings.ToLower(href), "javascript:") || strings.HasPrefix(strings.ToLower(href), "mailto:") {
 		return ""
@@ -352,8 +361,8 @@ func (r *renderer) resolve(href string) string {
 	if err != nil {
 		return ""
 	}
-	if r.base != nil {
-		u = r.base.ResolveReference(u)
+	if base != nil {
+		u = base.ResolveReference(u)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return ""
@@ -525,6 +534,7 @@ func ParseHTML(ctx context.Context, src string, base *url.URL) Doc {
 	}); main != nil {
 		if s := render(main, false); len([]rune(s)) >= 400 {
 			doc.Markdown = s
+			doc.Images = pageImages(root, main, base)
 			return doc
 		}
 	}
@@ -538,5 +548,75 @@ func ParseHTML(ctx context.Context, src string, base *url.URL) Doc {
 			doc.Markdown = all
 		}
 	}
+	doc.Images = pageImages(root, body, base)
 	return doc
+}
+
+// MaxPageImages caps the picture addresses one page result lists.
+const MaxPageImages = 5
+
+// pageImages lists the main pictures of a page: the share image the page
+// declares (og:image, twitter:image), then the images of the content in
+// document order. Data URIs, SVG files and images declared under 100 pixels
+// (icons, tracking pixels) are left out.
+func pageImages(root, content *node, base *url.URL) []string {
+	var out []string
+	seen := map[string]bool{}
+	add := func(raw string) {
+		u := resolveHref(base, raw)
+		if u == "" || seen[u] || len(out) >= MaxPageImages {
+			return
+		}
+		if parsed, err := url.Parse(u); err != nil || strings.HasSuffix(strings.ToLower(parsed.Path), ".svg") {
+			return
+		}
+		seen[u] = true
+		out = append(out, u)
+	}
+	shareKeys := map[string]bool{"og:image": true, "og:image:url": true, "og:image:secure_url": true, "twitter:image": true, "twitter:image:src": true}
+	var metas func(*node)
+	metas = func(n *node) {
+		if n.tag == "meta" {
+			key := n.attrs["property"]
+			if key == "" {
+				key = n.attrs["name"]
+			}
+			if shareKeys[strings.ToLower(strings.TrimSpace(key))] {
+				add(n.attrs["content"])
+			}
+		}
+		for _, c := range n.children {
+			metas(c)
+		}
+	}
+	metas(root)
+	var images func(*node)
+	images = func(n *node) {
+		if len(out) >= MaxPageImages {
+			return
+		}
+		if n.tag == "img" && !declaredSmall(n) {
+			src := strings.TrimSpace(n.attrs["src"])
+			if lazy := strings.TrimSpace(n.attrs["data-src"]); lazy != "" && (src == "" || strings.HasPrefix(strings.ToLower(src), "data:")) {
+				src = lazy
+			}
+			add(src)
+		}
+		for _, c := range n.children {
+			images(c)
+		}
+	}
+	images(content)
+	return out
+}
+
+// declaredSmall reports an img whose width or height attribute is under 100.
+func declaredSmall(n *node) bool {
+	for _, k := range []string{"width", "height"} {
+		v := strings.TrimSuffix(strings.TrimSpace(n.attrs[k]), "px")
+		if size, err := strconv.Atoi(v); err == nil && size < 100 {
+			return true
+		}
+	}
+	return false
 }

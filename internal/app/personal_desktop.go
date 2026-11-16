@@ -116,8 +116,8 @@ func (s *Server) parseDesktopTool(raw json.RawMessage) (string, json.RawMessage,
 		// Models borrow browser.snapshot's verb; it means a screen capture.
 		in.Action = "desktop.capture"
 	}
-	if in.Share && (in.Action != "desktop.capture" || s.desktopToolComputer("computer_desktop", raw) == microVMComputerID) {
-		return "", nil, tooloutcome.InvalidArguments("share applies to capture on a person's own computer (set computer_id).")
+	if in.Share && in.Action != "desktop.capture" {
+		return "", nil, tooloutcome.InvalidArguments("share applies to capture only.")
 	}
 	if s.desktopToolComputer("computer_desktop", raw) != microVMComputerID {
 		return personalDesktopArgs(in)
@@ -404,7 +404,35 @@ func (st *Store) conversationHasOtherPeople(Conversation) bool { return false }
 // shareCapture keeps the capture's picture as a published attachment of this
 // run's reply and tells the model exactly what was attached.
 func (s *Server) shareCapture(r Run, result string) (string, error) {
-	fields, uri, ok := captureResultFields(result)
+	return s.shareCaptureOf(r, result, result)
+}
+
+// shareBotCapture attaches a Bot computer capture to the reply. A picture the
+// work trace would not keep (a Secret Input window is open, or an origin rule
+// makes the page private) is not shared either.
+func (s *Server) shareBotCapture(ctx context.Context, r Run, picture, result string) (string, error) {
+	if s.store == nil {
+		return "", errors.New("the capture could not be shared")
+	}
+	pageURL, resolved := "", true
+	if !s.store.secretWindowOpen() && s.traceOriginRulesExist() {
+		pageURL, resolved = s.resolveTracePage(ctx, r)
+	}
+	if s.traceRedaction(pageURL, resolved) != "" {
+		return "", tooloutcome.New(tooloutcome.Denied, "share_withheld", "not_executed", "The screen shows a Secret Input window or a page whose pictures are not kept, so this picture was not attached. Nothing was shared.", "explain_blocker").Err()
+	}
+	return s.shareCaptureOf(r, picture, result)
+}
+
+// shareCaptureOf attaches the picture of the capture result picture and adds
+// the shared field to result, the result the model reads (on the Bot computer
+// the model may read a scaled copy while the person gets the full picture).
+func (s *Server) shareCaptureOf(r Run, picture, result string) (string, error) {
+	_, uri, ok := captureResultFields(picture)
+	if !ok {
+		return "", errors.New("the capture returned no picture to share")
+	}
+	fields, _, ok := captureResultFields(result)
 	if !ok {
 		return "", errors.New("the capture returned no picture to share")
 	}
@@ -515,5 +543,5 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 
 // desktopToolSchema is the argument schema of computer_desktop, the same for every kind of computer.
 func desktopToolSchema() map[string]any {
-	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "share": map[string]any{"type": "boolean", "description": "capture on a person's own computer: also attach this picture to your reply, where everyone in the conversation sees it. Without it only you see the picture. Use it only when they asked to receive it."}, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
+	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "share": map[string]any{"type": "boolean", "description": "capture: also attach this picture to your reply, where everyone in the conversation sees it. Without it only you see the picture. Use it only when they asked to receive it."}, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
 }

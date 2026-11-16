@@ -270,11 +270,13 @@ func QueryWithSites(query string, o SearchOptions) string {
 }
 
 type Page struct {
-	Source    string `json:"source"`
-	URL       string `json:"url"`
-	Title     string `json:"title,omitempty"`
-	Truncated bool   `json:"truncated,omitempty"`
-	Content   string `json:"content"`
+	Source string `json:"source"`
+	URL    string `json:"url"`
+	Title  string `json:"title,omitempty"`
+	// Images are the main picture addresses of an HTML page, on its first part only.
+	Images    []string `json:"images,omitempty"`
+	Truncated bool     `json:"truncated,omitempty"`
+	Content   string   `json:"content"`
 	// Offset, NextOffset and TotalChars describe a part of a long page, in characters:
 	// the part starts at Offset, the next part at NextOffset (absent on the last part).
 	Offset     int `json:"offset,omitempty"`
@@ -439,6 +441,9 @@ func Slice(page Page, offset, maxChars int) Page {
 		offset = 0
 	}
 	sourceCut := page.Truncated && page.TotalChars == 0
+	if offset > 0 {
+		page.Images = nil
+	}
 	if offset >= total {
 		page.Content, page.Offset, page.NextOffset, page.TotalChars = "", total, 0, total
 		page.Truncated = false
