@@ -193,7 +193,10 @@ func (s *Store) objectRows() (int, error) {
 // objectUsage counts, per generation, the rows that live in a bucket and the
 // journal entries still waiting to remove an object from it.
 // Staging counts imports staged in a bucket that are not yet rows: they will become rows named by that generation.
-type genUsage struct{ Files, Bytes, Pending, Staging int64 }
+type genUsage struct {
+	Files, Bytes, Pending, Staging int64
+	ClearsAt                       string
+}
 
 const genOfDisk = `CASE WHEN instr(disk_name,'|')>0 THEN substr(disk_name,5,instr(disk_name,'|')-5) ELSE 'g1' END`
 
@@ -213,19 +216,20 @@ func (s *Store) objectUsageByGen() (map[string]genUsage, error) {
 		out[g] = u
 	}
 	rows.Close()
-	rows, err = s.db.Query(`SELECT ` + genOfDisk + `,COUNT(*) FROM deleted_attachment_files WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1`)
+	rows, err = s.db.Query(`SELECT ` + genOfDisk + `,COUNT(*),COALESCE(MAX(delete_after),'') FROM deleted_attachment_files WHERE disk_name>='obj:' AND disk_name<'obj;' GROUP BY 1`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var g string
 		var n int64
-		if err = rows.Scan(&g, &n); err != nil {
+		var clearsAt string
+		if err = rows.Scan(&g, &n, &clearsAt); err != nil {
 			rows.Close()
 			return nil, err
 		}
 		u := out[g]
-		u.Pending = n
+		u.Pending, u.ClearsAt = n, clearsAt
 		out[g] = u
 	}
 	rows.Close()

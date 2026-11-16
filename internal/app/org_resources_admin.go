@@ -619,12 +619,8 @@ func (g *AccountGateway) deleteOrgResource(w http.ResponseWriter, r *http.Reques
 			storageFailure(w, "count stored files", cerr)
 			return
 		}
-		var n int64
-		for _, u := range usage {
-			n += u.Files + u.Pending + u.Staging
-		}
-		if n > 0 {
-			writeErr(w, 409, "file_store_in_use", "Files are stored in this bucket. It cannot be removed until they are moved.")
+		if code, msg, _ := fileStoreRemoveBlock(usage); code != "" {
+			writeErr(w, 409, code, msg)
 			return
 		}
 	}

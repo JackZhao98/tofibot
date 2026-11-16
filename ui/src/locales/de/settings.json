@@ -715,6 +715,8 @@
         "invalid_prefix": "Das Präfix erlaubt Kleinbuchstaben, Ziffern, Punkte, Bindestriche und Schrägstriche.",
         "invalid_grace": "Gelöschte Dateien werden 1 bis 365 Tage behalten.",
         "file_store_in_use": "In diesem Bucket liegen Dateien. Er lässt sich erst entfernen, wenn sie verschoben sind.",
+        "file_store_cleanup_pending": "Gelöschte Dateien warten im Bucket noch auf das Ende ihrer Aufbewahrungsfrist. Nach der Bereinigung kannst du ihn entfernen.",
+        "file_store_busy": "Ein Import in den Bucket ist noch nicht abgeschlossen. Versuche es später erneut.",
         "file_store_location_in_use": "Dieser Bucket ist bereits ein früherer Bucket. Verschiebe seine Dateien oder gib ihn zuerst frei.",
         "file_store_cannot_compare": "Der frühere Bucket war nicht erreichbar, daher kann TOFI nicht prüfen, ob der neue ein anderer Bucket ist. Trotzdem speichern?",
         "file_store_same_bucket": "Das ist der Bucket, der bereits verwendet wird. Sein Präfix lässt sich nicht ändern, solange Dateien darin liegen.",
@@ -753,6 +755,8 @@
         "help": "Wo dieser Server die von Personen hochgeladenen und von Bots erzeugten Dateien ablegt. Ohne Bucket bleiben die Dateien auf dem Datenträger dieses Servers."
       },
       "file_store": {
+        "remove_after": "Gelöschte Dateien bleiben bis {{date}} im Bucket. Danach kannst du ihn entfernen.",
+        "remove_soon": "Gelöschte Dateien werden aus dem Bucket entfernt. Du kannst ihn in Kürze entfernen.",
         "name": "Objektspeicher",
         "tag": "S3-kompatibel",
         "summary": "{{bucket}} bei {{endpoint}}",

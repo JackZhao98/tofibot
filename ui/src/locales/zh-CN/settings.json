@@ -708,6 +708,8 @@
         "invalid_prefix": "前缀只能包含小写字母、数字、点、短横线和斜杠。",
         "invalid_grace": "已删除文件保留 1 到 365 天。",
         "file_store_in_use": "文件已存放在此存储桶中。在迁走之前，不能移除。",
+        "file_store_cleanup_pending": "已删除的文件还在存储桶中等待保留期结束，清除后才能移除。",
+        "file_store_busy": "还有一次导入正在写入存储桶，请稍后再试。",
         "file_store_location_in_use": "该存储桶已经是旧存储桶。请先迁走其中的文件，或先将其停用。",
         "file_store_cannot_compare": "无法连接到之前的存储桶，因此 TOFI 无法确认新存储桶是另一个存储桶。仍要保存吗？",
         "file_store_same_bucket": "这是已在使用的存储桶。其中有文件时，不能更改前缀。",
@@ -745,6 +747,8 @@
         "help": "本服务器存放用户上传文件和 Bot 产出文件的位置。未配置存储桶时，文件保存在本服务器磁盘上。"
       },
       "file_store": {
+        "remove_after": "已删除的文件会在存储桶中保留到 {{date}}，之后才能移除。",
+        "remove_soon": "已删除的文件正在从存储桶中清除，稍后即可移除。",
         "name": "对象存储",
         "tag": "兼容 S3",
         "summary": "{{endpoint}} 上的 {{bucket}}",

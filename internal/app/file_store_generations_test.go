@@ -326,9 +326,41 @@ func TestRemovingTheBucketWaitsForPendingDeletions(t *testing.T) {
 	if _, err := f.ws.store.db.Exec(`INSERT INTO deleted_attachment_files(disk_name,delete_after) VALUES('obj:tofi/v1/i/accounts/a/uploads/x','2999-01-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
-	f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 409)
-	f.ws.store.db.Exec(`DELETE FROM deleted_attachment_files`)
+	if code := orgErrCode(t, f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 409)); code != "file_store_cleanup_pending" {
+		t.Fatalf("remove code %q", code)
+	}
+	var v fileMoveView
+	if err := json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/file-move", "", 200)), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.RemoveBlock == nil || v.RemoveBlock.Code != "file_store_cleanup_pending" || v.RemoveBlock.ClearsAt != "2999-01-01T00:00:00Z" {
+		t.Fatalf("remove block %+v", v.RemoveBlock)
+	}
+	if _, err := f.ws.store.db.Exec(`DELETE FROM deleted_attachment_files`); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/file-move", "", 200)), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.RemoveBlock != nil {
+		t.Fatalf("remove block after cleanup %+v", v.RemoveBlock)
+	}
 	f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 200)
+}
+
+func TestRemovingTheBucketWhileFilesAreInIt(t *testing.T) {
+	f := newMoveFixture(t, 1)
+	moveAll(t, f.ws.store, moveToBucket)
+	if code := orgErrCode(t, f.admin_(t, "DELETE", "/api/admin/org/resources/file_store", "", 409)); code != "file_store_in_use" {
+		t.Fatalf("remove code %q", code)
+	}
+	var v fileMoveView
+	if err := json.Unmarshal([]byte(f.admin_(t, "GET", "/api/admin/file-move", "", 200)), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.RemoveBlock == nil || v.RemoveBlock.Code != "file_store_in_use" {
+		t.Fatalf("remove block %+v", v.RemoveBlock)
+	}
 }
 
 // An earlier bucket's key without list permission (s3:ListBucket) is answered 403, not 404, for the

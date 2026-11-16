@@ -715,6 +715,8 @@
         "invalid_prefix": "The prefix takes lowercase letters, digits, dots, dashes and slashes.",
         "invalid_grace": "Deleted files are kept 1 to 365 days.",
         "file_store_in_use": "Files are stored in this bucket. It cannot be removed until they are moved.",
+        "file_store_cleanup_pending": "Deleted files are still waiting out their grace period in the bucket. You can remove it after they are cleaned up.",
+        "file_store_busy": "An import into the bucket is still waiting to finish. Try again later.",
         "file_store_location_in_use": "That bucket is already an earlier bucket. Move its files or retire it first.",
         "file_store_cannot_compare": "The previous bucket could not be reached, so TOFI cannot check that the new one is a different bucket. Save anyway?",
         "file_store_same_bucket": "This is the bucket already in use. Its prefix cannot change while files are stored in it.",
@@ -753,6 +755,8 @@
         "help": "Where this server keeps the files people upload and Bots produce. Without a bucket, files stay on this server's disk."
       },
       "file_store": {
+        "remove_after": "Deleted files stay in the bucket until {{date}}. You can remove it after that.",
+        "remove_soon": "Deleted files are being cleaned up from the bucket. You can remove it shortly.",
         "name": "Object storage",
         "tag": "S3-compatible",
         "summary": "{{bucket}} at {{endpoint}}",

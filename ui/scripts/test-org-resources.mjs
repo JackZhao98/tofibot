@@ -653,6 +653,32 @@ try {
     console.log("PASS backups: a restore or undo of a busy account is refused, and only the Interrupt choice stops its runs");
   }
 
+  // Remove waits for file rows and journaled deletions across every bucket generation.
+  {
+    for (const removeBlock of [null, {code: "file_store_cleanup_pending", clears_at: "2999-06-15T12:00:00Z"}, {code: "file_store_in_use"}]) {
+      stub.reset();
+      const resource = {id: "file_store", kind: "file_store", status: "verified", key_hint: "…1234", verified_at: "2026-11-15T00:00:00Z", updated_at: "t1", config: {kind: "disk", endpoint: "https://r2.example.test", bucket: "tofi-files", gen: "g2", delete_grace_days: 14}};
+      const view = {configured: true, kind: "disk", disk: {files: 114, bytes: 11400}, bucket: {files: 0, bytes: 0}, disabled_accounts: 0, bucket_name: "tofi-files", to_current: {files: 0, bytes: 0}, previous: [], remove_block: removeBlock, job: null, report: null, failures: {count: 0, by_code: {}, items: []}, busy: ""};
+      const withFileStore = {...stub, handle: (url, method, body) => {
+        const path = new URL(url).pathname;
+        if (method === "GET" && path === "/api/admin/file-move") return [200, view];
+        const result = stub.handle(url, method, body);
+        if (method === "GET" && path === "/api/admin/org/resources") return [200, {...result[1], resources: [...result[1].resources, resource]}];
+        return result;
+      }};
+      const page = await openSettings({browser, fixture, stub: withFileStore, errors, params: {tab: "admin-resources"}});
+      const fileStore = card(page.page, "file_store");
+      await fileStore.locator('[data-section="file-move"]').waitFor();
+      const remove = fileStore.getByRole("button", {name: "Remove", exact: true});
+      assert.equal(await remove.isDisabled(), Boolean(removeBlock), `${removeBlock?.code ?? "clear"}: Remove`);
+      const hint = fileStore.locator('[data-hint="remove-blocked"]');
+      assert.equal(await hint.count(), removeBlock ? 1 : 0, `${removeBlock?.code ?? "clear"}: removal hint`);
+      if (removeBlock?.clears_at) assert.ok((await hint.innerText()).includes("2999"), "cleanup hint includes its date");
+      await page.close();
+    }
+    console.log("PASS file store: Remove waits for pending cleanup or files in the bucket and says why");
+  }
+
   // ---- 8. Every language renders the page without raw keys.
   for (const language of ["zh-CN", "zh-TW", "ja", "ko", "de", "fr"]) {
     stub.reset();
