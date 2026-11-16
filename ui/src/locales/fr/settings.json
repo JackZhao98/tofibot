@@ -722,6 +722,8 @@
         "invalid_prefix": "Le préfixe accepte les minuscules, les chiffres, les points, les tirets et les barres obliques.",
         "invalid_grace": "Les fichiers supprimés sont conservés de 1 à 365 jours.",
         "file_store_in_use": "Des fichiers sont stockés dans ce bucket. Il ne peut pas être retiré tant qu'ils ne sont pas déplacés.",
+        "file_store_cleanup_pending": "Les fichiers supprimés attendent encore la fin de leur délai de conservation dans le bucket. Vous pourrez le retirer une fois ces fichiers nettoyés.",
+        "file_store_busy": "Une importation dans le bucket n’est pas encore terminée. Réessayez plus tard.",
         "file_store_location_in_use": "Ce bucket est déjà un ancien bucket. Déplacez ses fichiers ou retirez-le d'abord.",
         "file_store_cannot_compare": "Le bucket précédent n'a pas pu être joint, TOFI ne peut donc pas vérifier que le nouveau en est un autre. Enregistrer quand même ?",
         "file_store_same_bucket": "C'est le bucket déjà utilisé. Son préfixe ne peut pas changer tant que des fichiers y sont stockés.",
@@ -761,6 +763,8 @@
         "help": "L'endroit où ce serveur conserve les fichiers envoyés par les personnes et produits par les Bots. Sans bucket, les fichiers restent sur le disque de ce serveur."
       },
       "file_store": {
+        "remove_after": "Les fichiers supprimés restent dans le bucket jusqu’au {{date}}. Vous pourrez le retirer ensuite.",
+        "remove_soon": "Les fichiers supprimés sont en cours de nettoyage dans le bucket. Vous pourrez le retirer sous peu.",
         "name": "Stockage objet",
         "tag": "Compatible S3",
         "summary": "{{bucket}} sur {{endpoint}}",

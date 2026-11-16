@@ -442,11 +442,18 @@ type filePlace struct {
 	Bytes int64 `json:"bytes"`
 }
 
+type fileStoreRemoval struct {
+	Code     string `json:"code"`
+	ClearsAt string `json:"clears_at,omitempty"`
+}
+
 type fileMoveView struct {
-	Configured bool      `json:"configured"`
-	Kind       string    `json:"kind"` // where new files go: s3 | disk
-	Disk       filePlace `json:"disk"`
-	Bucket     filePlace `json:"bucket"`
+	// RemoveBlock is why the file store cannot be removed now (nil when it can), so the card can say so before a press.
+	RemoveBlock *fileStoreRemoval `json:"remove_block"`
+	Configured  bool              `json:"configured"`
+	Kind        string            `json:"kind"` // where new files go: s3 | disk
+	Disk        filePlace         `json:"disk"`
+	Bucket      filePlace         `json:"bucket"`
 	// BucketName is the current bucket; Previous are the earlier ones, with what is left in each.
 	BucketName string           `json:"bucket_name"`
 	ToCurrent  filePlace        `json:"to_current"`
@@ -475,11 +482,14 @@ func (g *AccountGateway) fileMoveView(ctx context.Context) (fileMoveView, error)
 			v.Kind = fileStoreKindS3
 		}
 		v.Previous = []previousBucket{}
+		usage, uerr := g.fileStoreUsage(ctx, false)
+		if uerr != nil {
+			return v, uerr
+		}
+		if code, _, clearsAt := fileStoreRemoveBlock(usage); code != "" {
+			v.RemoveBlock = &fileStoreRemoval{Code: code, ClearsAt: clearsAt}
+		}
 		if len(cfg.Prev) > 0 {
-			usage, uerr := g.fileStoreUsage(ctx, false)
-			if uerr != nil {
-				return v, uerr
-			}
 			for _, p := range cfg.Prev {
 				u := usage[p.Gen]
 				v.Previous = append(v.Previous, previousBucket{Gen: p.Gen, Bucket: p.Bucket, ReplacedAt: p.ReplacedAt, Files: u.Files, Bytes: u.Bytes, Pending: u.Pending + u.Staging})

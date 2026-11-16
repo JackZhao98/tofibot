@@ -3,7 +3,7 @@ import {ApiError} from "./api";
 import {useGroups} from "./AdminGroupBits";
 import {BackupsSection} from "./AdminBackups";
 import {FileMovePanel} from "./AdminFileMove";
-import {adminOrgApi, createOrgWebToolsAdapter, orgError, type OrgMissing, type OrgResource, type OrgResourceId, type OrgResourceInput} from "./adminOrgApi";
+import {adminOrgApi, createOrgWebToolsAdapter, orgError, type FileMoveView, type OrgMissing, type OrgResource, type OrgResourceId, type OrgResourceInput} from "./adminOrgApi";
 import {useHostHasComputer} from "./computerCapability";
 import {useTranslation} from "./i18n";
 import {formatList} from "./i18n/format";
@@ -324,6 +324,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
   const badge = useBadgeWord();
   const titleId = useId(), formId = useId();
   const [editing, setEditing] = useState(false);
+  const [removeBlock, setRemoveBlock] = useState<FileMoveView["remove_block"]>(null);
   const [form, setForm] = useState({endpoint: "", region: "", bucket: "", prefix: "", pathStyle: false, accessKey: "", secret: "", grace: "14"});
   const [confirmPublic, setConfirmPublic] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
@@ -380,8 +381,13 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
     {resource && <div className="provider-actions">
       <button type="button" className="text-button" aria-expanded={editing} onClick={() => { setEditing(value => !value); actions.setNotice(""); }}>{t("admin.org.edit")}</button>
       <button type="button" className="text-button" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.file_store.test")}</button>
-      <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} onConfirm={actions.remove}/>
+      <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} disabled={Boolean(removeBlock)} onConfirm={actions.remove}/>
     </div>}
+    {resource && removeBlock && <p className="field-note" data-hint="remove-blocked">{removeBlock.code === "file_store_cleanup_pending"
+      ? removeBlock.clears_at && new Date(removeBlock.clears_at).getTime() > Date.now()
+        ? t("admin.org.file_store.remove_after", {date: new Date(removeBlock.clears_at).toLocaleString(undefined, {dateStyle: "medium", timeStyle: "short"})})
+        : t("admin.org.file_store.remove_soon")
+      : t(`admin.org.error.${removeBlock.code}`)}</p>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
       <label htmlFor={`${formId}-preset`}>{t("admin.org.file_store.preset")}</label>
       <select id={`${formId}-preset`} data-field="preset" value={preset} disabled={saving} onChange={event => applyPreset(event.target.value as "" | FileStorePreset)}>
@@ -413,7 +419,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready || (needsConfirm && !confirmPublic) || (needsUnverified && !confirmUnverified)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{resource && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
       <p className="field-note">{t("admin.org.file_store.note")}</p>
     </form>}
-    {resource && !editing && <FileMovePanel resourceKey={resource.updated_at}/>}
+    {resource && !editing && <FileMovePanel resourceKey={resource.updated_at} onView={view => setRemoveBlock(view.remove_block)}/>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;
 }

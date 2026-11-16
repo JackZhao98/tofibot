@@ -654,10 +654,35 @@ func (g *AccountGateway) fileStoreUsage(ctx context.Context, strict bool) (map[s
 		for gen, u := range per {
 			t := out[gen]
 			t.Files, t.Bytes, t.Pending, t.Staging = t.Files+u.Files, t.Bytes+u.Bytes, t.Pending+u.Pending, t.Staging+u.Staging
+			if u.ClearsAt > t.ClearsAt {
+				t.ClearsAt = u.ClearsAt
+			}
 			out[gen] = t
 		}
 	}
 	return out, nil
+}
+
+// fileStoreRemoveBlock says why the file store cannot be removed yet, over every generation; code is "" when it can.
+func fileStoreRemoveBlock(usage map[string]genUsage) (code, msg, clearsAt string) {
+	var files, pending, staging bool
+	for _, u := range usage {
+		files = files || u.Files > 0
+		pending = pending || u.Pending > 0
+		staging = staging || u.Staging > 0
+		if u.Pending > 0 && u.ClearsAt > clearsAt {
+			clearsAt = u.ClearsAt
+		}
+	}
+	switch {
+	case files:
+		return "file_store_in_use", "Files are stored in this bucket. It cannot be removed until they are moved.", ""
+	case pending:
+		return "file_store_cleanup_pending", "Deleted files are still waiting out their grace period in the bucket. It can be removed after they are cleaned up.", clearsAt
+	case staging:
+		return "file_store_busy", "An import into the bucket is still waiting to finish. Try again later.", ""
+	}
+	return "", "", ""
 }
 
 // retireFileStoreGen deletes an earlier generation's key and entry once nothing refers to it.

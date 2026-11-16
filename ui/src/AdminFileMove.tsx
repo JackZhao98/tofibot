@@ -12,15 +12,17 @@ const REPORT_PROBLEMS = new Set<string>(["missing_in_store", "missing_on_disk", 
  * the job lives on the server and resumes after a restart), reconcile rows against the bucket, and sweep orphaned objects.
  * Only stable codes reach this view; the bucket's own text is never shown.
  */
-export function FileMovePanel({resourceKey}: {resourceKey?: string}) {
+export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onView?: (view: FileMoveView) => void}) {
   const {t} = useTranslation("settings");
   const [view, setView] = useState<FileMoveView | null>(null);
   const [error, setError] = useState("");
   const [deep, setDeep] = useState(false);
+  const onViewRef = useRef(onView);
+  onViewRef.current = onView;
   const seq = useRef(0);
   const load = useCallback(async () => {
     const mine = ++seq.current;
-    try { const next = await fileMoveApi.state(); if (mine === seq.current) { setView(next); setError(""); } }
+    try { const next = await fileMoveApi.state(); if (mine === seq.current) { setView(next); onViewRef.current?.(next); setError(""); } }
     catch (cause) { if (mine === seq.current) setError(fileMoveError(cause)); }
   }, []);
   useEffect(() => { void load(); }, [load, resourceKey]);
