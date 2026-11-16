@@ -678,6 +678,8 @@
     "waiting": "等待中",
     "more_other": "另有 {{count}} 个：{{names}}",
     "open_tasks_other": "{{count}} 项待办",
+    "pictures_other": "打开这一步的 {{count}} 张图：{{step}}",
+    "picture": "{{step}} · 第 {{index}} 张",
     "history": "计划 · 完成 {{done}}/{{total}}",
     "history_stopped": "计划 · 停在第 {{step}}/{{total}} 步",
     "state": {

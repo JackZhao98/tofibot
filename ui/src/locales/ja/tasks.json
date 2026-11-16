@@ -678,6 +678,8 @@
     "waiting": "待機中",
     "more_other": "ほか {{count}} 件：{{names}}",
     "open_tasks_other": "未完了のタスク {{count}} 件",
+    "pictures_other": "このステップの画像 {{count}} 枚を開く：{{step}}",
+    "picture": "{{step}} · {{index}} 枚目",
     "history": "計画 · {{done}}/{{total}} 完了",
     "history_stopped": "計画 · {{total}} 中 {{step}} 番目で停止",
     "state": {

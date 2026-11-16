@@ -4582,7 +4582,14 @@ func (s *Server) execute(c Conversation, r Run) {
 			injections++
 		}
 		injections += people
-		return s.store.renderInjection(rows), people > 0, nil
+		text := s.store.renderInjection(rows)
+		// The person's words may change the work: the run re-assesses its list.
+		if people > 0 {
+			if block := s.steerPlanContext(c, r); block != "" {
+				text += "\n\n" + block
+			}
+		}
+		return text, people > 0, nil
 	}
 	if len(continuation) > 0 {
 		observed, observeErr := s.store.hasCompletionReviewToolWork(r.ID)

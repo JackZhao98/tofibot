@@ -433,8 +433,10 @@ export interface Run {
   updated_at: string;
 }
 
+/** A picture the step made or used: a capture of the Bot's screen, an image file of the answer, or an image the Bot viewed. */
+export interface PlanStepImage { id: string; kind: "capture" | "file" | "viewed" }
 /** One step of a Bot's step list. The id stays while the step keeps its text or its place. */
-export interface PlanStep { id: string; text: string; status: "pending" | "in_progress" | "done" }
+export interface PlanStep { id: string; text: string; status: "pending" | "in_progress" | "done"; images?: PlanStepImage[] }
 /** A run's step list (`run_plan` event, `Run.plan`). A higher version is newer; an empty list is a cleared plan. */
 export interface RunPlan {
   run_id: string;
@@ -444,7 +446,8 @@ export interface RunPlan {
   version: number;
   /** False once the run answered, the person stopped the work, or a later run took the list over. */
   open: boolean;
-  closed?: "answered" | "stopped" | "passed" | "replaced";
+  /** blocked: the answer named what stops the work. */
+  closed?: "answered" | "blocked" | "stopped" | "passed" | "replaced";
   inherited_from?: string;
   updated_at: string;
 }

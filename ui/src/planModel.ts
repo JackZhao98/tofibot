@@ -4,11 +4,12 @@
  * states and the history view are tested without a browser (scripts/test-plan-card.mjs).
  */
 
-import type { Run, RunPlan, WorkChecklistItem, WorkItem } from "./types";
+import type { PlanStepImage, Run, RunPlan, WorkChecklistItem, WorkItem } from "./types";
 
 /** A step as drawn. `stopped`: the run ended while the step was in progress; `not_done`: the run ended before it. */
 export type StepState = "pending" | "in_progress" | "done" | "stopped" | "not_done" | "skipped" | "blocked";
-export interface DockStep { id: string; text: string; state: StepState }
+/** `images`: the pictures the step made or used (the server picks them by the step's time), newest last. */
+export interface DockStep { id: string; text: string; state: StepState; images?: readonly PlanStepImage[] }
 
 const ACTIVE: ReadonlySet<string> = new Set(["queued", "running", "waiting"]);
 export const isActiveRun = (run: Pick<Run, "status">) => ACTIVE.has(run.status);
@@ -33,7 +34,7 @@ export interface DockEntry {
 const OPEN_TASK: ReadonlySet<string> = new Set(["todo", "in_progress", "blocked", "review", "input_required"]);
 
 export function planSteps(plan: RunPlan): DockStep[] {
-  return plan.steps.map(step => ({ id: step.id, text: step.text, state: step.status }));
+  return plan.steps.map(step => ({ id: step.id, text: step.text, state: step.status, images: step.images }));
 }
 
 /** A task checklist as steps: the first open item is the one in progress while the run works. */
@@ -113,10 +114,15 @@ export function finishedEntry(previous: DockEntry, runs: readonly Run[]): DockEn
 }
 
 
-/** A finished run's list as history: what was still in progress stopped, what was still to do was not done. */
+/**
+ * A finished run's list as history: what was still in progress stopped, what was still to do was not done. An answered
+ * list finished its step in progress with the answer, so a step the answer never reached was skipped (neutral); a
+ * blocked, stopped or failed list keeps "not done".
+ */
 export function historySteps(plan: RunPlan, run: Pick<Run, "status">): DockStep[] {
   const failed = run.status === "failed" || run.status === "cancelled" || run.status === "interrupted";
-  return plan.steps.map(step => ({ id: step.id, text: step.text, state: step.status === "done" ? "done" : step.status === "in_progress" && failed ? "stopped" : "not_done" }));
+  const answered = plan.closed === "answered" && run.status === "done";
+  return plan.steps.map(step => ({ id: step.id, text: step.text, state: step.status === "done" ? "done" : step.status === "in_progress" && failed ? "stopped" : answered && step.status === "pending" ? "skipped" : "not_done", images: step.images }));
 }
 
 /**

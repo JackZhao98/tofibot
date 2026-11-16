@@ -27,7 +27,7 @@
 .plan-steps li[data-state=in_progress]{color:var(--text-body)}
 .plan-steps li[data-state=done],.plan-steps li[data-state=skipped],.plan-steps li[data-state=not_done]{color:var(--text-process)}
 .plan-steps li[data-state=stopped],.plan-steps li[data-state=blocked]{color:var(--text-body)}
-.plan-step-text{min-width:0;flex:1 1 auto}
+.plan-step-text{min-width:0;flex:0 1 auto}
 .plan-mark{display:inline-flex;align-items:center;justify-content:center;flex:none;width:14px;height:14px;margin-top:3px;color:var(--text-process)}
 .plan-card-head .plan-mark{margin-top:0}
 .plan-mark.is-done{color:var(--lagoon-text)}
@@ -35,6 +35,13 @@
 .plan-mark.is-pending::before,.plan-mark.is-paused::before{content:"";box-sizing:border-box;width:11px;height:11px;border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent);border-radius:50%}
 .plan-mark.is-paused::before{border-color:var(--text-secondary);border-style:dashed}
 .plan-card[data-plan-state=done] .plan-mark.is-done:first-child{width:16px;height:16px}
+/* A step's pictures: a small stack right after the step's text, newest on top; the button reaches past the stack for the pointer. */
+.plan-step-pictures{display:inline-flex;align-items:center;flex:none;margin:-4px -4px -4px 0;padding:4px;border:0;border-radius:var(--radius-sm);background:none;cursor:zoom-in}
+.plan-step-pictures img{display:block;flex:none;width:28px;height:20px;object-fit:cover;border-radius:4px;background:color-mix(in srgb,var(--muted) 18%,transparent);box-shadow:0 0 0 1.5px var(--surface),0 1px 2px color-mix(in srgb,var(--ink) 12%,transparent)}
+.plan-step-pictures img+img{margin-inline-start:-20px}
+.plan-step-pictures:hover img{box-shadow:0 0 0 1.5px var(--surface),0 1px 3px color-mix(in srgb,var(--ink) 20%,transparent)}
+.plan-step-pictures:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:0}
+.plan-steps li[data-state=pending] .plan-step-pictures img,.plan-steps li[data-state=not_done] .plan-step-pictures img{opacity:.72}
 /* The foot line: "+N more" and, in a group, the open to-dos. Frosted pills, since messages scroll behind the dock. */
 .plan-dock-foot{display:flex;align-items:center;gap:var(--space-2);min-width:0}
 .plan-dock-more,.plan-dock-tasks{box-sizing:border-box;min-height:28px;margin:0;padding:4px var(--space-3);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:999px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:var(--type-meta)}
@@ -59,5 +66,5 @@
 .plan-history-trigger[data-state=open] .process-line-chevron{transform:rotate(90deg)}
 .plan-history-body{padding:2px 0 var(--space-2) 22px}
 
-@media(pointer:coarse){.plan-card-trigger{min-height:44px}}
+@media(pointer:coarse){.plan-card-trigger{min-height:44px}.plan-step-pictures{margin:-10px -8px -10px 0;padding:10px 8px}}
 @media(prefers-reduced-motion:reduce){.plan-card-body[data-state=open]{animation:none}.plan-card-chevron{transition:none}}

@@ -678,6 +678,8 @@
     "waiting": "대기 중",
     "more_other": "외 {{count}}개: {{names}}",
     "open_tasks_other": "남은 할 일 {{count}}개",
+    "pictures_other": "이 단계의 이미지 {{count}}개 열기: {{step}}",
+    "picture": "{{step}} · {{index}}번째 이미지",
     "history": "계획 · {{done}}/{{total}} 완료",
     "history_stopped": "계획 · {{total}}단계 중 {{step}}단계에서 중지",
     "state": {
