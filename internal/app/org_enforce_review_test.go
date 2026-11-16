@@ -42,6 +42,7 @@ func TestOrgClientIsBoundToTheOrgEndpoint(t *testing.T) {
 		t.Fatal("the own client reached loopback because the policy is provided")
 	}
 	// A control-database failure resolves to the restricted policy (provided); it must not open the own client either.
+	quiesceScheduler(ws)
 	ws.orgPolicy = func(context.Context) (ResolvedPolicy, error) { return nil, errors.New("database is locked") }
 	if err := req(ws.ownCompatClient(), up.URL); err == nil {
 		t.Fatal("a failed policy read opened private addresses for the own client")
@@ -81,6 +82,7 @@ func TestAttachVMRechecksThePolicyAfterAttaching(t *testing.T) {
 	ws := f.memberWorkspace(t)
 	var calls atomic.Int32
 	real := ws.orgPolicy
+	quiesceScheduler(ws)
 	// The first read (the check before attaching) allows; every later read denies.
 	ws.orgPolicy = func(ctx context.Context) (ResolvedPolicy, error) {
 		if calls.Add(1) == 1 {
@@ -185,6 +187,7 @@ func TestSettingsRevertRespectsPolicy(t *testing.T) {
 	e := newSettingsEnv(t)
 	var mu sync.Mutex
 	pol := selfServeDefaults()
+	quiesceScheduler(e.s)
 	e.s.orgPolicy = func(context.Context) (ResolvedPolicy, error) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -244,4 +247,12 @@ func TestOrgBackstopScrubsInStreamErrors(t *testing.T) {
 
 func providerUsage(in, out int64) provider.Usage {
 	return provider.Usage{InputTokens: in, OutputTokens: out}
+}
+
+// quiesceScheduler stops the server's schedule worker before a test replaces a field that production sets once in
+// NewServer, before the worker starts (orgPolicy): the worker reads it on every tick, so the swap raced under -race.
+func quiesceScheduler(s *Server) {
+	if s.scheduler != nil {
+		s.scheduler.Stop()
+	}
 }

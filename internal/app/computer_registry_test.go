@@ -26,15 +26,18 @@ type fakeComputer struct {
 	blockOn map[string]bool
 	release chan struct{}
 
-	mu       sync.Mutex
+	mu sync.Mutex
+	// seen is the last answer a test set with setSeen; until then the fake is a live computer that has
+	// just answered (a fixed creation time let a test that ran past computerLostAfter lose its computer).
 	seen     time.Time
+	seenSet  bool
 	calls    atomic.Int32
 	inFlight atomic.Int32
 	order    []string // BotID of every call, in the order the computer received them
 }
 
 func newFakeComputer(id string) *fakeComputer {
-	return &fakeComputer{id: id, kind: "fake", blockOn: map[string]bool{}, release: make(chan struct{}), seen: time.Now()}
+	return &fakeComputer{id: id, kind: "fake", blockOn: map[string]bool{}, release: make(chan struct{})}
 }
 
 func (f *fakeComputer) ID() string   { return f.id }
@@ -68,11 +71,14 @@ func (f *fakeComputer) Purge(context.Context) (computer.Info, error) {
 func (f *fakeComputer) LastSeen() time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if !f.seenSet {
+		return time.Now()
+	}
 	return f.seen
 }
 func (f *fakeComputer) setSeen(t time.Time) {
 	f.mu.Lock()
-	f.seen = t
+	f.seen, f.seenSet = t, true
 	f.mu.Unlock()
 }
 
@@ -372,6 +378,25 @@ func TestComputerLeaseIsSharedByParallelCallsOfOneRun(t *testing.T) {
 	wg.Wait()
 	if slot.holder() != "" {
 		t.Fatalf("lock held after both calls ended: %q", slot.holder())
+	}
+}
+
+// A fake computer no test silenced stays attached however long its test runs. The heartbeat sweep compares the last
+// answer with the clock, and the fake used to report its creation time, so any test slower than computerLostAfter lost
+// its computer (TestARunKeepsAtMostSixtyPictures took 113 s under -race and failed: "there is no Bot computer").
+func TestAnUnsilencedFakeComputerStaysAttached(t *testing.T) {
+	s := newRegistryServer(t)
+	old := computerLostAfter
+	computerLostAfter = time.Millisecond
+	t.Cleanup(func() { computerLostAfter = old })
+	mac := newFakeComputer("mac-a")
+	if err := s.RegisterComputer(mac, "Mac", ""); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Millisecond) // longer than the limit: the test outlived it
+	s.sweepComputerHeartbeats(time.Now())
+	if _, err := s.computerActionOn(context.Background(), Run{ID: "run-1", BotID: "bot-1"}, "mac-a", "files.list", shellArgs()); err != nil {
+		t.Fatalf("a live fake was marked lost: %v", err)
 	}
 }
 
