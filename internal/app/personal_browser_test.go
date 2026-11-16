@@ -290,6 +290,44 @@ func TestPersonalBrowserSnapshotValidationAndVisionOutput(t *testing.T) {
 		}
 	}
 }
+// A Mac read of a page with frames it cannot read returns the top page and frames_unread; the count must be a small
+// non-negative integer, and a read without it (an older app) stays valid.
+func TestPersonalBrowserReadFramesUnread(t *testing.T) {
+	s, m, h, _ := browserFixture(t)
+	args, e := s.prepareBrowser(m.id, "browser.read", []byte(`{}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	result := func(frames any, present bool) []byte {
+		data := browserReadData(h).(map[string]any)
+		if present {
+			data["frames_unread"] = frames
+		}
+		raw, _ := json.Marshal(map[string]any{"v": 1, "connection_epoch": h.upload.epoch, "session_epoch": h.state.Session, "target_id": h.state.Target, "viewport_epoch": 1, "data": data})
+		return raw
+	}
+	for _, ok := range []any{0, 3, 1000} {
+		if e := validateBrowserResult("browser.read", args, result(ok, true), ""); e != nil {
+			t.Fatalf("frames_unread %v refused: %v", ok, e)
+		}
+	}
+	if e := validateBrowserResult("browser.read", args, result(nil, false), ""); e != nil {
+		t.Fatalf("a read without frames_unread refused: %v", e)
+	}
+	for _, bad := range []any{-1, 1001, 1.5, "3", true, nil} {
+		if e := validateBrowserResult("browser.read", args, result(bad, true), ""); e == nil {
+			t.Fatalf("frames_unread %#v accepted", bad)
+		}
+	}
+	snapArgs, e := s.prepareBrowser(m.id, "browser.snapshot", browserArgs(h, nil))
+	if e != nil {
+		t.Fatal(e)
+	}
+	snap, _ := json.Marshal(map[string]any{"v": 1, "connection_epoch": h.upload.epoch, "session_epoch": h.state.Session, "target_id": h.state.Target, "viewport_epoch": 1, "data": map[string]any{"image_url": "data:image/jpeg;base64," + browserJPEG(t), "width": 16, "height": 10, "css_width": 16, "css_height": 10, "shared_with_person": false, "frames_unread": 1}})
+	if validateBrowserResult("browser.snapshot", snapArgs, snap, "") == nil {
+		t.Fatal("frames_unread belongs to read only")
+	}
+}
 func TestPersonalBrowserMissingTargetsAndServerFields(t *testing.T) {
 	s, m, h, _ := browserFixture(t)
 	for _, tt := range []struct {

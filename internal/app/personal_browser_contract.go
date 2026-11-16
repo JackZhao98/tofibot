@@ -276,6 +276,7 @@ func validateBrowserResult(action string, args, raw []byte, resultErr string) er
 		required = "url title"
 	case "browser.read":
 		required = "url title text links targets truncated untrusted"
+		optional = "frames_unread"
 	case "browser.snapshot":
 		required = "image_url width height css_width css_height shared_with_person"
 	case "browser.type":
@@ -340,6 +341,9 @@ func validateBrowserResult(action string, args, raw []byte, resultErr string) er
 		limit := a.MaxChars
 		if limit == 0 {
 			limit = 20000
+		}
+		if _, ok := m["frames_unread"]; ok && !browserInteger(m, "frames_unread", 0, 1000) {
+			return errors.New("invalid read")
 		}
 		if utf8.RuneCountInString(text) > limit || string(m["untrusted"]) != "true" || (string(m["truncated"]) != "true" && string(m["truncated"]) != "false") {
 			return errors.New("invalid read")

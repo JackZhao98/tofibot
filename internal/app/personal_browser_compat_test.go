@@ -25,6 +25,9 @@ func TestPersonalBrowserFeatureMetadata(t *testing.T) {
 	if string(single["bot_browser"]) != `{"upload":"websocket-json","version":1,"view":"ndjson-jpeg"}` {
 		t.Fatalf("metadata %s", single["bot_browser"])
 	}
+	if string(single["bot_browser_features"]) != `["frames_unread"]` || !reflect.DeepEqual(single["bot_browser_features"], multi["bot_browser_features"]) {
+		t.Fatalf("features %s %s", single["bot_browser_features"], multi["bot_browser_features"])
+	}
 	if DesktopContract != 1 || DesktopMinClient != "0.2.1" {
 		t.Fatal("desktop contract changed")
 	}

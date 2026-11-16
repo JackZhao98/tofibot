@@ -19,3 +19,11 @@ func desktopServerInfo() map[string]any {
 func botBrowserServerInfo() map[string]any {
 	return map[string]any{"version": 1, "upload": "websocket-json", "view": "ndjson-jpeg"}
 }
+
+// botBrowserFeatures names the result fields this server accepts beyond bot_browser v1. It is a key of its own: the
+// desktop app keeps bot_browser only when it has exactly its three keys, so a new key there would cost older apps
+// the browser. A Mac app sends a field only when its name is here (frames_unread: browser.read counts the page's frames
+// whose content is not in its text).
+func botBrowserFeatures() []string {
+	return []string{"frames_unread"}
+}
