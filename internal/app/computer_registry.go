@@ -420,6 +420,9 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		}
 		// Folder work through any tool (computer_action too) needs this Bot's grant on this Mac; the Mac checks again.
 		if strings.HasPrefix(name, "folders.") {
+			if args, err = canonicalFolderArgs(name, args); err != nil {
+				return "", tooloutcome.InvalidArguments(err.Error())
+			}
 			if err := s.macFolderReady(r, id); err != nil {
 				return "", err
 			}

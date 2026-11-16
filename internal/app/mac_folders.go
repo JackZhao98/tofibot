@@ -154,6 +154,13 @@ func (s *Store) updateComputerFolders(id, token string, folders []macFolder) ([]
 		if target == "" {
 			target = a.Cwd
 		}
+		if target == "" {
+			// A command without cwd runs in the Bot's first folder: it stays while the Bot has any.
+			if !slices.ContainsFunc(list, func(f macFolder) bool { return containsString(f.Bots, botID) }) {
+				stale = append(stale, jobID)
+			}
+			continue
+		}
 		if _, ok := macFolderFor(list, botID, target); !ok {
 			stale = append(stale, jobID)
 		}
@@ -537,4 +544,51 @@ func (s *Server) macFoldersRunContext(r Run) string {
 	}
 	b.WriteString("Work there with computer_files and computer_shell and pass computer_id of that Mac. An offline Mac cannot be reached until the person opens the TOFI app on it.")
 	return b.String()
+}
+
+// folderArgKeys are the exact (lower-case) keys of each folders.* action.
+var folderArgKeys = map[string][]string{
+	"folders.list":  {"path"},
+	"folders.read":  {"path", "offset", "limit"},
+	"folders.write": {"path", "content"},
+	"folders.edit":  {"path", "old_string", "new_string", "replace_all"},
+	"folders.exec":  {"command", "cwd", "effect", "timeout_sec"},
+}
+
+// canonicalFolderArgs is the one form of a folders.* job that the guard, the
+// queue and the Mac all read. Go matches JSON keys without regard to case and the
+// Mac does not, so {"command":..,"Command":..} could show the reviewer one command
+// and run another: a key that is not exactly one of the action's keys is refused,
+// and the args are written out again from the parsed values.
+func canonicalFolderArgs(action string, raw json.RawMessage) (json.RawMessage, error) {
+	keys, ok := folderArgKeys[action]
+	if !ok {
+		return nil, errors.New("unsupported action")
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+		return nil, errors.New("args must be a JSON object")
+	}
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	if _, err := dec.Token(); err != nil {
+		return nil, errors.New("args must be a JSON object")
+	}
+	seen := map[string]bool{}
+	for dec.More() {
+		t, err := dec.Token()
+		if err != nil {
+			return nil, errors.New("args must be a JSON object")
+		}
+		key, _ := t.(string)
+		if !slices.Contains(keys, key) || seen[key] {
+			return nil, fmt.Errorf("%s takes only %s", action, strings.Join(keys, ", "))
+		}
+		seen[key] = true
+		var skip json.RawMessage
+		if err = dec.Decode(&skip); err != nil {
+			return nil, errors.New("args must be a JSON object")
+		}
+	}
+	out, _ := json.Marshal(m)
+	return out, validateFolderArgs(action, out)
 }
