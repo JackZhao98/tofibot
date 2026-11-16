@@ -558,7 +558,8 @@
     "connection_interrupted": "La connexion a été coupée et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain.",
     "failed": "Cette demande a échoué et la tâche n’a pas abouti. Les résultats d’outils obtenus sont conservés.",
     "tool_stuck": "Une étape d’outil ne répondait plus, la tâche a donc été arrêtée. Les résultats d’outils obtenus sont conservés. Avant de réessayer, vérifiez les actions au résultat incertain.",
-    "resumed_repeatedly": "Tâche interrompue {{times}} fois. Arrêtée."
+    "resumed_repeatedly": "Tâche interrompue {{times}} fois. Arrêtée.",
+    "content_flagged": "Le filtre de contenu du fournisseur du modèle a bloqué cette requête et la tâche n’est pas terminée. Les résultats d’outils obtenus sont conservés ; vous pouvez réessayer."
   },
   "conversation_state": {
     "finishing": "Finalisation",
@@ -628,7 +629,9 @@
       "no_final_answer": "Le modèle s'est arrêté sans réponse finale.",
       "tool_stuck": "Une étape d'outil ne répondait plus et la tâche a été arrêtée.",
       "receipt_missing": "L'exécution s'est terminée sans confirmer de résultat.",
-      "resumed_repeatedly": "La tâche a été interrompue {{times}} fois et arrêtée."
+      "resumed_repeatedly": "La tâche a été interrompue {{times}} fois et arrêtée.",
+      "content_flagged": "Le filtre de contenu du fournisseur du modèle a bloqué cette requête. Réessayez, ou reformulez la demande si elle est de nouveau bloquée.",
+      "content_flagged_retried": "Le filtre de contenu du fournisseur du modèle a bloqué cette requête, y compris lors d’une nouvelle tentative automatique. Réessayez, ou reformulez la demande si elle est de nouveau bloquée."
     }
   },
   "handover": {

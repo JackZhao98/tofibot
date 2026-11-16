@@ -335,7 +335,8 @@
         "model_quota_exhausted": "已达模型配额",
         "connection_interrupted": "连接中断",
         "budget_exhausted": "步数预算已用尽",
-        "spend_cap_reached": "已达花费上限"
+        "spend_cap_reached": "已达花费上限",
+        "model_content_flagged": "被内容过滤拦截"
       }
     }
   },

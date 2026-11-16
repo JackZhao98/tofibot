@@ -552,7 +552,8 @@
     "connection_interrupted": "The connection dropped and the task didn't finish. Completed tool results are kept. Before retrying, check any actions with uncertain results.",
     "failed": "This request failed and the task didn't finish. Completed tool results are kept.",
     "tool_stuck": "A tool step stopped responding, so the task was stopped. Completed tool results are kept. Before retrying, check any actions with uncertain results.",
-    "resumed_repeatedly": "Task interrupted {{times}} times. Stopped."
+    "resumed_repeatedly": "Task interrupted {{times}} times. Stopped.",
+    "content_flagged": "The model provider's content filter blocked this request and the task didn't finish. Completed tool results are kept; you can retry."
   },
   "conversation_state": {
     "finishing": "Finishing up",
@@ -621,7 +622,9 @@
       "no_final_answer": "The model ended without a final answer.",
       "tool_stuck": "A tool step stopped responding and the task was stopped.",
       "receipt_missing": "The run ended without confirming a result.",
-      "resumed_repeatedly": "The task was interrupted {{times}} times and stopped."
+      "resumed_repeatedly": "The task was interrupted {{times}} times and stopped.",
+      "content_flagged": "The model provider's content filter blocked this request. Retry, or rephrase the request if it is blocked again.",
+      "content_flagged_retried": "The model provider's content filter blocked this request, also on one automatic retry. Retry, or rephrase the request if it is blocked again."
     }
   },
   "handover": {

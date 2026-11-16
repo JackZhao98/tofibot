@@ -414,7 +414,7 @@ export interface Run {
   bot_id: string;
   status: RunStatus;
   error?: string;
-  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "org_resource_missing" | "own_models_not_allowed" | "provider_auth_failed" | "provider_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached"; source: "runtime"; count?: number; message: string };
+  failure?: { code: "connection_interrupted" | "execution_failed" | "no_final_answer" | "budget_exhausted" | "approval_expired" | "model_unconfigured" | "model_auth_invalid" | "model_quota_exhausted" | "org_resource_missing" | "own_models_not_allowed" | "provider_auth_failed" | "provider_quota_exhausted" | "tool_stuck" | "resumed_repeatedly" | "spend_cap_reached" | "model_content_flagged"; source: "runtime"; count?: number; /** The provider flagged the automatic re-send too (model_content_flagged). */ auto_retried?: boolean; message: string };
   stop_reason?: "approval_expired";
   finishing_reason?: "approval_expired";
   parent_run_id?: string;

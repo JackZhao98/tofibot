@@ -98,6 +98,42 @@ func IsQuotaExhausted(text string) bool {
 	return false
 }
 
+// ContentFlagMarkers are the provider error fragments that mean the provider's
+// safety system blocked the request or its output: OpenAI and Codex
+// invalid_prompt ("flagged as potentially violating our usage policy"), an
+// Anthropic refusal stop (RefusalError) and Anthropic's output content filter.
+var ContentFlagMarkers = []string{"invalid_prompt", "flagged as potentially violating", "model declined the request", "content filtering policy"}
+
+// IsContentFlagged reports whether text names a provider content-filter block.
+func IsContentFlagged(text string) bool {
+	lower := strings.ToLower(text)
+	for _, marker := range ContentFlagMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// PromptFlaggedAgain is appended to a prompt flag that came back on the one
+// automatic re-send, so the failure record can say it was already retried.
+const PromptFlaggedAgain = "flagged again after one automatic retry"
+
+// IsPromptFlagged reports an OpenAI or Codex invalid_prompt: the provider's
+// input classifier flagged the request before the model produced any output.
+// RetryProvider does not retry it (the agent re-sends it once per run);
+// Anthropic refusals and output filters are not prompt flags.
+func IsPromptFlagged(err error) bool {
+	var failed *ResponseFailedError
+	if errors.As(err, &failed) {
+		return strings.EqualFold(strings.TrimSpace(failed.Code), "invalid_prompt")
+	}
+	if apiErr, ok := AsAPIError(err); ok && apiErr.StatusCode == 400 {
+		return strings.Contains(strings.ToLower(apiErr.Body), "invalid_prompt")
+	}
+	return false
+}
+
 // IsRetryable returns true if the error is a transient failure that should be retried.
 func IsRetryable(err error) bool {
 	if err == nil {

@@ -1223,6 +1223,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	reasoningReplayDisabled := false
 	modelCallRecovered := false
 	transientProviderRetries := 0
+	promptFlagRetried := false
 
 	// A compaction is a model call of its own: it counts against the run's
 	// call and cost budget, reaches the usage ledger, and keeps LLMCalls,
@@ -1585,6 +1586,31 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			}
 			if loopCtx.Err() == nil {
 				continue
+			}
+		}
+
+		// A prompt flag (OpenAI or Codex invalid_prompt) arrives before any
+		// output, and a re-send of the same request often passes. It is
+		// re-sent once per run, not per call: each flag counts against the
+		// person's own provider account. A second flag ends the run and says so.
+		if err != nil && loopCtx.Err() == nil && provider.IsPromptFlagged(err) {
+			if !promptFlagRetried {
+				promptFlagRetried = true
+				ctx.Log("[Agent] Provider flagged the prompt (%v); re-sending it once in %v", err, promptFlagRetryDelay)
+				state.Trace.RecordError(state.Step, err)
+				provider.ObserveRetry(loopCtx, 1, err, promptFlagRetryDelay)
+				if streamedContent && cfg.OnStreamReset != nil {
+					cfg.OnStreamReset()
+				}
+				select {
+				case <-loopCtx.Done():
+				case <-time.After(promptFlagRetryDelay):
+				}
+				if loopCtx.Err() == nil {
+					continue
+				}
+			} else {
+				err = fmt.Errorf("%w (%s)", err, provider.PromptFlaggedAgain)
 			}
 		}
 
@@ -3479,6 +3505,9 @@ Rules:
 // transientProviderBackoff is the wait before each in-loop retry of a
 // retryable provider error that arrived after output had been forwarded.
 var transientProviderBackoff = []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second, 20 * time.Second, 30 * time.Second, 45 * time.Second}
+
+// promptFlagRetryDelay is the wait before the one re-send of a flagged prompt.
+var promptFlagRetryDelay = 3 * time.Second
 
 // providerAccountError reports account-level failures that a retry cannot
 // clear: exhausted quota or credit.

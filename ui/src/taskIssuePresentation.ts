@@ -133,6 +133,8 @@ function decisiveStep(tools: ToolActivity[]): ToolActivity | undefined {
   return latest(tools.filter(tool => known(stepReasonKeys, tool.outcome?.code))) ?? latest(tools.filter(tool => tool.status === "failed" || tool.status === "interrupted"));
 }
 function runReason(run: Run, tools: ToolActivity[], t: ReturnType<typeof tasksT>): string | undefined {
+  // The model call that ended the run was blocked, so an earlier failed step is not the cause.
+  if (run.failure?.code === "model_content_flagged") return t(run.failure.auto_retried ? "reason.run.content_flagged_retried" : "reason.run.content_flagged");
   const step = decisiveStep(tools), code = step?.outcome?.code;
   if (step) return known(stepReasonKeys, code) ? t(stepReasonKeys[code], { step: stepName(step) }) : t("reason.step.failed", { step: stepName(step) });
   const error = (run.error ?? "").toLowerCase();

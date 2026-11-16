@@ -552,7 +552,8 @@
     "connection_interrupted": "Die Verbindung ist abgebrochen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis.",
     "failed": "Diese Anfrage ist fehlgeschlagen, die Aufgabe ist nicht fertig. Fertige Tool-Ergebnisse bleiben erhalten.",
     "tool_stuck": "Ein Tool-Schritt hat nicht mehr reagiert, deshalb wurde die Aufgabe gestoppt. Abgeschlossene Tool-Ergebnisse bleiben erhalten. Prüfe vor einem neuen Versuch alle Aktionen mit unsicherem Ergebnis.",
-    "resumed_repeatedly": "Aufgabe {{times}}-mal unterbrochen. Gestoppt."
+    "resumed_repeatedly": "Aufgabe {{times}}-mal unterbrochen. Gestoppt.",
+    "content_flagged": "Der Inhaltsfilter des Modellanbieters hat diese Anfrage blockiert, die Aufgabe wurde nicht abgeschlossen. Fertige Tool-Ergebnisse bleiben erhalten, du kannst es erneut versuchen."
   },
   "conversation_state": {
     "finishing": "Wird abgeschlossen",
@@ -621,7 +622,9 @@
       "no_final_answer": "Das Modell hat ohne endgültige Antwort geendet.",
       "tool_stuck": "Ein Tool-Schritt reagierte nicht mehr, die Aufgabe wurde gestoppt.",
       "receipt_missing": "Der Lauf endete, ohne ein Ergebnis zu bestätigen.",
-      "resumed_repeatedly": "Die Aufgabe wurde {{times}}-mal unterbrochen und gestoppt."
+      "resumed_repeatedly": "Die Aufgabe wurde {{times}}-mal unterbrochen und gestoppt.",
+      "content_flagged": "Der Inhaltsfilter des Modellanbieters hat diese Anfrage blockiert. Versuche es erneut oder formuliere die Anfrage um, wenn sie wieder blockiert wird.",
+      "content_flagged_retried": "Der Inhaltsfilter des Modellanbieters hat diese Anfrage blockiert, auch bei einem automatischen erneuten Versuch. Versuche es erneut oder formuliere die Anfrage um, wenn sie wieder blockiert wird."
     }
   },
   "handover": {

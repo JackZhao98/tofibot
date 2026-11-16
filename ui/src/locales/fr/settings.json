@@ -345,7 +345,8 @@
         "model_quota_exhausted": "Quota du modèle atteint",
         "connection_interrupted": "Connexion interrompue",
         "budget_exhausted": "Budget d’étapes épuisé",
-        "spend_cap_reached": "Plafond de dépenses atteint"
+        "spend_cap_reached": "Plafond de dépenses atteint",
+        "model_content_flagged": "Bloqué par le filtre de contenu"
       }
     }
   },

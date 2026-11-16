@@ -79,6 +79,15 @@ try {
   assert.match(text(one([],{error:"x",failure:{code:"budget_exhausted",source:"runtime",message:""}})),/step budget/);
   assert.match(text(one([],{error:"spend_cap_reached: The monthly spend limit of $1 is reached. PRIVATE_FIGURE"})),/spend limit is reached, so the model was not called/);assert(!text(one([],{error:"spend_cap_reached: PRIVATE_FIGURE"})).includes("PRIVATE_FIGURE"));
   assert.match(text(one([])),/without confirming a result/);
+  // A provider content-filter block is named, offers retry, beats an earlier failed step, and never shows the provider's words.
+  {const flagged={error:"LLM call failed: response failed: [invalid_prompt] PRIVATE_UPSTREAM",failure:{code:"model_content_flagged",source:"runtime",message:""}};
+   const failedStep={...refused("tool_x"),outcome:{code:"tool_x",status:"transient_failure",execution_certainty:"not_executed",message:"",next_action:""}};
+   const i=one([failedStep],flagged);assert.equal(i.kind,"unknown_failure");assert.equal(i.retryable,true);
+   assert.match(text(i),/content filter blocked this request/);assert(!text(i).includes("A tool failed"));assert(!text(i).includes("automatic retry"));
+   assert.match(text(one([],{...flagged,failure:{...flagged.failure,auto_retried:true}})),/also on one automatic retry/);
+   assert.match(text(one([],flagged,"zh-CN")),/内容过滤拦截/);
+   const html=markup({...scenario("busy"),run:{...failedRun,...flagged},tools:[],summaries:[{...summary,tool_count:0}]},"en");
+   assert(html.includes("content filter"));for(const raw of ["PRIVATE_UPSTREAM","invalid_prompt"]) assert(!html.includes(raw),raw);}
   // Nothing known: generic line only.
   assert.match(text(one([],{error:"",failure:{code:"execution_failed",source:"runtime",message:""}})),/No specific cause was recorded|not yet confirmed/);
   // Completed work and a posted reply are stated.
