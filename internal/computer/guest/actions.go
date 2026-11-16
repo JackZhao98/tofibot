@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -523,6 +524,9 @@ func (s *Service) shell(parent context.Context, botID string, args shellArgs) (m
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Env = setEnv(cleanEnv(s.root, bot), "PWD", cwd)
 	cmd.Env = setEnv(cmd.Env, "TMPDIR", filepath.Join(cwd, "tmp"))
+	if port := s.sharedDevToolsPort(); port > 0 {
+		cmd.Env = setEnv(cmd.Env, "TOFI_DEVTOOLS_PORT", strconv.Itoa(port))
+	}
 	if len(args.Env) > 16 {
 		return nil, errors.New("too many injected variables")
 	}
@@ -1097,6 +1101,20 @@ func (s *Service) currentDesktop(ctx context.Context, botID string) (*desktop, e
 		return nil, d.startErr
 	}
 	return d, nil
+}
+
+// sharedDevToolsPort is the DevTools port of the shared desktop's Chrome once that desktop has started, else 0.
+// Shell helpers (browser.read, browser.click) get it as TOFI_DEVTOOLS_PORT, so they reach the same Chrome that
+// desktop.* and browser.navigate use instead of guessing it from the process table. The same uid can already find
+// the port there, so it widens nothing.
+func (s *Service) sharedDevToolsPort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d := s.sharedDesktop
+	if d == nil || !d.readyClosed || d.startErr != nil || d.stopping {
+		return 0
+	}
+	return d.remotePort
 }
 
 // desktopLocked resolves a logical Bot to the workspace graphical session.
