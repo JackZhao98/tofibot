@@ -19,6 +19,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -55,6 +56,54 @@ type outboxResult struct {
 	Skipped  int // already synced, or not a regular file
 	Refused  int // too large, a link, or over a cap: stays on the computer
 	Deferred int // fits no cap now: stays for the next reply
+	Handled  int // new in a run whose Bot named its files: recorded, never sent on its own
+}
+
+// outboxHandled is the ledger's attachment id for an outbox file that was
+// recorded without being sent: a run whose Bot named its own files sends only
+// those (owner case 2026-11-16: two pictures named, seven delivered).
+const outboxHandled = ""
+
+// runNamedItsFiles reports whether the Bot chose this run's files itself: a
+// completed send_message with attachments or publish_file, or a file it
+// queued that is not a generated image or an outbox copy.
+func (s *Store) runNamedItsFiles(runID string) bool {
+	var n int
+	if s.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND request_key NOT LIKE 'image:%' AND request_key NOT LIKE 'outbox:%'`, runID).Scan(&n) == nil && n > 0 {
+		return true
+	}
+	rows, err := s.db.Query(`SELECT name,arguments FROM tool_activities WHERE run_id=? AND status='completed' AND name IN ('send_message','say','publish_file')`, runID)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		var args sql.NullString
+		if rows.Scan(&name, &args) != nil {
+			continue
+		}
+		if name == "publish_file" {
+			return true
+		}
+		var in struct {
+			Attachments []json.RawMessage `json:"attachments"`
+		}
+		if json.Unmarshal([]byte(args.String), &in) == nil && len(in.Attachments) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// runStartNS is the run's start in Unix nanoseconds, a minute early for a
+// guest clock that runs behind; 0 when the time is unknown.
+func runStartNS(r Run) int64 {
+	t, err := time.Parse(time.RFC3339Nano, r.CreatedAt)
+	if err != nil {
+		return 0
+	}
+	return t.Add(-time.Minute).UnixNano()
 }
 
 // runUsedComputer reports whether the run made a computer tool call, so a run
@@ -111,7 +160,7 @@ func isNoSuchPath(err error) bool {
 
 func (s *Store) outboxAlreadySynced(p string, size, mtime int64) bool {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM outbox_synced o JOIN attachments a ON a.id=o.attachment_id WHERE o.path=? AND o.size=? AND o.mtime_ns=?`, p, size, mtime).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM outbox_synced o WHERE o.path=? AND o.size=? AND o.mtime_ns=? AND (o.attachment_id=? OR EXISTS(SELECT 1 FROM attachments a WHERE a.id=o.attachment_id))`, p, size, mtime, outboxHandled).Scan(&n)
 	return err == nil && n > 0
 }
 
@@ -173,9 +222,22 @@ func (s *Server) stageOutbox(ctx context.Context, r Run, c Conversation) outboxR
 	}
 	var total int64
 	names := map[string]bool{}
+	// A run whose Bot named its files sends only those. Its new outbox files
+	// are recorded as handled, so no later reply sends them either; files from
+	// before the run wait for a run that names none.
+	explicit, since := s.store.runNamedItsFiles(r.ID), runStartNS(r)
 	for _, f := range files {
 		if s.store.outboxAlreadySynced(f.Path, f.Size, f.MTimeNS) {
 			res.Skipped++
+			continue
+		}
+		if explicit {
+			if f.MTimeNS >= since {
+				s.store.recordOutboxSynced(f.Path, f.Size, f.MTimeNS, "", outboxHandled)
+				res.Handled++
+			} else {
+				res.Deferred++
+			}
 			continue
 		}
 		if f.Size > outboxFileBytes {
