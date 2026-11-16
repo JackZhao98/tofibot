@@ -58,7 +58,7 @@ interface Visit {
   /** A primary press on the content that is still down: the pane holds still until it is released (see onPress). */
   press: { id: number; top: number; following: boolean } | null;
   /** The list's last block and its top in the pane at the last sync: the anchor that keeps the newest content still while growth lands above it. */
-  tail: { node: Element; top: number } | null;
+  tail: [Element, number] | null;
 }
 
 /** The message list's last block. While the reader follows the bottom it is what they are looking at. */
@@ -191,7 +191,7 @@ export function useConversationScroll(options: Options) {
     v.resumeIntent = false;
     v.lastScrollTop = el.scrollTop;
     const tail = tailOf(el);
-    v.tail = tail ? { node: tail, top: topIn(el, tail) } : null;
+    v.tail = tail && [tail, topIn(el, tail)];
     const following = !v.detached && bottom;
     const changed = v.atBottom !== following || v.nearBottom !== bottom;
     v.nearBottom = bottom;
@@ -266,10 +266,7 @@ export function useConversationScroll(options: Options) {
       const p = Math.min(1, Math.max(0, (time - glide.start) / glide.duration));
       const wanted = glide.from + (end - glide.from) * easeInOutSine(p);
       const next = Math.min(wanted, node.scrollTop + GLIDE_STEP_MAX);
-      const before = node.scrollTop;
       node.scrollTop = p >= 1 && end - node.scrollTop <= GLIDE_STEP_MAX ? end : Math.max(next, node.scrollTop);
-      // The hop moves the last block up on purpose; keep its anchor in step so position() reads only growth above it as a shift.
-      if (v.tail) v.tail.top -= node.scrollTop - before;
       // Growth this frame reads first never reaches followBottom (the height already matches), so it is a stream here:
       // without this, the next hop after a quiet-looking gap would glide GLIDE_MS instead of GLIDE_STREAM_MS.
       if (node.scrollHeight > glide.height) v.lastGrowth = performance.now();
@@ -369,10 +366,11 @@ export function useConversationScroll(options: Options) {
         // Growth above the newest block (a card or an image filling in, a lazy chunk) is not an arrival. Chromium's scroll anchoring
         // absorbs it; WebKit has none, so the bottom of the chat was pushed down and the follow glide pulled it back: a twitch per
         // late block while a conversation opens. Put the last block back where it was in this same frame; only growth of the last
-        // block itself (streaming) or a new block is left to the glide. Not under a press: what is pressed must not move.
+        // block itself (streaming) or a new block is left to the glide. Not under a press: what is pressed must not move. A glide
+        // in flight moves the last block up, which reads as a negative shift and is left alone.
         const tail = v.tail;
-        if (tail && !arrived && !v.press && tail.node.isConnected && tail.node === tailOf(el)) {
-          const shift = topIn(el, tail.node) - tail.top;
+        if (tail && !arrived && !v.press && tail[0] === tailOf(el)) {
+          const shift = topIn(el, tail[0]) - tail[1];
           if (shift > 0.5) el.scrollTop += shift;
         }
         // The reader's own message lands where they are looking: it arrives by its send flight, not by a scroll.
