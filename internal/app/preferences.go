@@ -26,7 +26,7 @@ type userPreferences struct {
 	// timeline. Off by default: the timeline shows the Bot's messages, and the
 	// steps stay one tap away behind a message's "View activity" action.
 	ShowActivity bool `json:"show_activity"`
-	// StructuredOutput makes the say tool the only way text reaches a person:
+	// StructuredOutput makes the send_message tool the only way text reaches a person:
 	// plain assistant text between tool calls stays in the run's activity. On
 	// by default; off restores the heuristic publication of plain text.
 	StructuredOutput bool `json:"structured_output"`

@@ -15,7 +15,7 @@ type scheduleTestEngine struct{}
 
 func (scheduleTestEngine) Run(ctx context.Context, req Request) (Result, error) {
 	for _, tool := range req.Tools {
-		if tool.Name == "say" {
+		if tool.Name == "send_message" {
 			// The say protocol: the answer is the receipt.
 			args, _ := json.Marshal(map[string]any{"purpose": "answer", "outcome": "done", "text": "scheduled result", "sources": []string{"synthetic source"}})
 			if _, err := tool.Execute(runtime.WithToolCallID(ctx, "schedule-test-say"), args); err != nil {

@@ -116,7 +116,7 @@ func webFetchPlan(perRequest, runLimit int, used int64) (int, string) {
 	return min(perRequest, int(left)), ""
 }
 
-var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "say": true}
+var bulkContentTools = map[string]bool{"computer_files": true, "computer_action": true, "tofi_write": true, "tofi_edit": true, "send_message": true, "say": true}
 
 // MaxStepsWithProgressReports is the hard loop guard for tasks that report
 // progress between tool batches. Persistence must accept the same turn range.
@@ -131,17 +131,17 @@ func progressReportReminder(limit int) string {
 }
 
 // StructuredReportPrompt replaces ProgressReportPrompt when the run delivers
-// text through the say tool. Plain text between tool calls stays private, so
+// text through the send_message tool. Plain text between tool calls stays private, so
 // the update cadence is satisfied only by a say call.
 func StructuredReportPrompt(maxCalls int) string {
 	if maxCalls <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("\n\nText you write outside the say tool is private working text. On longer tasks, give a brief concrete update with say(note) before exceeding %d tool calls since the last one, then continue.\n", maxCalls)
+	return fmt.Sprintf("\n\nText you write outside the send_message tool is private working text. On longer tasks, give a brief concrete update with send_message(note) before exceeding %d tool calls since the last one, then continue.\n", maxCalls)
 }
 
 func structuredProgressReminder(limit int) string {
-	return fmt.Sprintf("You have used %d tool calls since your last say update. Report a concrete finding, completed action, or blocker with say(note) before calling more tools. If the task is unfinished, continue working after that update; this is not a request for a final answer.", limit)
+	return fmt.Sprintf("You have used %d tool calls since your last send_message update. Report a concrete finding, completed action, or blocker with send_message(note) before calling more tools. If the task is unfinished, continue working after that update; this is not a request for a final answer.", limit)
 }
 
 // progressReminder is the update request for this run's output protocol.
@@ -153,9 +153,9 @@ func (cfg *AgentConfig) progressReminder() string {
 }
 
 // sayAnswerText returns the text of a response whose only call is
-// say(purpose=answer), or "".
+// send_message(purpose=answer), or "".
 func sayAnswerText(calls []provider.ToolCall) string {
-	if len(calls) != 1 || calls[0].Name != "say" {
+	if len(calls) != 1 || !isSendMessageTool(calls[0].Name) {
 		return ""
 	}
 	var in struct {
@@ -323,14 +323,14 @@ type AgentConfig struct {
 	ResolveToolIdentity func(name, arguments string) tooloutcome.Identity
 	// StructuredOutput switches the run to the say protocol: plain assistant
 	// text is private, so it no longer satisfies the progress cadence, and the
-	// say tool does. OnToolCallDelta receives every streamed tool-call fragment
+	// send_message tool does. OnToolCallDelta receives every streamed tool-call fragment
 	// (id and name on a call's first fragment, then argument text) so a caller
 	// can show a say call's text while it is still being written.
 	StructuredOutput bool
 
 	// ForceToolUse asks the provider to require a tool call on every ordinary
 	// model request, so that a structured run delivers its reply through the
-	// say tool instead of plain text. It is not applied to the repair and
+	// send_message tool instead of plain text. It is not applied to the repair and
 	// final-only requests, nor once the run has handed its work off.
 	ForceToolUse    bool
 	OnToolCallDelta func(provider.ToolCallDelta)
@@ -1595,7 +1595,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 			recoverNote := ""
 			recoverable := true
 			switch {
-			case overlongArguments && overlongTool == "say":
+			case overlongArguments && isSendMessageTool(overlongTool):
 				recoverNote = "Your previous attempt was aborted because the answer was too long. Give a shorter answer that keeps the essential content."
 			case overlongArguments:
 				recoverNote = "Your previous attempt was aborted because it produced an over-long tool call. Keep tool arguments short; split large content into smaller steps."
@@ -1774,7 +1774,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				finalContent := stripThinkTags(resp.Content)
 				budgetUnanswered = !(finalContent == "" && cfg.StructuredOutput && sayAnswerText(resp.ToolCalls) != "")
 				if finalContent == "" && cfg.StructuredOutput {
-					// The wrap-up was answered with the say tool: its text is the answer.
+					// The wrap-up was answered with the send_message tool: its text is the answer.
 					finalContent = sayAnswerText(resp.ToolCalls)
 				}
 				if finalContent == "" {
@@ -1987,7 +1987,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 					reservedReceiptAttempted = true
 				}
 
-				if fnName == "send_chat_message" || (cfg.StructuredOutput && fnName == "say") {
+				if fnName == "send_chat_message" || (cfg.StructuredOutput && isSendMessageTool(fnName)) {
 					// A status note or an answer sent through the tool is itself a progress report.
 					toolCallsSinceReport = 0
 					reportRequired = false
@@ -2417,7 +2417,7 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 				switch call.Name {
 				case "update_plan":
 					planSeen = true
-				case "say", "send_chat_message":
+				case "send_message", "say", "send_chat_message":
 				default:
 					planWorkCalls++
 				}
@@ -3510,4 +3510,14 @@ func transientStreamFailure(err error) bool {
 // (MaxAssistantTurnIndex) before the allowance ends.
 func refilledStepLimit(maxSteps, turnIndex int) int {
 	return max(1, min(maxSteps, MaxAssistantTurnIndex-2-turnIndex))
+}
+
+// sendMessageToolName is the structured-run tool that delivers text to a
+// person. It was named "say" before 2026-11-16; stored rows with that name
+// are read as send_message.
+const sendMessageToolName = "send_message"
+
+// isSendMessageTool reports whether name is send_message or its former name.
+func isSendMessageTool(name string) bool {
+	return name == sendMessageToolName || name == "say"
 }

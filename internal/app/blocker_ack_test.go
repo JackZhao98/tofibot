@@ -18,7 +18,7 @@ func TestScheduledBlockerEndingIsGradedRevisedAndDelivered(t *testing.T) {
 	if run.Status != "done" || g.calls.Load() != 2 || modelCalls(model) != 2 || revisionRequests(model) != 1 {
 		t.Fatalf("run=%+v grader=%d model=%d revisions=%d", run, g.calls.Load(), modelCalls(model), revisionRequests(model))
 	}
-	if !strings.Contains(strings.Join(model.requests(), "\n"), "deliver the result with say, purpose answer") {
+	if !strings.Contains(strings.Join(model.requests(), "\n"), "deliver the result with send_message, purpose answer") {
 		t.Fatal("the revision did not reach the writer")
 	}
 	// The grader saw the plain-text ending as the reply and nothing of the process.
@@ -159,7 +159,7 @@ func TestAcknowledgeLineIsForRunsAPersonWaitsOn(t *testing.T) {
 	if !acknowledgesBeforeWork(group, Run{Kind: runKindGroupChat, structured: true}) {
 		t.Fatal("an unaddressed group message gets the line")
 	}
-	for _, want := range []string{"first acknowledge", "say, purpose message", "say, purpose answer", "only once it is done"} {
+	for _, want := range []string{"first acknowledge", "send_message, purpose message", "send_message, purpose answer", "only once it is done"} {
 		if !strings.Contains(sayAcknowledgeLine, want) {
 			t.Fatalf("the line lacks %q", want)
 		}

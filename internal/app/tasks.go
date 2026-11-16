@@ -270,7 +270,7 @@ func recordTaskForChildTx(tx *sql.Tx, child delegationChild) (WorkItem, error) {
 }
 
 // taskForRunTx finds the open task a run works on: the run is its assignee run,
-// or the run submitted a result for it with say(task_id). A task the run named
+// or the run submitted a result for it with send_message(task_id). A task the run named
 // with task_id comes first; otherwise the oldest.
 func taskForRunTx(q queryer, runID string) (WorkItem, bool, error) {
 	item, err := scanWorkItem(q.QueryRow(`SELECT `+workItemAllColumns+` FROM work_items WHERE (assignee_run_id=? OR submit_run_id=?) AND status NOT IN ('done','cancelled','failed') ORDER BY (submit_run_id=?) DESC,created_at LIMIT 1`, runID, runID, runID))
@@ -390,7 +390,7 @@ func taskRunFinishedTx(tx *sql.Tx, done Run, result Message, sayOutcome string) 
 	if err != nil {
 		return err
 	}
-	// A run that named a task with say(task_id) settled that task only.
+	// A run that named a task with send_message(task_id) settled that task only.
 	submitted := false
 	for _, item := range items {
 		if item.SubmitRunID == done.ID {
@@ -413,7 +413,7 @@ func taskFinishedOneTx(tx *sql.Tx, done Run, item WorkItem, result Message, sayO
 	var err error
 	// A run that handed work out and ended holds its own task open: the return
 	// run carries it on and gives the real result. Naming the task with
-	// say(task_id) is the only way to close it with this run's text.
+	// send_message(task_id) is the only way to close it with this run's text.
 	if item.SubmitRunID != done.ID {
 		// Whether the run delegated at all, and whether a return run has already
 		// carried the result back, decides: a child may finish before this run does.
@@ -972,7 +972,7 @@ func (s *Store) updateTask(actor string, in TaskUpdate) (WorkItem, error) {
 		item.Status = in.Status
 	case "cancelled", "done":
 		if !creator {
-			return WorkItem{}, taskRefusal("task_creator_only", "Only the member that gave the task may accept it as done or cancel it. As the holder, hand in your result by answering with say (outcome done, task_id set to this task), which submits it for the giver to accept; if you cannot finish, set the status to blocked with a reason.")
+			return WorkItem{}, taskRefusal("task_creator_only", "Only the member that gave the task may accept it as done or cancel it. As the holder, hand in your result by answering with send_message (outcome done, task_id set to this task), which submits it for the giver to accept; if you cannot finish, set the status to blocked with a reason.")
 		}
 		item.Status = in.Status
 	default:

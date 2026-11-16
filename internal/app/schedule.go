@@ -100,7 +100,7 @@ type ScheduleOccurrence struct {
 	StatusRunID          string   `json:"status_run_id"`
 	StatusError          string   `json:"status_error,omitempty"`
 	ResultInConversation bool     `json:"result_in_conversation"`
-	// Result is the run's recorded conclusion (the scheduled say(answer)),
+	// Result is the run's recorded conclusion (the scheduled send_message(answer)),
 	// bounded. ResultPosted is true when that conclusion was posted to the
 	// chat and false when the run completed quietly (D52). CompletedAt is when
 	// the outcome run last changed state.

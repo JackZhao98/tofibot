@@ -1,6 +1,6 @@
 package app
 
-// The say tool is the one typed way text reaches a person
+// The send_message tool is the one typed way text reaches a person
 // (docs/agent-plan/structured-output.md). purpose=answer is the run's result
 // and ends the turn, purpose=note is a short progress update posted to the chat
 // (folded only where the run has no visible chat, or where it is a co-addressed
@@ -209,7 +209,7 @@ type sayRunState struct {
 // still be sent back, which holds its text out of the stream.
 func (st *sayRunState) pendingOwed() bool { return st.checksPending && !st.pendingCheck.Load() }
 
-// reviewOwed reports whether a say(answer) beginning now would be sent back
+// reviewOwed reports whether a send_message(answer) beginning now would be sent back
 // for the one-time completion review.
 func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
@@ -427,7 +427,7 @@ func cleanSaySources(sources []string) ([]string, error) {
 	return out, nil
 }
 
-// sayTool builds the say tool for a structured run. The gates mirror the
+// sayTool builds the send_message tool for a structured run. The gates mirror the
 // tools it replaces: message exists where send_chat_message did, a group
 // answer carries respond(reply)'s wake list, and a scheduled run's answer is
 // its completion record, as complete_scheduled_task's receipt was.
@@ -439,7 +439,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		schema["properties"].(map[string]any)["task_id"] = map[string]any{"type": "string", "description": sayTaskDescription}
 		strict = false
 	}
-	return Tool{Name: "say", Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: sendMessageToolName, Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -455,7 +455,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			CoversOriginal bool `json:"covers_original"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
-			return "", errors.New("invalid say arguments")
+			return "", errors.New("invalid send_message arguments")
 		}
 		callID := runtime.ToolCallID(ctx)
 		text := strings.TrimSpace(stripProgressTags(strings.ReplaceAll(in.Text, "\x00", "")))
@@ -811,7 +811,7 @@ func (answeredEngine) Run(context.Context, runtime.Request) (runtime.Result, err
 
 // forceSayFor reports whether a run's model requests require a tool call, so
 // that a model which tends to write its reply as plain text delivers it
-// through say. The per-model fact is ReplyNeedsToolChoice in the provider model
+// through send_message. The per-model fact is ReplyNeedsToolChoice in the provider model
 // registry (measured: one model ended 19% of DM turns with plain text on
 // tool_choice auto, and 0% when required). TOFI_FORCE_SAY=false turns the
 // forcing off. It stays off where a plain-text ending is a
@@ -843,4 +843,14 @@ func (s *Store) runMadeSchedule(runID string) bool {
 	var n int
 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name IN ('create_schedule','update_schedule') AND status='completed'`, runID).Scan(&n)
 	return n > 0
+}
+
+// sendMessageToolName is the structured-run tool that delivers text to a
+// person. It was named "say" before 2026-11-16; stored rows with that name
+// are read as send_message.
+const sendMessageToolName = "send_message"
+
+// isSendMessageTool reports whether name is send_message or its former name.
+func isSendMessageTool(name string) bool {
+	return name == sendMessageToolName || name == "say"
 }

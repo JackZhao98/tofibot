@@ -150,10 +150,10 @@ func TestLastToolRoundFailed(t *testing.T) {
 func TestForceToolUseStopsAtTheBudgetWrapUp(t *testing.T) {
 	p := &scriptedProvider{steps: []scriptStep{
 		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "lookup", Arguments: `{}`}}}),
-		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c2", Name: "say", Arguments: `{"purpose":"answer","text":"What I found before the budget ended."}`}}}),
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "c2", Name: "send_message", Arguments: `{"purpose":"answer","text":"What I found before the budget ended."}`}}}),
 	}}
 	res, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", ForceToolUse: true, StructuredOutput: true, MaxRunLLMCalls: 1,
-		ExtraTools: []ExtraBuiltinTool{lookupOnce(), {Schema: provider.Tool{Name: "say", Parameters: map[string]any{"type": "object"}}, Handler: func(map[string]interface{}) (string, error) { return "unexpected", nil }}}})
+		ExtraTools: []ExtraBuiltinTool{lookupOnce(), {Schema: provider.Tool{Name: "send_message", Parameters: map[string]any{"type": "object"}}, Handler: func(map[string]interface{}) (string, error) { return "unexpected", nil }}}})
 	if err != nil {
 		t.Fatal(err)
 	}

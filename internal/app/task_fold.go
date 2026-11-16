@@ -71,7 +71,7 @@ func (s *Store) hydrateMessagePartTasks(msgs []Message) error {
 
 // announceFoldedResultTx sends the link of a part's result to its task, as a
 // narrow `message_task` event ({id, task_id}), when the link is made. A holder's
-// say(answer, task_id) posts the message while the run works and the task takes
+// send_message(answer, task_id) posts the message while the run works and the task takes
 // it as its result only when the run ends; a client that read the message from
 // the stream before then has no task_id, so it would keep the words as a bubble.
 // The client merges the link into the message it holds by id.

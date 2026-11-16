@@ -13,8 +13,8 @@ import (
 //	promoted   the host published a progress note as the answer
 //	none       nothing was published (silent run, or failed without an answer)
 //	quiet      a scheduled answer was recorded as the run's conclusion and not
-//	           posted (say(answer, quiet=true), D52)
-//	say_text_recovered   say(answer) arguments written as plain text were
+//	           posted (send_message(answer, quiet=true), D52)
+//	say_text_recovered   send_message(answer) arguments written as plain text were
 //	           recovered as that call
 //	heuristic:<name>   a host heuristic changed what was published; it replaces
 //	           the base value and several are comma-separated in firing order
@@ -24,7 +24,7 @@ const (
 	finalOriginPromoted = "promoted"
 	finalOriginNone     = "none"
 	finalOriginQuiet    = "quiet"
-	// finalOriginSayTextRecovered: the model wrote the say(answer) arguments as
+	// finalOriginSayTextRecovered: the model wrote the send_message(answer) arguments as
 	// plain text and the host ran them as that call (or, when no repair was
 	// left, published the inner text).
 	finalOriginSayTextRecovered = "say_text_recovered"

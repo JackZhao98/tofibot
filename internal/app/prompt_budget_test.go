@@ -319,8 +319,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 9850: plus the same capability picture (+344 on the computer section, the directory
 				// header sits outside this sum; measured on the structured scheduled descendant: 9506 -> 9850).
 				// 10030: plus the same delivery sentence (+180 measured on the structured scheduled descendant: 9850 -> 10030).
-				if fixed > 10030 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 10030)", fixed)
+				// 10075: the say tool renamed send_message (+45 measured on the structured scheduled descendant: 10030 -> 10075).
+				if fixed > 10075 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 10075)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -333,7 +334,7 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					if structured {
 						// Under the say protocol the answer, with its sources, is
 						// the completion record; there is no separate receipt tool.
-						contract = []string{"say(answer)", "sources", "without say(answer)", "completion record", "computer_browser"}
+						contract = []string{"send_message(answer)", "sources", "without send_message(answer)", "completion record", "computer_browser"}
 						if strings.Contains(system, "complete_scheduled_task") {
 							t.Error("structured scheduled prompt still names complete_scheduled_task")
 						}
@@ -371,10 +372,11 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 9102: plus the capability picture, as above (+313 measured).
 					// 9245: plus the delivery sentence, as above (+180 measured: 9063 -> 9243).
 					// 9380: plus the video Skill's directory row, as above (+133 measured: 9243 -> 9376).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9380 {
-						t.Errorf("structured DM provider system exceeds 9380 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
+					// 9395: the say tool renamed send_message (+18 measured: 9376 -> 9394).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9395 {
+						t.Errorf("structured DM provider system exceeds 9395 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
 					}
-					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
+					if tc.kind == runKindGroupChat && !strings.Contains(system, "send_message(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
 					}
 				}

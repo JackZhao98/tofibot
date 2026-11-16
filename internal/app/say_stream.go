@@ -15,7 +15,7 @@ type sayStreamer struct {
 	calls map[int]*sayStreamCall
 	state *sayRunState
 	// toolWork: this model response already holds a call that may arm the
-	// completion review, so a say(answer) in it may be refused once.
+	// completion review, so a send_message(answer) in it may be refused once.
 	toolWork bool
 }
 
@@ -43,7 +43,7 @@ func (st *sayStreamer) Delta(d runtime.ToolCallDelta) {
 		st.mu.Lock()
 		defer st.mu.Unlock()
 		if d.ID != "" || d.Name != "" {
-			if d.Name == "say" {
+			if isSendMessageTool(d.Name) {
 				st.calls[d.Index] = &sayStreamCall{id: d.ID}
 			} else {
 				delete(st.calls, d.Index)

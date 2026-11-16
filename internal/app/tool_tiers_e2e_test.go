@@ -317,7 +317,7 @@ func newE2EModel(logw io.Writer) *e2eModel {
 							}
 						case "complete_scheduled_task":
 							receipt = true
-						case "say":
+						case "send_message":
 							// The first answer of a scheduled run returns an answer_review
 							// prompt; the model sends its answer again, as a real one does.
 							receipt = !strings.Contains(results[tc.ID], "answer_review")
@@ -336,11 +336,11 @@ func newE2EModel(logw io.Writer) *e2eModel {
 				case has["complete_scheduled_task"] && !receipt:
 					raw, _ := json.Marshal(map[string]any{"content": plan.Final})
 					fn(fmt.Sprintf("receipt-%d", seq), "complete_scheduled_task", string(raw))
-				case has["say"] && !receipt && plan.Scheduled:
+				case has["send_message"] && !receipt && plan.Scheduled:
 					// A structured scheduled run answers through say; the answer is its completion record.
 					// The only scheduled plan is refused before it executes, so its outcome is blocked.
 					raw, _ := json.Marshal(map[string]any{"purpose": "answer", "text": plan.Final, "outcome": "blocked"})
-					fn(fmt.Sprintf("say-%d", seq), "say", string(raw))
+					fn(fmt.Sprintf("say-%d", seq), "send_message", string(raw))
 				default:
 					content = plan.Final
 				}

@@ -15,7 +15,7 @@ import (
 
 func quietSayCall(id, text string, quiet bool) fakeCall {
 	args, _ := json.Marshal(map[string]any{"purpose": "answer", "outcome": "done", "text": text, "sources": []string{"synthetic source"}, "quiet": quiet})
-	return fakeCall{id, "say", string(args)}
+	return fakeCall{id, "send_message", string(args)}
 }
 
 // scheduledInDM runs one scheduled occurrence of the fixture's Bot in its DM.

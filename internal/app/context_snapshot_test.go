@@ -490,7 +490,7 @@ func TestRunContextRequiresTheOwnerSession(t *testing.T) {
 
 func TestToolPartsSeparateDeferredSchemas(t *testing.T) {
 	tools := []Tool{
-		{Name: "say", Description: "Say <b>this</b>", Parameters: map[string]any{"type": "object"}},
+		{Name: "send_message", Description: "Say <b>this</b>", Parameters: map[string]any{"type": "object"}},
 		{Name: "rare", Description: "held back", Deferred: true},
 	}
 	parts := toolParts(tools)

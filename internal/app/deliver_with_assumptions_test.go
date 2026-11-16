@@ -23,7 +23,7 @@ type noteThenAnswerEngine struct {
 
 func (e *noteThenAnswerEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 	if req.BotID == e.noteBot {
-		if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
+		if _, err := callTool(ctx, req, "send_message", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
 			return runtime.Result{Content: "ERR " + err.Error()}, nil
 		}
 	}
@@ -131,7 +131,7 @@ type noteThenSilentEngine struct {
 func (e *noteThenSilentEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 	if req.BotID == e.inputBot {
 		if e.note != "" {
-			if _, err := callTool(ctx, req, "say", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
+			if _, err := callTool(ctx, req, "send_message", "note-"+req.RunID, map[string]any{"purpose": "note", "outcome": "pending", "text": e.note}); err != nil {
 				return runtime.Result{Content: "ERR " + err.Error()}, nil
 			}
 		}
@@ -288,7 +288,7 @@ func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
 	if !strings.Contains(toolEvidencePolicy, "the person did not ask for") {
 		t.Fatal("evidence policy still confirms actions the person asked for")
 	}
-	for name, text := range map[string]string{"taskCompletionGuidance": taskCompletionGuidance, "researchGuide": researchGuide, "say": sayToolDescription, "evidence": toolEvidencePolicy} {
+	for name, text := range map[string]string{"taskCompletionGuidance": taskCompletionGuidance, "researchGuide": researchGuide, "send_message": sayToolDescription, "evidence": toolEvidencePolicy} {
 		for _, bad := range []string{"e.g.", "for example", "such as", "Reuters", "401", "403", "\"", "「"} {
 			if name == "researchGuide" && (bad == "\"" || bad == "such as") {
 				continue // pre-existing wording outside this change

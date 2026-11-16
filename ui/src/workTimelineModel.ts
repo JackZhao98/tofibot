@@ -7,7 +7,7 @@ export type WorkEntry = { kind: "narration"; note: Message } | { kind: "group"; 
 /** Keep sub-millisecond ordering across streamed events and reloaded pages. */
 export function workEntries(tools: ToolActivity[], notes: Message[]): WorkEntry[] {
   const events = [
-    ...orderToolActivities(tools).filter(tool => tool.name !== "say" && tool.name !== "update_plan").map(tool => ({ at: tool.started_at, tool, note: undefined })),
+    ...orderToolActivities(tools).filter(tool => tool.name !== "say" && tool.name !== "send_message" && tool.name !== "update_plan").map(tool => ({ at: tool.started_at, tool, note: undefined })),
     ...notes.filter(note => note.kind === "progress").sort((a, b) => a.seq - b.seq).map(note => ({ at: note.created_at, note, tool: undefined })),
   ].sort((a, b) => compareActivityTime(a.at, b.at));
   const out: WorkEntry[] = [];

@@ -76,7 +76,7 @@ function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, 
   const issue = primary ? presentTaskIssue({...input, family:owner.family, tools, questions, drafts}) : undefined;
   const decisions = primary ? currentQuestions.filter(question => canAnswerQuestion(question)) : [];
   // say and update_plan are bookkeeping: the reply and the step list show them.
-  const hasWork = shownTools.some(tool => tool.name !== "say" && tool.name !== "update_plan");
+  const hasWork = shownTools.some(tool => tool.name !== "say" && tool.name !== "send_message" && tool.name !== "update_plan");
   return { run, ids, silentNotes, hasWork, tools, shownTools, questions, drafts, currentTools, currentQuestions, currentDrafts: primary ? currentDrafts : [], input, issue, decisions };
 }
 

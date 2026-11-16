@@ -97,7 +97,7 @@ type ToolCallDelta struct {
 type Request struct {
 	ApprovalExpiryRecovery bool
 	// StructuredOutput runs the say protocol: plain assistant text is private
-	// and only the say tool shows the person anything.
+	// and only the send_message tool shows the person anything.
 	StructuredOutput bool
 	// ForceToolUse requires a tool call on every ordinary model request of a
 	// structured run (see agent.Config.ForceToolUse).

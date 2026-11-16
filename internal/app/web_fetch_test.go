@@ -131,7 +131,7 @@ func TestSayContractCarriesTheLookupPrinciple(t *testing.T) {
 			t.Fatalf("say description lost %q", want)
 		}
 	}
-	for name, text := range map[string]string{"say": sayToolDescription, "group line": groupLatestMessageLine} {
+	for name, text := range map[string]string{"send_message": sayToolDescription, "group line": groupLatestMessageLine} {
 		lower := strings.ToLower(text)
 		for _, banned := range []string{"for example", "e.g.", "such as", "not just", "rather than"} {
 			if strings.Contains(lower, banned) {
