@@ -290,6 +290,7 @@ func TestPersonalBrowserSnapshotValidationAndVisionOutput(t *testing.T) {
 		}
 	}
 }
+
 // A Mac read of a page with frames it cannot read returns the top page and frames_unread; the count must be a small
 // non-negative integer, and a read without it (an older app) stays valid.
 func TestPersonalBrowserReadFramesUnread(t *testing.T) {
