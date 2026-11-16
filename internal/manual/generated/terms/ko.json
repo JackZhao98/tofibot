@@ -117,6 +117,8 @@
   "settings:automation.item.widget_artifacts_auto.what": "채팅에서 Bot이 처음 파일을 넘겨주면 메시지 옆에 산출물 위젯이 열립니다. 이후 파일은 목록을 새로 고칩니다. 끄면 직접 열 때까지 닫혀 있습니다.",
   "settings:automation.item.widget_computer_auto.name": "Bot이 사용하면 Bot 컴퓨터 열기",
   "settings:automation.item.widget_computer_auto.what": "보고 있는 채팅에서 Bot이 Bot 컴퓨터를 잡으면 그 위젯이 메시지 옆에 열립니다. 열린 채로 있다가 Bot이 놓고 30초 뒤에 얇은 막대로 접힙니다. 끄면 직접 열 때까지 닫혀 있습니다.",
+  "settings:automation.item.work_plan.name": "작업 단계 목록",
+  "settings:automation.item.work_plan.what": "여러 단계가 있는 요청을 처리할 때 Bot이 짧은 단계 목록을 만듭니다. 목록은 메시지 입력창 위에 표시되고 작업에 따라 갱신되며, 끝난 뒤에는 실행 활동에 남습니다. 끄면 목록을 만들지 않고 표시하지도 않습니다.",
   "settings:automation.item.work_trace.name": "작업 트레이스",
   "settings:automation.item.work_trace.what": "봇이 화면에서 한 작업의 작은 스크린샷을 남겨 무엇을 했는지 되짚어 볼 수 있게 합니다. 비공개 입력이 보일 수 있는 페이지와 비공개 출처는 저장하지 않습니다. 끄면 아무것도 저장하지 않습니다.",
   "settings:chats.chat_notifications": "채팅 알림",
