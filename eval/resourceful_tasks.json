@@ -115,6 +115,22 @@
     {
       "id": "send_doc",
       "message": "把 RFC 9110 的原文给我一份。"
+    },
+    {
+      "id": "research_news",
+      "message": "最近一周关于 AI 芯片出口管制有什么新消息？列出来源和日期。"
+    },
+    {
+      "id": "research_compare",
+      "message": "Obsidian 和 Notion 在离线使用上有什么区别？给我依据。"
+    },
+    {
+      "id": "email_check",
+      "message": "帮我看看邮箱里最近有没有快递相关的邮件。"
+    },
+    {
+      "id": "software_install",
+      "message": "在你的电脑上装一下 yq（YAML 命令行工具），装好后告诉我版本号。"
     }
   ]
 }
