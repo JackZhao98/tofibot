@@ -77,6 +77,11 @@
     {
       "id": "calendar",
       "message": "看一下我明天日历上有什么安排。"
+    },
+    {
+      "id": "qrcode_nocomputer",
+      "message": "给我生成一个二维码图片，扫出来是 https://tofibot.com",
+      "no_computer": true
     }
   ]
 }

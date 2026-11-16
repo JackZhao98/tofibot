@@ -23,7 +23,9 @@ package app
 //	go test -run TestLiveResourcefulEval -count=1 -timeout 3h .
 //
 // The key is read from the file and sent only through the provider-key route;
-// it is never logged or written.
+// it is never logged or written. For a Codex model set
+// TOFI_LIVE_CODEX_CREDENTIAL_FILE to an access snapshot and TOFI_LIVE_MODEL to
+// the model id instead of the key file.
 
 import (
 	"bytes"
@@ -139,8 +141,8 @@ func TestLiveResourcefulEval(t *testing.T) {
 		t.Skip("opt-in live eval: set TOFI_LIVE_RESOURCEFUL=1 (see the file comment)")
 	}
 	keyFile, workspace, outDir := os.Getenv("TOFI_LIVE_KEY_FILE"), os.Getenv("TOFI_LIVE_WORKSPACE_ID"), os.Getenv("TOFI_LIVE_OUT")
-	if keyFile == "" || outDir == "" {
-		t.Fatal("TOFI_LIVE_KEY_FILE and TOFI_LIVE_OUT are required")
+	if (keyFile == "" && os.Getenv("TOFI_LIVE_CODEX_CREDENTIAL_FILE") == "") || outDir == "" {
+		t.Fatal("TOFI_LIVE_OUT and TOFI_LIVE_KEY_FILE (or TOFI_LIVE_CODEX_CREDENTIAL_FILE) are required")
 	}
 	model := os.Getenv("TOFI_LIVE_MODEL")
 	if model == "" {
@@ -163,12 +165,32 @@ func TestLiveResourcefulEval(t *testing.T) {
 	if err = os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	keyBytes, err := os.ReadFile(keyFile)
-	if err != nil {
-		t.Fatal("read key file")
+	// TOFI_LIVE_CODEX_CREDENTIAL_FILE names an access snapshot
+	// ({access_token, account_id, expires_at}, the format of the other live
+	// Codex checks); with it the server signs in to ChatGPT and the Bot model
+	// is a Codex model, without it the Anthropic key in TOFI_LIVE_KEY_FILE.
+	var codexCredential struct {
+		AccessToken string `json:"access_token"`
+		AccountID   string `json:"account_id"`
+		ExpiresAt   int64  `json:"expires_at"`
 	}
-	key := strings.TrimSpace(string(keyBytes))
-	keyBytes = nil
+	codexFile := os.Getenv("TOFI_LIVE_CODEX_CREDENTIAL_FILE")
+	key := ""
+	if codexFile != "" {
+		raw, err := os.ReadFile(codexFile)
+		if err != nil || json.Unmarshal(raw, &codexCredential) != nil || codexCredential.AccessToken == "" {
+			t.Fatal("codex access snapshot unavailable")
+		}
+		if codexCredential.ExpiresAt < time.Now().Add(30*time.Minute).UnixMilli() {
+			t.Fatal("codex access snapshot expires within 30 minutes")
+		}
+	} else {
+		keyBytes, err := os.ReadFile(keyFile)
+		if err != nil {
+			t.Fatal("read key file")
+		}
+		key = strings.TrimSpace(string(keyBytes))
+	}
 
 	// One server with the computer and one without; tasks pick theirs.
 	servers := map[bool]*Server{}
@@ -177,7 +199,11 @@ func TestLiveResourcefulEval(t *testing.T) {
 			return s
 		}
 		dir := t.TempDir()
-		s, err := NewServer(Config{DataDir: dir, Environment: "acceptance", Provider: "anthropic", DefaultModel: model, MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
+		provider := "anthropic"
+		if codexFile != "" {
+			provider = ""
+		}
+		s, err := NewServer(Config{DataDir: dir, Environment: "acceptance", Provider: provider, DefaultModel: model, MCPConfigPath: filepath.Join(t.TempDir(), "mcp.json")})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -185,7 +211,11 @@ func TestLiveResourcefulEval(t *testing.T) {
 		if err = s.store.putAutoReviewMode("auto"); err != nil {
 			t.Fatal(err)
 		}
-		if code, out := evalDo(s, "PUT", "/api/providers/anthropic/key", map[string]string{"key": key, "workspace_id": workspace}); code != 200 {
+		if codexFile != "" {
+			if err := s.codex.SaveAccessOnlyCredential(codexCredential.AccessToken, codexCredential.AccountID, codexCredential.ExpiresAt); err != nil {
+				t.Fatal("save codex access snapshot")
+			}
+		} else if code, out := evalDo(s, "PUT", "/api/providers/anthropic/key", map[string]string{"key": key, "workspace_id": workspace}); code != 200 {
 			t.Fatalf("install key: %d %s", code, liveRedact(out, key))
 		}
 		if code, out := evalDo(s, "PUT", "/api/model-settings", map[string]string{"model": model}); code != 200 {
