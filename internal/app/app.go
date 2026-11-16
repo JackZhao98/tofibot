@@ -5415,6 +5415,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	base = append(base, s.keepFileTools(c, r)...)
 	base = append(base, s.imageGenerationTools(c, r)...)
 	base = append(base, s.publishAttachmentTools(c, r)...)
+	base = append(base, s.transcribeAudioTools(c, r)...)
 	if s.store.hasPairedComputer() || s.hasOtherComputers() {
 		base = append(base, s.computerTools(r)...)
 	}

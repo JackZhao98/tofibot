@@ -29,33 +29,8 @@ func (s *Server) importGuestFile(ctx context.Context, r Run, c Conversation, in 
 	if in.Opts.MaxBytes > 0 && in.Opts.MaxBytes < limit {
 		limit = in.Opts.MaxBytes
 	}
-	type wireChunk struct {
-		Data    string `json:"data_base64"`
-		Next    int64  `json:"next_offset"`
-		Size    int64  `json:"size"`
-		EOF     bool   `json:"eof"`
-		Version string `json:"version"`
-		Name    string `json:"name"`
-	}
-	fetch := func(offset int64, version string) (wireChunk, []byte, error) {
-		req := map[string]any{"path": in.Path, "offset": offset, "limit": 512 << 10, "version": version}
-		if in.NoSymlinks {
-			req["no_symlinks"] = true
-		}
-		args, _ := json.Marshal(req)
-		out, err := s.microVMAction(ctx, r, "files.export_chunk", args)
-		if err != nil {
-			return wireChunk{}, nil, err
-		}
-		var w wireChunk
-		if json.Unmarshal([]byte(out), &w) != nil || w.Next < offset || w.Size > limit {
-			return w, nil, errors.New("invalid or oversized VM file")
-		}
-		b, err := base64.StdEncoding.DecodeString(w.Data)
-		if err != nil || int64(len(b)) != w.Next-offset {
-			return w, nil, errors.New("invalid VM file chunk")
-		}
-		return w, b, nil
+	fetch := func(offset int64, version string) (guestWireChunk, []byte, error) {
+		return s.guestFileChunk(ctx, r, in.Path, in.NoSymlinks, limit, offset, version)
 	}
 	first, firstBytes, err := fetch(0, "")
 	if err != nil {
@@ -118,3 +93,65 @@ func (s *Server) importGuestFile(ctx context.Context, r Run, c Conversation, in 
 	}
 	return a, version, nil
 }
+
+type guestWireChunk struct {
+	Data    string `json:"data_base64"`
+	Next    int64  `json:"next_offset"`
+	Size    int64  `json:"size"`
+	EOF     bool   `json:"eof"`
+	Version string `json:"version"`
+	Name    string `json:"name"`
+}
+
+// guestFileChunk reads one files.export_chunk page of a Bot computer file.
+func (s *Server) guestFileChunk(ctx context.Context, r Run, path string, noSymlinks bool, limit, offset int64, version string) (guestWireChunk, []byte, error) {
+	req := map[string]any{"path": path, "offset": offset, "limit": 512 << 10, "version": version}
+	if noSymlinks {
+		req["no_symlinks"] = true
+	}
+	args, _ := json.Marshal(req)
+	out, err := s.microVMAction(ctx, r, "files.export_chunk", args)
+	if err != nil {
+		return guestWireChunk{}, nil, err
+	}
+	var w guestWireChunk
+	if json.Unmarshal([]byte(out), &w) != nil || w.Next < offset || w.Size > limit {
+		return w, nil, errors.New("invalid or oversized VM file")
+	}
+	b, err := base64.StdEncoding.DecodeString(w.Data)
+	if err != nil || int64(len(b)) != w.Next-offset {
+		return w, nil, errors.New("invalid VM file chunk")
+	}
+	return w, b, nil
+}
+
+// readGuestFile returns the bytes of a Bot computer file through the same
+// chunk path as importGuestFile, without creating an attachment. A file
+// larger than limit fails with errGuestFileTooLarge.
+func (s *Server) readGuestFile(ctx context.Context, r Run, path string, limit int64) ([]byte, string, error) {
+	var out []byte
+	var offset int64
+	version := ""
+	name := ""
+	for {
+		w, b, err := s.guestFileChunk(ctx, r, path, false, 1<<62, offset, version)
+		if err != nil {
+			return nil, "", err
+		}
+		if offset == 0 {
+			version, name = w.Version, w.Name
+		} else if w.Version != version {
+			return nil, "", errors.New("file changed while reading")
+		}
+		if w.Size > limit {
+			return nil, name, errGuestFileTooLarge
+		}
+		out = append(out, b...)
+		offset = w.Next
+		if w.EOF {
+			return out, name, nil
+		}
+	}
+}
+
+var errGuestFileTooLarge = errors.New("file too large")

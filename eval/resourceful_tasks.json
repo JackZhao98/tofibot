@@ -101,6 +101,18 @@
       "message": "旧金山金门大桥起雾的时候是什么样子？给我看看照片。"
     },
     {
+      "id": "video_watch",
+      "message": "帮我看看这个视频讲了什么。",
+      "attach": "fixtures/order-status.mp4",
+      "expect": "three scenes of 4 s (12 s in all, 640x360): 0-4 s red, text ORDER 1042 RECEIVED, voice: order ten forty two is received; 4-8 s blue, a white box moving left to right, text PACKED, voice: the parcel is packed; 8-12 s green, text SHIPPED 2026-11-14, voice: it shipped on November fourteenth"
+    },
+    {
+      "id": "video_text_times",
+      "message": "这个视频里出现了哪些文字？分别在第几秒？",
+      "attach": "fixtures/order-status.mp4",
+      "expect": "three scenes of 4 s (12 s in all, 640x360): 0-4 s red, text ORDER 1042 RECEIVED, voice: order ten forty two is received; 4-8 s blue, a white box moving left to right, text PACKED, voice: the parcel is packed; 8-12 s green, text SHIPPED 2026-11-14, voice: it shipped on November fourteenth"
+    },
+    {
       "id": "send_doc",
       "message": "把 RFC 9110 的原文给我一份。"
     }

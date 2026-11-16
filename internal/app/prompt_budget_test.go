@@ -292,8 +292,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 9425: plus delivering what the person asks to see or to have as the thing itself
 				// (publish_file after a download, or a shared capture) in place of "Deliver a finished
 				// file with publish_file." (+180 measured: 9243 -> 9423).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 9425 {
-					t.Errorf("ordinary DM provider system exceeds 9425 runes")
+				// 9560: plus the video Skill's row in the Skill directory (+133 measured: 9423 -> 9556).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 9560 {
+					t.Errorf("ordinary DM provider system exceeds 9560 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -369,8 +370,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 8789: plus the order-of-means policy, as above (+268 measured).
 					// 9102: plus the capability picture, as above (+313 measured).
 					// 9245: plus the delivery sentence, as above (+180 measured: 9063 -> 9243).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9245 {
-						t.Errorf("structured DM provider system exceeds 9245 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
+					// 9380: plus the video Skill's directory row, as above (+133 measured: 9243 -> 9376).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9380 {
+						t.Errorf("structured DM provider system exceeds 9380 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "say(answer)") {
 						t.Error("structured group prompt does not name say(answer)")
