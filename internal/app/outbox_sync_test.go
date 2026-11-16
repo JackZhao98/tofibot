@@ -234,7 +234,7 @@ func TestOutboxSkipsContentTheRunAlreadyPublished(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := s.stageOutbox(context.Background(), run, conv)
-	if got.Staged != 0 || got.Skipped != 1 {
+	if got.Staged != 0 || got.Skipped+got.Handled != 1 {
 		t.Fatalf("sync after publish: %+v", got)
 	}
 	if names := s.store.runAttachmentNames(run.ID); len(names) != 1 || names[0] != "renamed clip.mp4" {
@@ -257,4 +257,91 @@ func mtimeNS(t *testing.T, p string) int64 {
 		t.Fatal(err)
 	}
 	return info.ModTime().UnixNano()
+}
+
+// A run whose Bot names its files sends only those: its other new outbox files
+// are recorded as handled, and no later reply sends them (test machine,
+// 2026-11-16: two pictures named, seven delivered).
+func TestOutboxSendsOnlyTheNamedFilesWhenTheRunNamesSome(t *testing.T) {
+	s, root, conv, run := outboxFixture(t)
+	old := sayAttachmentRoot
+	sayAttachmentRoot = root
+	t.Cleanup(func() { sayAttachmentRoot = old })
+	markComputerUse(t, s, conv, run)
+	dir := filepath.Join(guestOutboxDir, "candidates")
+	if err := os.MkdirAll(dir, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"a.jpg", "b.jpg", "c.jpg"} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte("synthetic picture "+n), 0o660); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := sayCall(s, conv, run, "named-1", `{"purpose":"answer","outcome":"done","text":"One picture.","attachments":[{"path":`+jsonQuote(filepath.Join(dir, "a.jpg"))+`}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.stageOutbox(context.Background(), run, conv); got.Staged != 0 {
+		t.Fatalf("outbox in a run that named its files: %+v", got)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 1 || names[0] != "a.jpg" {
+		t.Fatalf("reply files %v, want only the named picture", names)
+	}
+
+	if ok, err := s.store.SetRunStatus(run.ID, "done", ""); err != nil || !ok {
+		t.Fatalf("done=%v %v", ok, err)
+	}
+	_, later, _, err := s.store.AddUserRun(conv.ID, run.BotID, "anything else?", "outbox-run-later")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.store.SetRunStatus(later.ID, "running", ""); err != nil || !ok {
+		t.Fatalf("running=%v %v", ok, err)
+	}
+	markComputerUse(t, s, conv, later)
+	if got := s.stageOutbox(context.Background(), later, conv); got.Staged != 0 {
+		t.Fatalf("a later reply sent the files the first run did not name: %+v", got)
+	}
+}
+
+// Outbox files from before a run that names its files wait for a run that
+// names none.
+func TestOutboxBacklogWaitsForARunThatNamesNoFiles(t *testing.T) {
+	s, root, conv, run := outboxFixture(t)
+	old := sayAttachmentRoot
+	sayAttachmentRoot = root
+	t.Cleanup(func() { sayAttachmentRoot = old })
+	markComputerUse(t, s, conv, run)
+	backlog := filepath.Join(guestOutboxDir, "report.pdf")
+	if err := os.WriteFile(backlog, []byte("synthetic report"), 0o660); err != nil {
+		t.Fatal(err)
+	}
+	earlier := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(backlog, earlier, earlier); err != nil {
+		t.Fatal(err)
+	}
+	named := filepath.Join(root, "named.png")
+	if err := os.WriteFile(named, []byte("synthetic named"), 0o660); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sayCall(s, conv, run, "named-2", `{"purpose":"answer","outcome":"done","text":"Here.","attachments":[{"path":`+jsonQuote(named)+`}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.stageOutbox(context.Background(), run, conv); got.Staged != 0 || got.Deferred != 1 || got.Handled != 0 {
+		t.Fatalf("backlog in a run that named its files: %+v", got)
+	}
+
+	if ok, err := s.store.SetRunStatus(run.ID, "done", ""); err != nil || !ok {
+		t.Fatalf("done=%v %v", ok, err)
+	}
+	_, next, _, err := s.store.AddUserRun(conv.ID, run.BotID, "and the report?", "outbox-run-next")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.store.SetRunStatus(next.ID, "running", ""); err != nil || !ok {
+		t.Fatalf("running=%v %v", ok, err)
+	}
+	markComputerUse(t, s, conv, next)
+	if got := s.stageOutbox(context.Background(), next, conv); got.Staged != 1 {
+		t.Fatalf("the waiting file did not go with a run that names none: %+v", got)
+	}
 }
