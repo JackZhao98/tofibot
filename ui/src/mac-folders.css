@@ -14,7 +14,7 @@
 .mf-tools-trigger{display:flex;align-items:center;gap:6px;padding:6px 0;border:0;background:none;color:var(--ink-soft);font:500 13px/1.4 var(--body);cursor:pointer}
 .mf-tools-trigger:hover{color:var(--ink)}
 .mf-tools-trigger:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus-ring,var(--focus));outline-offset:2px;border-radius:6px}
-.mf-tools-trigger .disclosure-chevron{transition:transform .15s}
+.mf-tools-trigger .disclosure-chevron{transition:transform var(--m-quick) var(--ease-out)}
 .mf-tools[data-state="open"] .mf-tools-trigger .disclosure-chevron,.mf-tools-trigger[data-state="open"] .disclosure-chevron{transform:rotate(180deg)}
 .mf-tools-list{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:4px}
 .mf-tools-list code{color:var(--ink-soft);font:12px/1.5 var(--mono);overflow-wrap:anywhere}
