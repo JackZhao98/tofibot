@@ -180,6 +180,8 @@ func (s *Server) attachmentTools(c Conversation, r Run) []Tool {
 				return "", err
 			}
 			views++
+			// The image is a picture the step in progress used.
+			s.store.notePlanImage(r.ID, "", a.ID, planImageViewed)
 			var m map[string]any
 			if json.Unmarshal([]byte(out), &m) == nil {
 				m["attachment_id"], m["name"] = a.ID, a.Name

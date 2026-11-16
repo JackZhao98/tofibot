@@ -691,6 +691,9 @@
     "more_other": "+{{count}} more: {{names}}",
     "open_tasks_one": "{{count}} open to-do",
     "open_tasks_other": "{{count}} open to-dos",
+    "pictures_one": "Open the picture of this step: {{step}}",
+    "pictures_other": "Open the {{count}} pictures of this step: {{step}}",
+    "picture": "{{step}} · picture {{index}}",
     "history": "Plan · {{done}} of {{total}} done",
     "history_stopped": "Plan · stopped at step {{step}} of {{total}}",
     "state": {

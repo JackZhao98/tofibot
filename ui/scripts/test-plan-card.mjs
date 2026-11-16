@@ -6,7 +6,8 @@
 //     message pane is padded for it; a newer run_plan event moves the marks, an older one changes nothing; the done card
 //     stays a moment and leaves; a run that ended before its list was done keeps one history line; in a group the cards
 //     fold to one line each, opening one closes the other, and a fourth Bot folds into "+1 more"; at phone width nothing
-//     overflows; the card is not in the entry chunk. The team board is gone: a group's open to-dos are one line under the
+//     overflows; the card is not in the entry chunk. A step with pictures shows a small stack that opens the viewer;
+//     a picture whose file is gone drops out. The team board is gone: a group's open to-dos are one line under the
 //     cards that opens the Work panel, the header has the Tasks button, and the Work panel filters by goal and changes
 //     the assignee of a group's item.
 //  3. Screenshots (--shots <dir>): 2x, light and dark, desktop and phone width, Chromium and WebKit, DM and group.
@@ -64,6 +65,14 @@ try {
   const stopped = plan("h", "a", [["Read", "done"], ["Compare", "in_progress"], ["Write", "pending"]]);
   assert.deepEqual(model.historySteps(stopped, { status: "failed" }).map(step => step.state), ["done", "stopped", "not_done"]);
   assert.deepEqual(model.historySteps(stopped, { status: "done" }).map(step => step.state), ["done", "not_done", "not_done"]);
+  // An answered list finished its step in progress with the answer: the steps it never reached were skipped.
+  assert.deepEqual(model.historySteps({ ...stopped, steps: stopped.steps.map((step, i) => ({ ...step, status: i < 2 ? "done" : "pending" })), open: false, closed: "answered" }, { status: "done" }).map(step => step.state), ["done", "done", "skipped"]);
+  assert.deepEqual(model.historySteps({ ...stopped, open: false, closed: "blocked" }, { status: "done" }).map(step => step.state), ["done", "not_done", "not_done"], "a blocked answer leaves its steps not done");
+  // A step's pictures ride along to the card and the history.
+  const pictured = plan("pic", "a", [["Look", "in_progress"]]);
+  pictured.steps[0].images = [{ id: "att_1", kind: "capture" }];
+  assert.deepEqual(model.planSteps(pictured)[0].images, [{ id: "att_1", kind: "capture" }]);
+  assert.deepEqual(model.historySteps({ ...pictured, open: false, closed: "stopped" }, { status: "cancelled" })[0].images, [{ id: "att_1", kind: "capture" }]);
   assert.equal(model.planHistory(stopped, { status: "running" }), undefined, "a working run's list is not history");
   assert.equal(model.planHistory(stopped, { status: "done" }), undefined, "an open list of a run that ended waiting is not history yet");
   assert.equal(model.planHistory({ ...stopped, open: false, closed: "passed" }, { status: "failed" }), undefined, "a list passed to a retry is the retry's history");
@@ -92,9 +101,44 @@ const { createFixture } = await import("./lib/chat-fixture.mjs");
 // ---- fixture data
 const BOTS = [["bot_a", "Ledger Cat"], ["bot_b", "Atlas"], ["bot_c", "Juniper"], ["bot_d", "Quill"]];
 const at = s => new Date(Date.parse("2026-11-15T10:00:00Z") + s * 1000).toISOString();
-const steps = (list) => list.map(([text, status], i) => ({ id: `s${i + 1}`, text, status }));
+// A step's pictures, by step number: the server picks them by the step's time (run_plans.go).
+const STEP_IMAGES = { 1: [{ id: "img_view", kind: "viewed" }], 2: [{ id: "img_cap1", kind: "capture" }, { id: "img_cap2", kind: "capture" }, { id: "img_cap3", kind: "capture" }], 3: [{ id: "img_gone", kind: "capture" }, { id: "img_cap4", kind: "capture" }] };
+const steps = (list, pictures = STEP_IMAGES) => list.map(([text, status], i) => ({ id: `s${i + 1}`, text, status, ...(pictures[i + 1] ? { images: pictures[i + 1] } : {}) }));
 const LEDGER = [["Read the three expense reports", "done"], ["Check each total against the bank export", "done"], ["Mark the entries that do not match", "in_progress"], ["Draft the summary for the team", "pending"], ["Send the summary to the person", "pending"]];
-const dmPlan = (version, list, extra = {}) => ({ run_id: "run_live", conversation_id: "dm_a", bot_id: "bot_a", steps: steps(list), version, open: true, updated_at: at(900 + version), ...extra });
+
+// Synthetic screen pictures for the thumbnails: a page with a coloured bar and grey lines, one hue per picture.
+const { deflateSync } = await import("node:zlib");
+function crc32(bytes) { let c, crc = 0xffffffff; for (const byte of bytes) { c = (crc ^ byte) & 0xff; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c; } return (crc ^ 0xffffffff) >>> 0; }
+function syntheticPNG(hue) {
+  const w = 168, h = 120, rows = [];
+  const rgb = (r, g, b) => [r, g, b];
+  const bar = rgb(Math.round(120 + 100 * Math.cos(hue)), Math.round(120 + 100 * Math.cos(hue - 2.1)), Math.round(120 + 100 * Math.cos(hue + 2.1)));
+  for (let y = 0; y < h; y++) {
+    const row = [0];
+    for (let x = 0; x < w; x++) {
+      let px = rgb(246, 246, 244);
+      if (y < 22) px = bar;
+      else if ((y - 34) % 16 < 6 && y > 30 && x > 14 && x < (y % 32 < 16 ? 150 : 112)) px = rgb(206, 208, 212);
+      else if (x > 112 && x < 156 && y > 34 && y < 78) px = bar.map(v => Math.round(v * 0.55 + 246 * 0.45));
+      row.push(...px);
+    }
+    rows.push(...row);
+  }
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const body = Buffer.concat([Buffer.from(type), data]); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body)); return Buffer.concat([len, body, crc]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(Buffer.from(rows))), chunk("IEND", Buffer.alloc(0))]);
+}
+const PICTURES = Object.fromEntries(["img_view", "img_cap1", "img_cap2", "img_cap3", "img_cap4"].map((id, i) => [id, syntheticPNG(0.4 + i * 1.3)]));
+// The thumbnails' files; a picture whose file is gone answers 404 and drops out of the row.
+async function pictureRoute(route) {
+  const path = new URL(route.request().url()).pathname;
+  const id = path.startsWith("/api/attachments/") ? decodeURIComponent(path.split("/")[3] ?? "") : "";
+  if (!id) return false;
+  if (PICTURES[id]) await route.fulfill({ status: 200, contentType: "image/png", body: PICTURES[id] });
+  else await route.fulfill({ status: 404, json: { error: "not found" } });
+  return true;
+}
+const dmPlan = (version, list, extra = {}, pictures = STEP_IMAGES) => ({ run_id: "run_live", conversation_id: "dm_a", bot_id: "bot_a", steps: steps(list, pictures), version, open: true, updated_at: at(900 + version), ...extra });
 const liveRun = (status, extra = {}) => ({ id: "run_live", conversation_id: "dm_a", bot_id: "bot_a", status, model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "m40", queue_seq: 2, created_at: at(860), updated_at: at(870), ...extra });
 const doneRun = (extra = {}) => ({ id: "run_m39", conversation_id: "dm_a", bot_id: "bot_a", status: "done", model: "synthetic-model", origin_conversation_id: "dm_a", trigger_message_id: "m38", queue_seq: 1, created_at: at(780), updated_at: at(785), ...extra });
 
@@ -102,7 +146,7 @@ function dmRoute({ runs }) {
   return async route => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/runs")) { await route.fulfill({ status: 200, json: { runs: runs() } }); return true; }
-    return false;
+    return pictureRoute(route);
   };
 }
 
@@ -112,10 +156,10 @@ const groupMessages = [
   { id: "g2", conversation_id: "g_team", seq: 2, role: "assistant", content: "On it. I split the work across the team.", sender_bot_id: "bot_a", sender_bot_name: "Ledger Cat", run_id: "ga", created_at: at(20) },
 ];
 const groupRun = (id, bot, created) => ({ id, conversation_id: "g_team", bot_id: bot, status: "running", model: "synthetic-model", origin_conversation_id: "g_team", trigger_message_id: "g1", queue_seq: created, created_at: at(created), updated_at: at(created) });
-const groupPlan = (run_id, bot_id, list) => ({ run_id, conversation_id: "g_team", bot_id, steps: steps(list), version: 1, open: true, updated_at: at(40) });
+const groupPlan = (run_id, bot_id, list, pictures = {}) => ({ run_id, conversation_id: "g_team", bot_id, steps: steps(list, pictures), version: 1, open: true, updated_at: at(40) });
 const groupRuns = () => [
   { ...groupRun("ga", "bot_a", 20), plan: groupPlan("ga", "bot_a", [["Split the launch into parts", "done"], ["Review the pricing page", "in_progress"], ["Join the results", "pending"]]) },
-  { ...groupRun("gb", "bot_b", 21), plan: groupPlan("gb", "bot_b", [["Collect the changes since 0.6", "done"], ["Write the release notes", "in_progress"], ["Check the links", "pending"]]) },
+  { ...groupRun("gb", "bot_b", 21), plan: groupPlan("gb", "bot_b", [["Collect the changes since 0.6", "done"], ["Write the release notes", "in_progress"], ["Check the links", "pending"]], { 1: [{ id: "img_cap1", kind: "capture" }, { id: "img_cap2", kind: "capture" }] }) },
   groupRun("gc", "bot_c", 22),
   { ...groupRun("gd", "bot_d", 23), plan: groupPlan("gd", "bot_d", [["Draft the partner email", "in_progress"], ["Ask for a review", "pending"]]) },
 ];
@@ -127,7 +171,7 @@ const groupRoute = async route => {
   if (path === "/api/conversations") { await json({ conversations: [group] }); return true; }
   if (path.endsWith("/runs")) { await json({ runs: groupRuns() }); return true; }
   if (path.endsWith("/task-cards")) { await json({ tasks: groupTasks }); return true; }
-  return false;
+  return pictureRoute(route);
 };
 // The Work panel's read for the group: a goal, the task under it, and one task without a goal; PATCHes are recorded.
 const groupWork = [
@@ -209,6 +253,33 @@ try {
       await page.locator(".plan-dock").waitFor({ state: "detached", timeout: 6000 });
       assert.deepEqual(errors, [], `${engineName}: no page errors`);
       await context.close();
+
+      // -- Pictures: a step that made or used pictures shows a small stack at the row's end, newest on top; it opens the
+      //    image viewer on the newest; a picture whose file is gone drops out; a picture arriving later shows at once.
+      {
+        const { page, context, errors } = await dmScenario(fixture, {});
+        const card = page.locator(".plan-card").first();
+        await page.waitForFunction(() => { const images = [...document.querySelectorAll(".plan-step-pictures img")]; return images.length === 5 && images.every(image => image.complete && image.naturalWidth > 0); }, null, { timeout: 8000 });
+        const counts = () => card.locator(".plan-steps li").evaluateAll(items => items.map(item => item.querySelectorAll(".plan-step-pictures img").length));
+        assert.deepEqual(await counts(), [1, 3, 1, 0, 0], `${engineName}: the pictures of each step, without the one whose file is gone`);
+        const second = card.locator(".plan-steps li").nth(1);
+        const stack = second.locator(".plan-step-pictures");
+        assert.equal(await stack.getAttribute("aria-label"), "Open the 3 pictures of this step: Check each total against the bank export");
+        const [row, box, text] = await Promise.all([second.boundingBox(), stack.boundingBox(), second.locator(".plan-step-text").boundingBox()]);
+        assert.ok(box.x >= text.x + text.width - 1 && box.x <= text.x + text.width + 12 && box.x + box.width <= row.x + row.width + 4.5, `${engineName}: the stack sits right after the step's text (${JSON.stringify({ text, box })})`);
+        assert.ok(row.height <= 30, `${engineName}: the pictures do not make the row taller (${row.height})`);
+        await stack.click();
+        const viewer = page.locator("dialog.attachment-lightbox");
+        await viewer.waitFor({ timeout: 6000 });
+        assert.match(await viewer.locator("img").first().getAttribute("src"), /img_cap3$/, `${engineName}: the viewer opens on the newest picture`);
+        await page.keyboard.press("Escape");
+        await viewer.waitFor({ state: "detached", timeout: 4000 });
+        assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("plan-step-pictures")), true, `${engineName}: focus goes back to the stack`);
+        await page.evaluate(plan => window.__emit("run_plan", plan), dmPlan(2, LEDGER, {}, { ...STEP_IMAGES, 4: [{ id: "img_view", kind: "file" }] }));
+        await page.waitForFunction(() => document.querySelectorAll(".plan-steps li")[3]?.querySelectorAll(".plan-step-pictures img").length === 1);
+        assert.deepEqual(errors, [], `${engineName}: no page errors`);
+        await context.close();
+      }
 
       // -- A run that ended before its list was done keeps one quiet history line.
       {
@@ -295,7 +366,7 @@ try {
     assert.ok(!entry.join("\n").includes("plan-card-trigger"), "PlanCard is a lazy chunk");
     assert.ok(!entry.join("\n").includes("data-radix-accordion"), "Radix Accordion stays out of the entry");
     void readFileSync; void readdirSync;
-    console.log("PASS plan card browser: placement, padding, live updates, version order, done linger, history line, group accordion, open to-dos line, Work panel goal filter and assignee, phone width (chromium, webkit)");
+    console.log("PASS plan card browser: placement, padding, live updates, version order, done linger, step pictures, history line, group accordion, open to-dos line, Work panel goal filter and assignee, phone width (chromium, webkit)");
   }
 
   if (shotsDir) {
@@ -305,9 +376,20 @@ try {
       for (const theme of ["light", "dark"]) {
         for (const [label, viewport] of [["desktop", { width: 1180, height: 820 }], ["phone", { width: 390, height: 844 }]]) {
           const { page, context } = await dmScenario(fixture, { viewport, theme, scale: 2 });
+          await page.waitForFunction(() => [...document.querySelectorAll(".plan-step-pictures img")].every(image => image.complete), null, { timeout: 8000 });
           await page.waitForTimeout(600);
           await page.screenshot({ path: join(shotsDir, `dm-${label}-${theme}-${engineName}.png`) });
+          // The dock alone, for the step pictures at their real size.
+          await page.locator(".plan-dock").screenshot({ path: join(shotsDir, `dock-${label}-${theme}-${engineName}.png`) });
           await context.close();
+          // History of an answered list: the step the answer never reached is skipped; the pictures stay.
+          const answeredPlan = { run_id: "run_m39", conversation_id: "dm_a", bot_id: "bot_a", steps: steps([["Open the ledger", "done"], ["Check the totals", "done"], ["Email the team", "pending"]], { 1: STEP_IMAGES[1], 2: STEP_IMAGES[2] }), version: 5, open: false, closed: "answered", updated_at: at(786) };
+          const past = await fixture.open({ route: dmRoute({ runs: () => [doneRun({ plan: answeredPlan })] }), viewport, theme, contextOptions: { deviceScaleFactor: 2 } });
+          await past.page.locator(".plan-history-trigger").click();
+          await past.page.locator('.plan-history-body li[data-state="skipped"]').waitFor({ timeout: 8000 });
+          await past.page.waitForTimeout(500);
+          await past.page.screenshot({ path: join(shotsDir, `history-${label}-${theme}-${engineName}.png`) });
+          await past.context.close();
           const opened = await fixture.open({ path: "/g/g_team", messages: groupMessages, route: groupRoute, viewport, theme, contextOptions: { deviceScaleFactor: 2 } });
           await opened.page.locator(".plan-dock .plan-card").first().waitFor({ timeout: 8000 });
           await opened.page.locator(".plan-card-trigger").first().click();

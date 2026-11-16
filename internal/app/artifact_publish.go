@@ -90,6 +90,10 @@ func (s *Store) stageRunAttachment(run Run, c Conversation, a Attachment, reques
 	if err = tx.Commit(); err != nil {
 		return Attachment{}, err
 	}
+	// An image of the answer is a picture of the step that made it.
+	if strings.HasPrefix(a.MIME, "image/") {
+		s.notePlanImage(run.ID, "", a.ID, planImageFile)
+	}
 	return a, nil
 }
 

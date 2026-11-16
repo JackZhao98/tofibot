@@ -79,10 +79,19 @@ func canExecuteInParallel(toolCalls []provider.ToolCall) bool {
 	return len(toolCalls) > 1
 }
 
+// runsAfterBatch names the tools that run after the other calls of their
+// parallel batch. update_plan records the work of its batch: a step marked done
+// with its calls in one turn counts those calls only once they have finished
+// (internal/app/run_plans.go). Marking the tool unsafe would make the whole
+// batch sequential instead.
+var runsAfterBatch = map[string]bool{"update_plan": true}
+
 // executeToolsParallel runs multiple tool calls concurrently using errgroup.
 // Each tool call is executed by the provided executor function.
 // Results are returned in the original order of tool calls.
 // maxConcurrency limits the number of goroutines (0 = default 5).
+// Calls named in runsAfterBatch start after every other call has finished, one
+// at a time in the order sent.
 func executeToolsParallel(
 	toolCalls []provider.ToolCall,
 	executor func(tc provider.ToolCall) (string, error),
@@ -94,30 +103,38 @@ func executeToolsParallel(
 
 	results := make([]ToolResult, len(toolCalls))
 	var mu sync.Mutex
-	g := new(errgroup.Group)
-	g.SetLimit(maxConcurrency)
-
-	for i, tc := range toolCalls {
-		i, tc := i, tc // capture loop vars
-		g.Go(func() error {
-			content, err := executor(tc)
-			if err != nil {
-				content = "Tool error: " + err.Error()
+	run := func(last bool) {
+		g := new(errgroup.Group)
+		g.SetLimit(maxConcurrency)
+		if last {
+			g.SetLimit(1) // in the order sent
+		}
+		for i, tc := range toolCalls {
+			if runsAfterBatch[tc.Name] != last {
+				continue
 			}
+			i, tc := i, tc // capture loop vars
+			g.Go(func() error {
+				content, err := executor(tc)
+				if err != nil {
+					content = "Tool error: " + err.Error()
+				}
 
-			mu.Lock()
-			results[i] = ToolResult{
-				CallID:   tc.ID,
-				ToolName: tc.Name,
-				Content:  content,
-				Failed:   err != nil,
-				Index:    i,
-			}
-			mu.Unlock()
-			return nil // don't fail the group on tool errors
-		})
+				mu.Lock()
+				results[i] = ToolResult{
+					CallID:   tc.ID,
+					ToolName: tc.Name,
+					Content:  content,
+					Failed:   err != nil,
+					Index:    i,
+				}
+				mu.Unlock()
+				return nil // don't fail the group on tool errors
+			})
+		}
+		g.Wait()
 	}
-
-	g.Wait()
+	run(false)
+	run(true)
 	return results
 }

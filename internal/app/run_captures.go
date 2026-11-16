@@ -554,13 +554,14 @@ func (s *Server) finishCapture(ctx context.Context, r Run, tool, action string, 
 // result and inserts the row. It returns the capture number, or 0 when no row
 // was written.
 func (s *Server) recordTrace(ctx context.Context, r Run, tool, action, pageURL string, resolved bool, result, detail string) int {
-	return s.recordTraceLabeled(ctx, r, tool, action, "", pageURL, resolved, result, detail)
+	return s.recordTraceLabeled(ctx, r, tool, action, "", "", pageURL, resolved, result, detail)
 }
 
 // recordTraceLabeled is recordTrace with the step label already taken (a
 // background capture takes it when the call ends, before a later call can
-// replace it).
-func (s *Server) recordTraceLabeled(ctx context.Context, r Run, tool, action, label, pageURL string, resolved bool, result, detail string) int {
+// replace it), and with the plan step the picture belongs to (taken at the
+// same moment; empty: the step in progress when the picture is stored).
+func (s *Server) recordTraceLabeled(ctx context.Context, r Run, tool, action, label, planStep, pageURL string, resolved bool, result, detail string) int {
 	st := s.traceState(r.ID)
 	st.mu.Lock()
 	if label == "" {
@@ -606,6 +607,9 @@ func (s *Server) recordTraceLabeled(ctx context.Context, r Run, tool, action, la
 	if err != nil {
 		log.Printf("[trace] could not record a capture of run %s: %v", r.ID, err)
 		return 0
+	}
+	if row.AttachmentID != "" {
+		s.store.notePlanImage(r.ID, planStep, row.AttachmentID, planImageCapture)
 	}
 	return seq
 }
@@ -658,6 +662,8 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 	label := st.lastAction
 	st.lastAction = ""
 	st.mu.Unlock()
+	// The picture belongs to the plan step of the call that just ended.
+	planStep := s.store.planStepInProgress(r.ID)
 	if s.traceInflight.Add(1) > traceInflightMax {
 		s.traceInflight.Add(-1)
 		return
@@ -693,7 +699,7 @@ func (s *Server) engineTraceCapture(ctx context.Context, r Run, tool string, arg
 			return
 		}
 		pageURL := pageURLFromResult(out)
-		s.recordTraceLabeled(bg, r, "computer_browser", "browser.snapshot", label, pageURL, pageURL != "", out, "background")
+		s.recordTraceLabeled(bg, r, "computer_browser", "browser.snapshot", label, planStep, pageURL, pageURL != "", out, "background")
 	}()
 }
 

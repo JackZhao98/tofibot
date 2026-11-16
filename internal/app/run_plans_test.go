@@ -2,12 +2,35 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
 type planStep = map[string]any
+
+var syntheticCalls int
+
+// did records n finished tool calls of the run: the work a step marked done needs.
+func (f taskFix) did(r Run, n int) {
+	f.t.Helper()
+	for i := 0; i < n; i++ {
+		syntheticCalls++
+		id := fmt.Sprintf("call_%d", syntheticCalls)
+		for _, status := range []string{"queued", "running", "completed"} {
+			ev := runtime.ToolEvent{CallID: id, Name: "web_fetch", Status: status, Arguments: "{}"}
+			if status == "completed" {
+				ev.Result = "synthetic page"
+			}
+			if err := f.s.RecordToolEvent(r.ConversationID, r.BotID, r.ID, ev); err != nil {
+				f.t.Fatal(err)
+			}
+		}
+	}
+}
 
 func (f taskFix) plan(c Conversation, r Run, args map[string]any) (map[string]any, error) {
 	f.t.Helper()
@@ -78,6 +101,7 @@ func TestUpdatePlanKeepsTheWholeListWithStableIDs(t *testing.T) {
 		t.Fatal("one call sends one event")
 	}
 	// A reworded step keeps the id of its place; a new step gets a new id.
+	f.did(r, 1)
 	if _, err = f.plan(f.g, r, map[string]any{"steps": []planStep{
 		{"text": "Read the three reports", "status": "done"},
 		{"text": "Compare the totals by region", "status": "in_progress"},
@@ -102,6 +126,7 @@ func TestUpdatePlanKeepsTheWholeListWithStableIDs(t *testing.T) {
 		t.Fatalf("ids after a move: %s", got)
 	}
 	// advance: the step in progress is done, the next pending step after it starts.
+	f.did(r, 1)
 	receipt, err = f.plan(f.g, r, map[string]any{"advance": true})
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +137,7 @@ func TestUpdatePlanKeepsTheWholeListWithStableIDs(t *testing.T) {
 	if receipt["in_progress"] != "Check the summary with the person" || receipt["done"] != float64(2) {
 		t.Fatalf("advance receipt %v", receipt)
 	}
+	f.did(r, 1)
 	if _, err = f.plan(f.g, r, map[string]any{"advance": true}); err != nil {
 		t.Fatal(err)
 	}
@@ -151,6 +177,7 @@ func TestUpdatePlanRefusesWithCodes(t *testing.T) {
 		"plan_nothing_to_advance": nil,
 	} {
 		if code == "plan_nothing_to_advance" {
+			f.did(r, 1)
 			if _, err := f.plan(f.g, r, map[string]any{"steps": []planStep{{"text": "Do it", "status": "done"}}}); err != nil {
 				t.Fatal(err)
 			}
@@ -224,11 +251,12 @@ func TestPlanClosesWithTheAnswerAndStopAll(t *testing.T) {
 	if _, _, err := f.s.FinishRun(r.ID, f.g.ID, f.a.ID, "Here it is."); err != nil {
 		t.Fatal(err)
 	}
-	if p := f.planOf(r.ID); p.Open || p.Closed != planClosedAnswered || p.Version != 2 || f.planEvents(r.ID) != 2 || p.Steps[1].Status != planPending {
+	if p := f.planOf(r.ID); p.Open || p.Closed != planClosedAnswered || p.Version != 2 || f.planEvents(r.ID) != 2 || p.Steps[0].Status != planDone || p.Steps[1].Status != planPending {
 		t.Fatalf("after the answer %+v, %d events", p, f.planEvents(r.ID))
 	}
 	// The answer finishes the last step when it is the one in progress.
 	last := f.running(f.g.ID, f.b)
+	f.did(last, 1)
 	if _, err := f.plan(f.g, last, map[string]any{"steps": []planStep{{"text": "Collect", "status": "done"}, {"text": "Write the reply", "status": "in_progress"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -238,8 +266,10 @@ func TestPlanClosesWithTheAnswerAndStopAll(t *testing.T) {
 	if p := f.planOf(last.ID); p.Steps[1].Status != planDone || p.Open {
 		t.Fatalf("the answer is the last step: %+v", p)
 	}
-	// An answer given as done finishes every step; a blocked answer leaves them.
-	for outcome, want := range map[string]string{sayOutcomeDone: planDone, sayOutcomeBlocked: planPending} {
+	// The answer is the work of the step in progress, whatever the outcome
+	// (2026-11-16); the steps it never reached stay open. A blocked answer
+	// finishes nothing and closes the list as blocked.
+	for outcome, want := range map[string]string{sayOutcomeDone: planDone + "/" + planPending + "/" + planClosedAnswered, "": planDone + "/" + planPending + "/" + planClosedAnswered, sayOutcomeBlocked: planInProgress + "/" + planPending + "/" + planClosedBlocked} {
 		run := f.running(f.g.ID, f.c)
 		if _, err := f.plan(f.g, run, map[string]any{"steps": []planStep{{"text": "Search", "status": "in_progress"}, {"text": "Write", "status": "pending"}}}); err != nil {
 			t.Fatal(err)
@@ -249,8 +279,8 @@ func TestPlanClosesWithTheAnswerAndStopAll(t *testing.T) {
 			t.Fatal(err)
 		}
 		tx.Commit()
-		if p := f.planOf(run.ID); p.Steps[1].Status != want || p.Open {
-			t.Fatalf("outcome %s: %+v", outcome, p)
+		if p := f.planOf(run.ID); p.Steps[0].Status+"/"+p.Steps[1].Status+"/"+p.Closed != want || p.Open {
+			t.Fatalf("outcome %q: %+v", outcome, p)
 		}
 		f.s.SetRunStatus(run.ID, "failed", "end")
 	}
@@ -287,6 +317,7 @@ func TestPlanClosesWithTheAnswerAndStopAll(t *testing.T) {
 func TestPlanCarriesOnToTheRunThatContinuesTheWork(t *testing.T) {
 	f := newTaskFix(t)
 	r := f.running(f.g.ID, f.a)
+	f.did(r, 1)
 	if _, err := f.plan(f.g, r, map[string]any{"steps": []planStep{{"text": "Fetch the data", "status": "done"}, {"text": "Build the chart", "status": "in_progress"}, {"text": "Explain it", "status": "pending"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -311,14 +342,16 @@ func TestPlanCarriesOnToTheRunThatContinuesTheWork(t *testing.T) {
 	if old := f.planOf(r.ID); old.Open || old.Closed != planClosedPassed {
 		t.Fatalf("the failed run's list is passed on: %+v", old)
 	}
-	block := f.srv.currentPlanContext(retry)
+	block := f.srv.currentPlanContext(f.g, retry)
 	if !strings.HasPrefix(block, "[current plan]") || !strings.Contains(block, "2. [in_progress] Build the chart") || !strings.HasSuffix(block, "[/current plan]") {
 		t.Fatalf("block %q", block)
 	}
-	if f.srv.currentPlanContext(r) != "" {
+	if f.srv.currentPlanContext(f.g, r) != "" {
 		t.Fatal("a closed list gives no block")
 	}
-	// The carried list keeps its ids, so the next step gets a new one.
+	// The carried list keeps its ids, so the next step gets a new one; the
+	// retry's work backs the steps it marks done.
+	f.did(retry, 2)
 	if _, err := f.plan(f.g, retry, map[string]any{"steps": []planStep{{"text": "Fetch the data", "status": "done"}, {"text": "Build the chart", "status": "done"}, {"text": "Explain it", "status": "done"}, {"text": "Share the file", "status": "in_progress"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -328,13 +361,14 @@ func TestPlanCarriesOnToTheRunThatContinuesTheWork(t *testing.T) {
 	if _, err := f.s.SetRunStatus(retry.ID, "failed", "synthetic failure"); err != nil {
 		t.Fatal(err)
 	}
-	// A person's new request is new work.
+	// A person's new request starts without a card; it reads the Bot's last
+	// list as data (the failed retry's list, closed when the new run started).
 	fresh := f.running(f.g.ID, f.a)
 	if _, ok := f.s.runPlan(fresh.ID); ok {
 		t.Fatal("a person's new request starts without a list")
 	}
-	if f.srv.currentPlanContext(fresh) != "" {
-		t.Fatal("no block without a list")
+	if block := f.srv.currentPlanContext(f.g, fresh); !strings.HasPrefix(block, "[previous plan]") || !strings.Contains(block, "(replaced)") || !strings.Contains(block, "4. [in_progress] Share the file") {
+		t.Fatalf("previous block %q", block)
 	}
 	// The wake of a run that ended waiting carries its list on.
 	lead := f.running(f.g.ID, f.c)

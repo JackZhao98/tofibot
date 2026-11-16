@@ -704,6 +704,10 @@
     "open_tasks_one": "{{count}} tâche ouverte",
     "open_tasks_other": "{{count}} tâches ouvertes",
     "open_tasks_many": "{{count}} de tâches ouvertes",
+    "pictures_one": "Ouvrir l’image de cette étape : {{step}}",
+    "pictures_other": "Ouvrir les {{count}} images de cette étape : {{step}}",
+    "pictures_many": "Ouvrir les {{count}} images de cette étape : {{step}}",
+    "picture": "{{step}} · image {{index}}",
     "history": "Plan · {{done}} sur {{total}} faites",
     "history_stopped": "Plan · arrêté à l'étape {{step}} sur {{total}}",
     "state": {

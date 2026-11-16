@@ -1,15 +1,18 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { BotAvatar } from "./BotAvatar";
+import { attachmentUrl } from "./filePreviewModel";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
 import { EASE, MOTION } from "./motion";
 import { useTranslation } from "./i18n";
 import { dockEntries, familyPlan, finishedEntry, planEndedIncomplete, planHistory, type DockEntry, type DockStep, type StepState } from "./planModel";
-import type { Bot, Run, WorkItem } from "./types";
+import type { Attachment, Bot, Run, WorkItem } from "./types";
 import "./plan-card.css";
+
+const Lightbox = lazy(() => import("./AttachmentLightbox"));
 
 /**
  * The pinned step list (owner 2026-11-15): while a Bot works on a request with several steps, a card above the message
@@ -36,11 +39,33 @@ function StepMark({ state, live }: { state: StepState; live: boolean }) {
   return <span className="plan-mark is-pending" />;
 }
 
+/**
+ * The pictures a step made or used (owner 2026-11-16): a small stack right after the step's text, newest on top, that opens
+ * the image viewer on the step's pictures. A picture whose file is gone (the trace was deleted) drops out.
+ */
+function StepPictures({ step }: { step: DockStep }) {
+  const { t } = useTranslation("tasks");
+  const [broken, setBroken] = useState<ReadonlySet<string>>(() => new Set());
+  const [index, setIndex] = useState<number | null>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const images = (step.images ?? []).filter(image => !broken.has(image.id));
+  if (!images.length) return null;
+  const files: Attachment[] = images.map((image, at) => ({ id: image.id, conversation_id: "", name: t("plan.picture", { step: step.text, index: at + 1 }), mime: "image/jpeg", size: 0, created_at: "" }));
+  return <>
+    <button ref={button} type="button" className="plan-step-pictures" aria-label={t("plan.pictures", { count: images.length, step: step.text })}
+      onPointerEnter={() => void import("./AttachmentLightbox")} onClick={() => setIndex(images.length - 1)}>
+      {images.map(image => <img key={image.id} src={attachmentUrl(image.id)} alt="" width="28" height="20" loading="lazy" decoding="async" draggable={false}
+        onError={() => setBroken(current => new Set(current).add(image.id))} />)}
+    </button>
+    {index !== null && <Suspense fallback={null}><Lightbox images={files} index={index} onIndex={setIndex} onClose={() => setIndex(null)} origin={() => button.current} /></Suspense>}
+  </>;
+}
+
 /** The ordered steps with their state words for screen readers. Static: used in history. */
 export function PlanSteps({ steps, live = false, animate = false }: { steps: readonly DockStep[]; live?: boolean; animate?: boolean }) {
   const { t } = useTranslation("tasks");
   const items = steps.map(step => {
-    const body = <><StepMark state={step.state} live={live} /><span className="plan-step-text">{step.text}</span><span className="sr-only">{t(`plan.state.${step.state}`)}</span></>;
+    const body = <><StepMark state={step.state} live={live} /><span className="plan-step-text">{step.text}</span><span className="sr-only">{t(`plan.state.${step.state}`)}</span><StepPictures step={step} /></>;
     return animate
       ? <motion.li key={step.id} data-state={step.state} layout="position" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0, transition: enter }} exit={{ opacity: 0, transition: leave }} transition={enter}>{body}</motion.li>
       : <li key={step.id} data-state={step.state}>{body}</li>;
