@@ -89,6 +89,7 @@ func migrateComputerRows(db *sql.DB) error {
 		{"protocol_version", `ALTER TABLE computers ADD COLUMN protocol_version INTEGER NOT NULL DEFAULT 0`},
 		{"status", `ALTER TABLE computers ADD COLUMN status TEXT NOT NULL DEFAULT 'attached'`},
 		{"detached_at", `ALTER TABLE computers ADD COLUMN detached_at TEXT`},
+		{"folders", `ALTER TABLE computers ADD COLUMN folders TEXT NOT NULL DEFAULT '[]'`},
 	} {
 		if err := ensureColumn(db, "computers", col.name, col.ddl); err != nil {
 			return err

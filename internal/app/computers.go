@@ -46,6 +46,9 @@ var computerActions = map[string]bool{
 	"files.list": true, "files.read": true, "files.write": true,
 	"screen.capture": true, "desktop.click": true, "desktop.type": true, "desktop.key": true,
 	"sandbox.exec": true,
+	// Folders the person granted to a Bot on a Mac (mac_folders.go). folders.read
+	// also serves folders.list and folders.write also serves folders.edit.
+	"folders.list": true, "folders.read": true, "folders.write": true, "folders.edit": true, "folders.exec": true,
 	// The desktop vocabulary shared with the Bot computer. screen.capture is the
 	// older name of desktop.capture and stays accepted both ways.
 	"desktop.capture": true, "desktop.double_click": true, "desktop.triple_click": true,
@@ -65,6 +68,9 @@ func grantedAction(caps []string, action string) bool {
 			return true
 		}
 		if (c == "screen.capture" && action == "desktop.capture") || (c == "desktop.capture" && action == "screen.capture") {
+			return true
+		}
+		if (c == "folders.read" && action == "folders.list") || (c == "folders.write" && action == "folders.edit") {
 			return true
 		}
 		if c == "desktop.click" {
@@ -482,6 +488,9 @@ func validateComputerArgs(action string, raw json.RawMessage) error {
 	if strings.HasPrefix(action, "browser.") {
 		return validateBrowserArgs(action, raw)
 	}
+	if strings.HasPrefix(action, "folders.") {
+		return validateFolderArgs(action, raw)
+	}
 	if len(raw) == 0 || len(raw) > maxComputerResult || !json.Valid(raw) {
 		return errors.New("args must be a JSON object no larger than 1 MiB")
 	}
@@ -723,10 +732,19 @@ func (s *Store) queueComputerJob(r Run, deviceID, action string, args json.RawMe
 	if outstanding >= maxOutstandingJobs {
 		return ComputerJob{}, tooloutcome.New(tooloutcome.Permanent, "computer_queue_full", "not_executed", "computer has too many outstanding jobs", "explain_blocker").Err()
 	}
+	if strings.HasPrefix(action, "folders.") {
+		if err = folderQueueRoom(tx, deviceID, r.BotID, action); err != nil {
+			return ComputerJob{}, err
+		}
+	}
 	t := time.Now().UTC()
 	ttl := computerJobTTL
 	if browserActions[action] {
 		ttl = 30 * time.Second
+	}
+	if action == "folders.exec" {
+		// A command may run for its whole timeout after the claim: the expiry covers both.
+		ttl = computerJobTTL + folderExecTimeout(args)
 	}
 	j := ComputerJob{ID: uuid.NewString(), DeviceID: deviceID, BotID: r.BotID, RunID: r.ID, Action: action, Args: append(json.RawMessage(nil), args...), ExpiresAt: t.Add(ttl).Format(time.RFC3339Nano), Status: "pending"}
 	if _, err = tx.Exec(`INSERT INTO computer_jobs(id,device_id,bot_id,run_id,action,args,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, j.ID, j.DeviceID, j.BotID, j.RunID, j.Action, string(j.Args), j.Status, t.Format(time.RFC3339Nano), j.ExpiresAt); err != nil {
@@ -963,7 +981,7 @@ func (s *Store) deviceJobStatus(deviceID, token, jobID string) (ComputerJobStatu
 		if err != nil {
 			return ComputerJobStatus{}, err
 		}
-		state.LeaseMS = min(time.Until(expires).Milliseconds(), int64(1000))
+		state.LeaseMS = min(time.Until(expires).Milliseconds(), jobLeaseCap(j.Action))
 		if state.LeaseMS <= 0 {
 			state.Status, state.LeaseMS = "expired", 0
 			if _, err = tx.Exec(`UPDATE computer_jobs SET status='expired',error='job expired',completed_at=? WHERE id=? AND device_id=? AND status='running'`, now(), jobID, deviceID); err != nil {
@@ -1216,6 +1234,10 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		}
 		s.deviceSeen(parts[0])
 		writeJSON(w, 200, map[string]any{"ok": true})
+		return true
+	}
+	if len(parts) == 2 && parts[1] == "folders" && r.Method == http.MethodPut {
+		s.routeComputerFolders(w, r, parts[0])
 		return true
 	}
 	if len(parts) == 2 && parts[1] == "capabilities" && r.Method == http.MethodPatch {

@@ -833,3 +833,11 @@ A message may store `origin_computer_id`. Accept only a non-revoked personal com
 Use `environmentOrder` and `environmentFeatures` for routing, listings and run context. The Mac app starts with its Mac; Web starts with the Bot computer. The person's instruction overrides the order. Inside a Mac, use the built-in browser, then desktop control, then the next environment. The three `environment_*` automation settings control this order and automatic failover. Offer Playwright tools only when the Bot computer is first. Desktop start, stop and trace stay on the Bot computer.
 
 Each browser and desktop result has `served_by`. Automatic browser failover requires an omitted computer id, an entry URL, an allowed code and `not_executed` certainty. Never replay an unknown effect. Keep each environment's effect review. A denied Mac is excluded for the rest of the run. Origin and browser route caches are per run and are removed when the run ends.
+
+Folders on a person's Mac (docs/design/mac-folders.md, D83): the Mac app keeps the
+grants and runs every file operation and command of a Bot under one sandbox policy,
+so the server never decides a path. The server stores the Mac's reported list
+(`computers.folders`), routes `computer_files`/`computer_shell` with a Mac's
+`computer_id` to `folders.*` jobs, refuses a Bot without a grant before queuing, and
+reviews by effect (`none` runs read-only and is not reviewed). Keep the error words
+for `folders.*` on the server (`macFolderError`), never the Mac's text.

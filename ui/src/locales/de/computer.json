@@ -660,6 +660,37 @@
         "allow": "Wieder erlauben"
       }
     },
+    "folders": {
+      "title": "Ordner auf diesem Mac",
+      "description": "Bots können nur in diesen Ordnern Dateien lesen und ändern sowie Befehle ausführen. Befehle laufen in einer Sandbox ohne Zugriff auf den Rest des Mac, SSH-Schlüssel oder den Schlüsselbund, mit Netzwerkzugriff nur auf Paketregister und Code-Hosts.",
+      "empty": "Noch keine Ordner. Füge einen hinzu, damit ein Bot darin arbeiten kann.",
+      "add": "Ordner hinzufügen",
+      "add_for": "Für welchen Bot?",
+      "reveal": "Im Finder zeigen",
+      "remove_bot": "{{name}} entfernen",
+      "remove": "Ordner entfernen",
+      "state": {
+        "missing": "Der Ordner wurde verschoben oder gelöscht. Entferne ihn und füge ihn erneut hinzu.",
+        "moved": "Der Ordner wurde verschoben oder gelöscht. Entferne ihn und füge ihn erneut hinzu."
+      },
+      "refused": "Nicht hinzugefügt: {{path}} – {{reason}}",
+      "exec_unavailable": "Befehle sind auf diesem Mac nicht verfügbar. Der Dateizugriff funktioniert weiterhin.",
+      "tools": "Tools, die Befehle nutzen können",
+      "tools_note": "Entwicklerwerkzeug-Verzeichnisse, die Befehle lesen können. Nur lesend.",
+      "reason": {
+        "busy": "Eine andere Änderung läuft gerade. Versuche es gleich noch einmal.",
+        "not_connected": "Dieser Mac ist nicht mit dem Server verbunden.",
+        "server_unsupported": "Dieser Server unterstützt keine Ordner auf einem Mac.",
+        "bot_unknown": "Dieser Bot existiert nicht mehr.",
+        "pair_failed": "Dieser Mac konnte nicht mit dem Server verbunden werden. Versuche es erneut.",
+        "folder_protected": "dieser Ordner enthält System- oder private Daten",
+        "not_a_folder": "dieses Objekt ist kein Ordner",
+        "network_volume": "Ordner auf Netzwerkvolumes werden nicht unterstützt",
+        "too_many_folders": "das Ordnerlimit ist erreicht; entferne zuerst einen",
+        "too_many_bots": "dieser Ordner hat bereits die maximale Anzahl an Bots",
+        "failed": "Die Änderung ist fehlgeschlagen. Versuche es erneut."
+      }
+    },
     "feature": {
       "browser": "Integrierter Browser",
       "desktop": "Desktopsteuerung",

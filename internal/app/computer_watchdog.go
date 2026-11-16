@@ -39,6 +39,9 @@ var computerDispatchTimeoutFor = computerDispatchTimeout
 // computerDispatchTimeout is the guest-answer deadline of one action.
 func computerDispatchTimeout(name string, args json.RawMessage) time.Duration {
 	switch name {
+	case "folders.exec":
+		// The Mac stops the command at its timeout; the margin covers the claim and the answer.
+		return folderExecTimeout(args) + computerShellMargin + 15*time.Second
 	case "shell.exec":
 		var in struct {
 			TimeoutSec int `json:"timeout_sec"`

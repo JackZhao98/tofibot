@@ -60,6 +60,9 @@ const (
 	// autoPersonalInputReview picks which input on a person's own Mac goes to the reviewer:
 	// what the Bot declares as consequential, also every key command (Cmd or Ctrl chord), or all input.
 	autoPersonalInputReview = "personal_input_review"
+	// autoMacFolderReview picks what a Bot's work in folders on a Mac sends to the reviewer: commands that change
+	// something (commands, the default: the person's grant covers file writes and edits there), or also file changes.
+	autoMacFolderReview = "mac_folder_review"
 	// defaultWebFetchLimit lets multi-page research finish; the cap stays so a loop cannot read pages without end.
 	defaultWebFetchLimit = 20
 
@@ -123,6 +126,7 @@ var automationItems = []automationItem{
 	{Key: autoAnswerGate, Group: "reviews", Kind: autoKindInt, Default: "2", Min: 0, Max: 5},
 	{Key: autoMCPReview, Group: "permissions", Kind: autoKindEnum, Default: "off", Options: []string{"off", "shadow", "auto"}},
 	{Key: autoPersonalInputReview, Group: "permissions", Kind: autoKindEnum, Default: personalReviewCommands, Options: []string{personalReviewDeclared, personalReviewCommands, personalReviewAll}},
+	{Key: autoMacFolderReview, Group: "permissions", Kind: autoKindEnum, Default: macFolderReviewCommands, Options: []string{macFolderReviewCommands, macFolderReviewChanges}},
 	{Key: autoRememberedApprovalHrs, Group: "remembered", Kind: autoKindInt, Default: strconv.Itoa(int(rememberedApprovalValidity / time.Hour)), Min: 1, Max: 720, Unit: "hours"},
 	{Key: autoProviderRetries, Group: "common", Kind: autoKindInt, Default: strconv.Itoa(defaultProviderRetries), Min: 0, Max: 10, Env: "TOFI_PROVIDER_RETRIES"},
 	{Key: autoScheduleReceiptReview, Group: "reviews", Kind: autoKindBool, Default: "true"},

@@ -65,21 +65,42 @@ export type RemoteControlBridge = {
   undoDeny: (botID: string) => Promise<{ ok: boolean; code?: string; bots: { bot_id: string; bot_name: string }[] }>;
   onStatus: (listener: (status: RemoteControlStatus) => void) => () => void;
 };
-export type DesktopSandboxStatus = {
-  enabled?: boolean; root?: string | null; connectionID?: string | null; bound?: boolean;
-  available?: boolean; reason?: string; reasonCode?: string; faulted?: boolean; running?: boolean;
+
+/**
+ * Folders on this Mac (Settings > Environments, Mac app only): the person grants a Bot access to chosen folders. The Mac app's
+ * main process shows the native folder panel and the native confirmation; the page only asks and shows named reasons from `code`.
+ */
+export type FolderState = "ok" | "missing" | "moved";
+export type MacFolder = { id: string; name: string; path: string; bots: { id: string; name: string }[]; state: FolderState };
+export type FoldersStatus = {
+  /** The current server supports folders. */
+  supported: boolean;
+  reason: null | "server_unsupported" | "not_connected" | "pair_failed";
+  /** The command sandbox is present on this Mac. */
+  exec: { available: boolean; reason: string | null };
+  folders: MacFolder[];
+  /** Developer tool directories commands may read, read-only (disclosure). */
+  tools: string[];
+};
+export type FoldersResult = { ok: boolean; code?: string; added?: string[]; refused?: { path: string; code: string }[]; status: FoldersStatus };
+export type FoldersBridge = {
+  status(): Promise<FoldersStatus>;
+  /** The Mac shows the native folder panel, then a native confirmation; `code` is "cancelled" when the person cancels. */
+  add(botID: string): Promise<FoldersResult>;
+  /** No dialog. Without `botID` the folder is removed for every Bot. */
+  remove(folderID: string, botID?: string): Promise<FoldersResult>;
+  reveal(folderID: string): Promise<void>;
+  onStatus(listener: (status: FoldersStatus) => void): () => void;
 };
 /** What the Mac settings page reads: the device bridge status. Only the privileged settings page may call it. */
 export type DesktopDeviceStatus = {
-  name: string; workspaceRoot: string; fileAccess: boolean; screenCapture?: boolean; desktopControl?: boolean;
+  name: string; screenCapture?: boolean; desktopControl?: boolean;
   paired: boolean; deviceID?: string | null; capabilities?: string[];
   permissions?: { screen?: boolean; accessibility?: boolean };
-  sandbox: DesktopSandboxStatus;
   lastError?: string | null;
   control?: { phase?: "idle" | "active" | "lingering" | "paused" | string; reason?: string };
 };
-export type DesktopSettingsInput = { name?: string; workspaceRoot?: string; fileAccess?: boolean };
-export type DesktopSandboxSelection = { selectionID: string; root: string; serverLabel: string };
+export type DesktopSettingsInput = { name?: string };
 
 /** Local-only workbench IPC; the Mac app accepts it only from /__desktop/local-run. */
 export type LocalRunFile = {path: string; bytes: number};
@@ -139,6 +160,8 @@ declare global {
       /** Present in a Mac app that has the one-switch remote control. Without it (a browser, an older app) the page shows no switch. */
       remoteControl?: RemoteControlBridge;
       botBrowser?: BotBrowserBridge;
+      /** Present in a Mac app that grants Bots access to folders. Without it the page shows no folder block. */
+      folders?: FoldersBridge;
       onWindowState: (listener: (state: { focused: boolean; fullscreen: boolean }) => void) => () => void;
       appearance: (preference: "light" | "dark" | "system") => Promise<void>;
       requestMicrophoneAccess: () => Promise<boolean>;
@@ -161,15 +184,11 @@ declare global {
       // Privileged methods: the main process answers them only to the Mac settings page (/__desktop/settings).
       getSettings?: () => Promise<DesktopDeviceStatus>;
       updateSettings?: (settings: DesktopSettingsInput) => Promise<DesktopDeviceStatus>;
-      chooseWorkspace?: () => Promise<string | null>;
       openPermissionGuide?: (kind: "screen" | "accessibility") => Promise<boolean>;
       controlStop?: () => Promise<DesktopDeviceStatus>;
       controlResume?: () => Promise<DesktopDeviceStatus>;
       /** Quits and reopens Tofi (Mac settings page only); macOS applies a new Screen Recording grant to a fresh process. */
       relaunch?: () => Promise<boolean>;
-      chooseSandboxRoot?: () => Promise<DesktopSandboxSelection | null>;
-      authorizeSandboxRoot?: (selectionID: string) => Promise<DesktopDeviceStatus | null>;
-      sandboxRevoke?: () => Promise<DesktopDeviceStatus | null>;
     };
   }
 }

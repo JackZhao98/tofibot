@@ -197,7 +197,7 @@ var sidebarViews = []string{"tasks", "memory", "terminal", "archive"}
 // generated from this file and the locale catalogs).
 var manualGuideIDs = []string{
 	"setup", "permissions", "memory", "schedules", "sidebar", "update", "bots", "groups",
-	"computer/none", "computer/kvm",
+	"computer/none", "computer/kvm", "computer/mac-folders",
 	"connections/connect", "connections/google", "connections/pause", "connections/disconnect", "connections/tool-permissions",
 }
 

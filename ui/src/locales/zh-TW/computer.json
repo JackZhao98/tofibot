@@ -654,6 +654,37 @@
         "allow": "重新允許"
       }
     },
+    "folders": {
+      "title": "這台 Mac 上的資料夾",
+      "description": "Bot 只能在這些資料夾內讀取與變更檔案、執行指令。指令在沙盒中執行，無法存取 Mac 的其他位置、SSH 金鑰或鑰匙圈，網路僅限套件登錄庫與程式碼代管服務。",
+      "empty": "尚無資料夾。新增一個，讓 Bot 在其中工作。",
+      "add": "新增資料夾",
+      "add_for": "為哪個 Bot 新增？",
+      "reveal": "在 Finder 中顯示",
+      "remove_bot": "移除 {{name}}",
+      "remove": "移除資料夾",
+      "state": {
+        "missing": "該資料夾已被移動或刪除。請移除後重新新增。",
+        "moved": "該資料夾已被移動或刪除。請移除後重新新增。"
+      },
+      "refused": "未新增：{{path}} — {{reason}}",
+      "exec_unavailable": "這台 Mac 上無法執行指令。檔案存取仍可使用。",
+      "tools": "指令可使用的工具",
+      "tools_note": "指令可讀取的開發工具目錄。唯讀。",
+      "reason": {
+        "busy": "另一項變更正在進行。請稍後再試。",
+        "not_connected": "這台 Mac 未連線到伺服器。",
+        "server_unsupported": "此伺服器不支援 Mac 上的資料夾。",
+        "bot_unknown": "該 Bot 已不存在。",
+        "pair_failed": "無法將這台 Mac 連線到伺服器。請重試。",
+        "folder_protected": "該資料夾包含系統或私人資料",
+        "not_a_folder": "該項目不是資料夾",
+        "network_volume": "不支援網路磁碟上的資料夾",
+        "too_many_folders": "已達資料夾數量上限，請先移除一個",
+        "too_many_bots": "該資料夾的 Bot 數量已達上限",
+        "failed": "變更失敗。請重試。"
+      }
+    },
     "feature": {
       "browser": "內建瀏覽器",
       "desktop": "桌面控制",
