@@ -340,7 +340,8 @@
         "model_quota_exhausted": "Modell-Kontingent erreicht",
         "connection_interrupted": "Verbindung getrennt",
         "budget_exhausted": "Schrittbudget aufgebraucht",
-        "spend_cap_reached": "Ausgabenlimit erreicht"
+        "spend_cap_reached": "Ausgabenlimit erreicht",
+        "model_content_flagged": "Vom Inhaltsfilter blockiert"
       }
     }
   },

@@ -17,7 +17,15 @@ type RunFailure struct {
 	Message string `json:"message"`
 	// Count is how many interruptions stopped a run (resumed_repeatedly).
 	Count int `json:"count,omitempty"`
+	// AutoRetried says the provider flagged the automatic re-send too
+	// (model_content_flagged).
+	AutoRetried bool `json:"auto_retried,omitempty"`
 }
+
+// contentFlaggedCode is a run the model provider's content filter blocked:
+// an OpenAI or Codex prompt flag, an Anthropic refusal or output filter. The
+// provider's own words stay in the run's error, never in the message.
+const contentFlaggedCode = "model_content_flagged"
 
 func (r Run) failure() *RunFailure {
 	if r.Status != "failed" {
@@ -61,6 +69,12 @@ func (r Run) failure() *RunFailure {
 	// Model account failures name the account state; provider bodies stay in the audit error.
 	if code, message := modelAccountFailure(errorText, r.Model); code != "" {
 		failure.Code, failure.Message = code, message
+		return failure
+	}
+	if provider.IsContentFlagged(errorText) {
+		failure.Code = contentFlaggedCode
+		failure.Message = "The model provider's content filter blocked this request, so the task did not finish. Completed tool results are retained; retry, or rephrase the request if it is blocked again."
+		failure.AutoRetried = strings.Contains(errorText, provider.PromptFlaggedAgain)
 		return failure
 	}
 	if strings.Contains(errorText, "stream read error") || strings.Contains(errorText, "connection reset") || strings.Contains(errorText, "broken pipe") || strings.Contains(errorText, "unexpected eof") || strings.Contains(errorText, "internal_error") {

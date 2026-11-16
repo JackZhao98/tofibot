@@ -4,7 +4,7 @@ export type ReceiptState = "sending" | "retrying" | "failed" | "delivered" | "re
 export type Receipt = { state: ReceiptState; readBy: string[]; error?: string; reason?: "offline" | "network" | "server" | "rejected"; auto?: boolean };
 
 /** Failure codes that only a run which actually began executing can report. */
-const STARTED_FAILURES = new Set(["execution_failed", "no_final_answer", "budget_exhausted", "tool_stuck", "resumed_repeatedly", "connection_interrupted"]);
+const STARTED_FAILURES = new Set(["execution_failed", "no_final_answer", "budget_exhausted", "tool_stuck", "resumed_repeatedly", "connection_interrupted", "model_content_flagged"]);
 
 /** A Bot has picked the message up: its run left the queue. A run that failed before it began does not count. */
 export function runStarted(run: Run): boolean {

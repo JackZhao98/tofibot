@@ -546,7 +546,8 @@
     "connection_interrupted": "连接中断，任务未完成。已完成的工具结果保留；重试前请核实结果不确定的操作。",
     "failed": "本次请求失败，任务未完成。已完成的工具结果保留。",
     "tool_stuck": "某个工具步骤没有响应，任务已停止。已完成的工具结果会保留；重试前请先检查结果不确定的操作。",
-    "resumed_repeatedly": "任务反复中断（{{times}} 次），已停止。"
+    "resumed_repeatedly": "任务反复中断（{{times}} 次），已停止。",
+    "content_flagged": "模型服务商的内容过滤拦截了本次请求，任务未完成。已完成的工具结果保留，可重试。"
   },
   "conversation_state": {
     "finishing": "正在收尾",
@@ -614,7 +615,9 @@
       "no_final_answer": "模型结束时没有给出最终回答。",
       "tool_stuck": "某个工具步骤停止响应，任务已被停止。",
       "receipt_missing": "运行结束，但未能确认结果。",
-      "resumed_repeatedly": "任务被中断了 {{times}} 次，已停止。"
+      "resumed_repeatedly": "任务被中断了 {{times}} 次，已停止。",
+      "content_flagged": "模型服务商的内容过滤拦截了这次请求。可以重试；再次被拦截时请换个说法。",
+      "content_flagged_retried": "模型服务商的内容过滤拦截了这次请求，自动重试一次后仍被拦截。可以重试；再次被拦截时请换个说法。"
     }
   },
   "handover": {

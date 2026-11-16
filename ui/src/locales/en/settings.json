@@ -340,7 +340,8 @@
         "model_quota_exhausted": "Model quota reached",
         "connection_interrupted": "Connection dropped",
         "budget_exhausted": "Step budget exhausted",
-        "spend_cap_reached": "Spend limit reached"
+        "spend_cap_reached": "Spend limit reached",
+        "model_content_flagged": "Blocked by content filter"
       }
     }
   },

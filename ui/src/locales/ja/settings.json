@@ -335,7 +335,8 @@
         "model_quota_exhausted": "モデルの上限に到達",
         "connection_interrupted": "接続が切断",
         "budget_exhausted": "ステップ上限に到達",
-        "spend_cap_reached": "支出上限に到達"
+        "spend_cap_reached": "支出上限に到達",
+        "model_content_flagged": "コンテンツフィルターでブロック"
       }
     }
   },

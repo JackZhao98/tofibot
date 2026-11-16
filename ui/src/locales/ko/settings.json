@@ -335,7 +335,8 @@
         "model_quota_exhausted": "모델 한도 도달",
         "connection_interrupted": "연결 끊김",
         "budget_exhausted": "단계 예산 소진",
-        "spend_cap_reached": "지출 한도 도달"
+        "spend_cap_reached": "지출 한도 도달",
+        "model_content_flagged": "콘텐츠 필터 차단"
       }
     }
   },
