@@ -80,13 +80,13 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 
 **{{ui:settings:automation.item.group_triage_model.name}}.** {{ui:settings:automation.item.group_triage_model.what}}
 
+**{{ui:settings:automation.item.mac_folder_review.name}}.** {{ui:settings:automation.item.mac_folder_review.what}}
+
 **{{ui:settings:automation.item.monthly_spend_limit_usd.name}}.** {{ui:settings:automation.item.monthly_spend_limit_usd.what}}
 
 **{{ui:settings:automation.item.own_replies_verbatim.name}}.** {{ui:settings:automation.item.own_replies_verbatim.what}}
 
 **{{ui:settings:automation.item.personal_input_review.name}}.** {{ui:settings:automation.item.personal_input_review.what}}
-
-**{{ui:settings:automation.item.mac_folder_review.name}}.** {{ui:settings:automation.item.mac_folder_review.what}} Commands that only read (declared with effect none) run read-only with no network and are never reviewed.
 
 **{{ui:settings:automation.item.provider_retries.name}}.** {{ui:settings:automation.item.provider_retries.what}}
 
