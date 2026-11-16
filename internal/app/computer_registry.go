@@ -418,6 +418,15 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		if !personalActionAllowed(name) {
 			return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 		}
+		// Folder work through any tool (computer_action too) needs this Bot's grant on this Mac; the Mac checks again.
+		if strings.HasPrefix(name, "folders.") {
+			if args, err = canonicalFolderArgs(name, args); err != nil {
+				return "", tooloutcome.InvalidArguments(err.Error())
+			}
+			if err := s.macFolderReady(r, id); err != nil {
+				return "", err
+			}
+		}
 	} else if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}
@@ -449,12 +458,21 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		if guardErr != nil {
 			return "", guardErr
 		}
-		args = withoutEffect(args)
+		// A command on a Mac keeps its effect: the Mac runs effect none read-only.
+		if name != "folders.exec" {
+			args = withoutEffect(args)
+		}
 	}
-	releaseLock, err := slot.acquire(ctx, r.BotID, r.ID)
-	if err != nil {
-		settle(err)
-		return "", err
+	// Folder steps do not use the screen, so they skip the computer's operator
+	// lock: a long build does not block another Bot's desktop or folder work.
+	// The server's queue caps (folderQueueRoom) bound them instead.
+	releaseLock := func() {}
+	if !strings.HasPrefix(name, "folders.") {
+		releaseLock, err = slot.acquire(ctx, r.BotID, r.ID)
+		if err != nil {
+			settle(err)
+			return "", err
+		}
 	}
 	if isBrowser {
 		if err = s.recheckBrowser(id, name, args); err == nil {
@@ -1062,6 +1080,22 @@ func (s *Server) guardPersonalAction(ctx context.Context, r Run, slot *computerS
 		if !consequentialEffect(review.Effect) {
 			review.Effect = "runs a command that changes files on the person's computer"
 		}
+	case "folders.exec":
+		// effect none runs read-only on the Mac (no folder writes, no network), so
+		// a wrong label cannot change anything there: it is not reviewed.
+		if !consequentialEffect(review.Effect) {
+			return func(error) {}, nil
+		}
+		review.Kind, review.Text = "command", declared.Cmd
+		review.Element = folderCommandLabel(declared.Cmd)
+		review.Effect = folderEffectWords(review.Effect)
+	case "folders.write", "folders.edit":
+		if s.autoValue(autoMacFolderReview) != macFolderReviewChanges {
+			return func(error) {}, nil
+		}
+		review.Kind = strings.TrimPrefix(action, "folders.")
+		review.Effect = "changes a file in a folder the person granted to this Bot on their Mac"
+		review.Element, review.Text = folderChangeLabel(action, args)
 	default:
 		return func(error) {}, nil
 	}

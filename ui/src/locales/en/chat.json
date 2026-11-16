@@ -301,7 +301,6 @@
     "delete_hint": "Removes the group and its chat. This can't be undone."
   },
   "header": {
-    "back_to_chat": "Back to conversation",
     "bot_memory": "This Bot's memory",
     "bot_settings": "Bot settings",
     "copy_link": "Copy conversation link",
@@ -313,11 +312,9 @@
     "more": "More actions",
     "open_members": "Open conversation members",
     "open_shared_computer": "Open Bot computer",
-    "open_team_board": "Open team board",
     "open_terminal": "Open terminal",
     "schedule": "To-dos and schedule",
     "shared_computer": "Bot computer",
-    "team_board": "Team board",
     "terminal": "Terminal",
     "usage": "Usage",
     "computer_on": "Bot computer, on",

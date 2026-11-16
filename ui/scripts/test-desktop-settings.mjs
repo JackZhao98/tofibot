@@ -1,6 +1,7 @@
-// Rendered acceptance for the desktop app's slim Mac settings page: files and local execution, marked In development, reached
-// only from the this-Mac row's menu (desktop-settings.html, src/desktop-settings/). Pairing, the screen and control switches,
-// the macOS permissions and the Bot list are gone from it (remote control is the workspace switch).
+// Rendered acceptance for the desktop app's slim Mac settings page: remote control, Bot browser settings and the link to local run,
+// marked In development, reached only from the this-Mac row's menu (desktop-settings.html, src/desktop-settings/). Pairing, the screen
+// and control switches, the macOS permissions, the Bot list, the working folder, the files switch and the execution grant are gone from
+// it (folders for Bots live in the workspace's Settings > Environments).
 // Serves the real entry from a Vite dev server, replaces window.tofiDesktop with a stub that records every call, and drives
 // the page with Playwright. The page must work from the stub alone: any /api request fails the test. Needs PLAYWRIGHT_MODULE.
 //   DESKTOP_SETTINGS_SHOTS=<dir>  also saves screenshots (1280 and 390 px, light and dark).
@@ -27,11 +28,10 @@ if (shots) await mkdir(shots, { recursive: true });
 const STUB = `(() => {
   const calls = [];
   const state = { status: {
-    name: "Studio Mac", workspaceRoot: "/Users/demo/Tofi", fileAccess: true,
+    name: "Studio Mac",
     paired: true, deviceID: "dev_123", capabilities: ["files"], permissions: { screen: false, accessibility: true },
-    sandbox: { enabled: false, root: null, connectionID: null, bound: false, available: true, running: false },
     lastError: null, control: { phase: "idle" }
-  }, fail: null, selection: { selectionID: "sel_1", root: "/Users/demo/Projects/app", serverLabel: "https://tofi.example" } };
+  }, fail: null };
   const snap = () => JSON.parse(JSON.stringify(state.status));
   const rec = (name, ...args) => { calls.push([name, ...args]); if (state.fail === name) throw new Error("stub failure in " + name); };
   window.__calls = calls; window.__state = state;
@@ -48,12 +48,7 @@ const STUB = `(() => {
   };
   window.tofiDesktop = Object.freeze({
     platform: "darwin", themePreference: window.__theme || "system", remoteControl,
-    getSettings: async () => { rec("getSettings"); return snap(); },
-    updateSettings: async input => { rec("updateSettings", input); Object.assign(state.status, { workspaceRoot: input.workspaceRoot, fileAccess: input.fileAccess }); return snap(); },
-    chooseWorkspace: async () => { rec("chooseWorkspace"); return "/Users/demo/Elsewhere"; },
-    chooseSandboxRoot: async () => { rec("chooseSandboxRoot"); return state.selection; },
-    authorizeSandboxRoot: async id => { rec("authorizeSandboxRoot", id); Object.assign(state.status.sandbox, { enabled: true, bound: true, root: state.selection.root, connectionID: "conn_1" }); return snap(); },
-    sandboxRevoke: async () => { rec("sandboxRevoke"); Object.assign(state.status.sandbox, { enabled: false, bound: false, root: null, connectionID: null }); return snap(); }
+    getSettings: async () => { rec("getSettings"); return snap(); }
   });
 })();`;
 
@@ -83,7 +78,7 @@ try {
   const calls = page => page.evaluate(() => window.__calls.map(call => call.slice()));
   const named = async (page, name) => (await calls(page)).filter(call => call[0] === name);
   const buttonIn = (scope, name) => scope.getByRole("button", { name, exact: true });
-  const ready = page => page.waitForFunction(() => document.querySelector("code")?.textContent === "/Users/demo/Tofi");
+  const ready = page => page.waitForFunction(() => window.__calls.some(call => call[0] === "getSettings"));
 
   // ---- 1. Every locale renders the page from its own catalog, with no key showing through, marked In development.
   for (const lang of LANGS) {
@@ -93,7 +88,7 @@ try {
     assert.equal((await page.locator(".mac-dev-tag").innerText()).trim(), L(lang, "inDevelopment"), `${lang}: In development mark`);
     assert.equal((await page.locator(".mac-settings-back").innerText()).trim(), L(lang, "back"), `${lang}: back link`);
     assert.equal(await page.locator(".mac-settings-back").getAttribute("href"), "/", `${lang}: back link goes to /`);
-    for (const section of ["caps.title", "local.title"]) {
+    for (const section of ["local.title"]) {
       assert.ok(await page.locator("h4", { hasText: L(lang, section) }).count() >= 1, `${lang}: section ${section}`);
     }
     const text = await page.locator("body").innerText();
@@ -108,11 +103,11 @@ try {
     const { page, context } = await open();
     await ready(page);
     const body = (await page.locator("body").innerText());
-    for (const gone of ["Pairing code", "pairing code", "Screen capture", "Desktop control", "macOS permissions", "Bots on this Mac", "Open System Settings", "Refresh status", "Device name"]) assert.ok(!body.includes(gone), `no "${gone}" on the slim page`);
+    for (const gone of ["Pairing code", "pairing code", "Screen capture", "Desktop control", "macOS permissions", "Bots on this Mac", "Open System Settings", "Refresh status", "Device name", "Working folder", "Save settings", "Authorized folder", "Revoke"]) assert.ok(!body.includes(gone), `no "${gone}" on the slim page`);
     assert.equal(await page.locator("#mac-name, #mac-code, input[type=text]").count(), 0, "no name or code field");
     // The same switch as Settings > Environments (a new app on an older server has no switch in its workspace); it asks the app, and the
     // dialog is the app's. The page has no "⋯" menu of its own: its entries would point at itself.
-    assert.deepEqual(await page.getByRole("switch").evaluateAll(list => list.map(node => node.getAttribute("aria-label"))), [computer.en.title, L("en", "caps.files.label")], "the remote-control switch and the files switch");
+    assert.deepEqual(await page.getByRole("switch").evaluateAll(list => list.map(node => node.getAttribute("aria-label"))), [computer.en.title], "only the remote-control switch");
     const rcSwitch = page.getByRole("switch", { name: computer.en.title });
     assert.equal(await rcSwitch.isChecked(), false);
     await rcSwitch.check();
@@ -127,47 +122,18 @@ try {
       await page.screenshot({ path: join(shots, "mac-settings-rc-1280-light.png") });
       await page.evaluate(() => { Object.assign(window.__rc.status, { reason: null, permissions: { screen: true, accessibility: true } }); window.__rc.listeners.forEach(listener => listener(JSON.parse(JSON.stringify(window.__rc.status)))); });
     }
-    assert.equal(await page.getByRole("switch", { name: L("en", "caps.files.label") }).isChecked(), true);
     for (const gone of ["Pairing code", "Screen capture"]) assert.ok(!(await page.locator("body").innerText()).includes(gone));
-    assert.equal(await page.locator("code", { hasText: "/Users/demo/Tofi" }).count(), 1);
-
-    // Save sends exactly two fields, nothing about screen, control or the execution grant.
-    await page.getByRole("switch", { name: L("en", "caps.files.label") }).uncheck();
-    await buttonIn(page, L("en", "device.choose")).click();
-    await page.waitForFunction(() => document.body.innerText.includes("/Users/demo/Elsewhere"));
-    await buttonIn(page, L("en", "caps.save")).click();
-    await page.waitForFunction(() => window.__calls.some(call => call[0] === "updateSettings"));
-    assert.deepEqual((await named(page, "updateSettings"))[0][1], { workspaceRoot: "/Users/demo/Elsewhere", fileAccess: false });
-    const before = (await named(page, "getSettings")).length;
-    await page.waitForFunction(count => window.__calls.filter(call => call[0] === "getSettings").length > count, before, { timeout: 6000 });
-
-    // Local execution: choose, authorize, revoke (confirmed). The run box lives on /__desktop/local-run.
     assert.equal(await page.locator("a[href='/__desktop/local-run']").count(), 1);
     assert.equal(await page.locator("textarea").count(), 0, "no command box on this page");
-    assert.equal(await buttonIn(page, L("en", "local.authorize")).isDisabled(), true, "authorize needs a chosen folder");
-    await buttonIn(page, L("en", "local.choose")).click();
-    await page.locator("code", { hasText: "/Users/demo/Projects/app" }).waitFor();
-    await page.locator("code", { hasText: "https://tofi.example" }).waitFor();
-    await buttonIn(page, L("en", "local.authorize")).click();
-    await page.getByText(L("en", "local.select.authorized")).waitFor();
-    assert.deepEqual((await named(page, "authorizeSandboxRoot"))[0], ["authorizeSandboxRoot", "sel_1"]);
-    await page.getByText(L("en", "local.summary.ready")).waitFor();
-    await buttonIn(page, L("en", "local.revoke")).click();
-    const revokeDialog = page.getByRole("alertdialog");
-    await revokeDialog.waitFor();
-    assert.equal((await named(page, "sandboxRevoke")).length, 0, "revoke waits for the confirmation");
-    await buttonIn(revokeDialog, L("en", "confirm.revoke.confirm")).click();
-    await page.getByText(L("en", "local.select.revoked")).waitFor();
-    assert.equal((await named(page, "sandboxRevoke")).length, 1);
-    await page.getByText(L("en", "local.summary.disabled")).waitFor();
+    // The old working folder, files switch and execution grant are gone, and the page never writes settings.
+    assert.equal(await page.locator("form").count(), 0, "no settings form");
+    assert.equal(await page.getByRole("button", { name: /Choose|Authorize|Revoke|Save/ }).count(), 0, "no folder, grant or save buttons");
 
-    // Failures are visible, and the page recovers with a fresh read.
-    await page.evaluate(() => { window.__state.fail = "updateSettings"; });
-    await buttonIn(page, L("en", "caps.save")).click();
-    await page.getByText(L("en", "error.action", { message: "stub failure in updateSettings" })).waitFor();
-    await page.evaluate(() => { window.__state.fail = null; window.__state.status.lastError = "Broker is unreachable"; });
+    // A failing read is visible; a later read clears nothing it did not own, and a reported device error shows.
+    await page.evaluate(() => { window.__state.status.lastError = "Broker is unreachable"; });
     await page.getByText(L("en", "error.last")).waitFor({ timeout: 6000 });
     assert.ok(await page.getByText("Broker is unreachable").count() >= 1);
+    assert.deepEqual((await calls(page)).filter(call => !["getSettings"].includes(call[0])), [], "only reads reach the bridge");
     assert.equal(await page.locator("a[href='/']").count(), 1);
     if (shots) {
       await page.evaluate(() => { window.__state.status.lastError = null; });
@@ -175,7 +141,7 @@ try {
     }
     await context.close();
   }
-  console.log("PASS actions: save payload, local execution choose/authorize/revoke, failures; nothing of pairing, screen, control, permissions or Bots");
+  console.log("PASS actions: remote-control switch, local-run link, device error; nothing of folders, grants, pairing, screen, control, permissions or Bots");
 
   // ---- 3. Phone width: nothing overflows in any language, and tap targets are 44 px.
   for (const lang of LANGS) {

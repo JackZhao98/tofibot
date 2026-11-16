@@ -752,6 +752,22 @@
       "audit": true
     },
     {
+      "key": "automation.mac_folder_review",
+      "scope": "account",
+      "kind": "enum",
+      "options": [
+        "commands",
+        "changes"
+      ],
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/permissions#advanced",
+      "manual": "settings/advanced",
+      "label_key": "settings:automation.item.mac_folder_review.name",
+      "audit": true
+    },
+    {
       "key": "automation.remembered_approval_hours",
       "scope": "account",
       "kind": "int",

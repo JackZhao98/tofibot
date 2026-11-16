@@ -666,6 +666,37 @@
         "allow": "Autoriser à nouveau"
       }
     },
+    "folders": {
+      "title": "Dossiers sur ce Mac",
+      "description": "Les Bots peuvent lire et modifier des fichiers et exécuter des commandes uniquement dans ces dossiers. Les commandes s'exécutent dans un bac à sable sans accès au reste du Mac, aux clés SSH ni au Trousseau, avec un accès réseau limité aux registres de paquets et aux hébergeurs de code.",
+      "empty": "Aucun dossier pour l'instant. Ajoutez-en un pour qu'un Bot puisse y travailler.",
+      "add": "Ajouter un dossier",
+      "add_for": "Pour quel Bot ?",
+      "reveal": "Afficher dans le Finder",
+      "remove_bot": "Retirer {{name}}",
+      "remove": "Retirer le dossier",
+      "state": {
+        "missing": "Le dossier a été déplacé ou supprimé. Retirez-le, puis ajoutez-le à nouveau.",
+        "moved": "Le dossier a été déplacé ou supprimé. Retirez-le, puis ajoutez-le à nouveau."
+      },
+      "refused": "Non ajouté : {{path}} — {{reason}}",
+      "exec_unavailable": "Les commandes ne sont pas disponibles sur ce Mac. L'accès aux fichiers reste actif.",
+      "tools": "Outils utilisables par les commandes",
+      "tools_note": "Répertoires d'outils de développement lisibles par les commandes. Lecture seule.",
+      "reason": {
+        "busy": "Une autre modification est en cours. Réessayez dans un instant.",
+        "not_connected": "Ce Mac n'est pas connecté au serveur.",
+        "server_unsupported": "Ce serveur ne prend pas en charge les dossiers sur un Mac.",
+        "bot_unknown": "Ce Bot n'existe plus.",
+        "pair_failed": "Impossible de connecter ce Mac au serveur. Réessayez.",
+        "folder_protected": "ce dossier contient des données système ou privées",
+        "not_a_folder": "cet élément n'est pas un dossier",
+        "network_volume": "les dossiers sur des volumes réseau ne sont pas pris en charge",
+        "too_many_folders": "la limite de dossiers est atteinte ; retirez-en un d'abord",
+        "too_many_bots": "ce dossier a déjà le nombre maximal de Bots",
+        "failed": "La modification a échoué. Réessayez."
+      }
+    },
     "feature": {
       "browser": "Navigateur intégré",
       "desktop": "Contrôle du bureau",

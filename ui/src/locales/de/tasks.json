@@ -689,6 +689,8 @@
     "waiting": "Wartet",
     "more_one": "+{{count}} weiterer: {{names}}",
     "more_other": "+{{count}} weitere: {{names}}",
+    "open_tasks_one": "{{count}} offenes To-do",
+    "open_tasks_other": "{{count}} offene To-dos",
     "history": "Plan · {{done}} von {{total}} erledigt",
     "history_stopped": "Plan · gestoppt bei Schritt {{step}} von {{total}}",
     "state": {

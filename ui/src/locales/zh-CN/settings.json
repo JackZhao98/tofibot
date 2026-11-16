@@ -1487,6 +1487,10 @@
         "name": "审核 Mac 上的输入",
         "what": "Bot 在你自己已配对的 Mac 上的输入，执行前会先经过审核。这里选择哪些输入需要审核。"
       },
+      "mac_folder_review": {
+        "name": "审查这台 Mac 文件夹中的更改",
+        "what": "Bot 在这台 Mac 的文件夹中运行的命令，除非只读，否则一律审查。选择是否同时审查那里的文件写入和编辑。"
+      },
       "task_stall_rounds": {
         "name": "停滞上报轮数",
         "what": "接任务的 Bot 连续这么多轮既没有改清单也没有改状态，会向这件事的根 Bot 上报一次；任务有进展后重新计数。"
@@ -1582,6 +1586,10 @@
         "declared": "仅 Bot 声明有影响的",
         "commands": "再加上快捷键",
         "all": "全部输入"
+      },
+      "mac_folder_review": {
+        "commands": "仅命令",
+        "changes": "命令和文件更改"
       },
       "environment_order_web": {
         "bot_computer": "Bot 电脑",
@@ -1830,81 +1838,15 @@
     "back": "返回聊天",
     "loading": "正在读取…",
     "unavailable": "此页面只能在 Tofi 桌面应用中使用。",
-    "device": {
-      "folder": "工作目录",
-      "folderHint": "Bot 只能访问这个目录里的文件。",
-      "choose": "选择…",
-      "choosing": "正在选择…"
-    },
-    "caps": {
-      "title": "文件",
-      "description": "远程控制开着时，Bot 可以使用这个工作文件夹。",
-      "files": {
-        "label": "文件",
-        "hint": "在工作目录内列出、读取和写入文件。"
-      },
-      "save": "保存设置",
-      "saving": "正在保存…"
-    },
     "local": {
       "title": "本地执行",
       "description": "授权当前服务器的 Bot 在你指定的目录里执行命令。",
-      "root": "当前授权目录",
-      "noRoot": "当前无已绑定的目录授权。",
-      "selected": "待授权目录",
-      "none": "尚未选择目录。",
-      "server": "授权目标服务器",
-      "serverNone": "选择目录后显示。",
-      "choose": "选择目录…",
-      "choosing": "正在选择…",
-      "authorize": "授权此目录…",
-      "authorizing": "正在等待授权…",
-      "revoke": "撤销授权",
-      "revoking": "正在撤销…",
-      "run": "在本地运行命令",
-      "summary": {
-        "unknown": "无法读取执行授权状态，运行已禁用。",
-        "faulted": "运行环境已锁定：{{reason}}",
-        "unavailable": "运行环境不可用：{{reason}}",
-        "disabled": "未授权 Bot 本地执行。",
-        "unbound": "授权未绑定当前服务器，请重新选择目录并授权。",
-        "running": "已授权当前服务器 · 正在执行",
-        "ready": "已授权当前服务器 · 当前没有运行中的命令。"
-      },
-      "reason": {
-        "faulted": "进程清理未确认，请停止或撤销授权后刷新状态。",
-        "unavailable": "请刷新状态后重试。"
-      },
-      "select": {
-        "idle": "选择目录不会授予执行权限，需单独确认授权。",
-        "pending": "尚未授权此选择，请核对目录和目标服务器后单独授权。",
-        "noApi": "此版本缺少原生授权接口，请更新应用后重试。",
-        "cancelled": "已取消授权，所选目录尚未获得新的授权。",
-        "changed": "执行授权状态已变化，请重新选择目录并确认授权。",
-        "unknown": "无法确认选择是否仍有效，请刷新状态后重新选择目录。",
-        "authorized": "已授权所选目录，授权将用于当前服务器的 Bot。",
-        "unconfirmed": "未确认所选目录获得绑定授权，请重新选择目录并授权。",
-        "revoked": "已撤销授权。再次使用时需重新选择目录并授权。",
-        "revoking": "正在撤销授权…",
-        "revokePending": "撤销尚未确认，请重试并刷新权限状态。"
-      },
-      "boundary": "命令可读取授权目录、当前用户 ~/.local/bin 中的工具，以及主目录之外的本机可读文件；仅可写入授权目录和私有 Project Workspace，修改不会回滚。~/.local/bin 只读，但其中的工具可能在授权期间变化，运行工具也可能产生副作用。主目录其余位置与凭据目录不可读写；目前无 SSH、网络或钥匙串访问。私有工作区在撤权后仍留在本机临时目录，尚未自动清理。",
-      "persist": "返回聊天后授权仍有效；重启 App、切换服务器或撤销授权后失效。"
+      "run": "在本地运行命令"
     },
     "error": {
       "last": "上一次设备操作失败",
       "action": "操作失败：{{message}}",
-      "noStatus": "未收到执行授权状态，请刷新后重试。",
-      "invalidSelection": "未收到有效的目录和目标服务器，请重新选择。",
-      "stopFailed": "无法读取这台 Mac 的状态。"
-    },
-    "confirm": {
-      "cancel": "取消",
-      "revoke": {
-        "title": "撤销本地执行授权？",
-        "body": "正在运行的命令会停止，Bot 将失去对授权目录的访问。之后可以重新授权目录。",
-        "confirm": "撤销"
-      }
+      "noStatus": "未收到执行授权状态，请刷新后重试。"
     },
     "inDevelopment": "开发中"
   },

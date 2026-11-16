@@ -100,9 +100,9 @@ func environmentFeatures(row ComputerRow, online bool, hub *browserHub) []enviro
 			case "desktop":
 				advertised = has("desktop.click") && (has("screen.capture") || has("desktop.capture"))
 			case "files":
-				advertised = has("files.read")
+				advertised = has("files.read") || has("folders.read")
 			case "shell":
-				advertised = has("sandbox.exec")
+				advertised = has("sandbox.exec") || has("folders.exec")
 			}
 		}
 		f := environmentFeature{Key: key, Status: "off"}

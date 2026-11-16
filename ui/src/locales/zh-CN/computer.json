@@ -654,6 +654,37 @@
         "allow": "重新允许"
       }
     },
+    "folders": {
+      "title": "这台 Mac 上的文件夹",
+      "description": "Bot 只能在这些文件夹内读取和更改文件、运行命令。命令在沙盒中运行，无法访问 Mac 的其他位置、SSH 密钥或钥匙串，网络仅限软件包仓库和代码托管服务。",
+      "empty": "还没有文件夹。添加一个，让 Bot 在其中工作。",
+      "add": "添加文件夹",
+      "add_for": "为哪个 Bot 添加？",
+      "reveal": "在访达中显示",
+      "remove_bot": "移除 {{name}}",
+      "remove": "移除文件夹",
+      "state": {
+        "missing": "该文件夹已被移动或删除。请移除后重新添加。",
+        "moved": "该文件夹已被移动或删除。请移除后重新添加。"
+      },
+      "refused": "未添加：{{path}} — {{reason}}",
+      "exec_unavailable": "这台 Mac 上无法运行命令。文件访问仍然可用。",
+      "tools": "命令可使用的工具",
+      "tools_note": "命令可读取的开发工具目录。只读。",
+      "reason": {
+        "busy": "另一项更改正在进行。请稍后再试。",
+        "not_connected": "这台 Mac 未连接到服务器。",
+        "server_unsupported": "此服务器不支持 Mac 上的文件夹。",
+        "bot_unknown": "该 Bot 已不存在。",
+        "pair_failed": "无法将这台 Mac 连接到服务器。请重试。",
+        "folder_protected": "该文件夹包含系统或私有数据",
+        "not_a_folder": "该项目不是文件夹",
+        "network_volume": "不支持网络卷上的文件夹",
+        "too_many_folders": "已达文件夹数量上限，请先移除一个",
+        "too_many_bots": "该文件夹的 Bot 数量已达上限",
+        "failed": "更改失败。请重试。"
+      }
+    },
     "feature": {
       "browser": "内置浏览器",
       "desktop": "桌面控制",

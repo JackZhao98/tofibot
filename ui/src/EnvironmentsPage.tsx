@@ -7,6 +7,8 @@ import {ComputerOptions} from "./ComputerOptions";
 import {useHasComputer, useHostHasComputer} from "./computerCapability";
 import {ActionConfirm, ConfigureDialog, DeniedBotsDialog, E2BDialog, reasonKey, VmCommandDialog, type ConfirmSpec} from "./EnvironmentDialogs";
 import {RemoteControlBlock} from "./RemoteControl";
+import {MacFolders} from "./MacFolders";
+import type {Bot} from "./types";
 import {useRemoteControl} from "./useRemoteControl";
 import {useEnvironments, type Environment, type EnvironmentAction, type EnvironmentState, type EnvironmentsView} from "./environments";
 import {useTranslation} from "./i18n";
@@ -113,7 +115,7 @@ export function EnvironmentList({view, handlers, children, organization, thisMac
 type Dialog = {kind: "e2b"} | {kind: "denied"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect" | "upgrade"; item: Environment};
 
 /** Settings > Environments (tab id `computer`): which environments exist, which Bots can use them, and the cloud ones' controls. */
-export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void}) {
+export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsTab) => void; /** The account's active Bots, for the folder grant menu. */ bots?: Bot[]}) {
   const {t} = useTranslation("computer");
   const active = useSettingsActive();
   const {data, failed, retry, replace, reload} = useEnvironments(active);
@@ -210,6 +212,7 @@ export function EnvironmentsPage({openTab}: {openTab: (tab: SettingsTab) => void
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
     {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
+    <MacFolders bots={bots}/>
     {/* This Mac's features (built-in browser, desktop control, ...) show here whether or not remote control is on. */}
     <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
     {body}

@@ -85,6 +85,8 @@ func manualFailureCodes(t *testing.T) []string {
 	// Schedule errors.
 	grep(`schedErr\("(schedule_[a-z_]+)"`, "internal/app/schedule.go", "internal/app/schedule_edit.go")
 	grep(`"(schedule_[a-z_]+_(?:invalid|required|past|conflict|locked))"`, "internal/app/schedule.go", "internal/app/schedule_edit.go")
+	// Folders on a Mac: the two refusals a person is asked about.
+	grep(`"(folder_not_granted|outside_grant)"`, "internal/app/mac_folder_tools.go")
 	// The settings tool.
 	grep(`"(settings?_[a-z_]+)"`, "internal/app/settings_tool.go", "internal/app/settings_write.go", "internal/app/settings_writers.go", "internal/app/settings_writers_confirm.go", "internal/app/settings_gate.go", "internal/app/settings_changes.go", "internal/app/questions.go")
 	delete(set, "settings_change")

@@ -3466,6 +3466,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			"desktop":          desktopServerInfo(),
 			"bot_browser":      botBrowserServerInfo(),
 			"notifications":    notificationsServerInfo(),
+			"local_folders":    localFoldersServerInfo(),
 		})
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
@@ -5409,7 +5410,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		base = append(base, s.computerTools(r)...)
 	}
 	base = append(base, s.webTools(r)...)
-	base = append(base, s.microVMTools(r)...)
+	base = append(base, s.withMacFolders(r, s.microVMTools(r))...)
 	// Last, so the cached prefix of the tool list stays the same when the setting changes.
 	return append(append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...), s.planTools(c, r)...)
 }

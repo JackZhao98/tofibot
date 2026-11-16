@@ -660,6 +660,37 @@
         "allow": "Allow again"
       }
     },
+    "folders": {
+      "title": "Folders on this Mac",
+      "description": "Bots can read and change files and run commands only inside these folders. Commands run in a sandbox with no access to the rest of the Mac, SSH keys or Keychain, and network access only to package registries and code hosts.",
+      "empty": "No folders yet. Add one to let a Bot work in it.",
+      "add": "Add folder",
+      "add_for": "For which Bot?",
+      "reveal": "Show in Finder",
+      "remove_bot": "Remove {{name}}",
+      "remove": "Remove folder",
+      "state": {
+        "missing": "The folder was moved or deleted. Remove it and add it again.",
+        "moved": "The folder was moved or deleted. Remove it and add it again."
+      },
+      "refused": "Not added: {{path}} — {{reason}}",
+      "exec_unavailable": "Commands are not available on this Mac. File access still works.",
+      "tools": "Tools commands can use",
+      "tools_note": "Developer tool directories commands can read. Read-only.",
+      "reason": {
+        "busy": "Another change is in progress. Try again in a moment.",
+        "not_connected": "This Mac is not connected to the server.",
+        "server_unsupported": "This server doesn't support folders on a Mac.",
+        "bot_unknown": "This Bot no longer exists.",
+        "pair_failed": "Couldn't connect this Mac to the server. Try again.",
+        "folder_protected": "this folder holds system or private data",
+        "not_a_folder": "this item is not a folder",
+        "network_volume": "folders on network volumes are not supported",
+        "too_many_folders": "the folder limit is reached; remove one first",
+        "too_many_bots": "this folder already has the maximum number of Bots",
+        "failed": "The change failed. Try again."
+      }
+    },
     "feature": {
       "browser": "Built-in browser",
       "desktop": "Desktop control",

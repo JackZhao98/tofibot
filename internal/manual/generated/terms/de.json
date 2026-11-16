@@ -73,6 +73,8 @@
   "settings:automation.item.group_triage.what": "Nennt eine Gruppennachricht niemanden, wählt ein Hintergrundmodell das Mitglied, dessen Rolle am besten passt. Aus schickt sie an den Primären Assistenten, ohne ihn an ein zufälliges Mitglied. Eine Gruppe mit nur einem aktiven Mitglied überspringt den Schritt.",
   "settings:automation.item.group_triage_model.name": "Modell für die Gruppenzuweisung",
   "settings:automation.item.group_triage_model.what": "Das Modell, das für eine nicht adressierte Gruppennachricht das Mitglied wählt. Automatisch heißt: das Hintergrundmodell.",
+  "settings:automation.item.mac_folder_review.name": "Änderungen in Mac-Ordnern prüfen",
+  "settings:automation.item.mac_folder_review.what": "Befehle, die ein Bot in Ordnern auf deinem Mac ausführt, werden immer geprüft, sofern sie nicht nur lesen. Lege fest, ob dort auch Schreib- und Bearbeitungsvorgänge geprüft werden.",
   "settings:automation.item.monthly_spend_limit_usd.name": "Monatliches Ausgabenlimit",
   "settings:automation.item.monthly_spend_limit_usd.what": "Lehnt Aufrufe kostenpflichtiger Modelle ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt.",
   "settings:automation.item.own_replies_verbatim.name": "Eigene Antworten im Wortlaut",

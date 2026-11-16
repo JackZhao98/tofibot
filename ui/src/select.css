@@ -26,7 +26,6 @@ button.ui-select-trigger::after{flex:none;width:7px;height:7px;margin:-3px 2px 0
 .owner-gate .auth-language button.ui-select-trigger{width:auto;max-width:calc(100vw - 32px);min-height:40px;padding:0 14px;border:var(--edge) solid var(--line);border-radius:var(--radius-pill);background:var(--surface);font:600 13px/1 var(--display);box-shadow:var(--hard-sm)}
 .workspace :is(.work-create,.work-member-select,.work-panel) button.ui-select-trigger{min-height:38px;padding:8px 11px;border:1px solid var(--line-soft);border-radius:10px;background:var(--sunk);font:13px/1.4 var(--body)}
 .workspace .work-item-details button.ui-select-trigger{width:auto;max-width:70%;min-height:34px;padding:6px 9px;border-radius:9px;font-size:12px}
-.workspace .team-board-goal-filter button.ui-select-trigger{width:auto;min-width:160px}
 .onb-adv-row button.ui-select-trigger{flex:1 1 220px;width:auto;min-width:min(220px,100%);max-width:100%}
 /* Onboarding never hides part of a name: the field takes the width it needs (up to the full row) and wraps rather than truncating. */
 .onb-adv-row .ui-select-value,.onb-adv-row .ui-select-value>span{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}

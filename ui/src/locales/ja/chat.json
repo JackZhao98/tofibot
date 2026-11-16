@@ -297,7 +297,6 @@
     "delete_hint": "グループとそのチャットを削除します。元に戻せません。"
   },
   "header": {
-    "back_to_chat": "会話に戻る",
     "bot_memory": "この Bot のメモリー",
     "bot_settings": "Bot の設定",
     "copy_link": "会話のリンクをコピー",
@@ -308,11 +307,9 @@
     "more": "その他の操作",
     "open_members": "会話のメンバーを開く",
     "open_shared_computer": "Bot コンピューターを開く",
-    "open_team_board": "チームボードを開く",
     "open_terminal": "ターミナルを開く",
     "schedule": "ToDo とスケジュール",
     "shared_computer": "Bot コンピューター",
-    "team_board": "チームボード",
     "terminal": "ターミナル",
     "usage": "使用量",
     "computer_on": "Bot コンピューター(オン)",

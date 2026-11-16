@@ -1501,6 +1501,10 @@
         "name": "Review input on your Mac",
         "what": "The reviewer checks input a Bot sends to your own paired Mac before it runs. Choose how much of that input it sees."
       },
+      "mac_folder_review": {
+        "name": "Review changes in Mac folders",
+        "what": "Commands a Bot runs in folders on your Mac are always reviewed unless they only read. Choose whether file writes and edits there are reviewed too."
+      },
       "task_stall_rounds": {
         "name": "Stall report after",
         "what": "When a Bot that holds a task finishes this many rounds with no change in the task's checklist or status, the Bot at the root of the work is told once. The count starts again when the task moves."
@@ -1596,6 +1600,10 @@
         "declared": "What the Bot declares",
         "commands": "Also key commands",
         "all": "All input"
+      },
+      "mac_folder_review": {
+        "commands": "Commands only",
+        "changes": "Commands and file changes"
       },
       "environment_order_web": {
         "bot_computer": "Bot computer",
@@ -1845,81 +1853,15 @@
     "back": "Back to chat",
     "loading": "Reading status…",
     "unavailable": "This page only works inside the Tofi desktop app.",
-    "device": {
-      "folder": "Working folder",
-      "folderHint": "Bots can only reach files inside this folder.",
-      "choose": "Choose…",
-      "choosing": "Choosing…"
-    },
-    "caps": {
-      "title": "Files",
-      "description": "Bots can use the working folder while remote control is on.",
-      "files": {
-        "label": "Files",
-        "hint": "List, read and write files inside the working folder."
-      },
-      "save": "Save settings",
-      "saving": "Saving…"
-    },
     "local": {
       "title": "Local execution",
       "description": "Let this server's Bots run commands in one folder you pick.",
-      "root": "Authorized folder",
-      "noRoot": "No folder is authorized.",
-      "selected": "Pending folder",
-      "none": "None chosen",
-      "server": "Target server",
-      "serverNone": "Shown once a folder is chosen",
-      "choose": "Choose folder…",
-      "choosing": "Choosing…",
-      "authorize": "Authorize this folder…",
-      "authorizing": "Waiting for confirmation…",
-      "revoke": "Revoke",
-      "revoking": "Revoking…",
-      "run": "Run commands locally",
-      "summary": {
-        "unknown": "Can't read the execution status. Commands are disabled.",
-        "faulted": "Runtime locked: {{reason}}",
-        "unavailable": "Runtime unavailable: {{reason}}",
-        "disabled": "Local execution is not authorized.",
-        "unbound": "The authorization is not bound to this server. Choose the folder and authorize again.",
-        "running": "Authorized for this server · a command is running",
-        "ready": "Authorized for this server · no command running"
-      },
-      "reason": {
-        "faulted": "Process cleanup was not confirmed. Stop or revoke, then refresh.",
-        "unavailable": "Refresh the status and try again."
-      },
-      "select": {
-        "idle": "Choosing a folder does not grant anything. You confirm the authorization separately.",
-        "pending": "Not authorized yet. Check the folder and the target server, then authorize.",
-        "noApi": "This version has no native authorization. Update the app and try again.",
-        "cancelled": "Authorization cancelled. The chosen folder has no new access.",
-        "changed": "The authorization changed. Choose the folder and confirm again.",
-        "unknown": "Can't tell whether the choice is still valid. Refresh, then choose again.",
-        "authorized": "Folder authorized for this server's Bots.",
-        "unconfirmed": "The authorization could not be confirmed. Choose the folder and authorize again.",
-        "revoked": "Authorization revoked. Choose a folder and authorize again to use it.",
-        "revoking": "Revoking…",
-        "revokePending": "Revocation is not confirmed. Try again and refresh the status."
-      },
-      "boundary": "Commands can read the authorized folder, tools in ~/.local/bin, and any file outside your home folder that you can read. They can write only inside the authorized folder and a private project workspace, and changes are not rolled back. Tools in ~/.local/bin are read-only but can change while authorized, and running them can have side effects. The rest of your home folder and credential folders cannot be read or written. There is no SSH, network or Keychain access yet. The private workspace stays in a local temporary folder after you revoke; it is not cleaned up automatically.",
-      "persist": "The authorization survives leaving this page. It ends when you quit the app, switch servers or revoke it."
+      "run": "Run commands locally"
     },
     "error": {
       "last": "The last device action failed",
       "action": "Action failed: {{message}}",
-      "noStatus": "No execution status was returned. Refresh and try again.",
-      "invalidSelection": "No valid folder and target server were returned. Choose again.",
-      "stopFailed": "Couldn't read the Mac status."
-    },
-    "confirm": {
-      "cancel": "Cancel",
-      "revoke": {
-        "title": "Revoke local execution?",
-        "body": "Running commands stop and Bots lose access to the authorized folder. You can authorize a folder again later.",
-        "confirm": "Revoke"
-      }
+      "noStatus": "No execution status was returned. Refresh and try again."
     },
     "inDevelopment": "In development"
   },
