@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -57,6 +58,9 @@ type resourcefulTask struct {
 	Onboarding bool `json:"onboarding"`
 	// Instructions replaces the file's Bot instructions for this task.
 	Instructions string `json:"instructions"`
+	// Attach is a file sent with the message as an attachment of the
+	// conversation: an absolute path, or one relative to the eval folder.
+	Attach string `json:"attach"`
 }
 
 type resourcefulTaskFile struct {
@@ -279,8 +283,25 @@ func TestLiveResourcefulEval(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		body := map[string]any{"content": task.Message, "client_message_id": uuid.NewString()}
+		if task.Attach != "" {
+			path := task.Attach
+			if !filepath.IsAbs(path) {
+				path = filepath.Join("../../eval", path)
+			}
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("%s: attach: %v", task.ID, err)
+			}
+			a, err := s.store.addAttachment(t.Context(), bot.DMConversationID, filepath.Base(path), mime.TypeByExtension(filepath.Ext(path)), f)
+			f.Close()
+			if err != nil {
+				t.Fatalf("%s: attach: %v", task.ID, err)
+			}
+			body["attachment_ids"] = []string{a.ID}
+		}
 		started := time.Now()
-		code, out := evalDo(s, "POST", "/api/conversations/"+bot.DMConversationID+"/messages", map[string]string{"content": task.Message, "client_message_id": uuid.NewString()})
+		code, out := evalDo(s, "POST", "/api/conversations/"+bot.DMConversationID+"/messages", body)
 		if code != 200 && code != 201 && code != 202 {
 			t.Fatalf("%s: post: %d %s", task.ID, code, out)
 		}
