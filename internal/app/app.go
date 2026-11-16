@@ -3459,16 +3459,17 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"service":          "tofi",
-			"protocol_version": 1,
-			"instance_id":      s.instance.ID,
-			"hosting":          s.hosting,
-			"auth":             s.ownerAuthInfo(),
-			"tenancy":          map[string]string{"mode": "single"},
-			"desktop":          desktopServerInfo(),
-			"bot_browser":      botBrowserServerInfo(),
-			"notifications":    notificationsServerInfo(),
-			"local_folders":    localFoldersServerInfo(),
+			"service":              "tofi",
+			"protocol_version":     1,
+			"instance_id":          s.instance.ID,
+			"hosting":              s.hosting,
+			"auth":                 s.ownerAuthInfo(),
+			"tenancy":              map[string]string{"mode": "single"},
+			"desktop":              desktopServerInfo(),
+			"bot_browser":          botBrowserServerInfo(),
+			"bot_browser_features": botBrowserFeatures(),
+			"notifications":        notificationsServerInfo(),
+			"local_folders":        localFoldersServerInfo(),
 		})
 	case p == "system/update" || strings.HasPrefix(p, "system/update/"):
 		s.serveSystemUpdate(w, r, strings.TrimPrefix(strings.TrimPrefix(p, "system/update"), "/"))
