@@ -5,6 +5,8 @@ import { ApprovalCard } from "../../ApprovalCard";
 import { StandingAllowances } from "../../StandingAllowances";
 import { PermissionsPage } from "../../settings/SettingsPages";
 import { MemberTask, TaskCard } from "../../TaskCard";
+import { PlanDock, PlanHistoryRow } from "../../PlanCard";
+import type { Run, RunPlan, WorkItem } from "../../types";
 import type { TaskCardModel } from "../../taskCards";
 import { BotAvatar } from "../../BotAvatar";
 import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } from "../../questionTimeline";
@@ -103,6 +105,14 @@ const PLAN: TaskCardModel["items"] = [
 const taskModel = (extra: Partial<TaskCardModel>): TaskCardModel => ({ id: "t_a", title: "Book the venue for the launch", holderId: "bot_miso", holderName: "Miso", status: "in_progress", done: 3, total: CHECKLIST.length, items: CHECKLIST, claimed: true, open: true, paused: false, autoResume: false, ...extra });
 const task = (id: string, label: string, model: TaskCardModel, note?: string, drive?: CatalogState["drive"]): CatalogState => ({ id, label, note, kind: "inline", render: () => <TaskCard card={model} />, drive });
 
+// The pinned step list (PlanCard.tsx): the Bot's own list (update_plan), or the checklist of the task its run holds.
+const planOf = (run_id: string, bot_id: string, list: [string, RunPlan["steps"][number]["status"]][], extra: Partial<RunPlan> = {}): RunPlan => ({ run_id, conversation_id: "c", bot_id, version: 1, open: true, updated_at: at(-1), steps: list.map(([text, status], index) => ({ id: `s${index}`, text, status })), ...extra });
+const planRun = (id: string, bot_id: string, status: Run["status"], plan?: RunPlan): Run => ({ id, conversation_id: "c", bot_id, status, created_at: at(-5), updated_at: at(-1), plan });
+const LAUNCH: [string, RunPlan["steps"][number]["status"]][] = [["Read the three expense reports", "done"], ["Check each total against the bank export", "done"], ["Mark the entries that do not match", "in_progress"], ["Draft the summary for the team", "pending"], ["Send the summary", "pending"]];
+const PLAN_BOTS = new Map([["bot_miso", { name: "Miso" }], ["bot_mochi", { name: "Mochi" }], ["bot_nori", { name: "Nori" }], ["bot_sesame", { name: "Sesame" }]]);
+const PLAN_TASKS: WorkItem[] = [{ id: "t_macros", kind: "task", title: "Support macros", conversation_id: "c", bot_id: "bot_nori", status: "in_progress", assignee_run_id: "run_nori", created_at: at(-5), updated_at: at(-1), checklist: [{ id: "c1", text: "List the five common questions", status: "done" }, { id: "c2", text: "Write one macro per question", status: "open" }] } as WorkItem];
+const dock = (id: string, label: string, runs: Run[], note?: string, group = false, drive?: CatalogState["drive"]): CatalogState => ({ id, label, note, kind: "inline", render: () => <PlanDock runs={runs} tasks={PLAN_TASKS} botById={PLAN_BOTS} group={group} />, drive });
+
 export const handover: CatalogSection = {
   id: "handover", number: "15", title: "Takeover and connection cards (HandoverCards)", context: ["catalog-column"],
   server: isolated({ "/api/extensions/oauth-options": { vm_available: true, web_callback_origin: "", desktop_redirect_uri: "" }, "/api/extensions/mcp": { servers: [{ name: "notes", oauth: { connected: false } }] } }),
@@ -131,8 +141,13 @@ export const handover: CatalogSection = {
     { id: "member-tasks", label: "Member list, tasks a member holds", note: "claimed first, then assigned; no chat line", kind: "inline", render: () => <ul className="member-tasks" style={{ listStyle: "none", padding: 0 }}>
       <MemberTask card={taskModel({ claimed: true })} /><MemberTask card={taskModel({ id: "t_b", title: "Draft the Thursday agenda", claimed: false, status: "todo", done: 0, total: 0, items: [] })} />
     </ul> },
+    dock("plan-card", "Step list, one Bot working", [planRun("r1", "bot_miso", "running", planOf("r1", "bot_miso", LAUNCH))], "pinned above the message box; one live mark, on the step in progress"),
+    dock("plan-card-folded", "Step list, folded", [planRun("r1", "bot_miso", "running", planOf("r1", "bot_miso", LAUNCH))], "the header carries the step in progress", false, async step => { await step.click(".plan-card-trigger"); }),
+    dock("plan-card-waiting", "Step list, waiting for the person", [planRun("r1", "bot_miso", "waiting", planOf("r1", "bot_miso", LAUNCH))], "no live mark while the run waits"),
+    dock("plan-card-group", "Step lists in a group", [planRun("run_miso", "bot_miso", "running", planOf("run_miso", "bot_miso", [["Split the launch into parts", "done"], ["Review the pricing page", "in_progress"], ["Join the results", "pending"]])), planRun("run_mochi", "bot_mochi", "running", planOf("run_mochi", "bot_mochi", [["Write the release notes", "in_progress"], ["Check the links", "pending"]])), planRun("run_nori", "bot_nori", "running"), planRun("run_sesame", "bot_sesame", "running", planOf("run_sesame", "bot_sesame", [["Draft the partner email", "in_progress"]]))], "one line per Bot, one open at a time; a checklist holder's card; the fourth Bot folds into +1", true),
+    { id: "plan-history", label: "Step list, history of a run that stopped", note: "one quiet line where the card was; opens into the list", kind: "inline", render: () => <PlanHistoryRow attempts={[planRun("r2", "bot_miso", "failed", planOf("r2", "bot_miso", [["Open the ledger", "done"], ["Fix the totals", "in_progress"], ["Report back", "pending"]]))]} />, drive: async step => { await step.click(".plan-history-trigger"); } },
   ],
-  gaps: ["Connecting (a popup is open) and popup blocked: need a real OAuth popup."],
+  gaps: ["Connecting (a popup is open) and popup blocked: need a real OAuth popup.", "Step list, done: the card holds its done state for a moment as its run ends, which needs a live run (test:plan-card-browser)."],
 };
 
 const LISTING = {

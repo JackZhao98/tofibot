@@ -40,17 +40,19 @@ const history = () => Array.from({ length: 40 }, (_, i) => {
   return { id: `m${seq}`, conversation_id: "dm_a", seq, role: user ? "user" : "assistant", content: user ? `Question ${seq}: ${LONG}` : `${LONG}\n\n- point ${seq}\n- another point`, created_at: iso(seq * 20), ...(user ? {} : { sender_bot_id: "bot_a", sender_bot_name: "Ledger Cat", run_id: `run_m${seq}` }) };
 });
 const WHOLE = "Here is the full answer arriving in one piece.\n\n- first point about the ledger\n- second point about totals\n- third point with `code`\n\nClosing paragraph with a bit more detail about the review on Friday and what to check first before then.";
-async function open({ motion = "no-preference", viewport = { width: 1180, height: 820 }, route: extraRoute, messages: seed, path = "/b/bot_a", waitFor = ".message-block" } = {}) {
-  const context = await browser.newContext({ viewport, locale: "en-US", reducedMotion: motion });
-  await context.addInitScript(() => {
-    try { localStorage.setItem("tofi:appearance", "light"); } catch {}
+// contextOptions (deviceScaleFactor, ...), theme and init (a script run before the page's own, e.g. the Mac shell's bridge) are optional.
+async function open({ motion = "no-preference", viewport = { width: 1180, height: 820 }, route: extraRoute, messages: seed, path = "/b/bot_a", waitFor = ".message-block", contextOptions = {}, theme = "light", init } = {}) {
+  const context = await browser.newContext({ viewport, locale: "en-US", reducedMotion: motion, ...contextOptions });
+  if (init) await context.addInitScript(init);
+  await context.addInitScript(appearance => {
+    try { localStorage.setItem("tofi:appearance", appearance); } catch {}
     window.__streams = [];
     window.EventSource = class { constructor(url) { this.url = url; this.listeners = {}; window.__streams.push(this); setTimeout(() => this.onopen?.(), 0); } addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); } close() {} };
     let id = 1000;
     window.__emit = (type, data) => { id += 1; for (const stream of window.__streams) if (stream.url.includes("/events")) for (const fn of stream.listeners[type] ?? []) fn({ data: JSON.stringify(data), lastEventId: String(id) }); };
     window.__ls = [];
     try { new PerformanceObserver(list => { for (const e of list.getEntries()) if (!e.hadRecentInput) window.__ls.push([e.startTime, e.value]); }).observe({ type: "layout-shift", buffered: true }); } catch {}
-  });
+  }, theme);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

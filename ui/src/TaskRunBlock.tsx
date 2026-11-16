@@ -11,7 +11,7 @@ import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } fr
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
-import { WorkTimeline, SilentNoteBody, TaskActivityBody, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
+import { WorkTimeline, SilentNoteBody, TaskActivityBody, PlanHistoryRow, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
 
 /**
@@ -75,7 +75,8 @@ function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, 
   const primary = !segment || segment.primary;
   const issue = primary ? presentTaskIssue({...input, family:owner.family, tools, questions, drafts}) : undefined;
   const decisions = primary ? currentQuestions.filter(question => canAnswerQuestion(question)) : [];
-  const hasWork = shownTools.some(tool => tool.name !== "say");
+  // say and update_plan are bookkeeping: the reply and the step list show them.
+  const hasWork = shownTools.some(tool => tool.name !== "say" && tool.name !== "update_plan");
   return { run, ids, silentNotes, hasWork, tools, shownTools, questions, drafts, currentTools, currentQuestions, currentDrafts: primary ? currentDrafts : [], input, issue, decisions };
 }
 
@@ -207,6 +208,8 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     {silentNotes.length > 0 && <details className="task-silent-note"><summary>{t("activity.left_note")}</summary><SilentNoteBody notes={silentNotes} /></details>}
     {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
+    {/* Where the pinned card was when it left: the list of a run that ended before every step was done. */}
+    {primary && !runLive && owner.family.attempts.some(attempt => attempt.plan) && <PlanHistoryRow attempts={owner.family.attempts} />}
     {primary && owner.family.attempts.map(attempt => {
       const detail = details[attempt.id];
       // "Load more" only after the first page has arrived: before it, hasMore is a guess and the button would flash in and out.

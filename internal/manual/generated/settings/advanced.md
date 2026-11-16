@@ -46,6 +46,7 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 | {{ui:settings:automation.item.web_search.name}} | `automation.web_search` | on or off | true | direct | `/settings/advanced#behavior` |
 | {{ui:settings:automation.item.widget_artifacts_auto.name}} | `automation.widget_artifacts_auto` | on or off | true | direct | `/settings/advanced#behavior` |
 | {{ui:settings:automation.item.widget_computer_auto.name}} | `automation.widget_computer_auto` | on or off | true | direct | `/settings/advanced#behavior` |
+| {{ui:settings:automation.item.work_plan.name}} | `automation.work_plan` | on or off | true | direct | `/settings/advanced#behavior` |
 | {{ui:settings:automation.item.work_trace.name}} | `automation.work_trace` | on or off | true | direct | `/settings/advanced#behavior` |
 | {{ui:settings:advanced.data}} | `system.data` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#data` |
 | {{ui:settings:advanced.danger}} | `system.purge` | not available to the tool |  | forbidden: the person changes it on the page | `/settings/advanced#danger` |
@@ -121,5 +122,7 @@ Open this page: [{{ui:settings:shell.page.advanced.name}}](/settings/advanced)
 **{{ui:settings:automation.item.widget_artifacts_auto.name}}.** {{ui:settings:automation.item.widget_artifacts_auto.what}}
 
 **{{ui:settings:automation.item.widget_computer_auto.name}}.** {{ui:settings:automation.item.widget_computer_auto.what}}
+
+**{{ui:settings:automation.item.work_plan.name}}.** {{ui:settings:automation.item.work_plan.what}}
 
 **{{ui:settings:automation.item.work_trace.name}}.** {{ui:settings:automation.item.work_trace.what}}

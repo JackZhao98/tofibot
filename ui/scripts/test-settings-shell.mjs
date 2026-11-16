@@ -103,7 +103,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Permissions page state the stub serves and records: each Bot's own mode, the account mode, the reviewer (background) model.
   const perm = {modes: {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}, account: "shadow", reviewer: "", writes: []};
   const resetPerm = () => { Object.assign(perm.modes, {bot_research: "auto", bot_inbox: "ask", bot_notes: "ask", bot_old: "ask"}); perm.account = "shadow"; perm.reviewer = ""; perm.writes.length = 0; };
-  // The 38 behaviors the server reports (internal/app/automation_settings.go), `group` being where the page shows each (settings-simplify).
+  // The 39 behaviors the server reports (internal/app/automation_settings.go), `group` being where the page shows each (settings-simplify).
   const AUTOMATION = [
     {"key": "conversation_model", "group": "defaults", "kind": "model", "default": "codex-gpt-6-sol"},
     {"key": "background_model", "group": "models", "kind": "model", "default": "gpt-6-luna"},
@@ -139,6 +139,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {"key": "widget_artifacts_auto", "group": "common", "kind": "bool", "default": true},
     {"key": "widget_computer_auto", "group": "common", "kind": "bool", "default": true},
     {"key": "work_trace", "group": "common", "kind": "bool", "default": true},
+    {"key": "work_plan", "group": "common", "kind": "bool", "default": true},
     {"key": "trace_retention_days", "group": "computer", "kind": "int", "default": 7, "min": 0, "max": 90, "unit": "days"},
     {"key": "trace_private_origins", "group": "computer", "kind": "text", "default": "", "max": 4000},
     {"key": "monthly_spend_limit_usd", "group": "usage", "kind": "int", "default": 0, "min": 0, "max": 100000, "unit": "usd"},
@@ -1437,11 +1438,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 36x22 switch");
   }
 
-  // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 38 items, 7 common rows and five folded groups;
+  // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 39 items, 8 common rows and five folded groups;
   // the rest sit beside their setting. Every item is still reachable (D15) and the old links land on them.
   {
     const MOVED = ["conversation_model", "background_model", "group_triage_model", "mcp_auto_review", "personal_input_review", "remembered_approval_hours", "desktop_idle_seconds", "settings_change_limit", "monthly_spend_limit_usd"];
-    const behavior = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
+    const behavior = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "work_plan", "provider_retries"];
     const folded = ["group_exchange_gists", "group_triage", "group_followup_to_working", "web_fetch_limit", "own_replies_verbatim", "task_retention_days", "upload_retention_days", "bots_can_keep_files", "completion_review", "answer_gate", "schedule_receipt_review", "task_stall_rounds", "task_tree_idle_message_limit", "task_fanout_width", "task_fanout_depth", "task_part_deadline_minutes", "task_part_deadline_scheduled_minutes", "browser_engine", "desktop_engine", "command_check_minutes", "trace_retention_days", "trace_private_origins"];
     const {page, close} = await open({tab: "advanced"});
     const body = page.locator('.settings-page-body[data-page="advanced"]');
@@ -1451,11 +1452,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await body.getByRole("button", {name: "Behavior"}).click();
     const sub = body.locator(".st-subpage").first();
     await sub.locator(".auto-row").first().waitFor();
-    assert.deepEqual(await keys(sub), [...behavior].sort(), "the common rows, 7 of them");
+    assert.deepEqual(await keys(sub), [...behavior].sort(), "the common rows, 8 of them");
     assert.equal(await sub.locator(".st-fold").count(), 5, "five folded groups");
     for (const fold of await sub.locator(".st-fold > button").all()) await fold.click();
     assert.deepEqual(await keys(sub), [...behavior, ...folded].sort(), "the other 20 rows sit in the folded groups");
-    assert.equal(behavior.length + folded.length + MOVED.length, 38, "all 38 behaviors are accounted for");
+    assert.equal(behavior.length + folded.length + MOVED.length, 39, "all 39 behaviors are accounted for");
     assert.equal(await sub.locator(".auto-row .settings-row-copy p").count() >= behavior.length + folded.length, true, "each row keeps its one-line description");
     await sub.getByRole("button", {name: "Follow-ups"}).click();
     await body.locator('[data-section="followups"]').waitFor();
@@ -1491,7 +1492,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await lands({tab: "computer", section: "keys"}, '.settings-page-body[data-page="computer"] .st-subpage .computer-credentials');
     await lands({tab: "models", section: "more"}, '.settings-page-body[data-page="models"] .st-fold[data-section="more"] .auto-row[data-key="background_model"]');
     await lands({tab: "permissions", section: "advanced"}, '.settings-page-body[data-page="permissions"] .st-subpage [data-section="advanced"]');
-    console.log("PASS behavior: 38 items, 7 common rows, 22 in five folded groups, 9 beside their setting; subpages open for section links");
+    console.log("PASS behavior: 39 items, 8 common rows, 22 in five folded groups, 9 beside their setting; subpages open for section links");
   }
 
   // ---- 7i. Screenshots of the P1 pages (SETTINGS_SHOTS=<dir>), light, at 1440x900 and 390x844: System, Behavior with groups open, the subpages and folds.

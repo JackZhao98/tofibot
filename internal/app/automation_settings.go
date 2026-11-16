@@ -143,6 +143,7 @@ var automationItems = []automationItem{
 	{Key: autoWidgetArtifacts, Group: "common", Kind: autoKindBool, Default: "true"},
 	{Key: autoWidgetComputer, Group: "common", Kind: autoKindBool, Default: "true"},
 	{Key: autoWorkTrace, Group: "common", Kind: autoKindBool, Default: "true"},
+	{Key: autoWorkPlan, Group: "common", Kind: autoKindBool, Default: "true"},
 	{Key: autoTraceRetentionDays, Group: "computer", Kind: autoKindInt, Default: traceRetentionDefault(), Min: 0, Max: 90, Unit: "days"},
 	{Key: autoTracePrivateOrigins, Group: "computer", Kind: autoKindText, Max: 4000},
 	{Key: autoMonthlySpendLimit, Group: "usage", Kind: autoKindInt, Default: "0", Min: 0, Max: maxSpendLimitUSD, Unit: "usd"},

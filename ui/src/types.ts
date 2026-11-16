@@ -427,7 +427,25 @@ export interface Run {
   paused?: string;
   /** The folded strip of the run's screen work, made by the server when the run ends (work trace). */
   trace?: { attachment_id: string; tiles: number; steps: number; created_at: string };
+  /** The Bot's own step list for this run (update_plan); the pinned card shows it while the run works. */
+  plan?: RunPlan;
   created_at: string;
+  updated_at: string;
+}
+
+/** One step of a Bot's step list. The id stays while the step keeps its text or its place. */
+export interface PlanStep { id: string; text: string; status: "pending" | "in_progress" | "done" }
+/** A run's step list (`run_plan` event, `Run.plan`). A higher version is newer; an empty list is a cleared plan. */
+export interface RunPlan {
+  run_id: string;
+  conversation_id: string;
+  bot_id: string;
+  steps: PlanStep[];
+  version: number;
+  /** False once the run answered, the person stopped the work, or a later run took the list over. */
+  open: boolean;
+  closed?: "answered" | "stopped" | "passed" | "replaced";
+  inherited_from?: string;
   updated_at: string;
 }
 

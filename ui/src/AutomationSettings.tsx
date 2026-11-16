@@ -20,13 +20,13 @@ export type AutomationKey =
   | "task_fanout_width" | "task_fanout_depth" | "task_part_deadline_minutes" | "task_part_deadline_scheduled_minutes"
   | "widget_artifacts_auto" | "widget_computer_auto" | "browser_engine" | "desktop_engine" | "personal_input_review"
   | "environment_order_web" | "environment_order_app" | "environment_failover"
-  | "work_trace" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
+  | "work_trace" | "work_plan" | "trace_retention_days" | "trace_private_origins" | "monthly_spend_limit_usd";
 /** Where a row is shown (the server's `group`): the Behavior page's own groups, or beside the setting it belongs with. */
 export type AutomationGroup = "common" | "groups" | "replies" | "reviews" | "tasks" | "computer" | "defaults" | "models" | "remembered" | "permissions" | "environment" | "changes" | "usage";
 /** Behavior's folded groups, in order; `common` is always shown. */
 const foldedGroups = ["groups", "replies", "reviews", "tasks", "computer"] as const;
 /** The common rows, in order. */
-const commonOrder: AutomationKey[] = ["web_search", "structured_output", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
+const commonOrder: AutomationKey[] = ["web_search", "structured_output", "work_plan", "widget_artifacts_auto", "widget_computer_auto", "computer_idle_off_minutes", "work_trace", "provider_retries"];
 /** Rows that do nothing without a Bot computer (the whole `computer` group too). */
 const computerOnly = new Set<AutomationKey>(["widget_computer_auto", "computer_idle_off_minutes", "work_trace", "desktop_idle_seconds"]);
 

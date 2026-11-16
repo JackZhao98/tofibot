@@ -434,7 +434,8 @@
       "call": "Appel de {{name}}",
       "profile": "Enregistrement du profil du Bot",
       "takeover": "En attente de vous sur l’ordinateur Bot",
-      "connection": "En attente de la connexion d’un service"
+      "connection": "En attente de la connexion d’un service",
+      "plan": "Mise à jour du plan"
     },
     "title": {
       "form": "En attente de votre formulaire",
@@ -456,7 +457,8 @@
       "call": "Appeler {{name}}",
       "profile": "Enregistrer le profil du Bot",
       "takeover": "En attente de vous sur l’ordinateur Bot",
-      "connection": "En attente de la connexion d’un service"
+      "connection": "En attente de la connexion d’un service",
+      "plan": "Mettre à jour le plan"
     },
     "step_action": {
       "desktop_capture": "Capture d’écran",
@@ -689,5 +691,26 @@
     "working_other": "En cours · {{count}} étapes",
     "working_one": "En cours · {{count}} étape",
     "working_many": "En cours · {{count}} étapes"
+  },
+  "plan": {
+    "title": "Plan",
+    "dock_label": "Plans en cours des Bots",
+    "count": "{{done}} sur {{total}}",
+    "done": "Terminé",
+    "waiting": "En attente",
+    "more_one": "+{{count}} autre : {{names}}",
+    "more_other": "+{{count}} autres : {{names}}",
+    "more_many": "+{{count}} autres : {{names}}",
+    "history": "Plan · {{done}} sur {{total}} faites",
+    "history_stopped": "Plan · arrêté à l'étape {{step}} sur {{total}}",
+    "state": {
+      "pending": "À faire",
+      "in_progress": "En cours",
+      "done": "Fait",
+      "stopped": "Arrêté",
+      "not_done": "Non fait",
+      "skipped": "Ignoré",
+      "blocked": "Bloqué"
+    }
   }
 }

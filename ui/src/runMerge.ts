@@ -28,7 +28,9 @@ export function mergeRunUpdates(current: Run[], updates: RunUpdate[]) {
     if (updatedIDs.has(incoming.id)) continue;
     updatedIDs.add(incoming.id);
     const existing = currentByID.get(incoming.id);
-    merged.push(existing && (isStaleRunUpdate(existing, incoming) || (isTerminalRun(existing) && incoming.status !== undefined && incoming.status !== existing.status)) ? existing : { ...existing, ...incoming } as Run);
+    const keep = existing && (isStaleRunUpdate(existing, incoming) || (isTerminalRun(existing) && incoming.status !== undefined && incoming.status !== existing.status));
+    // A step list changes without touching the run's updated_at: a newer list rides in on a run that is otherwise stale.
+    merged.push(keep ? incoming.plan && (!existing.plan || incoming.plan.version > existing.plan.version) ? { ...existing, plan: incoming.plan } : existing : { ...existing, ...incoming } as Run);
   }
   return [...merged, ...current.filter((run) => !updatedIDs.has(run.id))];
 }

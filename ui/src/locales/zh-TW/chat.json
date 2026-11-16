@@ -198,7 +198,8 @@
       "archive": "封存",
       "artifacts": "產出檔案",
       "bot-edit": "Bot 設定",
-      "conversation": "Bot 對話",      "desktop": "Bot 電腦",
+      "conversation": "Bot 對話",
+      "desktop": "Bot 電腦",
       "group-create": "新增群組",
       "members": "成員",
       "memory": "記憶",
@@ -743,7 +744,8 @@
       "waiting_on": "未結束的等待",
       "task_record": "任務記錄",
       "task_updates": "任務更新",
-      "wait_result": "等待結果"
+      "wait_result": "等待結果",
+      "plan": "目前計畫"
     }
   },
   "run_status": {

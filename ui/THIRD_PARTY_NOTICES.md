@@ -32,7 +32,7 @@ The menus and popovers are Radix primitives in the lazily loaded chunk `assets/R
 
 | Packages | License | Text |
 |---|---|---|
-| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1, `@radix-ui/react-dialog` 1.3.1, `@radix-ui/react-alert-dialog` 1.2.1, `@radix-ui/react-switch` 1.4.1 (the settings and computer switches), `@radix-ui/react-tabs` 1.2.1, `@radix-ui/react-toolbar` 1.2.1, `@radix-ui/react-radio-group` 1.5.1, `@radix-ui/react-collapsible` 1.2.1, `@radix-ui/react-hover-card` 1.2.1, `@radix-ui/react-dismissable-layer` 1.2.1 and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
+| `@radix-ui/react-dropdown-menu` 2.2.1, `@radix-ui/react-popover` 1.3.1, `@radix-ui/react-dialog` 1.3.1, `@radix-ui/react-alert-dialog` 1.2.1, `@radix-ui/react-switch` 1.4.1 (the settings and computer switches), `@radix-ui/react-tabs` 1.2.1, `@radix-ui/react-toolbar` 1.2.1, `@radix-ui/react-radio-group` 1.5.1, `@radix-ui/react-collapsible` 1.2.1, `@radix-ui/react-accordion` 1.3.1 (the step list card), `@radix-ui/react-hover-card` 1.2.1, `@radix-ui/react-dismissable-layer` 1.2.1 and the `@radix-ui/*` primitives they use (menu, popper, dismissable-layer, focus-scope, focus-guards, roving-focus, collection, presence, portal, primitive, slot, id, direction, context, compose-refs, primitive helpers, `use-*` hooks), Copyright (c) 2022 WorkOS | MIT | `public/licenses/radix-ui.txt` |
 | `@floating-ui/core`, `@floating-ui/dom`, `@floating-ui/react-dom`, `@floating-ui/utils`, Copyright (c) 2021-present Floating UI contributors | MIT | `public/licenses/floating-ui.txt` |
 | `aria-hidden`, `get-nonce`, `react-remove-scroll`, `react-remove-scroll-bar`, `react-style-singleton`, `use-callback-ref`, `use-sidecar`, Copyright (c) Anton Korzunov | MIT | `public/licenses/react-remove-scroll.txt` |
 | `detect-node-es`, Copyright (c) 2017 Ilya Kantor | MIT | `public/licenses/detect-node-es.txt` |
@@ -49,6 +49,6 @@ File drops use `react-dropzone` 20.1.4, with `file-selector` and `attr-accept`. 
 
 ## Computer animation (MIT)
 
-Computer dragging and transitions use `motion` 14.4.0, `framer-motion`, `motion-dom` and `motion-utils`, in lazy computer chunks.
+Computer dragging and transitions, and the step list card, use `motion` 14.4.0, `framer-motion`, `motion-dom` and `motion-utils`, in lazy chunks.
 Full MIT license texts are in `public/licenses/motion.txt`, `public/licenses/framer-motion.txt`,
 `public/licenses/motion-dom.txt` and `public/licenses/motion-utils.txt`.

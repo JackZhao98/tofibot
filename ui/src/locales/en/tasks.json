@@ -428,7 +428,8 @@
       "call": "Calling {{name}}",
       "profile": "Saving the Bot's profile",
       "takeover": "Waiting for you on the Bot computer",
-      "connection": "Waiting for you to connect a service"
+      "connection": "Waiting for you to connect a service",
+      "plan": "Updating the plan"
     },
     "title": {
       "form": "Waiting for you to fill in a form",
@@ -450,7 +451,8 @@
       "call": "Call {{name}}",
       "profile": "Save the Bot's profile",
       "takeover": "Waiting for you on the Bot computer",
-      "connection": "Waiting for you to connect a service"
+      "connection": "Waiting for you to connect a service",
+      "plan": "Update the plan"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -678,5 +680,25 @@
     "pages_one": "Read {{count}} page",
     "working_other": "Working · {{count}} steps",
     "working_one": "Working · {{count}} step"
+  },
+  "plan": {
+    "title": "Plan",
+    "dock_label": "Plans the Bots are working through",
+    "count": "{{done}} of {{total}}",
+    "done": "Done",
+    "waiting": "Waiting",
+    "more_one": "+{{count}} more: {{names}}",
+    "more_other": "+{{count}} more: {{names}}",
+    "history": "Plan · {{done}} of {{total}} done",
+    "history_stopped": "Plan · stopped at step {{step}} of {{total}}",
+    "state": {
+      "pending": "To do",
+      "in_progress": "In progress",
+      "done": "Done",
+      "stopped": "Stopped",
+      "not_done": "Not done",
+      "skipped": "Skipped",
+      "blocked": "Blocked"
+    }
   }
 }

@@ -117,6 +117,8 @@
   "settings:automation.item.widget_artifacts_auto.what": "The first time a Bot hands over a file in a chat, the Artifacts widget opens beside the messages. Later files refresh its list. Off keeps it closed until you open it.",
   "settings:automation.item.widget_computer_auto.name": "Open the Bot computer when a Bot uses it",
   "settings:automation.item.widget_computer_auto.what": "When a Bot takes the Bot computer in the chat you are viewing, its widget opens beside the messages. It stays open and folds into a strip 30 seconds after the Bot lets go. Off keeps it closed until you open it.",
+  "settings:automation.item.work_plan.name": "Step list while a Bot works",
+  "settings:automation.item.work_plan.what": "A Bot that works on a request with several steps keeps a short list of them. The list sits above the message box and updates as the Bot works; the run's activity keeps it afterwards. Off: Bots keep no list and nothing shows.",
   "settings:automation.item.work_trace.name": "Work trace",
   "settings:automation.item.work_trace.what": "Keeps small pictures of a Bot's screen work so you can review what it did. A page that may show a private input, and a private origin, are never kept. Off keeps no pictures at all.",
   "settings:chats.chat_notifications": "Chat notifications",

@@ -167,9 +167,11 @@ type Run struct {
 	// took the Bot away from it (task continuity); set when runs are read or sent.
 	PausedTaskTitle string `json:"paused,omitempty"`
 	// Trace is the folded strip of the run's screen work (work trace); set when runs are read or sent.
-	Trace     *RunTrace `json:"trace,omitempty"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
+	Trace *RunTrace `json:"trace,omitempty"`
+	// Plan is the run's own step list (run_plans.go); set when runs are listed.
+	Plan      *RunPlan `json:"plan,omitempty"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
 	// Resolved from durable occurrence ancestry for execution only. Keep Kind
 	// unchanged so delegated work retains its context and return routing.
 	scheduleTask *Message
@@ -893,6 +895,9 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateRunTraces(s.db); err != nil {
+		return err
+	}
+	if err := migrateRunPlans(s.db); err != nil {
 		return err
 	}
 	if err := migratePublishedAttachments(s); err != nil {
@@ -2240,6 +2245,7 @@ func (s *Store) Runs(conv string) ([]Run, error) {
 	rows.Close()
 	s.decoratePausedRuns(out)
 	s.decorateRunTraces(out)
+	s.decorateRunPlans(out)
 	return out, nil
 }
 
@@ -2325,6 +2331,7 @@ func (s *Store) RunsPage(conv string, limit int, beforeCreated, beforeID string)
 	}
 	s.decoratePausedRuns(page)
 	s.decorateRunTraces(page)
+	s.decorateRunPlans(page)
 	return page, hasMore, nil
 }
 
@@ -2362,6 +2369,9 @@ func (s *Store) SetRunStatus(id, status, msg string) (bool, error) {
 			return false, e
 		}
 		if e = taskRunStartedTx(tx, id); e != nil {
+			return false, e
+		}
+		if e = planRunStartedTx(tx, id); e != nil {
 			return false, e
 		}
 	}
@@ -2735,6 +2745,9 @@ func (s *Store) finishRunOpts(id, conv, bot, content string, silent bool, failur
 			sayOutcome = sayOutcomePending
 		}
 		if err = taskRunFinishedTx(tx, done, m, sayOutcome); err != nil {
+			return Message{}, false, err
+		}
+		if err = planRunFinishedTx(tx, id, sayOutcome); err != nil {
 			return Message{}, false, err
 		}
 		if leavesOriginal {
@@ -4701,7 +4714,7 @@ func (s *Server) execute(c Conversation, r Run) {
 		// text private, ending quietly is how that turn closes.
 		endOnEmptyFinal = func() bool { return hasHandoff(s.store, r.ID) }
 	}
-	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: func() error {
+	res, e := runEngine.Run(ctx, Request{BotID: r.BotID, RunID: r.ID, ConversationID: c.ID, System: system, Model: model, ReasoningEffort: reasoningEffort, Messages: pm, Tools: tools, OnDelta: onDelta, StructuredOutput: structured, ForceToolUse: structured && forceSayFor(c, r, model), PlanReminder: s.planMidRunReminder(r, tools), PlanReminderAfter: planReminderAfterCalls, OnToolCallDelta: onToolCallDelta, EndOnEmptyFinal: endOnEmptyFinal, BeforeModelCall: func() error {
 		if err := steeringBoundary(); err != nil {
 			return err
 		}
@@ -5393,7 +5406,8 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 	}
 	base = append(base, s.webTools(r)...)
 	base = append(base, s.microVMTools(r)...)
-	return append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...)
+	// Last, so the cached prefix of the tool list stays the same when the setting changes.
+	return append(append(append(append(base, s.teamTools(c, r)...), s.scheduleTools(c, r)...), s.workItemTools(c, r)...), s.planTools(c, r)...)
 }
 
 // mcpDiscoveryToolNames are the MCP facade tools; Skill tools are kept.

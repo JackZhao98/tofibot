@@ -567,6 +567,8 @@ func (e *engine) Run(ctx context.Context, req Request) (Result, error) {
 		OnStreamChunk:            onStream,
 		StructuredOutput:         req.StructuredOutput,
 		ForceToolUse:             req.ForceToolUse,
+		PlanReminder:             req.PlanReminder,
+		PlanReminderAfter:        req.PlanReminderAfter,
 		OnToolCallDelta:          onToolCallDelta,
 		EndOnEmptyFinal:          req.EndOnEmptyFinal,
 		BeforeFinalResponse:      req.BeforeFinalResponse,

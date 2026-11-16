@@ -422,7 +422,8 @@
       "call": "正在呼叫 {{name}}",
       "profile": "正在儲存 Bot 資料",
       "takeover": "等待你在 Bot 電腦上操作",
-      "connection": "等待你連接服務"
+      "connection": "等待你連接服務",
+      "plan": "正在更新計畫"
     },
     "title": {
       "form": "等待你填寫表單",
@@ -444,7 +445,8 @@
       "call": "呼叫 {{name}}",
       "profile": "儲存 Bot 資料",
       "takeover": "等待你在 Bot 電腦上操作",
-      "connection": "等待你連接服務"
+      "connection": "等待你連接服務",
+      "plan": "更新計畫"
     },
     "step_action": {
       "desktop_capture": "截圖",
@@ -667,5 +669,24 @@
     "commands_other": "執行了 {{count}} 個指令",
     "pages_other": "閱讀了 {{count}} 頁",
     "working_other": "處理中 · {{count}} 個步驟"
+  },
+  "plan": {
+    "title": "計畫",
+    "dock_label": "Bot 正在執行的計畫",
+    "count": "{{done}}/{{total}}",
+    "done": "完成",
+    "waiting": "等待中",
+    "more_other": "另有 {{count}} 個：{{names}}",
+    "history": "計畫 · 完成 {{done}}/{{total}}",
+    "history_stopped": "計畫 · 停在第 {{step}}/{{total}} 步",
+    "state": {
+      "pending": "待辦",
+      "in_progress": "進行中",
+      "done": "已完成",
+      "stopped": "已停止",
+      "not_done": "未完成",
+      "skipped": "已略過",
+      "blocked": "受阻"
+    }
   }
 }

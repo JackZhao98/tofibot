@@ -422,7 +422,8 @@
       "call": "{{name}}を呼び出し中",
       "profile": "Bot のプロフィールを保存中",
       "takeover": "Bot コンピューターでの操作を待っています",
-      "connection": "サービスの接続を待っています"
+      "connection": "サービスの接続を待っています",
+      "plan": "計画を更新中"
     },
     "title": {
       "form": "フォームの入力を待っています",
@@ -444,7 +445,8 @@
       "call": "{{name}}を呼び出す",
       "profile": "Bot のプロフィールを保存",
       "takeover": "Bot コンピューターでの操作を待っています",
-      "connection": "サービスの接続を待っています"
+      "connection": "サービスの接続を待っています",
+      "plan": "計画を更新"
     },
     "step_action": {
       "desktop_capture": "スクリーンショット",
@@ -667,5 +669,24 @@
     "commands_other": "{{count}} 件のコマンドを実行",
     "pages_other": "{{count}} ページを閲覧",
     "working_other": "作業中 · {{count}} ステップ"
+  },
+  "plan": {
+    "title": "計画",
+    "dock_label": "Bot が進めている計画",
+    "count": "{{done}}/{{total}}",
+    "done": "完了",
+    "waiting": "待機中",
+    "more_other": "ほか {{count}} 件：{{names}}",
+    "history": "計画 · {{done}}/{{total}} 完了",
+    "history_stopped": "計画 · {{total}} 中 {{step}} 番目で停止",
+    "state": {
+      "pending": "未着手",
+      "in_progress": "進行中",
+      "done": "完了",
+      "stopped": "停止",
+      "not_done": "未完了",
+      "skipped": "スキップ",
+      "blocked": "ブロック中"
+    }
   }
 }

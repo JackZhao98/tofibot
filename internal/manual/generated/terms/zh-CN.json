@@ -117,6 +117,8 @@
   "settings:automation.item.widget_artifacts_auto.what": "Bot 在聊天里第一次交出文件时,作品小组件会在消息旁打开,之后的新文件只刷新它的列表。关闭后保持收起,直到你自己打开。",
   "settings:automation.item.widget_computer_auto.name": "Bot 使用时打开 Bot 电脑",
   "settings:automation.item.widget_computer_auto.what": "Bot 在你正在看的聊天里拿到 Bot 电脑时,它的小组件会在消息旁打开。它会一直开着,在 Bot 放手 30 秒后折成一条窄栏。关闭后保持收起,直到你自己打开。",
+  "settings:automation.item.work_plan.name": "工作步骤清单",
+  "settings:automation.item.work_plan.what": "Bot 处理多步骤的请求时会列出简短的步骤清单，显示在输入框上方，随工作进度更新；运行结束后保留在活动记录里。关闭后 Bot 不列清单，也不显示。",
   "settings:automation.item.work_trace.name": "工作留痕",
   "settings:automation.item.work_trace.what": "保留 Bot 在电脑上操作时的缩略截图，方便你回看它做了什么。可能显示私密输入的页面和私密来源都不会被保留。关闭后不保留任何截图。",
   "settings:chats.chat_notifications": "对话通知",

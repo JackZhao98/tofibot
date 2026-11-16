@@ -117,6 +117,8 @@
   "settings:automation.item.widget_artifacts_auto.what": "チャットで Bot が初めてファイルを渡したとき、メッセージの横に成果物ウィジェットが開きます。以降のファイルは一覧を更新します。オフにすると、自分で開くまで閉じたままです。",
   "settings:automation.item.widget_computer_auto.name": "Bot が使い始めたら Bot コンピューターを開く",
   "settings:automation.item.widget_computer_auto.what": "表示中のチャットで Bot が Bot コンピューターを使い始めると、そのウィジェットがメッセージの横に開きます。開いたままになり、Bot が手を離して 30 秒後に細いバーへ折りたたまれます。オフにすると、自分で開くまで閉じたままです。",
+  "settings:automation.item.work_plan.name": "作業中のステップ一覧",
+  "settings:automation.item.work_plan.what": "複数のステップがある依頼では、Bot が短いステップ一覧を作ります。一覧はメッセージ入力欄の上に表示され、作業に合わせて更新され、終了後は実行のアクティビティに残ります。オフにすると一覧は作られず、表示もされません。",
   "settings:automation.item.work_trace.name": "作業トレース",
   "settings:automation.item.work_trace.what": "ボットが画面で行った作業の小さなスクリーンショットを残し、何をしたか振り返れるようにします。非公開入力が写る可能性のあるページと非公開オリジンは保存されません。オフにすると一切保存しません。",
   "settings:chats.chat_notifications": "チャットの通知",

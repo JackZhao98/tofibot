@@ -1116,6 +1116,10 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 	if resume := s.store.taskResumeContext(r); resume != "" {
 		pm = append(pm, runtime.Message{Role: "user", Content: resume})
 	}
+	// A run that carries a step list on reads the list it keeps.
+	if plan := s.currentPlanContext(r); plan != "" {
+		pm = append(pm, runtime.Message{Role: "user", Content: plan})
+	}
 	// Volatile facts trail the history, just before the final input, so the
 	// system text stays cache-stable and the current request stays last.
 	noteText := s.runContextNote(context.Background(), r)

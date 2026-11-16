@@ -40,6 +40,8 @@ const loaders = {
   workTimeline: () => import("./WorkTimeline"),
   taskActivity: () => import("./TaskActivityBody"),
   toolSteps: () => import("./WebToolSteps"),
+  // The pinned step list and its history lines (update_plan): mounted only in a conversation that has a list.
+  plan: () => import("./PlanCard"),
   // Popups opened by one press: once warm they draw on the press's own commit (React.lazy would suspend once and React holds
   // a revealed Suspense boundary for 300 ms, which was the first account-menu open: 314 ms).
   accountMenu: () => import("./AccountMenu"),
@@ -138,6 +140,9 @@ function quiet<K extends PanelChunk, P extends object>(name: K, pick: (module: L
   };
 }
 export const WorkTimeline = quiet("workTimeline", module => module.default);
+export const PlanDock = quiet("plan", module => module.PlanDock);
+export const PlanHistoryRow = quiet("plan", module => module.PlanHistoryRow);
+export const PlanActivityHead = quiet("plan", module => module.PlanActivityHead);
 export const TaskActivityBody = quiet("taskActivity", module => module.TaskActivityBody);
 export const SilentNoteBody = quiet("taskActivity", module => module.SilentNoteBody);
 export const WebToolSteps = quiet("toolSteps", module => module.WebToolSteps);

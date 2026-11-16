@@ -80,6 +80,7 @@ var contextMarkerKinds = []struct{ prefix, kind string }{
 	{"[task record]", "task_record"},
 	{"[unfinished task]", "unfinished_task"},
 	{"[unfinished tasks]", "unfinished_task"},
+	{"[current plan]", "plan"},
 	{"[task updates]", "task_updates"},
 	{"[wait result]", "wait_result"},
 	{"[untrusted completed tool results from interrupted work]", "tool_carryover"},

@@ -117,6 +117,8 @@
   "settings:automation.item.widget_artifacts_auto.what": "La première fois qu'un Bot remet un fichier dans une conversation, le widget Artefacts s'ouvre à côté des messages. Les fichiers suivants actualisent sa liste. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez.",
   "settings:automation.item.widget_computer_auto.name": "Ouvrir l'ordinateur Bot quand un Bot l'utilise",
   "settings:automation.item.widget_computer_auto.what": "Quand un Bot prend l'ordinateur Bot dans la conversation que vous regardez, son widget s'ouvre à côté des messages. Il reste ouvert et se replie en bandeau 30 secondes après que le Bot l'a lâché. Désactivé, il reste fermé jusqu'à ce que vous l'ouvriez.",
+  "settings:automation.item.work_plan.name": "Liste d'étapes pendant le travail",
+  "settings:automation.item.work_plan.what": "Pour une demande en plusieurs étapes, un Bot tient une courte liste de ces étapes. La liste s'affiche au-dessus du champ de message et se met à jour pendant le travail ; ensuite, elle reste dans l'activité de l'exécution. Désactivé : les Bots ne tiennent pas de liste et rien ne s'affiche.",
   "settings:automation.item.work_trace.name": "Trace de travail",
   "settings:automation.item.work_trace.what": "Conserve de petites images du travail d'un Bot à l'écran pour que vous puissiez revoir ce qu'il a fait. Une page pouvant montrer une saisie privée et une origine privée ne sont jamais conservées. Désactivé : aucune image n'est conservée.",
   "settings:chats.chat_notifications": "Notifications de discussion",

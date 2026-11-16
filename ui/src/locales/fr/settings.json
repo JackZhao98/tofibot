@@ -1555,6 +1555,10 @@
         "name": "Trace de travail",
         "what": "Conserve de petites images du travail d'un Bot à l'écran pour que vous puissiez revoir ce qu'il a fait. Une page pouvant montrer une saisie privée et une origine privée ne sont jamais conservées. Désactivé : aucune image n'est conservée."
       },
+      "work_plan": {
+        "name": "Liste d'étapes pendant le travail",
+        "what": "Pour une demande en plusieurs étapes, un Bot tient une courte liste de ces étapes. La liste s'affiche au-dessus du champ de message et se met à jour pendant le travail ; ensuite, elle reste dans l'activité de l'exécution. Désactivé : les Bots ne tiennent pas de liste et rien ne s'affiche."
+      },
       "trace_retention_days": {
         "name": "Durée de conservation de la trace",
         "what": "Durée pendant laquelle les images du travail d'un Bot à l'écran restent sur le serveur. Elles sont supprimées ensuite. Tout conserver ne les supprime jamais."

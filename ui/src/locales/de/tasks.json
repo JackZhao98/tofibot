@@ -428,7 +428,8 @@
       "call": "Ruft {{name}} auf",
       "profile": "Speichert das Bot-Profil",
       "takeover": "Wartet auf dich am Bot-Computer",
-      "connection": "Wartet darauf, dass du einen Dienst verbindest"
+      "connection": "Wartet darauf, dass du einen Dienst verbindest",
+      "plan": "Plan wird aktualisiert"
     },
     "title": {
       "form": "Wartet darauf, dass du ein Formular ausfüllst",
@@ -450,7 +451,8 @@
       "call": "{{name}} aufrufen",
       "profile": "Bot-Profil speichern",
       "takeover": "Wartet auf dich am Bot-Computer",
-      "connection": "Wartet darauf, dass du einen Dienst verbindest"
+      "connection": "Wartet darauf, dass du einen Dienst verbindest",
+      "plan": "Plan aktualisieren"
     },
     "step_action": {
       "desktop_capture": "Screenshot",
@@ -678,5 +680,25 @@
     "pages_one": "{{count}} Seite gelesen",
     "working_other": "In Arbeit · {{count}} Schritte",
     "working_one": "In Arbeit · {{count}} Schritt"
+  },
+  "plan": {
+    "title": "Plan",
+    "dock_label": "Pläne, an denen die Bots arbeiten",
+    "count": "{{done}} von {{total}}",
+    "done": "Fertig",
+    "waiting": "Wartet",
+    "more_one": "+{{count}} weiterer: {{names}}",
+    "more_other": "+{{count}} weitere: {{names}}",
+    "history": "Plan · {{done}} von {{total}} erledigt",
+    "history_stopped": "Plan · gestoppt bei Schritt {{step}} von {{total}}",
+    "state": {
+      "pending": "Offen",
+      "in_progress": "In Arbeit",
+      "done": "Erledigt",
+      "stopped": "Gestoppt",
+      "not_done": "Nicht erledigt",
+      "skipped": "Übersprungen",
+      "blocked": "Blockiert"
+    }
   }
 }
