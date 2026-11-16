@@ -28,8 +28,8 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 	c, _ := s.store.GetConversation(b.DMConversationID)
 	run := Run{ID: "r", ConversationID: c.ID, BotID: b.ID, Status: "running"}
 	tools := s.tools(c, run)
-	before := declaredBytes(tools)
 	tools = append(tools, s.sayTool(c, run))
+	before := declaredBytes(tools)
 	tools = deferOnDemandTools(tools)
 	capability := capabilityTool(tools)
 	after := declaredBytes(tools)

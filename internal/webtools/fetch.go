@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -217,6 +218,81 @@ func (b Builtin) Fetch(ctx context.Context, rawURL string, maxChars int) (Page, 
 		page.Note = MaybePartialNote
 	}
 	return capPage(page, maxChars), nil
+}
+
+// Download fetches the body of a public address as bytes, through the same
+// guarded client and address checks as Fetch. It reads at most maxBytes and
+// fails with TooLarge when the body is longer. The caller's ctx carries the
+// time budget. The name comes from Content-Disposition or the last path
+// segment of the final address ("download" when neither has one); the content
+// type is the header's, or sniffed from the bytes.
+func (b Builtin) Download(ctx context.Context, rawURL string, maxBytes int64) (data []byte, name, contentType string, err error) {
+	u, err := b.checkTarget(rawURL)
+	if err != nil {
+		return nil, "", "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, "", "", fail(BadRequest)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; TOFI/1.0; +https://github.com/JackZhao98/tofibot)")
+	req.Header.Set("Accept", "*/*")
+	client := b.client()
+	client.Timeout = 0 // the caller's context is the time budget
+	resp, err := client.Do(req)
+	if err != nil {
+		var coded *Error
+		switch {
+		case errors.Is(err, extensions.ErrBlockedAddress):
+			return nil, "", "", fail(TargetRefused)
+		case errors.As(err, &coded):
+			return nil, "", "", coded
+		}
+		return nil, "", "", fail(Network)
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode == 404 || resp.StatusCode == 410:
+		return nil, "", "", fail(NotFound)
+	case resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 || resp.StatusCode == 451:
+		return nil, "", "", failStatus(Blocked, resp.StatusCode)
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
+		return nil, "", "", failStatus(Network, resp.StatusCode)
+	}
+	if resp.ContentLength > maxBytes {
+		return nil, "", "", fail(TooLarge)
+	}
+	data, err = io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, "", "", fail(Network)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, "", "", fail(TooLarge)
+	}
+	if _, params, e := mime.ParseMediaType(resp.Header.Get("Content-Disposition")); e == nil {
+		name = params["filename"]
+	}
+	if name = path.Base(strings.TrimSpace(name)); name == "." || name == "/" || name == "" {
+		name = ""
+	}
+	if name == "" && resp.Request != nil && resp.Request.URL != nil {
+		if seg := path.Base(resp.Request.URL.Path); seg != "." && seg != "/" && seg != "" {
+			if dec, e := url.PathUnescape(seg); e == nil {
+				seg = dec
+			}
+			name = seg
+		}
+	}
+	if name == "" {
+		name = "download"
+	}
+	contentType = strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if mt, _, e := mime.ParseMediaType(contentType); e == nil {
+		contentType = mt
+	} else {
+		contentType = http.DetectContentType(data)
+	}
+	return data, name, contentType, nil
 }
 
 func capPage(p Page, maxChars int) Page {

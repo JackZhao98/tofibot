@@ -276,7 +276,7 @@ func TestReleaseGateBotWorksWithoutTheComputer(t *testing.T) {
 	// ---- attached: computer tools are offered and work ----
 	run := runScenario("computer", "list the outbox")
 	waitFor(t, s, run.ID, "done")
-	if offered := model.offered("computer"); !offered["computer_files"] || !offered["publish_file"] {
+	if offered := model.offered("computer"); !offered["computer_files"] {
 		t.Fatalf("attached: computer tools missing from %v", offered)
 	}
 	if res := model.result("files"); !strings.Contains(res, "quarterly.txt") {
@@ -348,7 +348,7 @@ func TestReleaseGateBotWorksWithoutTheComputer(t *testing.T) {
 	}
 	run = runScenario("computer", "list the outbox again")
 	waitFor(t, s, run.ID, "done")
-	if offered := model.offered("computer"); !offered["computer_files"] || !offered["publish_file"] {
+	if offered := model.offered("computer"); !offered["computer_files"] {
 		t.Fatalf("reattached: computer tools missing from %v", offered)
 	}
 	if rec = get("/api/attachments/" + notes.ID); rec.Code != 200 || fileSHA(rec.Body.Bytes()) != fileSHA(notesBody) {

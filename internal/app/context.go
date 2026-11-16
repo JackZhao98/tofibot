@@ -1322,7 +1322,7 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 
 // publishedFilesFact counters the belief that a reply can only carry text:
 // models asked for pictures answered with links (2026-11-15).
-const publishedFilesFact = "Files you publish reach the person in this conversation; pictures show inline."
+const publishedFilesFact = "Files you attach with send_message reach the person in this conversation; pictures show inline."
 
 // noComputerStatus is the run-context fact of a workspace with no computer
 // backend: the Bot must never claim one.

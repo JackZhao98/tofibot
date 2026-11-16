@@ -293,8 +293,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// (publish_file after a download, or a shared capture) in place of "Deliver a finished
 				// file with publish_file." (+180 measured: 9243 -> 9423).
 				// 9560: plus the video Skill's row in the Skill directory (+133 measured: 9423 -> 9556).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 9560 {
-					t.Errorf("ordinary DM provider system exceeds 9560 runes")
+				// 9566: plus the delivery sentence naming send_message attachments (+6 measured: 9556 -> 9562).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 9566 {
+					t.Errorf("ordinary DM provider system exceeds 9566 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -320,8 +321,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// header sits outside this sum; measured on the structured scheduled descendant: 9506 -> 9850).
 				// 10030: plus the same delivery sentence (+180 measured on the structured scheduled descendant: 9850 -> 10030).
 				// 10075: the say tool renamed send_message (+45 measured on the structured scheduled descendant: 10030 -> 10075).
-				if fixed > 10075 {
-					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 10075)", fixed)
+				// 10081: plus the delivery sentence naming send_message attachments (+6 measured: 10075 -> 10081).
+				if fixed > 10081 {
+					t.Errorf("fixed overhead %d leaves too little customization headroom (ceiling 10081)", fixed)
 				}
 				if !strings.Contains(system, bot.Instructions) {
 					t.Fatal("user instructions changed")
@@ -373,8 +375,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 9245: plus the delivery sentence, as above (+180 measured: 9063 -> 9243).
 					// 9380: plus the video Skill's directory row, as above (+133 measured: 9243 -> 9376).
 					// 9395: the say tool renamed send_message (+18 measured: 9376 -> 9394).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9395 {
-						t.Errorf("structured DM provider system exceeds 9395 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
+					// 9401: plus the delivery sentence naming send_message attachments (+6 measured: 9394 -> 9400).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9401 {
+						t.Errorf("structured DM provider system exceeds 9401 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "send_message(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

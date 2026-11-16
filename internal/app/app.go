@@ -292,10 +292,13 @@ type Server struct {
 	browserInstanceID   string
 	browserSessionValid func(*http.Request) bool
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
-	personalComputers                    bool
-	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
-	groupGates                           sync.Map // run id -> *groupGate (create_group needs list_groups first)
-	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
+	personalComputers bool
+	dispositions      sync.Map // run id -> groupChoice recorded by the respond tool
+	groupGates        sync.Map // run id -> *groupGate (create_group needs list_groups first)
+	sayRuns           sync.Map // run id -> *sayRunState of a structured run in flight
+	keptCaptures      sync.Map // run id -> *runCaptureKeep: full capture pictures a run may still send (memory only)
+	// downloadTransport replaces the guarded transport of send_message url downloads; tests only.
+	downloadTransport                    http.RoundTripper
 	stepStops                            sync.Map // run id -> *stepStop of the tool call in flight ("Stop current step")
 	waitTimeout                          time.Duration
 	reactionWakes                        reactionWakeState

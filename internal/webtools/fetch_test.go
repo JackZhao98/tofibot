@@ -1,6 +1,7 @@
 package webtools
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -371,5 +372,50 @@ func TestBlockedChainErrorCarriesTheHTTPStatus(t *testing.T) {
 		if !strings.Contains(ce.Error(), "HTTP "+strconv.Itoa(status)) {
 			t.Fatal(ce.Error())
 		}
+	}
+}
+
+func TestDownloadReturnsBytesNameAndTypeWithinTheLimit(t *testing.T) {
+	url := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/named":
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", `attachment; filename="report.pdf"`)
+			w.Write([]byte("%PDF-1.4 synthetic"))
+		case "/missing":
+			http.NotFound(w, r)
+		case "/denied":
+			w.WriteHeader(403)
+		case "/big":
+			w.Write(bytes.Repeat([]byte("x"), 100))
+		default:
+			w.Write([]byte("plain bytes")) // no type header: sniffed
+		}
+	})
+	b := Builtin{Transport: plain}
+	data, name, ct, err := b.Download(context.Background(), url+"/named", 1<<10)
+	if err != nil || name != "report.pdf" || ct != "application/pdf" || string(data) != "%PDF-1.4 synthetic" {
+		t.Fatalf("%q %q %q %v", data, name, ct, err)
+	}
+	if _, name, ct, err = b.Download(context.Background(), url+"/dir/pic.png", 1<<10); err != nil || name != "pic.png" || !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("%q %q %v", name, ct, err)
+	}
+	if _, name, _, _ = b.Download(context.Background(), url+"/", 1<<10); name != "download" {
+		t.Fatalf("fallback name %q", name)
+	}
+	if _, _, _, err = b.Download(context.Background(), url+"/big", 50); CodeOf(err) != TooLarge {
+		t.Fatalf("over the limit: %v", err)
+	}
+	if _, _, _, err = b.Download(context.Background(), url+"/missing", 50); CodeOf(err) != NotFound {
+		t.Fatalf("404: %v", err)
+	}
+	if _, _, _, err = b.Download(context.Background(), url+"/denied", 50); CodeOf(err) != Blocked {
+		t.Fatalf("403: %v", err)
+	}
+	if _, _, _, err = (Builtin{Transport: extensions.GuardedTransport()}).Download(context.Background(), url+"/named", 1<<10); CodeOf(err) != TargetRefused {
+		t.Fatalf("guarded dial: %v", err)
+	}
+	if _, _, _, err = b.Download(context.Background(), "http://10.0.0.5/x", 10); CodeOf(err) != TargetRefused {
+		t.Fatalf("private literal: %v", err)
 	}
 }

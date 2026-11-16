@@ -34,6 +34,7 @@ const (
 	TargetRefused Code = "target_refused" // private, loopback or metadata address
 	BadRequest    Code = "bad_request"    // the arguments cannot be served
 	NotFound      Code = "not_found"      // the page does not exist (404, 410)
+	TooLarge      Code = "too_large"      // a download is larger than the caller's byte limit
 )
 
 // Falls reports whether a chain moves on to the next provider after c.

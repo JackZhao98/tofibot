@@ -374,6 +374,8 @@ func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
 		}, []string{"bot_id", "request"})}
 		strict = false
 	}
+	props["attachments"] = sayAttachmentsSchema()
+	strict = false
 	if !saySendsSources(r) {
 		props["covers_original"] = map[string]any{"type": "boolean", "description": sayCoversOriginalDescription}
 		strict = false
@@ -452,7 +454,8 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			Quiet   bool             `json:"quiet"`
 			TaskID  string           `json:"task_id"`
 
-			CoversOriginal bool `json:"covers_original"`
+			CoversOriginal bool                `json:"covers_original"`
+			Attachments    []sayAttachmentItem `json:"attachments"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid send_message arguments")
@@ -460,11 +463,25 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		callID := runtime.ToolCallID(ctx)
 		text := strings.TrimSpace(stripProgressTags(strings.ReplaceAll(in.Text, "\x00", "")))
 		state := s.sayRun(r.ID)
+		// resolved holds the files this call created; any refusal after their
+		// resolution deletes them, so a refused call leaves nothing behind.
+		var resolved sayResolution
 		fail := func(err error) (string, error) {
 			if state != nil {
 				state.discard(callID)
 			}
+			s.discardSayAttachments(resolved)
+			resolved.settle(err)
+			resolved = sayResolution{}
 			return "", err
+		}
+		if len(in.Attachments) > 0 {
+			if in.Purpose == sayNote {
+				return fail(sayAttachmentRefusal("attachments_not_for_note", 0, "a note is private progress and carries no files; use purpose message or answer"))
+			}
+			if len(in.Attachments) > maxSayAttachments || s.store.stagedRunAttachmentCount(r.ID)+len(in.Attachments) > maxSayAttachments {
+				return fail(sayAttachmentRefusal("attachments_too_many", 0, "a reply carries at most 8 files, counting the files already queued for it in this run"))
+			}
 		}
 		emptyRefusal := func() (string, error) {
 			if state != nil && in.Purpose == sayAnswer {
@@ -539,6 +556,16 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			default:
 				return fail(tooloutcome.New(tooloutcome.Validation, "say_outcome_invalid", "not_executed", "outcome must be one of done, blocked, delegated, pending.", "repair_arguments").Err())
 			}
+			if len(in.Attachments) > 0 {
+				if extras.Quiet {
+					return fail(sayAttachmentRefusal("attachments_not_for_note", 0, "a quiet answer posts nothing, so it carries no files"))
+				}
+				// Every source is resolved before any gate, so a bad item surfaces first.
+				var rerr error
+				if resolved, rerr = s.resolveSayAttachments(ctx, r, c, in.Attachments); rerr != nil {
+					return fail(rerr)
+				}
+			}
 			if state != nil && state.checksPending && !saySendsSources(r) {
 				pendingLike := in.Outcome == sayOutcomePending || (in.Outcome == sayOutcomeDelegated && len(in.Wake) == 0 && !hasHandoff(s.store, r.ID))
 				// Future work is real when a schedule exists for it or when this
@@ -587,11 +614,20 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if state != nil && state.grade != nil && len(in.Wake) == 0 {
 				// The answer gate: the draft is graded against the rubric before
 				// the person sees it. Gaps go back to the writer privately.
-				if revision := state.grade(ctx, text, extras.Quiet); revision != "" {
+				gradeText := text
+				if names := resolved.names(); len(names) > 0 {
+					gradeText += "\n\nAttached files: " + strings.Join(names, ", ")
+				}
+				if revision := state.grade(ctx, gradeText, extras.Quiet); revision != "" {
 					if state.demote != nil {
 						state.demote(text)
 					}
 					return fail(tooloutcome.New(tooloutcome.Transient, "answer_revise", "not_executed", revision, "retry").Err())
+				}
+			}
+			if len(resolved.Items) > 0 {
+				if _, err := s.stageSayAttachments(r, c, resolved); err != nil {
+					return fail(err)
 				}
 			}
 			if taskID := strings.TrimSpace(in.TaskID); taskID != "" {
@@ -615,6 +651,10 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if extras.Quiet {
 				return "Recorded quietly. Your turn is complete; write nothing more.", nil
 			}
+			resolved.settle(nil)
+			if names := resolved.names(); len(names) > 0 {
+				return "Delivered. Attached: " + strings.Join(names, ", ") + ". Your turn is complete; write nothing more.", nil
+			}
 			return "Delivered. Your turn is complete; write nothing more.", nil
 		case sayNote, sayMessage:
 			limit, kind, prefix := maxSayNoteRunes, "progress", sayNoteClientPrefix
@@ -628,6 +668,12 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(errors.New("message is not available in this run; use note or answer"))
 				}
 				limit, kind, prefix = 1200, "segment", chatSegmentClientPrefix
+				if len(in.Attachments) > 0 {
+					var rerr error
+					if resolved, rerr = s.resolveSayAttachments(ctx, r, c, in.Attachments); rerr != nil {
+						return fail(rerr)
+					}
+				}
 				if err := s.store.paceChatSegment(ctx, r.ID); err != nil {
 					return fail(err)
 				}
@@ -645,13 +691,27 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(errors.New("text must be at most 1200 characters"))
 			}
+			var fileIDs []string
+			if len(resolved.Items) > 0 {
+				staged, err := s.stageSayAttachments(r, c, resolved)
+				if err != nil {
+					return fail(err)
+				}
+				for _, a := range staged {
+					fileIDs = append(fileIDs, a.ID)
+				}
+			}
 			adopt := state != nil && state.owns(callID)
-			m, err := s.store.publishSay(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt)
+			m, err := s.store.publishSayWithFiles(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt, fileIDs)
 			if err != nil {
 				return fail(err)
 			}
 			if state != nil {
 				state.release(callID)
+			}
+			resolved.settle(nil)
+			if names := resolved.names(); len(names) > 0 {
+				return "Delivered " + in.Purpose + " " + m.ID + ". Attached: " + strings.Join(names, ", "), nil
 			}
 			return "Delivered " + in.Purpose + " " + m.ID, nil
 		}
@@ -667,6 +727,13 @@ const chatSegmentClientPrefix = "chat-segment:"
 // With adopt, the message takes the identity of the draft the call's text
 // was streamed into, so the bubble turns into the message in place.
 func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content string, adopt bool) (Message, error) {
+	return s.publishSayWithFiles(ctx, run, clientID, kind, content, adopt, nil)
+}
+
+// publishSayWithFiles is publishSay that also binds the named files, staged
+// for the run, to the message it writes, in the same transaction; they leave
+// the run's staged set, so the answer does not carry them again.
+func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind, content string, adopt bool, fileIDs []string) (Message, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Message{}, err
@@ -679,7 +746,11 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 		if existing.Content != content {
 			return Message{}, errors.New("tool call already published different content")
 		}
-		return existing, nil
+		// A replay binds the same files again; the binding is idempotent.
+		if err = bindRunAttachmentIDsTx(tx, run.ID, existing.ID, fileIDs); err != nil {
+			return Message{}, err
+		}
+		return existing, tx.Commit()
 	}
 	if err != sql.ErrNoRows {
 		return Message{}, err
@@ -736,6 +807,14 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 	}
 	if err = recordMessageAttentionTx(tx, m); err != nil {
 		return Message{}, err
+	}
+	if len(fileIDs) > 0 {
+		if err = bindRunAttachmentIDsTx(tx, run.ID, m.ID, fileIDs); err != nil {
+			return Message{}, err
+		}
+		if m.Attachments, err = attachmentMetadata(tx, m.ID); err != nil {
+			return Message{}, err
+		}
 	}
 	b, err := json.Marshal(m)
 	if err != nil {

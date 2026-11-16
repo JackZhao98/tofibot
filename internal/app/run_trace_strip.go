@@ -57,6 +57,7 @@ func (s *Server) finalizeRunTrace(c Conversation, run Run) {
 	}()
 	s.waitTraceCaptures(run.ID)
 	s.forgetTraceState(run.ID)
+	s.forgetKeptCaptures(run.ID)
 	if !s.autoBool(autoWorkTrace) {
 		return
 	}
