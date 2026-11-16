@@ -6,4 +6,4 @@ Read the result list with browser.read. Open a message with browser.click on its
 
 Label each click with its real effect. Opening and reading a mail has none.
 
-When the browser cannot open the mailbox, the answer follows the email Skill's rule for a request no route reaches.
+When the browser cannot open the mailbox, the answer names what was tried and what stopped it, and that a mail connection is added or reconnected in Settings > Connections.
