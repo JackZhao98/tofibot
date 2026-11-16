@@ -276,7 +276,8 @@ put a style that depends on an attribute or custom property of an ancestor of th
 # Asking a human (one rendezvous)
 
 Every Bot-to-human question goes through the durable questions rendezvous in
-`internal/app/questions.go`: it suspends the run (`runtime.SuspendForUserInput`
+`internal/app/questions.go` (a card with companion rows, such as an MCP approval and its `mcp_call_approvals` row,
+is written in one transaction by `CreateQuestionWith`, so it is answerable the moment it shows): it suspends the run (`runtime.SuspendForUserInput`
 plus `run_input_waits`), survives restart, expires (30 min by default) and is
 shown by `ui/src/QuestionCard.tsx`. Model tools: `ask_user_question`,
 `request_approval`, `ask_user_form` (webpage fields; password fields are sealed

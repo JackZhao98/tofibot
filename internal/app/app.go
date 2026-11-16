@@ -463,6 +463,8 @@ type Store struct {
 	storageReserveMu sync.Mutex
 	// moveStepHook lets a test stop a file move between its steps; nil in production.
 	moveStepHook func(step string) error
+	// questionVisible lets a test look at a question the moment it is committed; nil in production.
+	questionVisible func(Question)
 	// bucketPhysical caches the daily bucket byte sum counted as physical bytes.
 	bucketPhysical     bucketPhysicalCache
 	scheduleSchemaOnce sync.Once

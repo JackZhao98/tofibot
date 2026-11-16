@@ -538,6 +538,12 @@ func (q Question) Card() QuestionCard {
 }
 
 func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Question, error) {
+	return s.CreateQuestionWith(conv, run, in, nil)
+}
+
+// CreateQuestionWith also writes the question's companion rows (also) in the same transaction, so no reader ever
+// sees the card without them: a card is answerable from the moment it is committed.
+func (s *Store) CreateQuestionWith(conv string, run Run, in askQuestionInput, also func(tx *sql.Tx, q Question) error) (Question, error) {
 	opts, err := json.Marshal(in.Options)
 	if err != nil {
 		return Question{}, err
@@ -563,12 +569,28 @@ func (s *Store) CreateQuestion(conv string, run Run, in askQuestionInput) (Quest
 	if in.Approval != nil && in.Approval.ReviewOnly {
 		q.Status = questionRunDone
 	}
-	_, err = s.db.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput, q.Target)
-	if err == nil {
-		// The question is one of the run's open waits while it is pending.
-		s.mirrorHumanAnswerWait(q)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return Question{}, err
 	}
-	return q, err
+	defer tx.Rollback()
+	if _, err = tx.Exec(`INSERT INTO questions(id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, q.RunID, q.ConversationID, q.BotID, q.Type, q.Prompt, string(opts), q.MinSelections, q.MaxSelections, q.Status, q.CreatedAt, nullString(q.ExpiresAt), q.UpdatedAt, string(fields), q.SourceURL, q.AllowOther, approval, q.PrivateInput, q.Target); err != nil {
+		return q, err
+	}
+	if also != nil {
+		if err = also(tx, q); err != nil {
+			return q, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return q, err
+	}
+	if s.questionVisible != nil {
+		s.questionVisible(q)
+	}
+	// The question is one of the run's open waits while it is pending.
+	s.mirrorHumanAnswerWait(q)
+	return q, nil
 }
 
 const questionColumns = `id,run_id,conversation_id,bot_id,type,prompt,options_json,min_selections,max_selections,status,answer_json,answered_by,created_at,expires_at,updated_at,fields_json,source_url,allow_other,approval_json,private_input,handover_target`

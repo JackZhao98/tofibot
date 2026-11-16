@@ -661,3 +661,25 @@ func TestRememberedApprovalCannotBeCreatedByModelOrToolResult(t *testing.T) {
 func writeFixtureFile(f *autoReviewFixture, name string, data []byte) error {
 	return os.WriteFile(filepath.Join(f.dir, name), data, 0600)
 }
+
+// The approval card and its approval row are one write. The Remember answer reads the row, so an answer the moment
+// the card was visible was refused as remember_not_available (TestRememberedApprovalInvalidatedByTierOrConfigChange
+// failed that way in ci-local on a loaded machine): the card was committed first and its row a statement later.
+func TestRememberIsAvailableTheMomentTheCardIsVisible(t *testing.T) {
+	f := newAutoReviewFixture(t)
+	offered := make(chan bool, 4)
+	f.s.store.questionVisible = func(q Question) {
+		if q.Type == questionApproval {
+			offered <- f.s.rememberOfferedFor(q)
+		}
+	}
+	approveAndRemember(t, f)
+	select {
+	case ok := <-offered:
+		if !ok {
+			t.Fatal("the card was visible before it could be remembered")
+		}
+	default:
+		t.Fatal("no approval card was created")
+	}
+}
