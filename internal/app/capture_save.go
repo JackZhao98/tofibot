@@ -179,7 +179,10 @@ func (s *Server) finishSave(ctx context.Context, r Run, dst, tmp string) error {
 		Stderr   string `json:"stderr"`
 		ExitCode int    `json:"exit_code"`
 	}
-	if json.Unmarshal([]byte(out), &shell) != nil || (shell.ExitCode == 0 && strings.Contains(shell.Stdout, "saved")) {
+	if json.Unmarshal([]byte(out), &shell) != nil {
+		return fmt.Errorf("saving the capture failed: the Bot computer's answer could not be read")
+	}
+	if shell.ExitCode == 0 && strings.Contains(shell.Stdout, "saved") {
 		return nil
 	}
 	reason := strings.TrimSpace(shell.Stderr)
