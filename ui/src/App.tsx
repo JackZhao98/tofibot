@@ -43,7 +43,7 @@ import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
 import { useDebugMode } from "./debugMode";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
 import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, TeamBoard, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded, PlanDock } from "./lazyPanels";
-import { PlanEventsContext, applyRunPlan, type PlanEvents } from "./planMerge";
+import { applyRunPlan } from "./planMerge";
 import { setPendingSection } from "./settings/pendingSection";
 import { linkRuntime, provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import type { OpenLinkDeps } from "./settings/linkRuntime";
@@ -732,8 +732,6 @@ function Workspace() {
   const [streamConnected, setStreamConnected] = useState(true);
   // Task cards (decision 0060): the active conversation's tasks. Task events reach this state through one coalescer, at most once a second.
   const [taskItems, setTaskItems] = useState<readonly WorkItem[]>([]);
-  // Step lists pushed by run_plan events; a run's list is the newer of this and its listed run.plan (planMerge.ts).
-  const [planEvents, setPlanEvents] = useState<PlanEvents>({});
   const taskCoalescer = useRef<TaskFeed | null>(null);
   // A restart or a Wi-Fi blip is over before anyone can act on it: announce a lost link only once it has lasted.
   const linkLost = useGraceFlag(!streamConnected, LINK_LOSS_GRACE_MS);
@@ -1473,7 +1471,7 @@ function Workspace() {
   // The card logic is its own chunk (taskCards.ts), loaded once; the entry bundle holds only this glue.
   const [cardKit, setCardKit] = useState<typeof import("./taskCards") | null>(null);
   useEffect(() => { let live = true; void import("./taskCards").then(kit => { if (live) setCardKit(kit); }); return () => { live = false; }; }, []);
-  useEffect(() => { setTaskItems([]); setPlanEvents({}); }, [activeId]);
+  useEffect(() => { setTaskItems([]); }, [activeId]);
   useEffect(() => {
     if (!activeId || !streamConnected || !cardKit) return;
     const feed = cardKit.startFeed(activeId, setTaskItems, api.taskCards);
@@ -1759,7 +1757,7 @@ function Workspace() {
     } else if (type === "inbox") {
       setMessages(current => applyInbox(current, data));
     } else if (type === "run_plan") {
-      setPlanEvents(current => applyRunPlan(current, data));
+      setRuns(current => applyRunPlan(current, data));
     } else if (type === "reaction") {
       const messageId = typeof data.message_id === "string" ? data.message_id : "";
       if (messageId && Array.isArray(data.reactions)) setMessages(current => current.map(message => message.id === messageId ? { ...message, reactions: data.reactions as Message["reactions"] } : message));
@@ -2427,9 +2425,9 @@ function Workspace() {
   };
   const ownerRevealed = (owner: TaskOwner) => owner.family.attempts.some(attempt => revealedRuns.has(attempt.id));
   // A block with nothing to show (Activity hidden, no card raised) draws nothing, so it must not count as a name label above a message.
-  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner), planEvents });
+  const ownerDraws = (owner: TaskOwner) => taskBlockVisible({ owner, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(owner) });
   // Computed once per render, not once per message: per-message scans made every render cubic in loaded history.
-  const placementDraws = (placement: OwnerPlacement) => placement.segment ? taskBlockVisible({ owner: placement.owner, segment: placement.segment, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(placement.owner), planEvents }) : ownerDraws(placement.owner);
+  const placementDraws = (placement: OwnerPlacement) => placement.segment ? taskBlockVisible({ owner: placement.owner, segment: placement.segment, tools: loadedToolActivities, questions: questions.items, drafts: mailDrafts.items, messages: messageRecords, summaries: terminalToolSummaries, details: toolDetailState, connected: linkConnected, hideActivity: !showActivity, revealed: ownerRevealed(placement.owner) }) : ownerDraws(placement.owner);
   const ownerAnchors = ownerPlacements.filter(placementDraws).map(placement => ({ anchor: placement.anchor, botId: placement.owner.family.latest.bot_id }));
   // Blocks that share an anchor go in time order (the sort is stable: owners keep their order among themselves).
   const placementIndex = new Map<string, OwnerPlacement[]>();
@@ -2724,7 +2722,7 @@ function Workspace() {
             {teamBoardOpen && active.kind === "group" ? <Suspense fallback={null}><TeamBoard key={`team-board-${active.id}`} conversation={active} bots={bots} timezone={timezone} onClose={() => setTeamBoardOpen(false)} onOpenWork={() => { setTeamBoardOpen(false); openSidebarId("tasks"); }} /></Suspense> : <>
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <PlanEventsContext.Provider value={planEvents}><ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
+                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
                   {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
                   {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
@@ -2834,11 +2832,11 @@ function Workspace() {
                   {placementsAt(undefined).map(renderPlacement)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
                   {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
-                </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider></PlanEventsContext.Provider>
+                </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
               {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
             </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<>{(runs.some(run => run.plan) || Object.keys(planEvents).length > 0 || taskItems.some(task => task.assignee_run_id && task.checklist?.length)) && <PlanDock key={active.id} runs={runs} events={planEvents} tasks={taskItems} botById={botById} group={active.kind === "group"} />}<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} /></>} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} dictationReady={config?.dictation_configured === true} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
+            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<>{(runs.some(run => run.plan) || taskItems.some(task => task.checklist?.length)) && <PlanDock key={active.id} runs={runs} tasks={taskItems} botById={botById} group={active.kind === "group"} />}<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} /></>} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} dictationReady={config?.dictation_configured === true} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
             </>}
           </>}
         </main>

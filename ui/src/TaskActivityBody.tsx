@@ -1,5 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { lazy, Suspense, useContext, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import "./approval-card.css";
 import { TofiIcon } from "./icons";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -16,7 +16,6 @@ import type { MailDraft } from "./MailDraftCard";
 import type { Message, ToolActivity, ToolActivityRunSummary } from "./types";
 import { problemStates, type TaskDetailState } from "./TaskRunBlock";
 import { PlanActivityHead } from "./lazyPanels";
-import { PlanEventsContext, familyPlan } from "./planMerge";
 
 /** The work trace line closes the list of a run that kept captures; it is its own chunk. */
 const WorkTrace = lazy(() => import("./WorkTrace"));
@@ -62,10 +61,9 @@ export type TaskActivityBodyProps = { owner: TaskOwner; /** Not the first stretc
 
 export function TaskActivityBody({ owner, head = true, tail = true, allTools, tools, drafts, messages, summaries, details, live, now, locale, recordedQuestions, rememberedDecisions, notes, onOpenTools, onLoadDetails, renderMessage, renderQuestion, renderDraft }: TaskActivityBodyProps) {
   const { t } = useTranslation("tasks", { lng: locale });
-  const kept = familyPlan(owner.family.attempts, useContext(PlanEventsContext));
   const attemptStatus = (status: string) => ({ done: t("activity.attempt.done"), failed: t("activity.attempt.failed"), cancelled: t("activity.attempt.cancelled"), interrupted: t("activity.attempt.interrupted") } as Record<string, string>)[status] ?? t("activity.attempt.ended");
   return <>
-      {head && kept && <PlanActivityHead plan={kept.plan} run={kept.run} />}
+      {head && owner.family.attempts.some(attempt => attempt.plan) && <PlanActivityHead attempts={owner.family.attempts} />}
       {head && owner.family.previous.map((attempt, index) => <p key={attempt.id} className="task-record-meta">{t("activity.previous_attempt", { number: index + 1, status: attemptStatus(attempt.status) })}</p>)}
       {rememberedDecisions.map(question => <p key={question.question_id} className="task-record-meta task-remembered-record" data-question-record-id={question.question_id}>{t(question.answered_by === STANDING_ALLOWANCE_ACTOR ? "record.standing_decision" : "record.remembered_decision")}{question.answered_by === STANDING_ALLOWANCE_ACTOR && <> <button type="button" className="text-button approval-manage" aria-label={t("approval.manage_allowances")} onClick={openPermissionsDeepLink}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button></>}</p>)}
       {recordedQuestions.map(question => <section className="task-question-record" key={question.question_id} data-question-record-id={question.question_id} tabIndex={-1}>

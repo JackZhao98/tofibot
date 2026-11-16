@@ -1,4 +1,4 @@
-import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
@@ -12,7 +12,6 @@ import type { MailDraft } from "./MailDraftCard";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
 import { WorkTimeline, SilentNoteBody, TaskActivityBody, PlanHistoryRow, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
-import { PlanEventsContext, familyPlan, planEndedIncomplete, type PlanEvents } from "./planMerge";
 import "./task-issue-card.css";
 
 /**
@@ -85,14 +84,11 @@ function scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, 
  * Public narration and collapsed batches remain visible with the detailed audit hidden.
  * A finished run with neither work nor a card still draws nothing.
  */
-export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boolean; revealed?: boolean; planEvents?: PlanEvents }): boolean {
+export function taskBlockVisible(props: BlockScopeInput & { hideActivity?: boolean; revealed?: boolean }): boolean {
   if (!props.hideActivity || props.revealed) return true;
   const { run, issue, decisions, currentDrafts, silentNotes, hasWork } = scopeTaskBlock(props);
   if (hasWork) return true;
   if (props.segment && !props.segment.primary) return false;
-  // A run that ended before its step list was done keeps that line (PlanHistoryRow) with Activity hidden too.
-  const kept = props.planEvents && familyPlan(props.owner.family.attempts, props.planEvents);
-  if (kept && planEndedIncomplete(kept.plan, kept.run)) return true;
   return !isTerminalRun(run) || silentNotes.length > 0 || Boolean(issue) || taskPhaseVisible(run) || decisions.length > 0 || currentDrafts.some(draft => draft.status !== "unknown");
 }
 
@@ -101,8 +97,6 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   const block = useRef<HTMLElement>(null);
   const needsFocus = useRef(false);
   const { run, ids, silentNotes, hasWork, tools: scopedTools, shownTools, questions: scopedQuestions, drafts: scopedDrafts, currentTools, currentQuestions, currentDrafts, input, issue, decisions } = scopeTaskBlock({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, segment });
-  const planEvents = useContext(PlanEventsContext);
-  const kept = familyPlan(owner.family.attempts, planEvents);
   const primary = !segment || segment.primary, firstPart = !segment || segment.index === 0;
   tools = scopedTools; questions = scopedQuestions; drafts = scopedDrafts;
   const { t } = useTranslation("tasks", { lng: locale });
@@ -205,7 +199,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     if (disclosure.current) { disclosure.current.open(); disclosure.current.element?.querySelector("button")?.focus(); }
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
-  if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed, planEvents })) return null;
+  if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
   // Public work is a sender unit too. A block with only a live line keeps its inline Bot name.
   const head = senderHead && (showActivity || hasWork || issue || silentNotes.length) ? senderHead : undefined;
   const namedLive = Boolean(senderHead && !head && botName);
@@ -215,7 +209,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
     {/* Where the pinned card was when it left: the list of a run that ended before every step was done. */}
-    {primary && kept && planEndedIncomplete(kept.plan, kept.run) && <PlanHistoryRow plan={kept.plan} run={kept.run} />}
+    {primary && !runLive && owner.family.attempts.some(attempt => attempt.plan) && <PlanHistoryRow attempts={owner.family.attempts} />}
     {primary && owner.family.attempts.map(attempt => {
       const detail = details[attempt.id];
       // "Load more" only after the first page has arrived: before it, hasMore is a guess and the button would flash in and out.

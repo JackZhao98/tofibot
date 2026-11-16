@@ -7,9 +7,8 @@ import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
 import { EASE, MOTION } from "./motion";
 import { useTranslation } from "./i18n";
-import { dockEntries, finishedEntry, planHistory, type DockEntry, type DockStep, type StepState } from "./planModel";
-import type { PlanEvents } from "./planMerge";
-import type { Bot, Run, RunPlan, WorkItem } from "./types";
+import { dockEntries, familyPlan, finishedEntry, planEndedIncomplete, planHistory, type DockEntry, type DockStep, type StepState } from "./planModel";
+import type { Bot, Run, WorkItem } from "./types";
 import "./plan-card.css";
 
 /**
@@ -73,9 +72,9 @@ function CardHeader({ entry, open, group, botName }: { entry: DockEntry; open: b
  * One card per Bot with a list, newest work last. A single card opens by default; with several, each is one line until
  * the person opens one (Accordion type single). The person's choice holds for the conversation.
  */
-export function PlanDock({ runs, events, tasks, botById, group }: { runs: readonly Run[]; events: PlanEvents; tasks: readonly WorkItem[]; botById: ReadonlyMap<string, Pick<Bot, "name">>; group: boolean }) {
+export function PlanDock({ runs, tasks, botById, group }: { runs: readonly Run[]; tasks: readonly WorkItem[]; botById: ReadonlyMap<string, Pick<Bot, "name">>; group: boolean }) {
   const { t } = useTranslation("tasks");
-  const live = useMemo(() => dockEntries(runs, events, tasks), [runs, events, tasks]);
+  const live = useMemo(() => dockEntries(runs, tasks), [runs, tasks]);
   const [lingering, setLingering] = useState<DockEntry[]>([]);
   const previous = useRef<DockEntry[]>([]);
   const [held, setHeld] = useState(false);
@@ -88,7 +87,7 @@ export function PlanDock({ runs, events, tasks, botById, group }: { runs: readon
     previous.current = live;
     const finished: DockEntry[] = [];
     for (const [key, { entry, at }] of recentlyGone.current) {
-      const done = live.some(item => item.key === key) ? undefined : finishedEntry(entry, runs, events);
+      const done = live.some(item => item.key === key) ? undefined : finishedEntry(entry, runs);
       if (done) finished.push(done);
       if (done || now - at > PLAN_LINGER_MS || live.some(item => item.key === key)) recentlyGone.current.delete(key);
     }
@@ -97,7 +96,7 @@ export function PlanDock({ runs, events, tasks, botById, group }: { runs: readon
       const next = [...kept, ...finished];
       return next.length === current.length && next.every((entry, index) => entry === current[index]) ? current : next;
     });
-  }, [live, runs, events]);
+  }, [live, runs]);
   // A finished card leaves after a moment, never while the pointer or focus is on the dock.
   useEffect(() => {
     if (!lingering.length || held) return;
@@ -155,18 +154,20 @@ function useHistoryLine() {
   };
 }
 
-/** The list at the head of a run's opened Activity. */
-export function PlanActivityHead({ plan, run }: { plan: RunPlan; run: Pick<Run, "status"> }) {
+/** The list at the head of a run's opened Activity (the newest attempt of the family that kept one). */
+export function PlanActivityHead({ attempts }: { attempts: readonly Run[] }) {
   const line = useHistoryLine();
-  const steps = planHistory(plan, run);
+  const kept = familyPlan(attempts);
+  const steps = kept && planHistory(kept.plan, kept.run);
   if (!steps) return null;
   return <div className="plan-activity-head"><p className="plan-activity-title">{line(steps)}</p><PlanSteps steps={steps} /></div>;
 }
 
 /** A run that ended before its list was done keeps one quiet line where the card was; it opens into the list. */
-export function PlanHistoryRow({ plan, run }: { plan: RunPlan; run: Pick<Run, "status"> }) {
+export function PlanHistoryRow({ attempts }: { attempts: readonly Run[] }) {
   const line = useHistoryLine();
-  const steps = planHistory(plan, run);
+  const kept = familyPlan(attempts);
+  const steps = kept && planEndedIncomplete(kept.plan, kept.run) ? planHistory(kept.plan, kept.run) : undefined;
   if (!steps) return null;
   return <Collapsible.Root className="plan-history">
     <Collapsible.Trigger className="process-line plan-history-trigger">

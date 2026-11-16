@@ -22,17 +22,16 @@ const modules = await openUiModules({ language: "en" });
 try {
   const merge = await modules.load("/src/planMerge.ts");
   const model = await modules.load("/src/planModel.ts");
+  // A pushed list replaces the run's list only when newer; an unchanged list keeps the array (no re-render).
   const p1 = plan("r1", "a", [["Read", "in_progress"]]);
-  let events = merge.applyRunPlan({}, p1);
-  assert.equal(events.r1, p1);
-  assert.equal(merge.applyRunPlan(events, { ...p1 }), events, "the same version changes nothing");
+  let held = merge.applyRunPlan([run("r1", "a", "running")], p1);
+  assert.equal(held[0].plan, p1);
+  assert.equal(merge.applyRunPlan(held, { ...p1 }), held, "the same version changes nothing");
   const p2 = { ...p1, version: 2, steps: [] };
-  events = merge.applyRunPlan(events, p2);
-  assert.equal(events.r1.steps.length, 0, "a newer cleared list wins");
-  assert.equal(merge.applyRunPlan(events, p1), events, "an older list never replaces a newer one");
-  assert.equal(merge.planOf({ id: "r1", plan: { ...p1, version: 3 } }, events).version, 3, "a newer listed plan wins over an older event");
-  assert.equal(merge.planOf({ id: "r1", plan: p1 }, events), p2, "a newer event wins over an older listed plan");
-
+  held = merge.applyRunPlan(held, p2);
+  assert.equal(held[0].plan.steps.length, 0, "a newer cleared list wins");
+  assert.equal(merge.applyRunPlan(held, p1), held, "an older list never replaces a newer one");
+  assert.equal(merge.applyRunPlan(held, { ...p1, run_id: "other", version: 9 }), held, "a list of a run not held changes nothing");
   const runs = [
     run("ra", "a", "running", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "in_progress"], ["Write", "pending"]]) }),
     run("rb_old", "b", "done", { plan: plan("rb_old", "b", [["Old", "done"]], { open: false, closed: "answered" }) }),
@@ -46,18 +45,18 @@ try {
     { id: "task_b", kind: "task", title: "Weekly numbers", bot_id: "b", status: "in_progress", assignee_run_id: "rb", checklist: [{ id: "i1", text: "Collect", status: "done" }, { id: "i2", text: "Check", status: "open" }, { id: "i3", text: "Send", status: "open" }] },
     { id: "task_d", kind: "task", title: "Part", bot_id: "x", assigner_bot_id: "d", assigner_kind: "bot", status: "in_progress" },
   ];
-  const entries = model.dockEntries(runs, {}, tasks);
+  const entries = model.dockEntries(runs, tasks);
   assert.deepEqual(entries.map(entry => `${entry.botId}:${entry.source}:${entry.state}`), ["a:plan:working", "b:checklist:working", "d:plan:waiting"], "working first; failed, triage and a waiting list with no open work draw nothing");
   assert.equal(entries[0].current.text, "Compare");
   assert.deepEqual([entries[0].done, entries[0].total], [1, 3]);
   assert.deepEqual(entries[1].steps.map(step => step.state), ["done", "in_progress", "pending"], "the first open checklist item is the one in progress");
   assert.equal(entries[1].title, "Weekly numbers");
-  assert.deepEqual(model.dockEntries([run("w", "a", "waiting", { plan: plan("w", "a", [["Ask", "in_progress"]]) })], {}, [])[0].state, "waiting", "a run parked on the person waits");
-  assert.equal(model.dockEntries([run("x", "a", "running", { plan: plan("x", "a", [["Gone", "done"]], { open: false, closed: "stopped" }) })], {}, []).length, 0, "a closed list draws no card");
+  assert.deepEqual(model.dockEntries([run("w", "a", "waiting", { plan: plan("w", "a", [["Ask", "in_progress"]]) })], [])[0].state, "waiting", "a run parked on the person waits");
+  assert.equal(model.dockEntries([run("x", "a", "running", { plan: plan("x", "a", [["Gone", "done"]], { open: false, closed: "stopped" }) })], []).length, 0, "a closed list draws no card");
 
-  const finished = model.finishedEntry(entries[0], [run("ra", "a", "done", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "done"], ["Write", "done"]], { open: false, closed: "answered", version: 4 }) })], {});
+  const finished = model.finishedEntry(entries[0], [run("ra", "a", "done", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "done"], ["Write", "done"]], { open: false, closed: "answered", version: 4 }) })]);
   assert.equal(finished.state, "done");
-  assert.equal(model.finishedEntry(entries[0], [run("ra", "a", "failed", { plan: plan("ra", "a", [["Read", "done"]]) })], {}), undefined, "a failed run leaves at once");
+  assert.equal(model.finishedEntry(entries[0], [run("ra", "a", "failed", { plan: plan("ra", "a", [["Read", "done"]]) })]), undefined, "a failed run leaves at once");
 
   const stopped = plan("h", "a", [["Read", "done"], ["Compare", "in_progress"], ["Write", "pending"]]);
   assert.deepEqual(model.historySteps(stopped, { status: "failed" }).map(step => step.state), ["done", "stopped", "not_done"]);
@@ -74,8 +73,8 @@ try {
   assert.equal(runMerge.mergeRunUpdates([cached], [listed])[0].plan.version, 7, "a newer list survives a stale run update");
   assert.equal(runMerge.mergeRunUpdates([listed], [cached])[0].plan.version, 7, "an older list never replaces a newer one");
   // The run's done event can arrive before the list's closing event.
-  assert.equal(model.finishedEntry(entries[0], [run("ra", "a", "done", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "done"], ["Write", "done"]], { version: 3 }) })], {}).state, "done", "every step done is enough to linger");
-  const family = merge.familyPlan([run("f1", "a", "failed", { plan: stopped }), run("f2", "a", "done")], {});
+  assert.equal(model.finishedEntry(entries[0], [run("ra", "a", "done", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "done"], ["Write", "done"]], { version: 3 }) })]).state, "done", "every step done is enough to linger");
+  const family = model.familyPlan([run("f1", "a", "failed", { plan: stopped }), run("f2", "a", "done")]);
   assert.equal(family.run.id, "f1", "a family's list comes from its newest attempt that kept one");
   console.log("PASS plan model: versions, sources, states, history");
 } finally { await modules.close(); }
