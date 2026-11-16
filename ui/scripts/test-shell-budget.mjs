@@ -45,7 +45,7 @@ if (only.includes("struct")) {
 for (const marker of ["DndDescribedBy", "sortableKeyboardCoordinates", "draggableDescribedById"]) {
   assert.ok(!entryText.includes(marker), `dnd-kit stays in lazy chunks: ${marker}`);
 }
-for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "BotSettingsPanel", "WorkPanel", "TeamBoard"]) {
+for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "BotSettingsPanel", "WorkPanel"]) {
   assert.ok(chunks(name).length > 0, `${name} is a separate chunk that the entry only references dynamically`);
   assert.ok(!eager.some(file => file.includes(`/${name}-`)), `${name} is not an entry-time chunk`);
 }

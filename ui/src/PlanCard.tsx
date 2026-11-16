@@ -70,9 +70,10 @@ function CardHeader({ entry, open, group, botName }: { entry: DockEntry; open: b
 
 /**
  * One card per Bot with a list, newest work last. A single card opens by default; with several, each is one line until
- * the person opens one (Accordion type single). The person's choice holds for the conversation.
+ * the person opens one (Accordion type single). The person's choice holds for the conversation. In a group, one quiet
+ * line under the cards counts the open to-dos and opens the Work panel (it took over from the team board).
  */
-export function PlanDock({ runs, tasks, botById, group }: { runs: readonly Run[]; tasks: readonly WorkItem[]; botById: ReadonlyMap<string, Pick<Bot, "name">>; group: boolean }) {
+export function PlanDock({ runs, tasks, botById, group, openTasks = 0, onOpenTasks }: { runs: readonly Run[]; tasks: readonly WorkItem[]; botById: ReadonlyMap<string, Pick<Bot, "name">>; group: boolean; openTasks?: number; onOpenTasks?: () => void }) {
   const { t } = useTranslation("tasks");
   const live = useMemo(() => dockEntries(runs, tasks), [runs, tasks]);
   const [lingering, setLingering] = useState<DockEntry[]>([]);
@@ -112,7 +113,8 @@ export function PlanDock({ runs, tasks, botById, group }: { runs: readonly Run[]
   // The DM cat perches on the top edge of the dock instead of on the field, where it would sit on the last steps:
   // the perch rule (plan-card.css) reads how far the field starts below the dock's top.
   const dock = useRef<HTMLElement>(null);
-  const showing = shown.length > 0;
+  const tasksLine = openTasks > 0 && onOpenTasks;
+  const showing = shown.length > 0 || Boolean(tasksLine);
   // The section unmounts under the pointer or focus without a leave or blur event: start the next card unheld.
   useEffect(() => { if (!showing) setHeld(false); }, [showing]);
   useLayoutEffect(() => {
@@ -140,7 +142,10 @@ export function PlanDock({ runs, tasks, botById, group }: { runs: readonly Run[]
           </motion.div>)}
         </AnimatePresence>
       </Accordion.Root>
-      {hidden.length > 0 && <p className="plan-dock-more">{t("plan.more", { count: hidden.length, names: hidden.map(entry => name(entry.botId)).join(", ") })}</p>}
+      {(hidden.length > 0 || tasksLine) && <div className="plan-dock-foot">
+        {hidden.length > 0 && <p className="plan-dock-more">{t("plan.more", { count: hidden.length, names: hidden.map(entry => name(entry.botId)).join(", ") })}</p>}
+        {tasksLine && <button type="button" className="plan-dock-tasks" onClick={onOpenTasks}><TofiIcon name="checklist" size={14} aria-hidden="true" /><span>{t("plan.open_tasks", { count: openTasks })}</span><TofiIcon name="chevron-right" size={14} aria-hidden="true" /></button>}
+      </div>}
     </section>
   </MotionConfig>;
 }

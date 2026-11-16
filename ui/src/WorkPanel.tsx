@@ -36,6 +36,7 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
   const scope: Scope = { type: botView ? "bots" : "conversations", id: botView ? conversation.bot_id! : conversation.id };
   const [history, setHistory] = useState(false);
   const [member, setMember] = useState("");
+  const [goalFilter, setGoalFilter] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [pending, setPending] = useState("");
@@ -54,7 +55,10 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
   const currentReload = useRef(reload);
   currentReload.current = reload;
   const preference = useUserTimezone();
-  const visibleItems = items.filter(item => !member || item.bot_id === member);
+  // A group's goals filter its list as the team board's goal filter did: the goal and the to-dos under it.
+  const allGoals = items.filter(item => item.kind === "goal");
+  const goal = allGoals.some(item => item.id === goalFilter) ? goalFilter : "";
+  const visibleItems = items.filter(item => (!member || item.bot_id === member) && (!goal || item.id === goal || item.parent_goal_id === goal));
   const visibleSchedules = schedules.filter(item => !member || item.bot_id === member);
   const goals = visibleItems.filter(item => item.kind === "goal");
   const tasks = visibleItems.filter(item => item.kind === "task");
@@ -81,6 +85,18 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
       accept(await api.updateWorkItem(item.id, { status }));
     });
   }
+  function updateAssignee(item: WorkItem, botID: string) {
+    return mutate(item.id, async () => {
+      const current = latest.current.items.find(value => value.id === item.id);
+      if (!current || current.bot_id === botID || itemReadOnly(current) || workExecutionActive(current) || !latest.current.bots.some(bot => bot.id === botID && !bot.archived)) return;
+      accept(await api.updateWorkItem(item.id, { bot_id: botID }));
+    });
+  }
+  /** Members who can take a group's item over: the active Bots of the group, plus the current holder so the field never reads empty. */
+  function assignees(item: WorkItem) {
+    const ids = conversation.bot_ids.filter(id => bots.some(bot => bot.id === id && !bot.archived));
+    return ids.includes(item.bot_id) ? ids : [item.bot_id, ...ids];
+  }
   function provenance(item: WorkItem | Schedule) {
     return <div className="work-provenance">{botView ? <button onClick={() => onNavigate(item.conversation_id)}>{lookupSource(item.conversation_id, item.conversation_name)}</button> : <span><BotAvatar id={item.bot_id} mini />{lookupBot(item.bot_id, item.bot_name)}</span>}</div>;
   }
@@ -91,7 +107,7 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
       <div className="work-row-main"><strong>{item.title}</strong><div className="work-row-meta">{provenance(item)}{item.status !== "todo" && <span className={`work-state state-${item.status}`}>{t(workStatusKeys[item.status])}</span>}</div>
         <WorkTaskFacts item={item} timezone={preference.timezone} />
         {item.parent_goal_id && <small className="work-parent">{items.find(goal => goal.id === item.parent_goal_id)?.title || t("panel.linked_group_goal")}</small>}
-        <details className="work-item-details"><summary>{t("panel.details")}</summary>{item.description && <p>{item.description}</p>}<small>{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />{!readOnly && <label>{t("panel.status")}<Select size="sm" aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={!!pending || workExecutionActive(item)} onValueChange={value => { const status = value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).filter(([value]) => value !== "input_required" && value !== "failed" || value === item.status).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</Select></label>}</details>
+        <details className="work-item-details"><summary>{t("panel.details")}</summary>{item.description && <p>{item.description}</p>}<small>{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />{!readOnly && <label>{t("panel.status")}<Select size="sm" aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={!!pending || workExecutionActive(item)} onValueChange={value => { const status = value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).filter(([value]) => value !== "input_required" && value !== "failed" || value === item.status).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</Select></label>}{!readOnly && !botView && <label>{t("panel.assignee")}<Select size="sm" aria-label={t("panel.assignee_aria", { title: item.title })} value={item.bot_id} disabled={!!pending || workExecutionActive(item)} onValueChange={value => void updateAssignee(item, value)}>{assignees(item).map(id => <option key={id} value={id}>{lookupBot(id, id === item.bot_id ? item.bot_name : undefined)}</option>)}</Select></label>}</details>
       </div>
     </article>;
   }
@@ -100,7 +116,7 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     <div className="work-toolbar"><Tabs.List className="work-tabs" aria-label={t("panel.scope")}><Tabs.Trigger value="open">{t("panel.tab_open")}</Tabs.Trigger><Tabs.Trigger value="history">{t("panel.tab_history")}</Tabs.Trigger></Tabs.List><button className="ghost-button work-add" aria-label={creating ? t("panel.cancel_new") : t("panel.new")} disabled={conversation.archived || creatingBusy} onClick={() => setCreating(value => !value)}><TofiIcon name={creating ? "close" : "plus"} size={20} /></button></div>
     <Tabs.Content value={history ? "open" : "history"} forceMount hidden />
     <Tabs.Content value={history ? "history" : "open"}>
-    {!botView && <div className="work-member-select"><Select className="work-member-filter" aria-label={t("panel.member_filter")} value={member} onValueChange={value => setMember(value)}><option value="">{t("panel.all_members")}</option>{conversation.bot_ids.map(id => <option key={id} value={id}>{lookupBot(id)}</option>)}</Select></div>}
+    {!botView && <div className="work-member-select"><Select className="work-member-filter" aria-label={t("panel.member_filter")} value={member} onValueChange={value => setMember(value)}><option value="">{t("panel.all_members")}</option>{conversation.bot_ids.map(id => <option key={id} value={id}>{lookupBot(id)}</option>)}</Select>{!!allGoals.length && <Select className="work-member-filter work-goal-filter" aria-label={t("panel.goal_filter")} value={goal} onValueChange={value => setGoalFilter(value)}><option value="">{t("panel.all_goals")}</option>{allGoals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>}</div>}
     {creating && <WorkCreate onBusyChange={setCreatingBusy} conversation={conversation} conversations={conversations} bots={bots} goals={items.filter(item => item.kind === "goal")} onDone={() => { setCreating(false); setHistory(false); void reload(); }} onCancel={() => setCreating(false)} />}
     {operationError && <div className="error-banner" role="alert">{operationError.text}<button className="text-button" disabled={!!pending} onClick={() => void mutate(operationError.id, operationError.retry)}>{t("panel.retry_action")}</button></div>}
     {error && <div className="error-banner" role="alert">{error}<button className="text-button" disabled={!!pending} onClick={() => void reload()}>{t("panel.reload")}</button></div>}

@@ -297,7 +297,6 @@
     "delete_hint": "그룹과 채팅을 삭제합니다. 되돌릴 수 없습니다."
   },
   "header": {
-    "back_to_chat": "대화로 돌아가기",
     "bot_memory": "이 Bot의 메모리",
     "bot_settings": "Bot 설정",
     "copy_link": "대화 링크 복사",
@@ -308,11 +307,9 @@
     "more": "더보기",
     "open_members": "대화 멤버 보기",
     "open_shared_computer": "Bot 컴퓨터 열기",
-    "open_team_board": "팀 보드 열기",
     "open_terminal": "터미널 열기",
     "schedule": "할 일 및 일정",
     "shared_computer": "Bot 컴퓨터",
-    "team_board": "팀 보드",
     "terminal": "터미널",
     "usage": "사용량",
     "computer_on": "Bot 컴퓨터, 켜짐",

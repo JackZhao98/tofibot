@@ -16,7 +16,6 @@ const loaders = {
   onboarding: () => import("./Onboarding"),
   work: () => import("./WorkPanel"),
   memory: () => import("./MemoryPanel"),
-  team: () => import("./TeamBoard"),
   archive: () => import("./ArchivePanel"),
   artifacts: () => import("./ArtifactsPanel"),
   usageWidget: () => import("./UsageWidget"),
@@ -92,7 +91,6 @@ export const BotDesktopPanel = chunk("desktop", module => module.BotDesktopPanel
 export const FloatingDesktop = chunk("desktop", module => module.FloatingDesktop);
 export const WorkPanel = chunk("work", module => module.WorkPanel);
 export const MemoryPanel = chunk("memory", module => module.MemoryPanel);
-export const TeamBoard = chunk("team", module => module.TeamBoard);
 export const ArchivePanel = chunk("archive", module => module.ArchivePanel);
 export const ArtifactsPanel = chunk("artifacts", module => module.ArtifactsPanel);
 export const ArtifactsWidget = chunk("artifacts", module => module.ArtifactsWidget);
@@ -182,7 +180,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "team", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

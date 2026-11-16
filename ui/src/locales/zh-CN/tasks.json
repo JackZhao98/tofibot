@@ -677,6 +677,7 @@
     "done": "完成",
     "waiting": "等待中",
     "more_other": "另有 {{count}} 个：{{names}}",
+    "open_tasks_other": "{{count}} 项待办",
     "history": "计划 · 完成 {{done}}/{{total}}",
     "history_stopped": "计划 · 停在第 {{step}}/{{total}} 步",
     "state": {

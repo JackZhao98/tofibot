@@ -35,7 +35,14 @@
 .plan-mark.is-pending::before,.plan-mark.is-paused::before{content:"";box-sizing:border-box;width:11px;height:11px;border:1.5px solid color-mix(in srgb,var(--muted) 45%,transparent);border-radius:50%}
 .plan-mark.is-paused::before{border-color:var(--text-secondary);border-style:dashed}
 .plan-card[data-plan-state=done] .plan-mark.is-done:first-child{width:16px;height:16px}
-.plan-dock-more{margin:0;padding:0 var(--space-3);color:var(--text-process);font:var(--type-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The foot line: "+N more" and, in a group, the open to-dos. Frosted pills, since messages scroll behind the dock. */
+.plan-dock-foot{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+.plan-dock-more,.plan-dock-tasks{box-sizing:border-box;min-height:28px;margin:0;padding:4px var(--space-3);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:999px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:var(--type-meta)}
+.plan-dock-more{min-width:0;color:var(--text-process);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-dock-tasks{display:inline-flex;align-items:center;gap:6px;flex:none;margin-inline-start:auto;color:var(--text-secondary);font-variant-numeric:tabular-nums;cursor:pointer}
+.plan-dock-tasks:hover{color:var(--text-body)}
+.plan-dock-tasks:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.plan-dock-tasks svg{flex:none;color:var(--text-process)}
 
 /* The DM cat (web only) sits on the dock's top edge, a few px into it like it sits on the field. */
 .workspace .composer:has(.plan-dock) .composer-perch{top:calc(-75px - var(--plan-dock-offset,0px))}
