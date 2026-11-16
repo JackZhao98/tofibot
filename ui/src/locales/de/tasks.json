@@ -682,8 +682,8 @@
     "working_one": "In Arbeit · {{count}} Schritt"
   },
   "plan": {
-    "title": "Schritte",
-    "dock_label": "Schritte, an denen die Bots arbeiten",
+    "title": "Plan",
+    "dock_label": "Pläne, an denen die Bots arbeiten",
     "count": "{{done}} von {{total}}",
     "done": "Fertig",
     "waiting": "Wartet",

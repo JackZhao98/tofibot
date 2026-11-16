@@ -671,8 +671,8 @@
     "working_other": "正在处理 · {{count}} 个步骤"
   },
   "plan": {
-    "title": "步骤",
-    "dock_label": "Bot 正在处理的步骤",
+    "title": "计划",
+    "dock_label": "Bot 正在执行的计划",
     "count": "{{done}}/{{total}}",
     "done": "完成",
     "waiting": "等待中",

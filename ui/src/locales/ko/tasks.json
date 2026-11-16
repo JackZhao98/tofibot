@@ -671,8 +671,8 @@
     "working_other": "작업 중 · {{count}}단계"
   },
   "plan": {
-    "title": "단계",
-    "dock_label": "Bot이 진행 중인 단계",
+    "title": "계획",
+    "dock_label": "Bot이 진행 중인 계획",
     "count": "{{done}}/{{total}}",
     "done": "완료",
     "waiting": "대기 중",

@@ -103,7 +103,8 @@ export function dockEntries(runs: readonly Run[], events: PlanEvents, tasks: rea
 export function finishedEntry(previous: DockEntry, runs: readonly Run[], events: PlanEvents): DockEntry | undefined {
   const run = runs.find(item => item.id === previous.runId);
   const plan = planOf(run, events);
-  if (!run || run.status !== "done" || !plan || plan.closed !== "answered" || !plan.steps.length || plan.steps.some(step => step.status !== "done")) return undefined;
+  // The run event may arrive before the list's closing event: a done run with every step done is enough.
+  if (!run || run.status !== "done" || !plan || !plan.steps.length || plan.steps.some(step => step.status !== "done")) return undefined;
   const steps = planSteps(plan);
   return { ...previous, state: "done", steps, ...summarize(steps) };
 }

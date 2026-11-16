@@ -671,8 +671,8 @@
     "working_other": "作業中 · {{count}} ステップ"
   },
   "plan": {
-    "title": "ステップ",
-    "dock_label": "Bot が進めているステップ",
+    "title": "計画",
+    "dock_label": "Bot が進めている計画",
     "count": "{{done}}/{{total}}",
     "done": "完了",
     "waiting": "待機中",

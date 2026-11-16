@@ -224,8 +224,35 @@ func TestPlanClosesWithTheAnswerAndStopAll(t *testing.T) {
 	if _, _, err := f.s.FinishRun(r.ID, f.g.ID, f.a.ID, "Here it is."); err != nil {
 		t.Fatal(err)
 	}
-	if p := f.planOf(r.ID); p.Open || p.Closed != planClosedAnswered || p.Version != 2 || f.planEvents(r.ID) != 2 {
+	if p := f.planOf(r.ID); p.Open || p.Closed != planClosedAnswered || p.Version != 2 || f.planEvents(r.ID) != 2 || p.Steps[1].Status != planPending {
 		t.Fatalf("after the answer %+v, %d events", p, f.planEvents(r.ID))
+	}
+	// The answer finishes the last step when it is the one in progress.
+	last := f.running(f.g.ID, f.b)
+	if _, err := f.plan(f.g, last, map[string]any{"steps": []planStep{{"text": "Collect", "status": "done"}, {"text": "Write the reply", "status": "in_progress"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.s.FinishRun(last.ID, f.g.ID, f.b.ID, "Here it is."); err != nil {
+		t.Fatal(err)
+	}
+	if p := f.planOf(last.ID); p.Steps[1].Status != planDone || p.Open {
+		t.Fatalf("the answer is the last step: %+v", p)
+	}
+	// An answer given as done finishes every step; a blocked answer leaves them.
+	for outcome, want := range map[string]string{sayOutcomeDone: planDone, sayOutcomeBlocked: planPending} {
+		run := f.running(f.g.ID, f.c)
+		if _, err := f.plan(f.g, run, map[string]any{"steps": []planStep{{"text": "Search", "status": "in_progress"}, {"text": "Write", "status": "pending"}}}); err != nil {
+			t.Fatal(err)
+		}
+		tx, _ := f.s.db.Begin()
+		if err := planRunFinishedTx(tx, run.ID, outcome); err != nil {
+			t.Fatal(err)
+		}
+		tx.Commit()
+		if p := f.planOf(run.ID); p.Steps[1].Status != want || p.Open {
+			t.Fatalf("outcome %s: %+v", outcome, p)
+		}
+		f.s.SetRunStatus(run.ID, "failed", "end")
 	}
 	if _, err := f.plan(f.g, r, map[string]any{"advance": true}); codeOf(err) != "plan_run_ended" {
 		t.Fatalf("an ended run's plan does not change: %v", err)
@@ -389,5 +416,102 @@ func TestPlanRetentionFollowsTheTaskSetting(t *testing.T) {
 	}
 	if f.count(`SELECT COUNT(*) FROM run_plans WHERE run_id=?`, live.ID) != 0 {
 		t.Fatal("the list cascades with its run")
+	}
+}
+
+// Review fixes (2026-11-15): a delegated answer keeps the list for the run its
+// results wake; the walk up the parents finds the lead's list above a member's
+// run; a list nothing carries on closes when the Bot starts other work, unless a
+// paused task will resume it; a scheduled occurrence carries a list only as a
+// retry or resume.
+func TestPlanLineageAfterReview(t *testing.T) {
+	f := newTaskFix(t)
+	steps := map[string]any{"steps": []planStep{{"text": "Give the parts", "status": "done"}, {"text": "Join the results", "status": "pending"}}}
+
+	// delegated keeps the list open.
+	lead := f.running(f.g.ID, f.c)
+	if _, err := f.plan(f.g, lead, steps); err != nil {
+		t.Fatal(err)
+	}
+	tx, _ := f.s.db.Begin()
+	if err := planRunFinishedTx(tx, lead.ID, sayOutcomeDelegated); err != nil {
+		t.Fatal(err)
+	}
+	tx.Commit()
+	if !f.planOf(lead.ID).Open {
+		t.Fatal("a delegated answer keeps the list open")
+	}
+	f.s.db.Exec(`UPDATE runs SET status='done' WHERE id=?`, lead.ID)
+	// A member's run descends from the lead's run; the return run descends from the member's run.
+	member := queueRun(t, f.s, f.g.ID, f.a.ID, runKindGroupTask, lead.ID)
+	f.start(member.ID)
+	if _, ok := f.s.runPlan(member.ID); ok {
+		t.Fatal("another Bot's run takes no list")
+	}
+	f.s.db.Exec(`UPDATE runs SET status='done' WHERE id=?`, member.ID)
+	back := queueRun(t, f.s, f.g.ID, f.c.ID, runKindFollowup, member.ID)
+	f.start(back.ID)
+	if p := f.planOf(back.ID); p.InheritedFrom != lead.ID {
+		t.Fatalf("the return run carries the lead's list on: %+v", p)
+	}
+
+	// A list whose wait was cancelled is closed when the Bot starts other work.
+	waiting := f.running(f.g.ID, f.a)
+	if _, err := f.plan(f.g, waiting, steps); err != nil {
+		t.Fatal(err)
+	}
+	f.s.db.Exec(`INSERT INTO waits(id,bot_id,run_id,conversation_id,kind,group_id,deadline_at,created_at) VALUES('w3',?,?,?,'timer','g3',?,?)`, f.a.ID, waiting.ID, f.g.ID, stampTime(time.Now().Add(time.Hour)), now())
+	if _, _, err := f.s.FinishRun(waiting.ID, f.g.ID, f.a.ID, "Waiting."); err != nil {
+		t.Fatal(err)
+	}
+	other := f.running(f.g.ID, f.a)
+	if !f.planOf(waiting.ID).Open {
+		t.Fatal("a list whose run still waits stays open while the Bot does other work")
+	}
+	if _, _, err := f.s.FinishRun(other.ID, f.g.ID, f.a.ID, "Done."); err != nil {
+		t.Fatal(err)
+	}
+	f.s.db.Exec(`UPDATE waits SET status='cancelled' WHERE id='w3'`)
+	next := f.running(f.g.ID, f.a)
+	if p := f.planOf(waiting.ID); p.Open || p.Closed != planClosedReplaced {
+		t.Fatalf("an orphaned list closes when the Bot starts other work: %+v", p)
+	}
+	if _, ok := f.s.runPlan(next.ID); ok {
+		t.Fatal("the new request starts without a list")
+	}
+
+	// A paused task keeps its run's list for the resume.
+	paused := f.running(f.g.ID, f.b)
+	if _, err := f.plan(f.g, paused, steps); err != nil {
+		t.Fatal(err)
+	}
+	f.s.SetRunStatus(paused.ID, "cancelled", "steered")
+	f.s.db.Exec(`INSERT INTO work_items(id,conversation_id,bot_id,kind,title,status,source_run_id,interrupted_at,created_at,updated_at) VALUES('wi_paused',?,?,'task','Paused work','todo',?,?,?,?)`, f.g.ID, f.b.ID, paused.ID, now(), now(), now())
+	f.running(f.g.ID, f.b)
+	if !f.planOf(paused.ID).Open {
+		t.Fatal("a list a paused task will resume stays open")
+	}
+
+	// Scheduled runs: a retry (same trigger) carries the list on, a new occurrence does not.
+	sched := queueRun(t, f.s, f.g.ID, f.c.ID, runKindSchedule, "")
+	f.s.db.Exec(`UPDATE runs SET trigger_message_id='m_sched' WHERE id=?`, sched.ID)
+	f.start(sched.ID)
+	sched, _ = f.s.GetRun(sched.ID)
+	if _, err := f.plan(f.g, sched, steps); err != nil {
+		t.Fatal(err)
+	}
+	f.s.SetRunStatus(sched.ID, "failed", "synthetic")
+	occurrence := queueRun(t, f.s, f.g.ID, f.c.ID, runKindSchedule, sched.ID)
+	f.s.db.Exec(`UPDATE runs SET trigger_message_id='m_next' WHERE id=?`, occurrence.ID)
+	f.start(occurrence.ID)
+	if _, ok := f.s.runPlan(occurrence.ID); ok {
+		t.Fatal("a new occurrence starts without the last one's list")
+	}
+	f.s.db.Exec(`UPDATE run_plans SET closed='' WHERE run_id=?`, sched.ID)
+	retry := queueRun(t, f.s, f.g.ID, f.c.ID, runKindSchedule, sched.ID)
+	f.s.db.Exec(`UPDATE runs SET trigger_message_id='m_sched' WHERE id=?`, retry.ID)
+	f.start(retry.ID)
+	if p := f.planOf(retry.ID); p.InheritedFrom != sched.ID {
+		t.Fatalf("a scheduled retry carries the list on: %+v", p)
 	}
 }

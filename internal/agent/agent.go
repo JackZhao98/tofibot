@@ -334,6 +334,13 @@ type AgentConfig struct {
 	// final-only requests, nor once the run has handed its work off.
 	ForceToolUse    bool
 	OnToolCallDelta func(provider.ToolCallDelta)
+	// PlanReminder is appended once, as a user turn after the tool results,
+	// when the run has made PlanReminderAfter tool calls (say, send_chat_message
+	// and update_plan not counted) and has not called update_plan. It is the
+	// harness reminder Claude Code gives when its todo list is unused: the tool
+	// description alone does not make the model keep a list.
+	PlanReminder      string
+	PlanReminderAfter int
 	// EndOnEmptyFinal, when set, is asked about a model response that has no
 	// text and no tool calls. True ends the run with an empty result instead of
 	// asking the model to continue: the caller owes no answer (for example,
@@ -936,6 +943,16 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 	assistantTurnIndex := 0
 	toolCallsSinceReport := 0
 	reportRequired := false
+	planWorkCalls, planSeen, planReminded := 0, false, false
+	if cfg.Continuation != nil {
+		for _, m := range cfg.Continuation.Messages {
+			for _, call := range m.ToolCalls {
+				if call.Name == "update_plan" {
+					planSeen = true
+				}
+			}
+		}
+	}
 	seenDiscoveryResults := map[[32]byte]bool{}
 	toolArgsByCallID := map[string]string{}
 	cycleSawTool, cycleSawNovel, cycleOnlyDiscovery := false, false, true
@@ -2392,6 +2409,24 @@ func RunAgentLoop(cfg AgentConfig, ctx *models.ExecutionContext) (returned *Agen
 		} // end sequential execution else block
 		if checkpointErr != nil {
 			return nil, checkpointErr
+		}
+		if cfg.PlanReminder != "" && cfg.PlanReminderAfter > 0 && !planSeen && !planReminded {
+			// Searches and page reads the provider ran itself are work too.
+			planWorkCalls += len(resp.WebSearches) + len(resp.WebFetches)
+			for _, call := range resp.ToolCalls {
+				switch call.Name {
+				case "update_plan":
+					planSeen = true
+				case "say", "send_chat_message":
+				default:
+					planWorkCalls++
+				}
+			}
+			if !planSeen && planWorkCalls >= cfg.PlanReminderAfter {
+				planReminded = true
+				ctx.Log("[Agent] Plan reminder after %d tool calls", planWorkCalls)
+				messages = append(messages, provider.Message{Role: "user", Content: cfg.PlanReminder})
+			}
 		}
 		if cfg.MaxToolCallsBetweenReports > 0 && toolCallsSinceReport >= cfg.MaxToolCallsBetweenReports {
 			if cycleSawTool && cycleOnlyDiscovery && !cycleSawNovel {

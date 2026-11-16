@@ -693,8 +693,8 @@
     "working_many": "En cours · {{count}} étapes"
   },
   "plan": {
-    "title": "Étapes",
-    "dock_label": "Étapes en cours des Bots",
+    "title": "Plan",
+    "dock_label": "Plans en cours des Bots",
     "count": "{{done}} sur {{total}}",
     "done": "Terminé",
     "waiting": "En attente",

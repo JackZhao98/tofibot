@@ -102,6 +102,10 @@ type Request struct {
 	// ForceToolUse requires a tool call on every ordinary model request of a
 	// structured run (see agent.Config.ForceToolUse).
 	ForceToolUse bool
+	// PlanReminder, when set, is said once after PlanReminderAfter tool calls
+	// of a run that has not called update_plan (see agent.AgentConfig).
+	PlanReminder      string
+	PlanReminderAfter int
 	// OnToolCallDelta receives every streamed tool-call fragment while the
 	// model is still writing it, in order. It is called from the provider's
 	// stream goroutine and must not block.

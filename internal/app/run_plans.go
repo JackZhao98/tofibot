@@ -42,8 +42,15 @@ const (
 	planClosedAnswered = "answered" // the run gave its answer and waits on nothing
 	planClosedStopped  = "stopped"  // the person stopped the work (Stop all)
 	planClosedPassed   = "passed"   // a later run of the same work took the list over
+	planClosedReplaced = "replaced" // the Bot started other work here and nothing carries this list on
 
-	updatePlanToolDescription = "Keep a short list of the steps of your current work. The person sees the list above the message box while you work, and it changes each time you call this tool. Make a list when the work needs three or more distinct steps, or when the person asks for several things. Do not make a list for work that one or two actions complete. Start each step with a verb, and write the steps in the language of the person. Keep one step in_progress. Mark a step done as soon as it is complete, and start the next step in the same call. Call this tool in the same turn as your next action. Change the list when you learn new facts. Leave a step that you did not complete as it is. The list does not replace your answer."
+	// planReminderAfterCalls: early enough that most of a multi-step job is
+	// still ahead (live runs batch three or more searches into one turn, so a
+	// later reminder found only the answer left to write).
+	planReminderAfterCalls = 2
+	planReminderLine       = "This request has taken several tool calls and you keep no step list. When more than one step of the work remains, call update_plan now with the whole list: the finished steps done, the current step in_progress. Then continue the work. Do not mention this note."
+
+	updatePlanToolDescription = "Write the steps of your current work as a short list, then keep the list current while you work. The person sees it above the message box. Call this tool first, in the same turn as your first action, when the request has several parts or needs three or more actions. Skip it when one or two actions complete the work. Send the whole list in steps, or use advance to mark the step in progress as done and start the next one. Start each step with a verb, in the language of the person. Keep one step in_progress. Mark a step done as soon as it is complete. Change the list when you learn new facts. Leave a step that you did not complete as it is. The list does not replace your answer or your notes."
 )
 
 // PlanStep is one step of a plan. The id stays the same while the step's text
@@ -321,7 +328,9 @@ func closeRunPlansTx(tx *sql.Tx, runIDs []string, reason string) error {
 // the run ends its turn waiting (a pending answer or a pending wait): then the
 // run that carries the work on takes the list over.
 func planRunFinishedTx(tx *sql.Tx, runID, sayOutcome string) error {
-	if sayOutcome == sayOutcomePending {
+	// delegated: the members the run gave parts to carry the rest, and their
+	// results come back to a run of this Bot that takes the list over.
+	if sayOutcome == sayOutcomePending || sayOutcome == sayOutcomeDelegated {
 		return nil
 	}
 	var waiting int
@@ -331,21 +340,58 @@ func planRunFinishedTx(tx *sql.Tx, runID, sayOutcome string) error {
 	if waiting > 0 {
 		return nil
 	}
+	// The list follows the answer. An answer the Bot gives as done (say outcome
+	// done) finishes every step: the model rarely marks the last steps before it
+	// answers (live runs, 2026-11-15). Without an outcome the answer finishes
+	// only a last step in progress after done steps. Any other open step stays
+	// open, so the history says what the answer left.
+	if p, _, ok, err := planRow(tx, runID); err != nil {
+		return err
+	} else if ok && p.Open && len(p.Steps) > 0 {
+		changed := false
+		if sayOutcome == sayOutcomeDone {
+			for i := range p.Steps {
+				if p.Steps[i].Status != planDone {
+					p.Steps[i].Status, changed = planDone, true
+				}
+			}
+		} else if last := len(p.Steps) - 1; p.Steps[last].Status == planInProgress {
+			rest := true
+			for _, st := range p.Steps[:last] {
+				rest = rest && st.Status == planDone
+			}
+			if rest {
+				p.Steps[last].Status, changed = planDone, true
+			}
+		}
+		if changed {
+			data, _ := json.Marshal(p.Steps)
+			if _, err = tx.Exec(`UPDATE run_plans SET steps=? WHERE run_id=?`, string(data), runID); err != nil {
+				return err
+			}
+		}
+	}
 	return closeRunPlansTx(tx, []string{runID}, planClosedAnswered)
 }
 
+// planLineageSteps bounds the walk up the parent runs: a delegation's return
+// run descends from the member's run, which descends from the lead's run.
+const planLineageSteps = 8
+
 // planRunStartedTx runs where a run starts for the first time. A run that
 // carries on earlier work of the same Bot in the same conversation takes that
-// work's open list: a retry, a resume or a wake of its parent run, or the run
-// that reads the messages a run left unread. A person's new request starts
-// without a list.
+// work's open list: a retry, a resume or a wake of its nearest ancestor run of
+// this Bot (a delegation's return run descends from the member's run), or the
+// run that reads the messages a run left unread. A run that takes no list
+// closes the lists nothing will carry on any more (closeOrphanPlansTx), so a
+// person's new request starts clean.
 func planRunStartedTx(tx *sql.Tx, runID string) error {
-	var conv, bot, kind, parent string
-	if err := tx.QueryRow(`SELECT conversation_id,bot_id,kind,COALESCE(parent_run_id,'') FROM runs WHERE id=?`, runID).
-		Scan(&conv, &bot, &kind, &parent); err != nil {
+	var conv, bot, kind, parent, trigger, resume string
+	if err := tx.QueryRow(`SELECT conversation_id,bot_id,kind,COALESCE(parent_run_id,''),COALESCE(trigger_message_id,''),COALESCE(resume_notice,'') FROM runs WHERE id=?`, runID).
+		Scan(&conv, &bot, &kind, &parent, &trigger, &resume); err != nil {
 		return nil
 	}
-	if kind == runKindTriage || kind == runKindSchedule {
+	if kind == runKindTriage {
 		return nil
 	}
 	if _, _, exists, err := planRow(tx, runID); err != nil || exists {
@@ -366,16 +412,46 @@ func planRunStartedTx(tx *sql.Tx, runID string) error {
 	}
 	const openPlan = `SELECT p.run_id FROM run_plans p JOIN runs r ON r.id=p.run_id WHERE p.closed='' AND p.conversation_id=? AND p.bot_id=? AND p.run_id<>? AND r.status NOT IN ('queued','running','waiting') AND p.steps<>'[]'`
 	source := ""
-	// The parent of a retry, a resume and a wake (the run that registered the wait).
-	if parent != "" {
-		source = open(openPlan+` AND p.run_id=?`, conv, bot, runID, parent)
+	// The nearest ancestor run of this Bot here: the parent of a retry, a resume
+	// and a wake (the run that registered the wait), or the lead's run above the
+	// member's run a delegation's return run descends from. A scheduled
+	// occurrence carries a list on only as the retry or resume of its parent.
+	ancestor := parent
+	if kind == runKindSchedule && resume != resumeNoticeTask {
+		var parentTrigger string
+		_ = tx.QueryRow(`SELECT COALESCE(trigger_message_id,'') FROM runs WHERE id=?`, parent).Scan(&parentTrigger)
+		if trigger == "" || parentTrigger != trigger {
+			ancestor = ""
+		}
+	}
+	// A run that works on a task another Bot gave it carries on only its own
+	// direct parent's list (a retry or a wake); the walk past it would reach
+	// the giver's work.
+	walk := planLineageSteps
+	var given int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM work_items WHERE assignee_run_id=? AND assigner_kind='bot'`, runID).Scan(&given); err != nil {
+		return err
+	}
+	if given > 0 {
+		walk = 1
+	}
+	for step := 0; ancestor != "" && step < walk; step++ {
+		var aConv, aBot, aParent string
+		if tx.QueryRow(`SELECT conversation_id,bot_id,COALESCE(parent_run_id,'') FROM runs WHERE id=?`, ancestor).Scan(&aConv, &aBot, &aParent) != nil {
+			break
+		}
+		if aConv == conv && aBot == bot {
+			source = open(openPlan+` AND p.run_id=?`, conv, bot, runID, ancestor)
+			break
+		}
+		ancestor = aParent
 	}
 	// The run that left the messages this run reads.
-	if source == "" {
+	if source == "" && kind != runKindSchedule {
 		source = open(openPlan+` AND p.run_id IN (SELECT parent_run FROM bot_inbox WHERE consumed_by_run=? AND kind='user_message')`, conv, bot, runID, runID)
 	}
 	if source == "" {
-		return nil
+		return closeOrphanPlansTx(tx, conv, bot, runID)
 	}
 	var steps string
 	var nextID int
@@ -394,6 +470,35 @@ func planRunStartedTx(tx *sql.Tx, runID string) error {
 		return err
 	}
 	return planEventTx(tx, plan)
+}
+
+// closeOrphanPlansTx closes this Bot's open lists here whose runs have ended
+// and that nothing will carry on: the run holds no pending wait and left no
+// paused task to resume. It runs when a run of the Bot starts without a list,
+// so a list left by a wait that was cancelled, an answer that promised work, or
+// a failed run whose retry is no longer possible does not stay open.
+func closeOrphanPlansTx(tx *sql.Tx, conv, bot, runID string) error {
+	rows, err := tx.Query(`SELECT p.run_id FROM run_plans p JOIN runs r ON r.id=p.run_id WHERE p.closed='' AND p.conversation_id=? AND p.bot_id=? AND p.run_id<>? AND r.status NOT IN ('queued','running','waiting')
+	 AND NOT EXISTS(SELECT 1 FROM waits w WHERE w.run_id=p.run_id AND w.status='pending')
+	 AND NOT EXISTS(SELECT 1 FROM work_items wi WHERE wi.source_run_id=p.run_id AND wi.status='todo' AND wi.interrupted_at<>'')`, conv, bot, runID)
+	if err != nil {
+		return err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	return closeRunPlansTx(tx, ids, planClosedReplaced)
 }
 
 // runHoldsChecklist reports whether the run works on a task whose checklist has
@@ -456,6 +561,28 @@ func (s *Server) updatePlanTool(r Run) Tool {
 			receipt["done"] = done
 			return receiptJSON(receipt)
 		}}
+}
+
+// planMidRunReminder is the one reminder a run gets after
+// planReminderAfterCalls tool calls with no update_plan call: Claude Code's
+// reminder that its todo list is unused. Live runs on 2026-11-15 showed that
+// the tool description, a system line and a line beside the request did not
+// make the model keep a list for a four-part request; in the middle of the
+// work the reminder is a direct instruction about work the model can see.
+// Empty when the run has no update_plan tool or already keeps a list.
+func (s *Server) planMidRunReminder(r Run, tools []Tool) string {
+	if r.ID == "" {
+		return ""
+	}
+	for _, tool := range tools {
+		if tool.Name == "update_plan" {
+			if _, ok := s.store.runPlan(r.ID); ok {
+				return ""
+			}
+			return planReminderLine
+		}
+	}
+	return ""
 }
 
 // currentPlanContext is the block a run reads when it starts with a list: one

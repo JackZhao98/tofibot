@@ -444,7 +444,7 @@ export interface RunPlan {
   version: number;
   /** False once the run answered, the person stopped the work, or a later run took the list over. */
   open: boolean;
-  closed?: "answered" | "stopped" | "passed";
+  closed?: "answered" | "stopped" | "passed" | "replaced";
   inherited_from?: string;
   updated_at: string;
 }

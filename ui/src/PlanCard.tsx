@@ -79,10 +79,19 @@ export function PlanDock({ runs, events, tasks, botById, group }: { runs: readon
   const [lingering, setLingering] = useState<DockEntry[]>([]);
   const previous = useRef<DockEntry[]>([]);
   const [held, setHeld] = useState(false);
+  // A card that just left waits a moment for its final state: the run's done event and the list's last update arrive
+  // as separate events, in either order.
+  const recentlyGone = useRef(new Map<string, { entry: DockEntry; at: number }>());
   useEffect(() => {
-    const gone = previous.current.filter(old => !live.some(entry => entry.key === old.key));
-    const finished = gone.map(old => finishedEntry(old, runs, events)).filter((entry): entry is DockEntry => Boolean(entry));
+    const now = Date.now();
+    for (const old of previous.current) if (!live.some(entry => entry.key === old.key)) recentlyGone.current.set(old.key, { entry: old, at: now });
     previous.current = live;
+    const finished: DockEntry[] = [];
+    for (const [key, { entry, at }] of recentlyGone.current) {
+      const done = live.some(item => item.key === key) ? undefined : finishedEntry(entry, runs, events);
+      if (done) finished.push(done);
+      if (done || now - at > PLAN_LINGER_MS || live.some(item => item.key === key)) recentlyGone.current.delete(key);
+    }
     setLingering(current => {
       const kept = current.filter(entry => !live.some(item => item.key === entry.key) && !finished.some(item => item.key === entry.key));
       const next = [...kept, ...finished];
@@ -105,6 +114,8 @@ export function PlanDock({ runs, events, tasks, botById, group }: { runs: readon
   // the perch rule (plan-card.css) reads how far the field starts below the dock's top.
   const dock = useRef<HTMLElement>(null);
   const showing = shown.length > 0;
+  // The section unmounts under the pointer or focus without a leave or blur event: start the next card unheld.
+  useEffect(() => { if (!showing) setHeld(false); }, [showing]);
   useLayoutEffect(() => {
     const section = dock.current, form = section?.closest<HTMLElement>("form.composer"), row = form?.querySelector<HTMLElement>(".composer-row");
     if (!section || !form || !row) return;

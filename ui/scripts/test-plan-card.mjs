@@ -67,6 +67,14 @@ try {
   assert.equal(model.planHistory({ ...stopped, open: false, closed: "passed" }, { status: "failed" }), undefined, "a list passed to a retry is the retry's history");
   assert.equal(model.planEndedIncomplete({ ...stopped, open: false, closed: "answered" }, { status: "done" }), true);
   assert.equal(model.planEndedIncomplete(plan("ok", "a", [["All", "done"]], { open: false, closed: "answered" }), { status: "done" }), false);
+  // A list changes without touching the run's updated_at: a newer listed list rides in on an otherwise stale run.
+  const runMerge = await modules.load("/src/runMerge.ts");
+  const cached = run("rm", "a", "running", { updated_at: T(9), plan: plan("rm", "a", [["Old", "in_progress"]], { version: 3 }) });
+  const listed = { ...cached, updated_at: T(9), plan: { ...cached.plan, version: 7, steps: [{ id: "s1", text: "New", status: "in_progress" }] } };
+  assert.equal(runMerge.mergeRunUpdates([cached], [listed])[0].plan.version, 7, "a newer list survives a stale run update");
+  assert.equal(runMerge.mergeRunUpdates([listed], [cached])[0].plan.version, 7, "an older list never replaces a newer one");
+  // The run's done event can arrive before the list's closing event.
+  assert.equal(model.finishedEntry(entries[0], [run("ra", "a", "done", { plan: plan("ra", "a", [["Read", "done"], ["Compare", "done"], ["Write", "done"]], { version: 3 }) })], {}).state, "done", "every step done is enough to linger");
   const family = merge.familyPlan([run("f1", "a", "failed", { plan: stopped }), run("f2", "a", "done")], {});
   assert.equal(family.run.id, "f1", "a family's list comes from its newest attempt that kept one");
   console.log("PASS plan model: versions, sources, states, history");
@@ -169,8 +177,12 @@ try {
       await card.locator(".plan-card-trigger").click();
       // Every step done and the answer given: the done card stays a moment, then leaves.
       const finalPlan = dmPlan(4, LEDGER.map(([text]) => [text, "done"]), { open: false, closed: "answered" });
-      await page.evaluate(plan => window.__emit("run_plan", plan), dmPlan(3, LEDGER.map(([text]) => [text, "done"])));
-      await page.evaluate(([plan, finished]) => { window.__emit("run_plan", plan); window.__emit("run", finished); }, [finalPlan, liveRun("done", { updated_at: at(990), plan: finalPlan })]);
+      // The server sends the run's done event before the list's closing event (the answer finishes the last step): the
+      // card must still hold its done state, whatever renders between the two.
+      await page.evaluate(plan => window.__emit("run_plan", plan), dmPlan(3, LEDGER.map(([text], i) => [text, i < 4 ? "done" : "in_progress"])));
+      await page.evaluate(finished => window.__emit("run", finished), liveRun("done", { updated_at: at(990) }));
+      await page.waitForTimeout(120);
+      await page.evaluate(plan => window.__emit("run_plan", plan), finalPlan);
       await page.locator('.plan-card[data-plan-state="done"]').waitFor({ timeout: 4000 });
       await page.mouse.move(5, 5);
       await page.locator(".plan-dock").waitFor({ state: "detached", timeout: 6000 });
