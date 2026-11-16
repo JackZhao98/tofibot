@@ -318,14 +318,17 @@ func evalDo(s *Server, method, path string, body any) (int, string) {
 }
 
 // evalWaitIdle waits until the conversation has no active run and no open wait
-// for several polls in a row.
+// other than a question card, for several polls in a row.
 func evalWaitIdle(s *Server, conversationID string, limit time.Duration) bool {
 	deadline := time.Now().Add(limit)
 	quiet := 0
 	time.Sleep(2 * time.Second)
 	for time.Now().Before(deadline) {
+		// A run that waits only on a question card for the person has ended its
+		// turn: nobody answers here.
 		var active int
-		_ = s.store.db.QueryRow(`SELECT COUNT(*) FROM runs WHERE conversation_id=? AND status IN ('queued','running','waiting')`, conversationID).Scan(&active)
+		_ = s.store.db.QueryRow(`SELECT COUNT(*) FROM runs r WHERE r.conversation_id=? AND (r.status IN ('queued','running') OR (r.status='waiting' AND NOT EXISTS (
+			SELECT 1 FROM tool_activities t WHERE t.run_id=r.id AND t.status='running' AND t.name IN ('ask_user_question','ask_user_form'))))`, conversationID).Scan(&active)
 		if active == 0 {
 			quiet++
 		} else {
