@@ -593,7 +593,10 @@ func TestServerEngineRetriesFollowTheSetting(t *testing.T) {
 	defer failing.Close()
 	s := providerServer(t, nil, nil)
 	s.providerEndpoints[providerOpenAI] = failing.URL + "/v1"
+	// The server's schedule worker is already running and reads the key under providerMu on every tick.
+	s.providerMu.Lock()
 	s.envProviderKeys[providerOpenAI] = syntheticOpenAIKey
+	s.providerMu.Unlock()
 	if code := autoPutCode(t, s, `{"provider_retries":0}`); code != http.StatusOK {
 		t.Fatal(code)
 	}
