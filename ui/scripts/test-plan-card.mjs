@@ -6,13 +6,16 @@
 //     message pane is padded for it; a newer run_plan event moves the marks, an older one changes nothing; the done card
 //     stays a moment and leaves; a run that ended before its list was done keeps one history line; in a group the cards
 //     fold to one line each, opening one closes the other, and a fourth Bot folds into "+1 more"; at phone width nothing
-//     overflows; the card is not in the entry chunk.
+//     overflows; the card is not in the entry chunk. The team board is gone: a group's open to-dos are one line under the
+//     cards that opens the Work panel, the header has the Tasks button, and the Work panel filters by goal and changes
+//     the assignee of a group's item.
 //  3. Screenshots (--shots <dir>): 2x, light and dark, desktop and phone width, Chromium and WebKit, DM and group.
 // Run: PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm run test:plan-card [-- --browser] [-- --shots /abs/dir]
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { openUiModules } from "./ui-modules.mjs";
+import { pickSelect } from "./lib/select.mjs";
 
 const T = n => `2026-11-15T10:00:${String(n).padStart(2, "0")}.000000000Z`;
 const plan = (run_id, bot_id, steps, extra = {}) => ({ run_id, conversation_id: "c", bot_id, version: 1, open: true, updated_at: T(1), steps: steps.map(([text, status], i) => ({ id: `s${i + 1}`, text, status })), ...extra });
@@ -126,6 +129,25 @@ const groupRoute = async route => {
   if (path.endsWith("/task-cards")) { await json({ tasks: groupTasks }); return true; }
   return false;
 };
+// The Work panel's read for the group: a goal, the task under it, and one task without a goal; PATCHes are recorded.
+const groupWork = [
+  { id: "g_goal", kind: "goal", title: "Ship the launch", conversation_id: "g_team", bot_id: "bot_a", status: "todo", created_at: at(5), updated_at: at(5) },
+  { ...groupTasks[0], parent_goal_id: "g_goal" },
+  { id: "t_x", kind: "task", title: "Update the FAQ", conversation_id: "g_team", bot_id: "bot_b", status: "todo", created_at: at(24), updated_at: at(24) },
+];
+const groupWorkRoute = patches => async route => {
+  const request = route.request();
+  const url = new URL(request.url());
+  if (url.pathname.endsWith("/task-cards")) { await route.fulfill({ status: 200, json: { tasks: groupWork.filter(item => item.kind === "task") } }); return true; }
+  if (url.pathname === "/api/conversations/g_team/work-items") { await route.fulfill({ status: 200, json: { work_items: url.searchParams.get("history") === "true" ? [] : groupWork } }); return true; }
+  if (url.pathname.startsWith("/api/work-items/") && request.method() === "PATCH") {
+    const body = request.postDataJSON();
+    patches.push({ id: decodeURIComponent(url.pathname.split("/").at(-1)), ...body });
+    await route.fulfill({ status: 200, json: { ...groupWork.find(item => url.pathname.endsWith(item.id)), ...body } });
+    return true;
+  }
+  return groupRoute(route);
+};
 
 const MAC = () => { const off = () => () => {}; window.tofiDesktop = { platform: "darwin", themePreference: "light", onCommand: off, onWindowState: off, onFlushState: off, appearance: async () => {}, remoteInputFocus: () => {}, readWorkspaceState: async () => ({}), writeWorkspaceState: async () => {} }; };
 
@@ -223,6 +245,35 @@ try {
         await opened.context.close();
       }
 
+      // -- Group without the team board: the open to-dos line opens the Work panel; goal filter; assignee change.
+      {
+        const patches = [];
+        const opened = await fixture.open({ path: "/g/g_team", messages: groupMessages, route: groupWorkRoute(patches) });
+        const { page } = opened;
+        await page.locator(".plan-dock-tasks").waitFor({ timeout: 8000 });
+        assert.equal((await page.locator(".plan-dock-tasks").textContent()).trim(), "2 open to-dos", `${engineName}: the open to-dos of this group`);
+        assert.equal(await page.locator('.header-actions [data-hint="Team board"]').count(), 0, `${engineName}: no board button`);
+        assert.equal(await page.locator('.header-actions [data-hint="Tasks"]').count(), 1, `${engineName}: the Tasks button, like a DM`);
+        await page.locator(".plan-dock-tasks").click();
+        const panel = page.locator(".work-panel");
+        await panel.locator(".work-row").first().waitFor({ timeout: 8000 });
+        const titles = () => panel.locator(".work-row-main > strong").allTextContents();
+        assert.deepEqual(await titles(), ["Ship the launch", "Support macros", "Update the FAQ"]);
+        await pickSelect(panel.locator("button.work-goal-filter"), "g_goal");
+        assert.deepEqual(await titles(), ["Ship the launch", "Support macros"], `${engineName}: the goal and the to-dos under it`);
+        await pickSelect(panel.locator("button.work-goal-filter"), "");
+        const faq = panel.locator(".work-row", { hasText: "Update the FAQ" });
+        await faq.locator("summary").click();
+        const patched = page.waitForResponse(response => response.request().method() === "PATCH" && response.url().includes("/api/work-items/"));
+        await pickSelect(faq.locator('button.ui-select-trigger[aria-label="Assignee of Update the FAQ"]'), "bot_c");
+        await patched;
+        assert.deepEqual(patches, [{ id: "t_x", bot_id: "bot_c" }], `${engineName}: the assignee change is one PATCH`);
+        // WebKit now and then reports the ResizeObserver loop notice when any Select opens in the Work panel, with or
+        // without the dock (the status Select too; checked 2026-11-15). It is a browser notice, not an exception.
+        assert.deepEqual(opened.errors.filter(error => error !== "ResizeObserver loop completed with undelivered notifications."), []);
+        await opened.context.close();
+      }
+
       // -- Phone width and reduced motion: nothing overflows, the list scrolls inside the card.
       {
         const { page, context, errors } = await dmScenario(fixture, { viewport: { width: 390, height: 844 }, motion: "reduce" });
@@ -244,7 +295,7 @@ try {
     assert.ok(!entry.join("\n").includes("plan-card-trigger"), "PlanCard is a lazy chunk");
     assert.ok(!entry.join("\n").includes("data-radix-accordion"), "Radix Accordion stays out of the entry");
     void readFileSync; void readdirSync;
-    console.log("PASS plan card browser: placement, padding, live updates, version order, done linger, history line, group accordion, phone width (chromium, webkit)");
+    console.log("PASS plan card browser: placement, padding, live updates, version order, done linger, history line, group accordion, open to-dos line, Work panel goal filter and assignee, phone width (chromium, webkit)");
   }
 
   if (shotsDir) {
@@ -263,6 +314,15 @@ try {
           await opened.page.waitForTimeout(600);
           await opened.page.screenshot({ path: join(shotsDir, `group-${label}-${theme}-${engineName}.png`) });
           await opened.context.close();
+          // The Work panel opened from the open to-dos line, filtered by goal, with a to-do's details open.
+          const work = await fixture.open({ path: "/g/g_team", messages: groupMessages, route: groupWorkRoute([]), viewport, theme, contextOptions: { deviceScaleFactor: 2 } });
+          await work.page.locator(".plan-dock-tasks").click();
+          const panel = work.page.locator(".work-panel");
+          await panel.locator(".work-row").first().waitFor({ timeout: 8000 });
+          await panel.locator(".work-row", { hasText: "Update the FAQ" }).locator("summary").click();
+          await work.page.waitForTimeout(600);
+          await work.page.screenshot({ path: join(shotsDir, `work-${label}-${theme}-${engineName}.png`) });
+          await work.context.close();
         }
       }
       if (engineName === "chromium") {

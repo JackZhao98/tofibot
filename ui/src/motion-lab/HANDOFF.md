@@ -55,7 +55,7 @@ Motion Lab 是一个独立的展示页：`ui/motion-lab.html`，源码在 `ui/sr
 | 侧栏重排 / 折叠 / 新 Bot / 连接状态 | `demos/sidebar/SidebarDemo.tsx` | `App.tsx` 侧栏、`sidebarCollapsed`、`SidebarAccount` |
 | 头像 → 面板大猫、换毛色、换身形 | `demos/bot/BotPanelDemo.tsx` | `App.tsx` 的 `BotPanel`、`BotAvatarPicker.tsx` |
 | 按住删除 | `demos/bot/HoldDeleteDemo.tsx` | `DeleteConversationDialog.tsx`（交互方式会变，先确认） |
-| ticket 接力 | `stations/HandoffRelay.tsx` | `TeamBoard.tsx` / `WorkPanel.tsx`（设计稿里的未来提案） |
+| ticket 接力 | `stations/HandoffRelay.tsx` | `WorkPanel.tsx`（设计稿里的未来提案；团队看板 2026-11-15 已撤） |
 | 悬浮电脑开机、指针、接管 | `demos/computer/DesktopDemo.tsx` | `FloatingDesktop.tsx`、`desktop-presence.css`、`RemoteDesktopControl.tsx` |
 | 设备配对 | `demos/computer/PairingDemo.tsx` | Web `ComputerPanel.tsx` 查询一次性配对记录，确认该码关联的设备后才显示实线与勾；真实 Mac 配对验收待做 |
 | 权限引导 | `demos/computer/PermissionDemo.tsx` | `PermissionCoach.tsx` |

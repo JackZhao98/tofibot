@@ -305,7 +305,6 @@
     "delete_hint": "Supprime le groupe et sa discussion. Cette action est irréversible."
   },
   "header": {
-    "back_to_chat": "Retour à la conversation",
     "bot_memory": "Mémoire de ce Bot",
     "bot_settings": "Réglages du Bot",
     "copy_link": "Copier le lien de la conversation",
@@ -318,11 +317,9 @@
     "more": "Plus d’actions",
     "open_members": "Ouvrir les membres de la conversation",
     "open_shared_computer": "Ouvrir l’ordinateur Bot",
-    "open_team_board": "Ouvrir le tableau d’équipe",
     "open_terminal": "Ouvrir le terminal",
     "schedule": "Tâches et planning",
     "shared_computer": "Ordinateur Bot",
-    "team_board": "Tableau d’équipe",
     "terminal": "Terminal",
     "usage": "Utilisation",
     "computer_on": "Ordinateur Bot, allumé",

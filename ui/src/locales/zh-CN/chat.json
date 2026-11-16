@@ -297,7 +297,6 @@
     "delete_hint": "删除这个群和它的聊天，无法撤销。"
   },
   "header": {
-    "back_to_chat": "返回对话",
     "bot_memory": "这个 Bot 的记忆",
     "bot_settings": "Bot 设置",
     "copy_link": "复制会话链接",
@@ -308,11 +307,9 @@
     "more": "更多操作",
     "open_members": "打开会话成员详情",
     "open_shared_computer": "打开 Bot 电脑",
-    "open_team_board": "打开团队看板",
     "open_terminal": "打开终端",
     "schedule": "待办与日程",
     "shared_computer": "Bot 电脑",
-    "team_board": "团队看板",
     "terminal": "终端",
     "usage": "用量",
     "computer_on": "Bot 电脑,已开机",

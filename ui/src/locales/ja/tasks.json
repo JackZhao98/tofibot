@@ -677,6 +677,7 @@
     "done": "完了",
     "waiting": "待機中",
     "more_other": "ほか {{count}} 件：{{names}}",
+    "open_tasks_other": "未完了のタスク {{count}} 件",
     "history": "計画 · {{done}}/{{total}} 完了",
     "history_stopped": "計画 · {{total}} 中 {{step}} 番目で停止",
     "state": {

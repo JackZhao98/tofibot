@@ -67,10 +67,9 @@
   .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   /* The jump pill sits at the middle of the message column, so it moves left with the column when widgets open. */
   .workspace .workspace-grid .jump-latest { left:0; right:var(--context-room,0px); transition:right var(--m-panel-out) var(--ease-settle); }
-  .workspace .workspace-grid .team-board-screen { padding-right:calc(clamp(12px,3vw,30px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   .workspace .workspace-grid:is(.context-open,.sidebar-open) .message-scroll { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
-  .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.jump-latest,.team-board-screen,.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
+  .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.jump-latest,.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
 
   /* Focus mode: an expanded sidebar, or a sidebar on a window too narrow to share (chat under ~640px), gives the whole chat to the
      messages. The widgets stay open and mounted, hidden once the track is in, and return as it closes. */
@@ -91,7 +90,7 @@
 @media (prefers-reduced-motion:reduce) {
   .workspace .sidebar-pane > *, .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }
   .workspace .workspace-grid, .workspace .detail-pane.widget-column { transition:none!important; }
-  .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest,.team-board-screen) { transition:none!important; }
+  .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest) { transition:none!important; }
 }
 
 /* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that

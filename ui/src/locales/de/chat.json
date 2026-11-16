@@ -301,7 +301,6 @@
     "delete_hint": "Entfernt die Gruppe und ihren Chat. Das lässt sich nicht rückgängig machen."
   },
   "header": {
-    "back_to_chat": "Zurück zur Unterhaltung",
     "bot_memory": "Erinnerungen dieses Bots",
     "bot_settings": "Bot-Einstellungen",
     "copy_link": "Link zur Unterhaltung kopieren",
@@ -313,11 +312,9 @@
     "more": "Weitere Aktionen",
     "open_members": "Mitglieder der Unterhaltung öffnen",
     "open_shared_computer": "Bot-Computer öffnen",
-    "open_team_board": "Teamboard öffnen",
     "open_terminal": "Terminal öffnen",
     "schedule": "To-dos und Termine",
     "shared_computer": "Bot-Computer",
-    "team_board": "Teamboard",
     "terminal": "Terminal",
     "usage": "Nutzung",
     "computer_on": "Bot-Computer, an",
