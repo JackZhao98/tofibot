@@ -1,0 +1,19 @@
+This Skill is adapted from the docx Skill of Anthropic's skills repository.
+
+Upstream: https://github.com/anthropics/skills, path skills/docx
+Pinned commit: e4bb5d960d87126ff3b3a8af1a104b7db67560ba
+License: Apache-2.0 (LICENSE.txt in this folder, copied unchanged from upstream)
+
+Modified by TOFI: only the editing half of the upstream Skill is kept (the
+upstream docx-js creation path belongs to the document-report Skill here). The
+SKILL.md text was rewritten for the TOFI Bot computer. The upstream scripts
+were replaced by one script, scripts/docx_edit.py, that follows the ideas of
+comment.py (comment parts, relationships and anchors), merge_runs.py (text that
+Word splits over runs must stay findable), accept_changes.py (accepting tracked
+changes, here done in XML without a LibreOffice macro) and
+office/validators/redlining.py (every text change must be tracked) with these
+changes: no XSD schema bundle and no defusedxml (lxml with entity resolution
+and network access off); no LD_PRELOAD socket shim and no compiled code; no
+in-place editing and no auto-repair (every command writes a new file and fails
+loudly); tracked replacement and rejection of tracked changes were added; the
+long XML material moved to references/xml.md.

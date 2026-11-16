@@ -296,8 +296,11 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// 9566: plus the delivery sentence naming send_message attachments (+6 measured: 9556 -> 9562).
 				// 10052: plus the four new Skills' directory rows (web-research, email, web-tasks, install-software), the new
 				// directory header and the work-guidance line naming read_skill in place of read_workflow_guide (+486 measured: 9562 -> 10048).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 10052 {
-					t.Errorf("ordinary DM provider system exceeds 10052 runes")
+				// 10975: plus the directory rows of the seven batch-1 Skills (pdf, docx-edit, image-edit,
+				// video-edit, file-convert, data-chart, web-to-sheet), all of which now fit the Skill rows'
+				// own budget (+926 measured: 10048 -> 10974).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 10975 {
+					t.Errorf("ordinary DM provider system exceeds 10975 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -379,8 +382,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 9395: the say tool renamed send_message (+18 measured: 9376 -> 9394).
 					// 9401: plus the delivery sentence naming send_message attachments (+6 measured: 9394 -> 9400).
 					// 9890: plus the same four Skill rows, header and work-guidance line (+486 measured: 9400 -> 9886).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9890 {
-						t.Errorf("structured DM provider system exceeds 9890 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
+					// 10815: plus the seven batch-1 Skill rows, as above (+926 measured: 9886 -> 10812).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 10815 {
+						t.Errorf("structured DM provider system exceeds 10815 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "send_message(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

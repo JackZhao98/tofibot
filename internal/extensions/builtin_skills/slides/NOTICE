@@ -1,0 +1,16 @@
+This Skill contains material adapted from Anthropic's pptx Skill.
+
+Upstream: https://github.com/anthropics/skills, path skills/pptx
+Pinned commit: e4bb5d960d87126ff3b3a8af1a104b7db67560ba
+License: Apache-2.0 (copy in LICENSE.txt)
+
+Modified by TOFI: the SKILL.md guidance on type sizes, safe fonts, spacing,
+design cautions, editing an existing deck or template (structure before
+content, whole-group deletion, run-level text edits, leftover placeholder
+text) and visual and content checks was rewritten from the upstream SKILL.md
+for TOFI's python-pptx and LibreOffice toolbox. scripts/pptx_check.py and
+scripts/pptx_slides.py are new code written for TOFI that follow the ideas of
+upstream QA checks and scripts/add_slide.py; no upstream code is included.
+The upstream pptxgenjs workflow, apply_theme.js, validate.py with its XML
+schemas, thumbnail.py, clean.py and the LibreOffice socket shim are not
+included.

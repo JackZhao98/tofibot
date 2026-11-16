@@ -1,0 +1,19 @@
+This Skill is adapted from the pdf Skill of Anthropic's skills repository.
+
+Upstream: https://github.com/anthropics/skills, path skills/pdf
+Pinned commit: e4bb5d960d87126ff3b3a8af1a104b7db67560ba
+License: Apache-2.0 (LICENSE.txt in this folder, copied unchanged from upstream)
+
+Modified by TOFI: the SKILL.md text was rewritten for the TOFI Bot computer
+(tool names, Linux toolbox, delivery with send_message attachments). The
+upstream scripts were replaced by scripts/pdf_tools.py and scripts/pdf_form.py:
+form field listing and filling, and the flat-form text placement with its box
+checks, follow the upstream scripts (extract_form_field_info.py,
+fill_fillable_fields.py, check_bounding_boxes.py, fill_pdf_form_with_annotations.py)
+with these changes: text on flat forms is drawn with reportlab instead of
+FreeText annotations; labels come from pdftotext instead of pdfplumber;
+page rendering uses pdftoppm instead of pdf2image; no command accepts a
+password on the command line; outputs are new files and the input is never
+overwritten. The long form and reference material moved to references/forms.md
+and references/reference.md with the pdf-lib, pypdfium2, pdfjs, qpdf, pdftk and
+pdfplumber recipes removed because those tools are not on the Bot computer.

@@ -1,0 +1,7 @@
+video-edit: the size-budget idea for GIFs (a byte budget, then reduce frame rate,
+colors and width until the file fits) is informed by Anthropic's slack-gif-creator
+Skill (https://github.com/anthropics/skills, path skills/slack-gif-creator,
+commit e4bb5d960d87126ff3b3a8af1a104b7db67560ba, Apache-2.0).
+No text or code from it is reused; scripts/gif_budget.py is written by TOFI and
+builds GIFs with the system ffmpeg (palettegen and paletteuse). Nothing of that
+Skill is bundled, including its imageio-ffmpeg dependency and ffmpeg binary.
