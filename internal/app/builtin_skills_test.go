@@ -50,7 +50,7 @@ func directoryOf(t *testing.T, s *Server, bot string) string {
 func TestBuiltinSkillsAreListedAsBuiltinAndOnByDefault(t *testing.T) {
 	env := newLibEnv(t)
 	listed := listSkillsHTTP(t, env.handler)
-	for _, name := range []string{"spreadsheet", "document-report", "slides", "web-page", "code-delivery"} {
+	for _, name := range []string{"spreadsheet", "document-report", "slides", "web-page", "code-delivery", "video"} {
 		item, ok := listed[name]
 		if !ok || !item.Builtin {
 			t.Fatalf("%s = %+v ok=%v", name, item, ok)

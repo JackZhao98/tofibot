@@ -212,6 +212,11 @@ func (s *Server) dictate(w http.ResponseWriter, r *http.Request) {
 }
 
 func requestTranscription(ctx context.Context, endpoint, apiKey, model string, audio []byte, header *multipart.FileHeader) (string, error) {
+	return requestTranscriptionIn(ctx, endpoint, apiKey, model, "", audio, header)
+}
+
+// requestTranscriptionIn also names the spoken language (ISO 639-1) when known.
+func requestTranscriptionIn(ctx context.Context, endpoint, apiKey, model, language string, audio []byte, header *multipart.FileHeader) (string, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	filename := filepath.Base(header.Filename)
@@ -227,6 +232,11 @@ func requestTranscription(ctx context.Context, endpoint, apiKey, model string, a
 	}
 	if err = writer.WriteField("model", model); err != nil {
 		return "", fmt.Errorf("write transcription model: %w", err)
+	}
+	if language != "" {
+		if err = writer.WriteField("language", language); err != nil {
+			return "", fmt.Errorf("write transcription language: %w", err)
+		}
 	}
 	if err = writer.WriteField("response_format", "json"); err != nil {
 		return "", fmt.Errorf("write transcription format: %w", err)

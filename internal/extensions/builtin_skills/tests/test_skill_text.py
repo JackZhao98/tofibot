@@ -9,7 +9,9 @@ import unittest
 from _support import SKILLS
 
 SKILL_FILES = sorted(glob.glob(os.path.join(SKILLS, "*", "SKILL.md")))
-EXPECTED = {"spreadsheet", "document-report", "slides", "web-page", "code-delivery"}
+EXPECTED = {"spreadsheet", "document-report", "slides", "web-page", "code-delivery", "video"}
+# Skills that read a file and deliver none; the deliverable verification wording does not apply.
+READ_ONLY = {"video"}
 # Principles only: no sample sentences, no contrasts, no keyword lists.
 BANNED = [r"\be\.g\.", r"\bi\.e\.", r"for example", r"for instance", r"such as", r"rather than", r"instead of", r"\bnot\b[^.\n]*\bbut\b",
           r"\bbut not\b", r"\bnever\b[^.\n]*\balways\b", r"[\"“”]"]
@@ -35,6 +37,8 @@ class SkillText(unittest.TestCase):
 
     def test_every_skill_states_the_verification_principle(self):
         for path in SKILL_FILES:
+            if os.path.basename(os.path.dirname(path)) in READ_ONLY:
+                continue
             _, body = split(path)
             self.assertIn("Every claim in the reply is true of the delivered", body, path)
             self.assertIn("Publish only the final", body, path)

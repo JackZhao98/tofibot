@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-var builtinNames = []string{"code-delivery", "document-report", "slides", "spreadsheet", "web-page"}
+var builtinNames = []string{"code-delivery", "document-report", "slides", "spreadsheet", "video", "web-page"}
 
 func prepareBuiltin(t *testing.T, cfg Config, bot string) *Prepared {
 	t.Helper()
@@ -46,7 +46,8 @@ func TestBuiltinSkillsShipWithTheBinary(t *testing.T) {
 				t.Fatalf("%s ships %s", s.Name, f.Path)
 			}
 		}
-		if !hasManifest || !hasScript {
+		// video is read-only and ships no script.
+		if !hasManifest || (!hasScript && s.Name != "video") {
 			t.Fatalf("%s manifest=%v script=%v", s.Name, hasManifest, hasScript)
 		}
 		_, again, _ := BuiltinSkillFiles(s.Name)
