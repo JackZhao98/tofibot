@@ -27,7 +27,7 @@ func (f cadenceFixture) run(t *testing.T) *scriptedProvider {
 		return ExtraBuiltinTool{Schema: provider.Tool{Name: name, Parameters: map[string]any{"type": "object"}}, HandlerCtx: handler}
 	}
 	if _, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", MaxToolCallsBetweenReports: 2, StructuredOutput: f.structured,
-		OnAssistantTurn: func(int, string) {}, ExtraTools: []ExtraBuiltinTool{tool("lookup"), tool("say")}}); err != nil {
+		OnAssistantTurn: func(int, string) {}, ExtraTools: []ExtraBuiltinTool{tool("lookup"), tool("send_message")}}); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -48,25 +48,25 @@ func sawReminder(p *scriptedProvider, text string) bool {
 // update the cadence asks for; a legacy visible turn does.
 func TestPlainTextDoesNotSatisfyTheUpdateCadenceWhenStructured(t *testing.T) {
 	structured := cadenceFixture{structured: true, notes: []string{"lookup", "lookup", "lookup"}}.run(t)
-	if !sawReminder(structured, "say(note)") {
+	if !sawReminder(structured, "send_message(note)") {
 		t.Fatal("structured run was never asked for a say update")
 	}
 	legacy := cadenceFixture{structured: false, notes: []string{"lookup", "lookup", "lookup"}}.run(t)
-	if sawReminder(legacy, "say(note)") || sawReminder(legacy, "last user-visible progress update") {
+	if sawReminder(legacy, "send_message(note)") || sawReminder(legacy, "last user-visible progress update") {
 		t.Fatal("a visible plain text turn should have satisfied the legacy cadence")
 	}
 }
 
 func TestSayCallSatisfiesTheUpdateCadence(t *testing.T) {
-	p := cadenceFixture{structured: true, notes: []string{"lookup", "say", "lookup", "say", "lookup"}}.run(t)
-	if sawReminder(p, "say(note)") {
+	p := cadenceFixture{structured: true, notes: []string{"lookup", "send_message", "lookup", "send_message", "lookup"}}.run(t)
+	if sawReminder(p, "send_message(note)") {
 		t.Fatal("a say call every other step still triggered the reminder")
 	}
 }
 
 func TestStructuredPromptDropsTheTagGuidance(t *testing.T) {
 	p := cadenceFixture{structured: true}.run(t)
-	if sys := p.requests[0].System; strings.Contains(sys, "progress>") || !strings.Contains(sys, "say(note)") || !strings.Contains(sys, "private working text") {
+	if sys := p.requests[0].System; strings.Contains(sys, "progress>") || !strings.Contains(sys, "send_message(note)") || !strings.Contains(sys, "private working text") {
 		t.Fatalf("system suffix: %q", sys)
 	}
 	if got := StructuredReportPrompt(0); got != "" {

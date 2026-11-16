@@ -33,7 +33,7 @@ func TestExecuteWithoutTheClaimLeavesTheOwnersToolCalls(t *testing.T) {
 		t.Fatal("the owner's claim:", ok, err)
 	}
 	for _, status := range []string{"queued", "running"} {
-		if err := s.store.RecordToolEvent(c.ID, bot.ID, stale.ID, runtime.ToolEvent{CallID: "call-owned", Name: "say", Arguments: "{}", Status: status}); err != nil {
+		if err := s.store.RecordToolEvent(c.ID, bot.ID, stale.ID, runtime.ToolEvent{CallID: "call-owned", Name: "send_message", Arguments: "{}", Status: status}); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -40,7 +40,7 @@ func (e *steeringEngine) Run(ctx context.Context, req runtime.Request) (runtime.
 		}
 		var err error
 		for try := 0; try < 3; try++ { // the completion review sends a first answer back once
-			if _, err = callTool(ctx, req, "say", "say-"+req.RunID+"-"+string(rune('a'+try)), args); err == nil {
+			if _, err = callTool(ctx, req, "send_message", "say-"+req.RunID+"-"+string(rune('a'+try)), args); err == nil {
 				return nil
 			}
 		}

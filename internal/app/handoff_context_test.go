@@ -189,8 +189,8 @@ func TestHandoffAcknowledgementFollowsSayProtocol(t *testing.T) {
 		t.Fatalf("no handoff block (structured=%v)", structured)
 		return ""
 	}
-	if got := block(true); !strings.Contains(got, "say, purpose message") || strings.Contains(got, "normal assistant message") {
-		t.Fatalf("structured handoff acknowledgement does not use say(message): %s", got)
+	if got := block(true); !strings.Contains(got, "send_message, purpose message") || strings.Contains(got, "normal assistant message") {
+		t.Fatalf("structured handoff acknowledgement does not use send_message(message): %s", got)
 	}
 	if got := block(false); !strings.Contains(got, "normal assistant message") {
 		t.Fatalf("plain handoff acknowledgement changed: %s", got)

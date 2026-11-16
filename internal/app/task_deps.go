@@ -194,7 +194,7 @@ func unlockTaskTx(tx *sql.Tx, item WorkItem) (bool, error) {
 		// The clock starts with your run, so the queue costs nothing.
 		fmt.Fprintf(&b, "\nDeadline: %d minutes, counted from the start of your run.", (contract.deadlineSeconds+59)/60)
 	}
-	fmt.Fprintf(&b, "\nDo the work, then deliver the result with say and task_id %s.", item.ID)
+	fmt.Fprintf(&b, "\nDo the work, then deliver the result with send_message and task_id %s.", item.ID)
 	if err = addInboxTx(tx, InboxItem{BotID: item.BotID, ConversationID: item.WorkConversationOrConversation(), Kind: inboxTaskUpdate, TaskID: item.ID, RootTaskID: item.RootTaskID,
 		Body: trimRunes(b.String(), 3000), Wakes: true}); err != nil {
 		return false, err

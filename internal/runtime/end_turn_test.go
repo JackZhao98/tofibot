@@ -118,7 +118,7 @@ func TestStructuredOutputSwitchesTheProgressGuidance(t *testing.T) {
 	if !strings.Contains(legacy, "<progress>") || strings.Contains(structured, "progress>") {
 		t.Fatalf("tag guidance: legacy=%q structured=%q", legacy, structured)
 	}
-	if !strings.Contains(structured, "say(note)") || !strings.Contains(structured, "private working text") {
+	if !strings.Contains(structured, "send_message(note)") || !strings.Contains(structured, "private working text") {
 		t.Fatalf("structured guidance lacks the protocol: %q", structured)
 	}
 	if len([]rune(structured)) >= len([]rune(legacy)) {
@@ -134,7 +134,7 @@ func TestToolCallDeltasReachTheCallerInOrder(t *testing.T) {
 	p := &stepProvider{steps: []func(func(provider.StreamDelta)) *provider.ChatResponse{
 		func(delta func(provider.StreamDelta)) *provider.ChatResponse {
 			delta(provider.StreamDelta{Content: "text"})
-			delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 2, ID: "call_say", Name: "say"}}})
+			delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 2, ID: "call_say", Name: "send_message"}}})
 			delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 2, Arguments: `{"purpose":`}}})
 			delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 2, Arguments: `"answer"}`}}})
 			return &provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "call_say", Name: "finish", Arguments: `{}`}}}
@@ -148,7 +148,7 @@ func TestToolCallDeltasReachTheCallerInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []ToolCallDelta{{Index: 2, ID: "call_say", Name: "say"}, {Index: 2, Arguments: `{"purpose":`}, {Index: 2, Arguments: `"answer"}`}}
+	want := []ToolCallDelta{{Index: 2, ID: "call_say", Name: "send_message"}, {Index: 2, Arguments: `{"purpose":`}, {Index: 2, Arguments: `"answer"}`}}
 	if len(got) != len(want) {
 		t.Fatalf("deltas = %+v", got)
 	}

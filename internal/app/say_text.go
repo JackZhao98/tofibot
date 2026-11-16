@@ -1,6 +1,6 @@
 package app
 
-// A model sometimes writes the arguments of the say tool as its plain final
+// A model sometimes writes the arguments of the send_message tool as its plain final
 // text instead of calling the tool (seen on the OpenAI Responses path,
 // 2026-10-22). Plain text is private under the say protocol, so without this
 // the host's implicit-final rule would publish the raw JSON. Detection is by
@@ -29,7 +29,7 @@ import (
 // run id makes a replay record the same answer.
 const sayTextCallPrefix = "say-text:"
 
-const sayTextInvalidReminder = "Your last message was the arguments of the say tool written as plain text, and plain text is private, so nobody has read it. Call the say tool itself with valid arguments for this run to deliver your reply."
+const sayTextInvalidReminder = "Your last message was the arguments of the send_message tool written as plain text, and plain text is private, so nobody has read it. Call the send_message tool itself with valid arguments for this run to deliver your reply."
 
 // sayTextObject returns the content as one JSON object with purpose and text
 // keys, optionally inside a single fenced block that holds only that object.
@@ -148,7 +148,7 @@ func sayTextObjectAfter(s string) (json.RawMessage, bool) {
 	return obj, true
 }
 
-// sayTextArgs reports whether the say tool's own schema accepts raw, and the
+// sayTextArgs reports whether the send_message tool's own schema accepts raw, and the
 // purpose it carries.
 func sayTextArgs(say Tool, raw json.RawMessage) (purpose string, valid bool) {
 	var args map[string]any
@@ -159,7 +159,7 @@ func sayTextArgs(say Tool, raw json.RawMessage) (purpose string, valid bool) {
 	return purpose, true
 }
 
-// sayTextAnswer is the text of a valid say(answer) written as plain text.
+// sayTextAnswer is the text of a valid send_message(answer) written as plain text.
 func sayTextAnswer(say Tool, content string) (string, bool) {
 	raw, ok := sayTextObject(content)
 	if !ok {
@@ -219,7 +219,7 @@ func sayTextFinalReview(ctx context.Context, say Tool, runID string, recovered *
 		// A leaked tool-call header. Recover only the say function; never
 		// execute any other, and never publish a marker we cannot recover from.
 		if name, after, ok := firstFunctionMarker(content); ok {
-			if name == "say" {
+			if isSendMessageTool(name) {
 				if raw, ok := sayTextObjectAfter(content[after:]); ok {
 					raw = sayTextDefaultOutcome(raw)
 					if purpose, valid := sayTextArgs(say, raw); valid {

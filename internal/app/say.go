@@ -1,6 +1,6 @@
 package app
 
-// The say tool is the one typed way text reaches a person
+// The send_message tool is the one typed way text reaches a person
 // (docs/agent-plan/structured-output.md). purpose=answer is the run's result
 // and ends the turn, purpose=note is a short progress update posted to the chat
 // (folded only where the run has no visible chat, or where it is a co-addressed
@@ -209,7 +209,7 @@ type sayRunState struct {
 // still be sent back, which holds its text out of the stream.
 func (st *sayRunState) pendingOwed() bool { return st.checksPending && !st.pendingCheck.Load() }
 
-// reviewOwed reports whether a say(answer) beginning now would be sent back
+// reviewOwed reports whether a send_message(answer) beginning now would be sent back
 // for the one-time completion review.
 func (st *sayRunState) reviewOwed() bool { return st.owed != nil && st.owed() }
 
@@ -374,6 +374,8 @@ func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
 		}, []string{"bot_id", "request"})}
 		strict = false
 	}
+	props["attachments"] = sayAttachmentsSchema()
+	strict = false
 	if !saySendsSources(r) {
 		props["covers_original"] = map[string]any{"type": "boolean", "description": sayCoversOriginalDescription}
 		strict = false
@@ -427,7 +429,7 @@ func cleanSaySources(sources []string) ([]string, error) {
 	return out, nil
 }
 
-// sayTool builds the say tool for a structured run. The gates mirror the
+// sayTool builds the send_message tool for a structured run. The gates mirror the
 // tools it replaces: message exists where send_chat_message did, a group
 // answer carries respond(reply)'s wake list, and a scheduled run's answer is
 // its completion record, as complete_scheduled_task's receipt was.
@@ -439,7 +441,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		schema["properties"].(map[string]any)["task_id"] = map[string]any{"type": "string", "description": sayTaskDescription}
 		strict = false
 	}
-	return Tool{Name: "say", Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: sendMessageToolName, Strict: strict, Description: sayToolDescription, Parameters: schema, Local: true, Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -452,19 +454,39 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			Quiet   bool             `json:"quiet"`
 			TaskID  string           `json:"task_id"`
 
-			CoversOriginal bool `json:"covers_original"`
+			CoversOriginal bool                `json:"covers_original"`
+			Attachments    []sayAttachmentItem `json:"attachments"`
 		}
 		if json.Unmarshal(raw, &in) != nil {
-			return "", errors.New("invalid say arguments")
+			return "", errors.New("invalid send_message arguments")
 		}
 		callID := runtime.ToolCallID(ctx)
 		text := strings.TrimSpace(stripProgressTags(strings.ReplaceAll(in.Text, "\x00", "")))
 		state := s.sayRun(r.ID)
+		// resolved holds the files this call created; any refusal after their
+		// resolution deletes them, so a refused call leaves nothing behind.
+		var resolved sayResolution
+		// staged is what this call queued for the reply; a refusal after
+		// staging takes it back before the created files are deleted.
+		var staged sayStaged
 		fail := func(err error) (string, error) {
 			if state != nil {
 				state.discard(callID)
 			}
+			s.unstageSayAttachments(r, staged)
+			staged = sayStaged{}
+			s.discardSayAttachments(resolved)
+			resolved.settle(err)
+			resolved = sayResolution{}
 			return "", err
+		}
+		if len(in.Attachments) > 0 {
+			if in.Purpose == sayNote {
+				return fail(sayAttachmentRefusal("attachments_not_for_note", 0, "a note is private progress and carries no files; use purpose message or answer"))
+			}
+			if len(in.Attachments) > maxSayAttachments || s.store.sayAttachmentsToCount(r.ID, in.Attachments) > maxSayAttachments {
+				return fail(sayAttachmentRefusal("attachments_too_many", 0, "a reply carries at most 8 files, counting the files already queued for it in this run"))
+			}
 		}
 		emptyRefusal := func() (string, error) {
 			if state != nil && in.Purpose == sayAnswer {
@@ -539,6 +561,16 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			default:
 				return fail(tooloutcome.New(tooloutcome.Validation, "say_outcome_invalid", "not_executed", "outcome must be one of done, blocked, delegated, pending.", "repair_arguments").Err())
 			}
+			if len(in.Attachments) > 0 {
+				if extras.Quiet {
+					return fail(sayAttachmentRefusal("attachments_not_for_note", 0, "a quiet answer posts nothing, so it carries no files"))
+				}
+				// Every source is resolved before any gate, so a bad item surfaces first.
+				var rerr error
+				if resolved, rerr = s.resolveSayAttachments(ctx, r, c, in.Attachments); rerr != nil {
+					return fail(rerr)
+				}
+			}
 			if state != nil && state.checksPending && !saySendsSources(r) {
 				pendingLike := in.Outcome == sayOutcomePending || (in.Outcome == sayOutcomeDelegated && len(in.Wake) == 0 && !hasHandoff(s.store, r.ID))
 				// Future work is real when a schedule exists for it or when this
@@ -587,11 +619,21 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if state != nil && state.grade != nil && len(in.Wake) == 0 {
 				// The answer gate: the draft is graded against the rubric before
 				// the person sees it. Gaps go back to the writer privately.
-				if revision := state.grade(ctx, text, extras.Quiet); revision != "" {
+				gradeText := text
+				if names := resolved.names(); len(names) > 0 {
+					gradeText += "\n\nAttached files: " + strings.Join(names, ", ")
+				}
+				if revision := state.grade(ctx, gradeText, extras.Quiet); revision != "" {
 					if state.demote != nil {
 						state.demote(text)
 					}
 					return fail(tooloutcome.New(tooloutcome.Transient, "answer_revise", "not_executed", revision, "retry").Err())
+				}
+			}
+			if len(resolved.Items) > 0 {
+				var err error
+				if staged, err = s.stageSayAttachments(r, c, resolved); err != nil {
+					return fail(err)
 				}
 			}
 			if taskID := strings.TrimSpace(in.TaskID); taskID != "" {
@@ -615,6 +657,10 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if extras.Quiet {
 				return "Recorded quietly. Your turn is complete; write nothing more.", nil
 			}
+			resolved.settle(nil)
+			if names := resolved.names(); len(names) > 0 {
+				return "Delivered. Attached: " + strings.Join(names, ", ") + ". Your turn is complete; write nothing more.", nil
+			}
 			return "Delivered. Your turn is complete; write nothing more.", nil
 		case sayNote, sayMessage:
 			limit, kind, prefix := maxSayNoteRunes, "progress", sayNoteClientPrefix
@@ -628,6 +674,12 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 					return fail(errors.New("message is not available in this run; use note or answer"))
 				}
 				limit, kind, prefix = 1200, "segment", chatSegmentClientPrefix
+				if len(in.Attachments) > 0 {
+					var rerr error
+					if resolved, rerr = s.resolveSayAttachments(ctx, r, c, in.Attachments); rerr != nil {
+						return fail(rerr)
+					}
+				}
 				if err := s.store.paceChatSegment(ctx, r.ID); err != nil {
 					return fail(err)
 				}
@@ -645,13 +697,35 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 				return fail(errors.New("text must be at most 1200 characters"))
 			}
+			var fileIDs []string
+			if len(resolved.Items) > 0 {
+				var err error
+				if staged, err = s.stageSayAttachments(r, c, resolved); err != nil {
+					return fail(err)
+				}
+				for _, a := range staged.Atts {
+					fileIDs = append(fileIDs, a.ID)
+				}
+			}
 			adopt := state != nil && state.owns(callID)
-			m, err := s.store.publishSay(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt)
+			m, replayed, err := s.store.publishSayWithFiles(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt, fileIDs)
 			if err != nil {
 				return fail(err)
 			}
+			if replayed && len(fileIDs) > 0 {
+				// The first publication of this call already carries its files;
+				// the copies this replay made are taken back.
+				s.unstageSayAttachments(r, staged)
+				s.discardSayAttachments(resolved)
+				resolved.settle(nil)
+				return "Delivered " + in.Purpose + " " + m.ID, nil
+			}
 			if state != nil {
 				state.release(callID)
+			}
+			resolved.settle(nil)
+			if names := resolved.names(); len(names) > 0 {
+				return "Delivered " + in.Purpose + " " + m.ID + ". Attached: " + strings.Join(names, ", "), nil
 			}
 			return "Delivered " + in.Purpose + " " + m.ID, nil
 		}
@@ -667,9 +741,18 @@ const chatSegmentClientPrefix = "chat-segment:"
 // With adopt, the message takes the identity of the draft the call's text
 // was streamed into, so the bubble turns into the message in place.
 func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content string, adopt bool) (Message, error) {
+	m, _, err := s.publishSayWithFiles(ctx, run, clientID, kind, content, adopt, nil)
+	return m, err
+}
+
+// publishSayWithFiles is publishSay that also binds the named files, staged
+// for the run, to the message it writes, in the same transaction; they leave
+// the run's staged set, so the answer does not carry them again. replayed
+// reports a call that was already published: nothing new is bound to it.
+func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind, content string, adopt bool, fileIDs []string) (m Message, replayed bool, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	defer tx.Rollback()
 	var existing Message
@@ -677,40 +760,41 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 		Scan(&existing.ID, &existing.ConversationID, &existing.Seq, &existing.Content, &existing.CreatedAt)
 	if err == nil {
 		if existing.Content != content {
-			return Message{}, errors.New("tool call already published different content")
+			return Message{}, false, errors.New("tool call already published different content")
 		}
-		return existing, nil
+		// A replay returns the first publication; its files were bound then.
+		return existing, true, nil
 	}
 	if err != sql.ErrNoRows {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	var status string
 	if err = tx.QueryRowContext(ctx, `SELECT status FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, run.ID, run.ConversationID, run.BotID).Scan(&status); err != nil || status != "running" {
-		return Message{}, errors.New("run is no longer active")
+		return Message{}, false, errors.New("run is no longer active")
 	}
 	var successors int
 	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM run_steering WHERE old_run_id=?`, run.ID).Scan(&successors); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if successors > 0 {
-		return Message{}, errors.New("run has been interrupted by a newer message")
+		return Message{}, false, errors.New("run has been interrupted by a newer message")
 	}
 	if strings.HasPrefix(clientID, sayNoteClientPrefix) {
 		var count int
 		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND client_message_id LIKE 'say-note:%'`, run.ID).Scan(&count); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if count >= maxSayNotes {
-			return Message{}, errors.New("note limit reached; deliver the answer")
+			return Message{}, false, errors.New("note limit reached; deliver the answer")
 		}
 	}
 	if strings.HasPrefix(clientID, chatSegmentClientPrefix) {
 		count, err := chatSegmentCountTx(ctx, tx, run.ID)
 		if err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if count >= maxChatSegments {
-			return Message{}, errors.New("chat segment limit reached; finish the reply")
+			return Message{}, false, errors.New("chat segment limit reached; finish the reply")
 		}
 	}
 	t := now()
@@ -728,44 +812,52 @@ func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content
 			createdAt = draft.CreatedAt
 		}
 	} else if err = tx.QueryRowContext(ctx, nextMessageSeqSQL, run.ConversationID, run.ConversationID, streamDraftActive).Scan(&seq); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
-	m := Message{ID: id, ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: createdAt}
+	m = Message{ID: id, ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: createdAt}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt, clientID); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if err = recordMessageAttentionTx(tx, m); err != nil {
-		return Message{}, err
+		return Message{}, false, err
+	}
+	if len(fileIDs) > 0 {
+		if err = bindRunAttachmentIDsTx(tx, run.ID, m.ID, fileIDs); err != nil {
+			return Message{}, false, err
+		}
+		if m.Attachments, err = attachmentMetadata(tx, m.ID); err != nil {
+			return Message{}, false, err
+		}
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, run.ConversationID, "message", string(b), t); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if kind == "segment" {
 		// What a holder posts reaches the member that gave the task (decision 0064).
 		if err = routeHolderMessageTx(tx, run.ID, run.ConversationID, run.BotID, m.ID, m.Content); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE conversations SET updated_at=? WHERE id=?`, t, run.ConversationID); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if rotate {
 		if err = pruneDeltaEventsTx(tx, run.ConversationID, draft.MessageID); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, run.ID, streamDraftActive); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	} else if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET seq=0 WHERE run_id=? AND status=?`, run.ID, streamDraftActive); err != nil {
 		// A text delta may have reserved this run's draft sequence; the answer
 		// belongs after the newly delivered message.
-		return Message{}, err
+		return Message{}, false, err
 	}
-	return m, tx.Commit()
+	return m, false, tx.Commit()
 }
 
 // lastSayBeat returns the run's latest say note or message, which rule 3 of
@@ -811,7 +903,7 @@ func (answeredEngine) Run(context.Context, runtime.Request) (runtime.Result, err
 
 // forceSayFor reports whether a run's model requests require a tool call, so
 // that a model which tends to write its reply as plain text delivers it
-// through say. The per-model fact is ReplyNeedsToolChoice in the provider model
+// through send_message. The per-model fact is ReplyNeedsToolChoice in the provider model
 // registry (measured: one model ended 19% of DM turns with plain text on
 // tool_choice auto, and 0% when required). TOFI_FORCE_SAY=false turns the
 // forcing off. It stays off where a plain-text ending is a
@@ -843,4 +935,14 @@ func (s *Store) runMadeSchedule(runID string) bool {
 	var n int
 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM tool_activities WHERE run_id=? AND name IN ('create_schedule','update_schedule') AND status='completed'`, runID).Scan(&n)
 	return n > 0
+}
+
+// sendMessageToolName is the structured-run tool that delivers text to a
+// person. It was named "say" before 2026-11-16; stored rows with that name
+// are read as send_message.
+const sendMessageToolName = "send_message"
+
+// isSendMessageTool reports whether name is send_message or its former name.
+func isSendMessageTool(name string) bool {
+	return name == sendMessageToolName || name == "say"
 }

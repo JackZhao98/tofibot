@@ -176,7 +176,7 @@ func TestPublishedFilesFactFollowsTheComputer(t *testing.T) {
 	if note := s.runContextNote(t.Context()); !strings.Contains(note, publishedFilesFact) {
 		t.Fatalf("computer context lacks the published-files fact: %s", note)
 	}
-	if !strings.Contains(botComputerMeans(), "desktop.capture with share") {
-		t.Error("the capability sentence must name the shared capture route")
+	if !strings.Contains(botComputerMeans(), "capture_id") || !strings.Contains(botComputerMeans(), "send_message attachments") {
+		t.Error("the capability sentence must name the capture route through send_message attachments")
 	}
 }

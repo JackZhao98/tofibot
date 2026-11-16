@@ -175,7 +175,7 @@ func TestSayBaseSchemaListsEveryPropertyRequiredInOrder(t *testing.T) {
 }
 
 func feedSayWith(st *sayStreamer, frags ...string) {
-	st.Delta(runtime.ToolCallDelta{Index: 0, ID: "c", Name: "say"})
+	st.Delta(runtime.ToolCallDelta{Index: 0, ID: "c", Name: "send_message"})
 	for _, f := range frags {
 		st.Delta(runtime.ToolCallDelta{Index: 0, Arguments: f})
 	}

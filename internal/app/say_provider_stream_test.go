@@ -41,11 +41,11 @@ func providerSayServer(t *testing.T, anthropic bool) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "text/event-stream")
-		hasSay := strings.Contains(string(raw), `"name":"say"`)
+		hasSay := strings.Contains(string(raw), `"name":"send_message"`)
 		switch {
 		case anthropic && hasSay:
 			writeSSE(w, "message_start", `{"type":"message_start","message":{"id":"m","type":"message","role":"assistant","content":[],"usage":{"input_tokens":10,"output_tokens":1}}}`)
-			writeSSE(w, "content_block_start", `{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_say","name":"say","input":{}}}`)
+			writeSSE(w, "content_block_start", `{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_say","name":"send_message","input":{}}}`)
 			for _, f := range sayArgFragments() {
 				b, _ := json.Marshal(f)
 				writeSSE(w, "content_block_delta", `{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":`+string(b)+`}}`)
@@ -62,7 +62,7 @@ func providerSayServer(t *testing.T, anthropic bool) *httptest.Server {
 			writeSSE(w, "message_delta", `{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}`)
 			writeSSE(w, "message_stop", `{"type":"message_stop"}`)
 		case hasSay:
-			item := `{"type":"function_call","id":"fc_say","call_id":"call_say","name":"say"}`
+			item := `{"type":"function_call","id":"fc_say","call_id":"call_say","name":"send_message"}`
 			writeSSE(w, "response.output_item.added", `{"type":"response.output_item.added","output_index":0,"item":`+item+`}`)
 			whole := strings.Join(sayArgFragments(), "")
 			for _, f := range sayArgFragments() {
@@ -72,7 +72,7 @@ func providerSayServer(t *testing.T, anthropic bool) *httptest.Server {
 			}
 			wb, _ := json.Marshal(whole)
 			writeSSE(w, "response.function_call_arguments.done", `{"type":"response.function_call_arguments.done","output_index":0,"item_id":"fc_say","arguments":`+string(wb)+`}`)
-			writeSSE(w, "response.output_item.done", `{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","id":"fc_say","call_id":"call_say","name":"say","arguments":`+string(wb)+`,"status":"completed"}}`)
+			writeSSE(w, "response.output_item.done", `{"type":"response.output_item.done","output_index":0,"item":{"type":"function_call","id":"fc_say","call_id":"call_say","name":"send_message","arguments":`+string(wb)+`,"status":"completed"}}`)
 			writeSSE(w, "response.completed", `{"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":20}}}`)
 		default:
 			writeSSE(w, "response.output_text.delta", `{"type":"response.output_text.delta","delta":"ok"}`)

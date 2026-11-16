@@ -16,6 +16,7 @@ try {
   assert.deepEqual(entries.map(entry => entry.kind), ['group','narration','group']);
   assert.deepEqual(entries[0].tools.map(item => item.call_id), ['a','b']);
   assert.equal(model.workEntries(tools, [{...notes[0], kind:'internal'}]).length, 1, 'private text is never narration');
+  for (const name of ['say', 'send_message']) assert.equal(model.workEntries([{...tools[0], name}], []).length, 0, `${name} is a message, not work`);
   assert.equal(model.workGroupKind(tools), 'commands');
   assert.equal(model.workGroupKind([{...tools[0], name:'web_fetch'}]), 'pages');
   assert.equal(model.groupPictures(tools, [...captures, {...captures[0], attachment_id:'secret', redacted:true}]).length, 5);

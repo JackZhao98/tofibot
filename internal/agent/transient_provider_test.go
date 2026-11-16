@@ -68,7 +68,7 @@ func TestLongSayAnswerIsNotAbortedAndOverlongSayGetsShorterNote(t *testing.T) {
 	long := strings.Repeat("界", 20000)
 	args := `{"text":"` + long + `"}`
 	stream := func(ctx context.Context, _ *provider.ChatRequest, delta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
-		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "say", Arguments: args}}})
+		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "send_message", Arguments: args}}})
 		return &provider.ChatResponse{Content: "ok"}, nil
 	}
 	p := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){stream}}
@@ -78,7 +78,7 @@ func TestLongSayAnswerIsNotAbortedAndOverlongSayGetsShorterNote(t *testing.T) {
 	}
 	huge := `{"text":"` + strings.Repeat("a", maxBulkToolCallArgumentChars+10) + `"}`
 	over := func(ctx context.Context, _ *provider.ChatRequest, delta func(provider.StreamDelta)) (*provider.ChatResponse, error) {
-		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "say", Arguments: huge}}})
+		delta(provider.StreamDelta{ToolCalls: []provider.ToolCallDelta{{Index: 0, ID: "s", Name: "send_message", Arguments: huge}}})
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}

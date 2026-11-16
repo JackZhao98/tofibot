@@ -266,7 +266,7 @@ func (s *Store) HasCompletedTool(runID, name string) (bool, error) {
 
 // scheduleReceipt reports whether a scheduled run recorded its completion:
 // the complete_scheduled_task receipt, or under the say protocol the recorded
-// say(answer), which carries the result and its sources.
+// send_message(answer), which carries the result and its sources.
 func (s *Store) scheduleReceipt(runID string) (bool, error) {
 	if done, err := s.HasCompletedTool(runID, "complete_scheduled_task"); err != nil || done {
 		return done, err

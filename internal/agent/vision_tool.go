@@ -99,8 +99,8 @@ func computerScreenshot(tool, result string) (string, []string) {
 		return result, nil
 	}
 	delete(payload, "image_url")
-	// The picture reached only the model. A computer screenshot says whether the
-	// person got it too; sharing it adds the "shared" field.
+	// The picture reached only the model. A computer screenshot says the person
+	// did not get it; its capture_id sends it with send_message attachments.
 	payload["image_visible_to_you"] = json.RawMessage("true")
 	if _, shared := payload["shared"]; !shared && (tool == "computer_desktop" || tool == "computer_browser") {
 		payload["shared_with_person"] = json.RawMessage("false")

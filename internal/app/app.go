@@ -292,10 +292,13 @@ type Server struct {
 	browserInstanceID   string
 	browserSessionValid func(*http.Request) bool
 	// personalComputers is Config.PersonalComputers: the pairing routes answer only when it is set.
-	personalComputers                    bool
-	dispositions                         sync.Map // run id -> groupChoice recorded by the respond tool
-	groupGates                           sync.Map // run id -> *groupGate (create_group needs list_groups first)
-	sayRuns                              sync.Map // run id -> *sayRunState of a structured run in flight
+	personalComputers bool
+	dispositions      sync.Map // run id -> groupChoice recorded by the respond tool
+	groupGates        sync.Map // run id -> *groupGate (create_group needs list_groups first)
+	sayRuns           sync.Map // run id -> *sayRunState of a structured run in flight
+	keptCaptures      sync.Map // run id -> *runCaptureKeep: full capture pictures a run may still send (memory only)
+	// downloadTransport replaces the guarded transport of send_message url downloads; tests only.
+	downloadTransport                    http.RoundTripper
 	stepStops                            sync.Map // run id -> *stepStop of the tool call in flight ("Stop current step")
 	waitTimeout                          time.Duration
 	reactionWakes                        reactionWakeState
@@ -4394,7 +4397,7 @@ func (s *Server) execute(c Conversation, r Run) {
 					demotedMu.Unlock()
 				},
 			}
-			// Every run's say(answer) gets the one-time review after tool work; a
+			// Every run's send_message(answer) gets the one-time review after tool work; a
 			// scheduled run's answer is also its receipt, so it is reviewed too.
 			state.review = func() bool { return observedToolWork.Load() && !reviewed.Swap(true) }
 			state.reviewSkip = toolWork.reviewSkippable
@@ -4628,8 +4631,8 @@ func (s *Server) execute(c Conversation, r Run) {
 		finalRepairTools = []string{"complete_scheduled_task"}
 		reminder := scheduleFinalReminder
 		if structured {
-			// The recorded say(answer) is the receipt.
-			finalRepairTools = []string{"say"}
+			// The recorded send_message(answer) is the receipt.
+			finalRepairTools = []string{sendMessageToolName}
 			reminder = scheduleFinalReminderStructured
 		}
 		// settled: the run already holds its receipt, or hands its work to a
@@ -4687,7 +4690,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	haveSayForText := false
 	if structured {
 		for _, t := range tools {
-			if t.Name == "say" {
+			if isSendMessageTool(t.Name) {
 				sayForText, haveSayForText = t, true
 				break
 			}
@@ -4904,7 +4907,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	said = structured && said
 	quietDone := false
 	if said {
-		// say(answer) is the run's answer; text after it is not published.
+		// send_message(answer) is the run's answer; text after it is not published.
 		res.Content = sayRec.Text
 		repliedFinal = false
 		if sayTextRecovered.Load() {
@@ -5348,7 +5351,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		break
 	}
 	if c.UserVisible && r.Kind != runKindSchedule && !r.structured {
-		// Under the say protocol say(message) is this tool.
+		// Under the say protocol send_message(message) is this tool.
 		base = append(base, s.chatSegmentTool(c, r))
 	}
 	if r.structured && r.Kind != runKindTriage {
@@ -5377,7 +5380,7 @@ func (s *Server) toolsUnmarked(c Conversation, r Run) []Tool {
 		}})
 	}
 	if (r.Kind == runKindSchedule || r.scheduleTask != nil) && !r.structured {
-		// Under the say protocol say(answer) with its sources is the receipt.
+		// Under the say protocol send_message(answer) with its sources is the receipt.
 		base = append(base, Tool{Name: "complete_scheduled_task", Description: "Confirm that the scheduled task or your current delegated contribution has actually produced its requested result. Call exactly once only after checking every requested deliverable, field, and category against the required evidence and preparing the final answer. If a source or capability is unavailable, use computer_browser first; do not call this with a guess, an empty answer, a partial result presented as complete, or a claim that only the schedule exists. This records success for this run only, does not complete other branches of the scheduled task, and does not replace the final answer.", Parameters: objectSchema(map[string]any{
 			"content": map[string]any{"type": "string", "description": "The concise result for this run's final answer in its current conversation, preserving its delivery rules"},
 			"sources": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "URLs or source names used for current or external information"},

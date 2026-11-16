@@ -17,7 +17,7 @@ type ModelInfo struct {
 	CacheReadCostPer1M  float64
 	CacheWriteCostPer1M float64
 	// ReplyNeedsToolChoice marks a model that ends too many direct-message turns
-	// with plain text on tool_choice auto, so its reply must be forced through say.
+	// with plain text on tool_choice auto, so its reply must be forced through send_message.
 	ReplyNeedsToolChoice bool
 }
 

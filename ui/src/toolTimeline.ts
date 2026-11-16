@@ -120,7 +120,7 @@ type ToolActionCode = "form" | "answer" | "takeover" | "connection" | "secret_re
 const namedToolActions: Record<string, ToolActionCode> = {
   ask_user_form: "form", ask_user_question: "answer", request_secret_input: "secret_request", request_takeover: "takeover", request_connection: "connection", use_secret_input: "secret_use",
   search_mcp_tools: "search_tools", search_history: "search_history", inspect_recent_runs: "inspect_runs", computer_help: "computer_help",
-  send_chat_message: "send_message", say: "send_message", complete_scheduled_task: "complete_schedule", set_bot_profile: "profile",
+  send_chat_message: "send_message", send_message: "send_message", say: "send_message", complete_scheduled_task: "complete_schedule", set_bot_profile: "profile",
   update_plan: "plan",
 };
 

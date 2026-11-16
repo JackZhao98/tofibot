@@ -28,7 +28,7 @@ const steps = (runId: string, live: boolean): ToolActivity[] => [
 ];
 // A longer run: a failed call and a run of identical calls, for the compact Activity list.
 const richSteps = (runId: string, live: boolean): ToolActivity[] => {
-  const send = (n: number, ago0: number, ago1: number, status: ToolActivity["status"] = "completed") => tool(runId, n, "say", status, ago0, ago1, JSON.stringify({ text: `Update ${n}` }));
+  const send = (n: number, ago0: number, ago1: number, status: ToolActivity["status"] = "completed") => tool(runId, n, "send_message", status, ago0, ago1, JSON.stringify({ text: `Update ${n}` }));
   return [
     tool(runId, 1, "search_history", "completed", 17, 16.9, JSON.stringify({ query: "launch review notes" })),
     tool(runId, 2, "workspace_capabilities", "completed", 16.8, 16.7),
@@ -76,7 +76,7 @@ const CONTEXT_SNAPSHOT: RunContextSnapshot = {
   parts: [
     { kind: "system_guidance", role: "system", chars: 4200, tokens: 1050, text: "You are Bot Mochi (id=bot_mochi). Speak in your Bot instructions' persona and voice in every reply.\nPromise future work only after scheduling; no self-renewing loops." },
     { kind: "bot_instructions", role: "system", chars: 640, tokens: 160, text: "Bot instructions:\nAnswer briefly. Keep the launch checklist current.\nEnd of Bot instructions." },
-    { kind: "tools", role: "system", chars: 21000, tokens: 5400, text: "[{\"name\":\"say\",\"description\":\"Tell the person something\"}]", items: [{ name: "browser_open", chars: 2400, tokens: 610 }, { name: "say", chars: 900, tokens: 230 }] },
+    { kind: "tools", role: "system", chars: 21000, tokens: 5400, text: "[{\"name\":\"send_message\",\"description\":\"Tell the person something\"}]", items: [{ name: "browser_open", chars: 2400, tokens: 610 }, { name: "say", chars: 900, tokens: 230 }] },
     { kind: "tools_on_demand", role: "system", chars: 3000, tokens: 780, on_demand: true, text: "[{\"name\":\"schedule_create\"}]" },
     { kind: "memory", role: "user", chars: 120, tokens: 30, text: "[memory data]\nThe cat is called Pixel.\n[/memory data]" },
     { kind: "summary", role: "user", chars: 900, tokens: 225, text: "[derived history data]\nLaunch review moved to Thursday; venue booked.\n[/derived history data]" },

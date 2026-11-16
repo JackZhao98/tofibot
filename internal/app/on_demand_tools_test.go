@@ -28,8 +28,8 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 	c, _ := s.store.GetConversation(b.DMConversationID)
 	run := Run{ID: "r", ConversationID: c.ID, BotID: b.ID, Status: "running"}
 	tools := s.tools(c, run)
-	before := declaredBytes(tools)
 	tools = append(tools, s.sayTool(c, run))
+	before := declaredBytes(tools)
 	tools = deferOnDemandTools(tools)
 	capability := capabilityTool(tools)
 	after := declaredBytes(tools)
@@ -46,7 +46,7 @@ func TestOnDemandToolsLeaveTheDeclaredList(t *testing.T) {
 		// keeps a declared way to find it: list_schedules for update_schedule, list_groups for invite_bot and
 		// send_group_message (tool results of earlier turns are not in context).
 		switch tl.Name {
-		case "say", "save_memory", "search_history", "create_schedule", "update_schedule", "list_schedules", "list_groups", "prepare_email", "ask_user_question", "list_bots", "list_work_items":
+		case "send_message", "save_memory", "search_history", "create_schedule", "update_schedule", "list_schedules", "list_groups", "prepare_email", "ask_user_question", "list_bots", "list_work_items":
 			if tl.Deferred {
 				t.Fatalf("%s must stay declared", tl.Name)
 			}
@@ -112,7 +112,7 @@ func TestWorkspaceCapabilitiesLoadsAnOnDemandToolForTheRun(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "workspace_capabilities", `{"names":["workspace_list"]}`}}},
 		fakeStep{calls: []fakeCall{{"c2", "workspace_list", `{}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"Listed."}`}}})
+		fakeStep{calls: []fakeCall{{"c3", "send_message", `{"purpose":"answer","outcome":"done","text":"Listed."}`}}})
 	s.engine = model.engine(t)
 	s.enqueue(c, old)
 	if got := waitRunTerminal(t, s, old.ID); got.Status != "done" {

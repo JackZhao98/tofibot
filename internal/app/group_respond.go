@@ -36,10 +36,10 @@ End each group turn with respond: reply (post; wake lists Bots to start, each wi
 `
 
 // groupDispositionGuidanceStructured is the group prompt of a run that
-// follows the say protocol: say(answer) posts, and its wake list starts other
+// follows the say protocol: send_message(answer) posts, and its wake list starts other
 // Bots. respond keeps only the choices that post nothing.
 const groupDispositionGuidanceStructured = `[group response]
-Post to the group with say(answer), which speaks to the person; a request to a Bot goes only in wake. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Reply to the latest message only: a greeting or small talk gets a short reply, and a finished topic stays closed.
+Post to the group with send_message(answer), which speaks to the person; a request to a Bot goes only in wake. Otherwise end the turn with respond: silent (not for you), concluded (a Bot's closing: post nothing), or follow_up (waiting on a Bot: set wait_for). Reply to the latest message only: a greeting or small talk gets a short reply, and a finished topic stays closed.
 [/group response]
 `
 
@@ -177,7 +177,7 @@ func (s *Server) groupRespondTools(c Conversation, r Run) []runtime.Tool {
 			return "", errors.New("wake at most 3 Bots")
 		}
 		if _, said := s.store.sayAnswer(r.ID); said {
-			return "", errors.New("you already delivered your answer with say; your turn is complete, write nothing more")
+			return "", errors.New("you already delivered your answer with send_message; your turn is complete, write nothing more")
 		}
 		if _, again := s.dispositions.Load(r.ID); again {
 			return "", errors.New("respond was already called for this turn; your turn is complete, write nothing more")
@@ -284,10 +284,10 @@ func (s *Server) applyDisposition(c Conversation, r Run, msg Message) {
 }
 
 // respondStructuredTool is respond for a run that follows the say protocol.
-// Posting, and waking other members, is say(answer); respond keeps the three
+// Posting, and waking other members, is send_message(answer); respond keeps the three
 // dispositions that post nothing.
 func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
-	return runtime.Tool{Name: "respond", Description: "End your group turn without posting: silent (nothing to add), concluded (an acknowledgement or closing from another Bot), or follow_up (waiting on another Bot's output: set wait_for). To post to the group, deliver with say, purpose answer.", Parameters: objectSchema(map[string]any{
+	return runtime.Tool{Name: "respond", Description: "End your group turn without posting: silent (nothing to add), concluded (an acknowledgement or closing from another Bot), or follow_up (waiting on another Bot's output: set wait_for). To post to the group, deliver with send_message, purpose answer.", Parameters: objectSchema(map[string]any{
 		"disposition": map[string]any{"type": "string", "enum": []string{dispSilent, dispConcluded, dispFollowUp}},
 		"wait_for":    map[string]any{"type": "string", "description": "Bot id you are waiting on (follow_up only)"},
 	}, []string{"disposition"}), Execute: func(ctx context.Context, data json.RawMessage) (string, error) {
@@ -304,12 +304,12 @@ func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
 		switch in.Disposition {
 		case dispSilent, dispConcluded, dispFollowUp:
 		case dispReply:
-			return "", errors.New("to post, deliver with say, purpose answer; respond only ends a turn that posts nothing")
+			return "", errors.New("to post, deliver with send_message, purpose answer; respond only ends a turn that posts nothing")
 		default:
 			return "", errors.New("disposition must be silent, concluded or follow_up")
 		}
 		if _, said := s.store.sayAnswer(r.ID); said {
-			return "", errors.New("you already delivered your answer with say; your turn is complete, write nothing more")
+			return "", errors.New("you already delivered your answer with send_message; your turn is complete, write nothing more")
 		}
 		if _, again := s.dispositions.Load(r.ID); again {
 			return "", errors.New("respond was already called for this turn; your turn is complete, write nothing more")
@@ -320,7 +320,7 @@ func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
 		}
 		coInput := false
 		if r.Kind == runKindSchedule || r.scheduleTask != nil || r.Kind == runKindGroupTask || r.Kind == runKindTeam || r.Kind == runKindMessage {
-			return "", errors.New("this assignment needs a posted result; deliver it with say, purpose answer")
+			return "", errors.New("this assignment needs a posted result; deliver it with send_message, purpose answer")
 		}
 		if in.Disposition == dispFollowUp {
 			if !members[in.WaitFor] || in.WaitFor == r.BotID {
@@ -331,7 +331,7 @@ func (s *Server) respondStructuredTool(c Conversation, r Run) runtime.Tool {
 			}
 		} else if r.Kind != runKindGroupMention && r.Kind != runKindFollowup && r.Kind != runKindGroupChat {
 			if in.Disposition != dispSilent || !s.store.coAddressedInputMayEndSilent(r) {
-				return "", errors.New("you were asked directly; deliver your result with say, purpose answer (or follow_up if you depend on another Bot). A co-addressed member whose part is an input for a later member may end after leaving that part as a note, only while a later member is still to answer")
+				return "", errors.New("you were asked directly; deliver your result with send_message, purpose answer (or follow_up if you depend on another Bot). A co-addressed member whose part is an input for a later member may end after leaving that part as a note, only while a later member is still to answer")
 			}
 			coInput = true
 		}

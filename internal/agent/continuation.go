@@ -97,12 +97,39 @@ func (c *Continuation) EffectiveKind() string {
 	return c.Kind
 }
 
+// renameLegacyToolNames reads the tool name "say" of a stored continuation as
+// send_message, in the transcript, the waiting tool and the skipped calls, so
+// a run suspended before 2026-11-16 resumes against the renamed tool. It runs
+// before any name comparison in ValidateContinuation.
+func (c *Continuation) renameLegacyToolNames() {
+	rename := func(name *string) {
+		if *name == "say" {
+			*name = sendMessageToolName
+		}
+	}
+	for i := range c.Messages {
+		m := &c.Messages[i]
+		rename(&m.ToolName)
+		for j := range m.ToolCalls {
+			rename(&m.ToolCalls[j].Name)
+		}
+	}
+	for i := range c.SkippedToolCalls {
+		rename(&c.SkippedToolCalls[i].Name)
+	}
+	for i := range c.ToolRecovery {
+		rename(&c.ToolRecovery[i].Call.Name)
+	}
+	rename(&c.WaitingToolName)
+}
+
 // ValidateContinuation rejects malformed or internally inconsistent state
 // before it can be used to construct a new provider request.
 func ValidateContinuation(c *Continuation) error {
 	if c == nil {
 		return errors.New("agent continuation is required")
 	}
+	c.renameLegacyToolNames()
 	if c.Version != 1 && c.Version != continuationVersion {
 		return fmt.Errorf("unsupported agent continuation version %d (this build reads versions 1 and %d)", c.Version, continuationVersion)
 	}

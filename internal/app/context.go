@@ -378,16 +378,16 @@ const segmentedReplyGuidance = "Hide internal IDs/labels. Only for an intentiona
 
 // sayPrincipleLine is the one steering line of the say protocol. It trails the
 // history, next to the request it answers, where it is read last.
-const sayPrincipleLine = "Deliver your reply by calling say with purpose answer, including when no other tool is needed; never write the reply as plain text."
+const sayPrincipleLine = "Deliver your reply by calling send_message with purpose answer, including when no other tool is needed; never write the reply as plain text."
 
 // sayPrincipleLineScheduled is the line for a scheduled run, whose blocker is
 // reported as plain final text because an answer records success.
-const sayPrincipleLineScheduled = "Deliver the result by calling say with purpose answer, with quiet true when the task's own instruction makes reporting conditional and the condition is not met; a run that cannot produce it ends with a plain-text explanation of the blocker instead."
+const sayPrincipleLineScheduled = "Deliver the result by calling send_message with purpose answer, with quiet true when the task's own instruction makes reporting conditional and the condition is not met; a run that cannot produce it ends with a plain-text explanation of the blocker instead."
 
 // sayAcknowledgeLine is the working-in-view rule at the point of decision, for
 // a run whose person is waiting in a conversation they can see (D50). It sits
 // beside the request, where the first move is chosen.
-const sayAcknowledgeLine = "A person is waiting on this request. When it needs tool work, first acknowledge it in one short line in your own voice with say, purpose message, then do the work. Share a finding the person would want as it comes up with say, purpose message, and finish with say, purpose answer. Say that work is done only once it is done."
+const sayAcknowledgeLine = "A person is waiting on this request. When it needs tool work, first acknowledge it in one short line in your own voice with send_message, purpose message, then do the work. Share a finding the person would want as it comes up with send_message, purpose message, and finish with send_message, purpose answer. Say that work is done only once it is done."
 
 // acknowledgesBeforeWork reports whether the run is one a person waits on in a
 // user-visible conversation: their direct message or an unaddressed group
@@ -411,7 +411,7 @@ const reactionAndEmojiGuidance = "Use a reaction, not a short message, to confir
 
 // Shared by scheduled roots and descendants; occurrence receipts remain run-specific.
 const scheduledResultGuidance = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, call complete_scheduled_task with both (source names/URLs), then give the same concise result as your final answer. If blocked after fallback, explain why without calling complete_scheduled_task."
-const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, deliver the concise result with say(answer), listing the sources; that answer is also this run's completion record and posts to the chat. When the task's own instruction makes reporting conditional and the condition is not met, deliver your conclusion with say(answer) and quiet true: it is recorded as the run's result and nothing is posted. If blocked after fallback, explain why as plain final text without say(answer), which would record success."
+const scheduledResultGuidanceStructured = "\nSchedule status: use [schedule states], not old messages.\nOnce you have the assigned result and its sources, deliver the concise result with send_message(answer), listing the sources; that answer is also this run's completion record and posts to the chat. When the task's own instruction makes reporting conditional and the condition is not met, deliver your conclusion with send_message(answer) and quiet true: it is recorded as the run's result and nothing is posted. If blocked after fallback, explain why as plain final text without send_message(answer), which would record success."
 
 const scheduledBrowserFallbackGuidance = "\nIf an installed capability or Skill is unavailable, empty, stale or failed, use the browser before giving up: a scheduled computer_browser call starts its shared desktop and Chrome if needed; inspect with browser.snapshot, then search and verify with visible desktop click/type/scroll. If the Bot computer is unavailable or browser startup fails, report that concrete blocker instead of claiming the scheduled result was delivered."
 
@@ -865,7 +865,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 			if r.structured {
 				// Under the say protocol plain text is private and an answer ends the
 				// turn: the acknowledgement is a message or note, the answer the result.
-				acknowledge = "Briefly acknowledge the assigning member in your own voice with say, purpose message, before substantial work; say with purpose answer delivers the finished contribution and ends your turn."
+				acknowledge = "Briefly acknowledge the assigning member in your own voice with send_message, purpose message, before substantial work; send_message with purpose answer delivers the finished contribution and ends your turn."
 				if !c.UserVisible {
 					acknowledge = strings.Replace(acknowledge, "purpose message", "purpose note", 1)
 				}
@@ -1215,7 +1215,7 @@ func (s *Server) buildContextPartsWith(c Conversation, r Run, bot Bot, cachedMCP
 		} else {
 			voice, acknowledge, mentions := "Your assistant messages and final reply publish here under your identity.", "Briefly acknowledge assigned work before substantial tools, then post findings here.", "A leading @Name assignment also dispatches; other mentions are references."
 			if r.structured {
-				voice, acknowledge, mentions = "What you say publishes here under your identity.", "Briefly acknowledge assigned work with say(message) before substantial tools, then post findings here.", "Mentions in text only refer to members; assign work with delegate or wake."
+				voice, acknowledge, mentions = "What you say publishes here under your identity.", "Briefly acknowledge assigned work with send_message(message) before substantial tools, then post findings here.", "Mentions in text only refer to members; assign work with delegate or wake."
 			}
 			system += "\n" + voice + " " + groupDelegationGuidance + " For a concrete colleague task, call delegate with their exact member id and the assignment as the task. It posts your brief in the group, opening with their name, and starts work: do not duplicate or narrate it. After you delegate, end your turn; their completed result resumes you to integrate it. " + acknowledge + " Never delegate thanks, acknowledgements or completed results, or predict another member's answer. At most one delegation per reply and eight rounds per chain. send_group_message starts work only in another group. " + mentions
 		}
@@ -1322,7 +1322,7 @@ func (s *Server) runContextNote(ctx context.Context, runs ...Run) string {
 
 // publishedFilesFact counters the belief that a reply can only carry text:
 // models asked for pictures answered with links (2026-11-15).
-const publishedFilesFact = "Files you publish reach the person in this conversation; pictures show inline."
+const publishedFilesFact = "Files you attach with send_message reach the person in this conversation; pictures show inline."
 
 // noComputerStatus is the run-context fact of a workspace with no computer
 // backend: the Bot must never claim one.

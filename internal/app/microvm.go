@@ -200,7 +200,7 @@ func botComputerMeans() string {
 	for i, item := range botComputerToolbox {
 		names[i] = item.Name
 	}
-	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. What the person asks to see or to have reaches them as the thing itself: a file through publish_file (downloaded into your own directory first when it is on the web), or a screen picture through desktop.capture with share."
+	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. What the person asks to see or to have reaches them as the thing itself, through send_message attachments: a file you made or downloaded into your own directory (path), a web address (url), or a screen capture by its capture_id."
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -521,13 +521,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			var sh struct {
-				Share bool `json:"share"`
-			}
-			_ = json.Unmarshal(raw, &sh)
-			share := sh.Share && name == "computer_desktop" && action == "desktop.capture"
 			if cid := s.desktopToolComputer(name, raw); cid != microVMComputerID {
-				return s.personalDesktop(ctx, r, cid, action, args, captureDetail, share)
+				return s.personalDesktop(ctx, r, cid, action, args, captureDetail)
 			}
 			inputs.ensure(ctx, s, r)
 			s.flushGeneratedImages(ctx, r)
@@ -650,8 +645,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err == nil {
 				picture := out
 				out, err = s.afterComputerAction(ctx, r, name, action, raw, args, out, captureDetail)
-				if err == nil && share {
-					out, err = s.shareBotCapture(ctx, r, picture, out)
+				if err == nil && (action == "desktop.capture" || action == "browser.snapshot") {
+					out = s.keepBotCapture(ctx, r, action, picture, out)
 				}
 			}
 			return out, err
@@ -675,7 +670,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		args, _ := json.Marshal(map[string]any{"command": in.Command, "timeout_sec": in.TimeoutSec})
 		return "shell.exec", args, nil
 	})
-	files := call("computer_files", "List, read, or write files in the Bot computer. Relative paths start in the current Bot profile; absolute paths under /workspace reach shared files or another Bot profile. Other Bots may write concurrently: read sha256, then send expected_sha256 on writes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute path on the Bot computer; the file stays unpublished until publish_file. files.read returns whole lines, about 18 KB per call, with total_bytes and total_lines; a longer single line is cut and line_bytes_omitted says how much; when truncated is true, call again with offset set to next_offset. files.view shows a PNG, JPEG, GIF or WebP as an image (large ones scaled down, at most 16 views per run): a path or listing shows nothing of how a page, slide, chart or screenshot looks, so view what you rendered before you judge it.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write", "files.view"}, "description": "files.list, files.read, files.write, or files.view"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	files := call("computer_files", "List, read, or write files in the Bot computer. Relative paths start in the current Bot profile; absolute paths under /workspace reach shared files or another Bot profile. Other Bots may write concurrently: read sha256, then send expected_sha256 on writes. Keep writes scoped to the requested Bot or shared workspace. A write result carries location, the absolute path on the Bot computer; the file stays with you until you attach it to a send_message. files.read returns whole lines, about 18 KB per call, with total_bytes and total_lines; a longer single line is cut and line_bytes_omitted says how much; when truncated is true, call again with offset set to next_offset. files.view shows a PNG, JPEG, GIF or WebP as an image (large ones scaled down, at most 16 views per run): a path or listing shows nothing of how a page, slide, chart or screenshot looks, so view what you rendered before you judge it.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"files.list", "files.read", "files.write", "files.view"}, "description": "files.list, files.read, files.write, or files.view"}, "path": map[string]any{"type": "string", "description": "Relative to this Bot profile, or an absolute path under /workspace such as /workspace/shared/..."}, "content": map[string]any{"type": "string"}, "expected_sha256": map[string]any{"type": "string", "description": "Optional SHA-256 from files.read for conditional writes to shared files; reject if another writer changed the file"}, "append": map[string]any{"type": "boolean"}, "offset": map[string]any{"type": "integer", "minimum": 1}, "limit": map[string]any{"type": "integer", "minimum": 1}}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action         string  `json:"action"`
 			Path           string  `json:"path,omitempty"`

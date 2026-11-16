@@ -62,7 +62,7 @@ func TestRespondRefusesReplyUnderTheFlag(t *testing.T) {
 	f.post(t, "@tofi go", f.tofi)
 	f.start(engine)
 	f.settle(t)
-	if refused == nil || !strings.Contains(refused.Error(), "deliver with say") {
+	if refused == nil || !strings.Contains(refused.Error(), "deliver with send_message") {
 		t.Fatalf("respond(reply) under the flag: %v", refused)
 	}
 	var n int
@@ -116,7 +116,7 @@ func TestSayWakeFollowsRespondsRules(t *testing.T) {
 			wakeOf("not-a-member", "do it"),
 			[]map[string]string{{"bot_id": f.meta.ID, "request": "a"}, {"bot_id": f.third.ID, "request": "b"}, {"bot_id": f.meta.ID, "request": "c"}, {"bot_id": f.third.ID, "request": "d"}},
 		} {
-			_, err := callTool(ctx, req, "say", "bad-wake-"+string(rune('a'+i)), map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "wake": wake})
+			_, err := callTool(ctx, req, "send_message", "bad-wake-"+string(rune('a'+i)), map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "wake": wake})
 			if err == nil {
 				return "accepted a bad wake list"
 			}
@@ -138,8 +138,8 @@ func TestSayWakeFollowsRespondsRules(t *testing.T) {
 func TestSayRefusesWakeAndSourcesWhereTheyDoNotApply(t *testing.T) {
 	var gotWake, gotSources error
 	_, run := dmRun(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
-		_, gotWake = callTool(ctx, req, "say", "w1", map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "wake": wakeOf("b", "r")})
-		_, gotSources = callTool(ctx, req, "say", "w2", map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "sources": []string{"s"}})
+		_, gotWake = callTool(ctx, req, "send_message", "w1", map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "wake": wakeOf("b", "r")})
+		_, gotSources = callTool(ctx, req, "send_message", "w2", map[string]any{"purpose": "answer", "outcome": "done", "text": "x", "sources": []string{"s"}})
 		_, err := say(ctx, req, "w3", "answer", "fine")
 		return runtime.Result{}, err
 	}))
@@ -196,7 +196,7 @@ func TestSendChatMessageIsReplacedBySayMessageUnderTheFlag(t *testing.T) {
 		var has, hasSay bool
 		s, _ := dmRunMode(t, dmFuncEngine(func(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 			_, has = toolNamed(req.Tools, "send_chat_message")
-			_, hasSay = toolNamed(req.Tools, "say")
+			_, hasSay = toolNamed(req.Tools, "send_message")
 			return runtime.Result{Content: "ok"}, nil
 		}), structured)
 		_ = s
@@ -247,7 +247,7 @@ func TestScheduledRunIsNotOfferedCompleteScheduledTaskUnderTheFlag(t *testing.T)
 		if structured && strings.Contains(v, "complete_scheduled_task") || !structured && !strings.Contains(v, "complete_scheduled_task") {
 			t.Fatalf("flag=%v offered tools: %s", structured, v)
 		}
-		if structured && !strings.Contains(v, "say") {
+		if structured && !strings.Contains(v, "send_message") {
 			t.Fatalf("say not offered: %s", v)
 		}
 	}
@@ -321,14 +321,14 @@ func TestScheduledSayAnswerCountsAsDeliveredInTheOccurrence(t *testing.T) {
 func TestScheduledFinalReviewAsksForSayAnswerUnderTheFlag(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{content: "All checks done."},
-		fakeStep{calls: []fakeCall{{"c1", "say", `{"purpose":"answer","outcome":"done","text":"The synthetic report.","sources":["synthetic source"]}`}}})
+		fakeStep{calls: []fakeCall{{"c1", "send_message", `{"purpose":"answer","outcome":"done","text":"The synthetic report.","sources":["synthetic source"]}`}}})
 	f := newDedupeFixture(t, model.engine(t))
 	got := runScheduledOnce(t, f)
 	if got.Status != "done" {
 		t.Fatalf("run = %+v", got)
 	}
 	reqs := model.requests()
-	if len(reqs) < 2 || !strings.Contains(reqs[1], "delivered with say") || strings.Contains(reqs[1], "call complete_scheduled_task") {
+	if len(reqs) < 2 || !strings.Contains(reqs[1], "delivered with send_message") || strings.Contains(reqs[1], "call complete_scheduled_task") {
 		t.Fatalf("the review reminder was not the say version: %d requests", len(reqs))
 	}
 	if origin := originOf(t, f.server.store, got.ID); origin != finalOriginSay {
@@ -484,8 +484,8 @@ func TestRunRequestsForcedToolUseOnlyForAHaikuDMUnderTheFlag(t *testing.T) {
 func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "send_message", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "send_message", `{"purpose":"answer","outcome":"done","text":"The complete answer covers 3 items."}`}}},
 		fakeStep{content: "a call that must not happen"})
 	s, run := serverWithModel(t, model, true)
 	if run.Status != "done" {
@@ -508,8 +508,8 @@ func TestIdenticalSayAnswerAfterTheReviewRefusalIsRecorded(t *testing.T) {
 func TestScheduledSayAnswerAfterToolWorkIsReviewedOnce(t *testing.T) {
 	model := newFakeModel(t,
 		fakeStep{calls: []fakeCall{{"c1", "create_work_item", `{"kind":"task","title":"Check the numbers"}`}}},
-		fakeStep{calls: []fakeCall{{"c2", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
-		fakeStep{calls: []fakeCall{{"c3", "say", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c2", "send_message", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
+		fakeStep{calls: []fakeCall{{"c3", "send_message", `{"purpose":"answer","outcome":"done","text":"The scheduled report lists 3 items.","sources":["synthetic source"]}`}}},
 		fakeStep{content: "a call that must not happen"})
 	f := newDedupeFixture(t, model.engine(t))
 	got := runScheduledOnce(t, f)
@@ -655,7 +655,7 @@ func TestAnswerAfterPostingAndHandingOffIsRefused(t *testing.T) {
 		if run.Kind != "" {
 			return reply(ctx, req, "the metaphor: a lighthouse", nil)
 		}
-		if _, err := callTool(ctx, req, "say", "m1", map[string]any{"purpose": "message", "outcome": "pending", "text": "My take: depth first."}); err != nil {
+		if _, err := callTool(ctx, req, "send_message", "m1", map[string]any{"purpose": "message", "outcome": "pending", "text": "My take: depth first."}); err != nil {
 			return "ERR " + err.Error()
 		}
 		for _, tool := range req.Tools {
@@ -665,7 +665,7 @@ func TestAnswerAfterPostingAndHandingOffIsRefused(t *testing.T) {
 				}
 			}
 		}
-		_, refused = callTool(ctx, req, "say", "a1", map[string]any{"purpose": "answer", "outcome": "done", "text": "My line is above; the other Bot's is on its way and I will continue when it is back."})
+		_, refused = callTool(ctx, req, "send_message", "a1", map[string]any{"purpose": "answer", "outcome": "done", "text": "My line is above; the other Bot's is on its way and I will continue when it is back."})
 		return ""
 	}
 	f.post(t, "@tofi get the metaphor from metaphor", f.tofi)

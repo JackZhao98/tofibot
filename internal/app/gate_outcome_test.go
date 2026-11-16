@@ -13,7 +13,7 @@ func TestGateRefusalsAreNotCountedAsFailedCalls(t *testing.T) {
 	for i, code := range append([]string{"some_other_refusal"}, gateOutcomeCodes...) {
 		o := tooloutcome.New(tooloutcome.Transient, code, "not_executed", "Synthetic.", "retry")
 		for _, status := range []string{"queued", "running", "failed"} {
-			ev := runtime.ToolEvent{CallID: "call-" + code, Name: "say", Arguments: "{}", Status: status}
+			ev := runtime.ToolEvent{CallID: "call-" + code, Name: "send_message", Arguments: "{}", Status: status}
 			if status == "failed" {
 				ev.Outcome = &o
 				ev.Result = o.JSON()

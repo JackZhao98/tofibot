@@ -52,14 +52,14 @@ func respond(ctx context.Context, req runtime.Request, args map[string]any) erro
 // empty final text a model emits after its terminal call.
 func reply(ctx context.Context, req runtime.Request, text string, wake []map[string]string) string {
 	for _, tool := range req.Tools {
-		if tool.Name != "say" {
+		if tool.Name != "send_message" {
 			continue
 		}
 		args := map[string]any{"purpose": "answer", "outcome": "done", "text": text}
 		if wake != nil {
 			args["wake"] = wake
 		}
-		if _, err := callTool(ctx, req, "say", "reply-"+req.RunID, args); err != nil {
+		if _, err := callTool(ctx, req, "send_message", "reply-"+req.RunID, args); err != nil {
 			return "ERR " + err.Error()
 		}
 		return ""
@@ -622,7 +622,7 @@ func TestReplyIsTheOnlyVisibleMessageAndSecondReplyRejected(t *testing.T) {
 		name := "flag-off"
 		want := "already called"
 		if structured {
-			name, want = "flag-on", "deliver with say"
+			name, want = "flag-on", "deliver with send_message"
 		}
 		t.Run(name, func(t *testing.T) {
 			var f dedupeFixture
@@ -740,9 +740,9 @@ type scheduledReplyEngine struct{}
 
 func (scheduledReplyEngine) Run(ctx context.Context, req runtime.Request) (runtime.Result, error) {
 	for _, tool := range req.Tools {
-		if tool.Name == "say" {
+		if tool.Name == "send_message" {
 			// The say protocol: the answer is the reply and the receipt.
-			_, err := callTool(ctx, req, "say", "scheduled-reply", map[string]any{"purpose": "answer", "outcome": "done", "text": "daily synthetic note", "sources": []string{"synthetic source"}})
+			_, err := callTool(ctx, req, "send_message", "scheduled-reply", map[string]any{"purpose": "answer", "outcome": "done", "text": "daily synthetic note", "sources": []string{"synthetic source"}})
 			return runtime.Result{}, err
 		}
 	}

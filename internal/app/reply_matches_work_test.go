@@ -76,8 +76,11 @@ func TestPublishFileResultNamesTheSourceAndEverythingAttachedToTheReply(t *testi
 		}
 	}
 	tool := s.publishAttachmentTools(conv, run)[0]
-	if !strings.Contains(tool.Description, "working files stay on the Bot computer") {
-		t.Errorf("publish_file description lost the deliverables-only principle: %s", tool.Description)
+	if !tool.Deferred || !strings.Contains(tool.Description, "send_message attachments") {
+		t.Errorf("publish_file must be a deferred alias naming send_message attachments: %+v", tool)
+	}
+	if !strings.Contains(sayAttachmentsDescription, "keep only deliverables") {
+		t.Errorf("the attachments description lost the deliverables-only principle: %s", sayAttachmentsDescription)
 	}
 	var last struct {
 		SourcePath string   `json:"source_path"`

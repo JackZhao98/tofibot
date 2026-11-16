@@ -20,7 +20,7 @@ func planReminderRun(t *testing.T, names ...string) *scriptedProvider {
 		return ExtraBuiltinTool{Schema: provider.Tool{Name: name, Parameters: map[string]any{"type": "object"}}, HandlerCtx: handler}
 	}
 	if _, err := runLoop(t, AgentConfig{Provider: p, Prompt: "go", PlanReminder: "PLAN-REMINDER", PlanReminderAfter: 3, ToolsOnly: true, StructuredOutput: true,
-		OnAssistantTurn: func(int, string) {}, ExtraTools: []ExtraBuiltinTool{tool("lookup"), tool("say"), tool("update_plan")}}); err != nil {
+		OnAssistantTurn: func(int, string) {}, ExtraTools: []ExtraBuiltinTool{tool("lookup"), tool("send_message"), tool("update_plan")}}); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -45,7 +45,7 @@ func reminderCount(p *scriptedProvider) (requests int, first int) {
 // The harness says the plan reminder once, after the third tool call that is
 // work (say is not), and never to a run that already keeps a list.
 func TestPlanReminderComesOnceAfterThreeCalls(t *testing.T) {
-	p := planReminderRun(t, "lookup", "say", "lookup", "lookup", "lookup")
+	p := planReminderRun(t, "lookup", "send_message", "lookup", "lookup", "lookup")
 	n, first := reminderCount(p)
 	if first != 4 {
 		t.Fatalf("the reminder reaches the request after the third work call: first at request %d", first)
@@ -61,12 +61,12 @@ func TestPlanReminderComesOnceAfterThreeCalls(t *testing.T) {
 	}
 	// Searches the provider ran itself count: one say turn that searched three times is enough.
 	searched := &scriptedProvider{steps: []func(context.Context, *provider.ChatRequest, func(provider.StreamDelta)) (*provider.ChatResponse, error){
-		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "a", Name: "say", Arguments: `{}`}}, WebSearches: []provider.WebSearch{{}, {}, {}}}),
+		reply(provider.ChatResponse{ToolCalls: []provider.ToolCall{{ID: "a", Name: "send_message", Arguments: `{}`}}, WebSearches: []provider.WebSearch{{}, {}, {}}}),
 		reply(provider.ChatResponse{Content: "done"}),
 	}}
 	handler := func(context.Context, map[string]interface{}) (string, error) { return "ok", nil }
 	if _, err := runLoop(t, AgentConfig{Provider: searched, Prompt: "go", PlanReminder: "PLAN-REMINDER", PlanReminderAfter: 3, ToolsOnly: true, StructuredOutput: true, OnAssistantTurn: func(int, string) {},
-		ExtraTools: []ExtraBuiltinTool{{Schema: provider.Tool{Name: "say", Parameters: map[string]any{"type": "object"}}, HandlerCtx: handler}}}); err != nil {
+		ExtraTools: []ExtraBuiltinTool{{Schema: provider.Tool{Name: "send_message", Parameters: map[string]any{"type": "object"}}, HandlerCtx: handler}}}); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := reminderCount(searched); n != 1 {
