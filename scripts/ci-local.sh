@@ -144,6 +144,7 @@ job ui-i18n      always npm_ui test:i18n
 job ui-css-layers always npm_ui test:css-layers
 job ui-motion-tokens always npm_ui test:motion-tokens
 job ui-final-v2-tokens always npm_ui test:final-v2-tokens
+job ui-avatar-lib '^ui/src/lib/tofi-avatar/' npm_ui test:avatar-lib
 job ui-build     "$UI"  ui_build
 job ui-desktop-settings "$UISRC" npm_ui test:desktop-settings-isolation
 if wanted ui-layers always || wanted ui-dialogs always || wanted ui-overlays always || wanted ui-desktop-drag always || wanted ui-desktop-pages "$UISRC" || wanted ui-shell-budget always || wanted ui-catalog "$UISRC"; then

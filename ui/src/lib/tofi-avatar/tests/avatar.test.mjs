@@ -317,3 +317,27 @@ test('catFraming covers every shape and rejects unknown ones', () => {
   }
   assert.throws(()=>catFraming('nope'));
 });
+
+test('a moving cat draws no <use> copies; every body and eye copy moves in step', async () => {
+  // Safari repaints a <use> copy late after its source path changes, so a
+  // breathing cat lost its body, coat and eyes for a frame (tail still drawn).
+  const walk = (node, out = []) => { out.push(node); node.children.forEach(child => walk(child, out)); return out; };
+  for (const {id: shape} of catalog.shapes) {
+    const env = environment(), cat = mountAvatar(env.host, {shape, initialState: 'awake', life: true});
+    void cat.play('look');
+    for (let frame = 0; frame < 6; frame++) {
+      env.step(40);
+      const nodes = walk(env.host);
+      assert.equal(nodes.filter(n => n.tag === 'use').length, 0, `${shape}: no <use>`);
+      const body = nodes.find(n => n.attributes.id?.endsWith('-body'));
+      const copies = nodes.filter(n => n.tag === 'path' && n.attributes.d === body.attributes.d);
+      assert.ok(copies.length >= 4, `${shape}: body, clip, fill and outline share one d (got ${copies.length})`);
+      for (const eye of nodes.filter(n => n.attributes['data-eye'])) {
+        const clip = nodes.find(n => n.tag === 'clipPath' && n.attributes.id === `${eye.attributes.id}-c`);
+        assert.equal(clip.children[0].attributes.d, eye.attributes.d, `${shape}: eye clip follows the eye`);
+        assert.equal(clip.children[0].attributes.transform, eye.attributes.transform, `${shape}: eye clip follows the gaze`);
+      }
+    }
+    cat.destroy();
+  }
+});

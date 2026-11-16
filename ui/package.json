@@ -20,6 +20,7 @@
     "test:settings-deeplinks": "node scripts/test-settings-deeplinks.mjs",
     "test:settings-changes": "node scripts/test-settings-changes.mjs",
     "test:avatar-store": "node scripts/test-avatar-store.mjs",
+    "test:avatar-lib": "node --test src/lib/tofi-avatar/tests/avatar.test.mjs",
     "test:conversation-route-browser": "node scripts/run-conversation-route-browser.mjs",
     "test:reply-ack": "node scripts/test-reply-ack.mjs",
     "test:reply-quote": "node scripts/test-reply-quote.mjs",
