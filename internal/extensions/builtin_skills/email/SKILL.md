@@ -12,6 +12,10 @@ kind: procedure
 - When the connection reports that it is not connected, not authorized or expired, stop and tell the person that mail needs to be reconnected in Settings > Connections, name the connection, and offer to continue once they have done it. When no mail connection exists, say that one can be added in Settings > Connections.
 - The signed-in Gmail in the Bot computer's browser is the fallback. It is used only when there is no mail connection, or when the connection is not authorized and the request needs the mail now. A run with a Bot computer reads `references/gmail-browser.md` with read_skill_file for how.
 
+## When no route reaches the mail
+
+- The answer names each route tried and what stopped it, and the setting the person can use to open a route: a mail connection is added or reconnected in Settings > Connections.
+
 ## Reading and acting
 
 - Opening a mail to read it fits a read-only request. Archiving, labeling, marking, deleting and replying happen only when asked.
