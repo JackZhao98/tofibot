@@ -48,21 +48,35 @@ func (g *AccountGateway) alertBackupRecovered(st *backupStatus) {
 
 // alertIfStale runs on the scheduler tick. A repository that never had a
 // success is reported by its failures, not as stale.
+//
+// It rewrites the whole status row, so it holds the job slot (backupMu, without
+// marking the slot busy for account create and delete) while it reads and
+// saves: a job that holds the slot owns the row until it ends, and settles the
+// episode itself. The tick then looks again next time.
 func (g *AccountGateway) alertIfStale(cfg backupConfig, at time.Time) {
-	if cfg.Remote != "on" {
+	if cfg.Remote != "on" || !g.backupMu.TryLock() {
 		return
 	}
+	stale := g.markStale(cfg, at)
+	g.backupMu.Unlock()
+	if stale {
+		g.notifyAdmins(backupAlertStale)
+	}
+}
+
+// markStale records a new stale episode; the caller holds backupMu.
+func (g *AccountGateway) markStale(cfg backupConfig, at time.Time) bool {
 	st := g.loadBackupStatus()
 	if st.StaleAlerted || st.LastSuccessAt == "" || st.Running {
-		return
+		return false
 	}
 	t, err := time.Parse(time.RFC3339Nano, st.LastSuccessAt)
 	if err != nil || at.Sub(t) <= time.Duration(cfg.StaleAfterHours)*time.Hour {
-		return
+		return false
 	}
 	st.StaleAlerted = true
 	g.saveBackupStatus(st)
-	g.notifyAdmins(backupAlertStale)
+	return true
 }
 
 // notifyAdmins writes one admin_alert row into every enabled administrator's
