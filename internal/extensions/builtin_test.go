@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-var builtinNames = []string{"code-delivery", "document-report", "email", "install-software", "slides", "spreadsheet", "video", "web-page", "web-research", "web-tasks"}
+var builtinNames = []string{"code-delivery", "data-chart", "document-report", "docx-edit", "email", "file-convert", "image-edit", "install-software", "pdf", "slides", "spreadsheet", "video", "video-edit", "web-page", "web-research", "web-tasks", "web-to-sheet"}
 
 func prepareBuiltin(t *testing.T, cfg Config, bot string) *Prepared {
 	t.Helper()
@@ -210,7 +210,7 @@ func TestBuiltinSkillsDeclareKindAndRequires(t *testing.T) {
 	}{
 		"code-delivery": {"deliverable", true}, "document-report": {"deliverable", true}, "slides": {"deliverable", true},
 		"spreadsheet": {"deliverable", true}, "web-page": {"deliverable", true}, "video": {"read", true},
-		"web-research": {"procedure", false}, "email": {"procedure", false}, "web-tasks": {"procedure", true}, "install-software": {"procedure", true},
+		"data-chart": {"deliverable", true}, "docx-edit": {"deliverable", true}, "email": {"procedure", false}, "file-convert": {"deliverable", true}, "image-edit": {"deliverable", true}, "install-software": {"procedure", true}, "pdf": {"deliverable", true}, "video-edit": {"deliverable", true}, "web-research": {"procedure", false}, "web-tasks": {"procedure", true}, "web-to-sheet": {"deliverable", true},
 	}
 	for _, s := range BuiltinSkills() {
 		w, ok := want[s.Name]
@@ -234,7 +234,7 @@ func TestBuiltinSkillsDeclareKindAndRequires(t *testing.T) {
 func TestSkillsThatNeedAComputerAreHiddenWithoutOne(t *testing.T) {
 	ctx := context.Background()
 	without := prepareBuiltin(t, Config{HasBotComputer: func() bool { return false }}, "bot")
-	for _, hidden := range []string{"slides", "spreadsheet", "document-report", "web-page", "code-delivery", "video", "web-tasks", "install-software"} {
+	for _, hidden := range []string{"slides", "spreadsheet", "document-report", "web-page", "code-delivery", "video", "image-edit", "video-edit", "file-convert", "web-tasks", "install-software"} {
 		if strings.Contains(without.Instructions, `"name":"`+hidden+`"`) {
 			t.Errorf("index lists %s without a computer", hidden)
 		}
@@ -278,4 +278,38 @@ func TestCollisionDiagnosticNamesBothSkills(t *testing.T) {
 		}
 	}
 	t.Fatalf("diagnostics=%+v", p.Diagnostics)
+}
+
+// An adapted built-in Skill ships its upstream license and its NOTICE with its
+// files (Apache-2.0 attribution travels with the binary and to the computer).
+func TestBuiltinSkillNoticeIsServedWithItsFiles(t *testing.T) {
+	for _, name := range []string{"pdf", "docx-edit", "spreadsheet", "slides"} {
+		files, _, err := BuiltinSkillFiles(name)
+		if err != nil {
+			t.Fatal(name, err)
+		}
+		got := map[string]bool{}
+		for _, f := range files {
+			got[f.Path] = len(f.Data) > 0
+		}
+		if !got["NOTICE"] || !got["LICENSE.txt"] {
+			t.Errorf("%s: NOTICE=%v LICENSE.txt=%v", name, got["NOTICE"], got["LICENSE.txt"])
+		}
+	}
+}
+
+// Every built-in Skill has its row in the prompt directory: the catalog must
+// not outgrow the Skill rows' budget (the last names were cut once).
+func TestEveryBuiltinSkillIsInTheDirectory(t *testing.T) {
+	skills := BuiltinSkills()
+	got := discoveryInstructions(map[string]MCPServerConfig{}, skills)
+	_, section, _ := strings.Cut(got, skillDirectoryHeader)
+	if strings.Contains(section, "Additional entries omitted") {
+		t.Fatalf("the Skill rows were cut: %d built-ins need more than %d bytes", len(skills), skillDirectoryBytes)
+	}
+	for _, s := range skills {
+		if !strings.Contains(section, `"name":"`+s.Name+`"`) {
+			t.Errorf("%s is missing from the directory", s.Name)
+		}
+	}
 }

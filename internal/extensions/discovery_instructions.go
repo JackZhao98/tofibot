@@ -6,7 +6,15 @@ import (
 	"strings"
 )
 
-const capabilityDirectoryBytes = 4096
+// The directory's MCP source rows and Skill rows have separate budgets: a
+// growing set of built-in Skills (about 35 rows fit) must not push the last
+// ones out, and source names must not crowd out Skills (2026-11-16: with 18
+// built-ins the shared half cut web-research, web-tasks and web-to-sheet).
+const (
+	sourceDirectoryBytes     = 1792
+	skillDirectoryBytes      = 4096
+	capabilityDirectoryBytes = sourceDirectoryBytes + skillDirectoryBytes + 512
+)
 
 // skillDirectoryHeader opens the Skill rows of the directory. A Skill is a
 // how-to for a kind of work; the run's tools do the work with or without one.
@@ -69,10 +77,10 @@ func discoveryInstructions(servers map[string]MCPServerConfig, skills []Skill) s
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
 	var directory strings.Builder
 	directory.WriteString("Configured MCP sources (names only):\n")
-	appendRows := func(rows []string) {
+	appendRows := func(rows []string, limit int) {
 		used := 0
 		for _, row := range rows {
-			if used+len(row)+1 > (capabilityDirectoryBytes-512)/2 {
+			if used+len(row)+1 > limit {
 				directory.WriteString("Additional entries omitted; use discovery tools.\n")
 				break
 			}
@@ -85,7 +93,7 @@ func discoveryInstructions(servers map[string]MCPServerConfig, skills []Skill) s
 		b, _ := json.Marshal(name)
 		rows = append(rows, string(b))
 	}
-	appendRows(rows)
+	appendRows(rows, sourceDirectoryBytes)
 	directory.WriteString(skillDirectoryHeader)
 	rows = rows[:0]
 	for _, skill := range ordered {
@@ -95,7 +103,7 @@ func discoveryInstructions(servers map[string]MCPServerConfig, skills []Skill) s
 		}{skill.Name, truncateUTF8(skill.Description, 240)})
 		rows = append(rows, string(b))
 	}
-	appendRows(rows)
+	appendRows(rows, skillDirectoryBytes)
 	return policy + directory.String()
 }
 

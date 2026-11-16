@@ -27,7 +27,7 @@ import (
 // next to them stay out of the binary. The frontmatter of a built-in skill may
 // also carry requires: [computer] and kind: deliverable|read|procedure.
 //
-//go:embed builtin_skills/*/SKILL.md builtin_skills/*/scripts/*.py builtin_skills/*/references/*.md
+//go:embed builtin_skills/*/SKILL.md builtin_skills/*/scripts/*.py builtin_skills/*/references/*.md builtin_skills/*/NOTICE builtin_skills/*/LICENSE.txt
 var builtinFS embed.FS
 
 const builtinRoot = "builtin_skills"

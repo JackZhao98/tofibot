@@ -24,22 +24,23 @@ sentences in model text).
 | web-tasks | procedure | yes | forms, orders, bookings and changes on websites |
 | install-software | procedure | yes | install and remove software in user space |
 | document-report | deliverable | yes | DOCX and PDF documents and reports |
-| slides | deliverable | yes | PPTX decks |
-| spreadsheet | deliverable | yes | XLSX workbooks with formulas |
+| slides | deliverable | yes | PPTX decks: build, edit an existing deck, layout check, render and view |
+| spreadsheet | deliverable | yes | XLSX workbooks with formulas, recalculation that fails on error cells |
 | web-page | deliverable | yes | one self-contained HTML page |
 | code-delivery | deliverable | yes | change code, run it, ship an archive |
 | video | read | yes | read a video: frames, scenes, on-screen text, speech |
+| pdf | deliverable | yes | read, extract tables to xlsx, split, merge, rotate, fill forms, OCR a scan; view rendered pages |
+| docx-edit | deliverable | yes | edit an existing Word file: tracked changes, comments, template fill; keeps formatting |
+| image-edit | deliverable | yes | crop, resize, annotate, blur, combine, convert pictures; view the result |
+| video-edit | deliverable | yes | cut, join, compress, GIF under a size budget, burn subtitles, extract audio, change speed |
+| file-convert | deliverable | yes | Word, PDF, Markdown, HTML, images and archives in both directions; check the output |
+| data-chart | deliverable | yes | analyze a table with pandas, draw a chart, look at it |
+| web-to-sheet | deliverable | yes | turn a page's table or list into a spreadsheet with the source link |
 
 ## Batch 1 (in progress; adapted from open-source Skills where a good one exists)
 
 | Skill | Job |
 |---|---|
-| pdf | read, extract tables, split, merge, fill forms, OCR a scan |
-| image-edit | crop, resize, annotate, combine, convert; look at the result |
-| video-edit | cut, join, compress, GIF, burn subtitles, extract audio |
-| file-convert | Word, PDF, Markdown, HTML, images and archives in both directions |
-| data-chart | analyze a table with pandas, draw a chart, look at it |
-| web-to-sheet | turn a page's table or list into a spreadsheet with the source link |
 
 ## Later batches (candidates)
 

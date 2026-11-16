@@ -131,6 +131,58 @@
     {
       "id": "software_install",
       "message": "在你的电脑上装一下 yq（YAML 命令行工具），装好后告诉我版本号。"
+    },
+    {
+      "id": "pdf_tables",
+      "message": "这是我们的季度销售报告，帮我把里面的表格整理成一个表格文件发我。",
+      "attach": "fixtures/quarterly-sales.pdf",
+      "expect": "reads the PDF's text layer and finds the one table (header Region, Units, Revenue (USD); rows North 120 4,500.50, South 95 3,800.00, East 143 5,210.75, West 210 9,100.25); delivers an xlsx whose cells hold those values with numbers stored as numbers; looked at the rendered page or the sheet before reporting; reply in Chinese names the file and that the table came from page 1 and does not invent rows. Read the pdf Skill, not document-report or spreadsheet, as the main guide."
+    },
+    {
+      "id": "docx_tracked",
+      "message": "把这份协议里“Payment is due within 30 days”那句的 30 天改成 45 天，用修订模式改，改完把文件发回给我。",
+      "attach": "fixtures/service-agreement.docx",
+      "expect": "returns a .docx whose only change is 30 to 45 recorded as a tracked deletion and insertion (not a silent edit, not a rewritten sentence); the bold formatting of the phrase and the rest of the document are unchanged; looked at the rendered page or checked the XML before reporting; reply in Chinese says the file is sent back with the change tracked. Read the docx-edit Skill, not document-report, as the main guide."
+    },
+    {
+      "id": "budget_sheet",
+      "message": "帮我做个本月预算表，Excel 格式。房租 4800，餐饮 2150，交通 620，订阅服务 318，娱乐 900，每项都要有，最后要有合计，再加一行汇总：一共花了多少、占月收入 12000 的百分之几。做好发我。",
+      "expect": "an .xlsx is sent as an attachment with the five items and amounts (4800, 2150, 620, 318, 900); the total (8788) is a SUM formula over the amounts, not a typed number; a summary row shows the total spent and the share of the 12000 income (about 73.2 percent) as formulas, with a percent number format; headers, widths and currency or number formats are readable; no error cells; the reply quotes 8788 and says what was checked"
+    },
+    {
+      "id": "deck_add_comparison",
+      "message": "我这个汇报 PPT 里加一页，做个方案对比表：基础版每月 99 元、含 3 个账号、邮件支持；专业版每月 299 元、含 10 个账号、电话支持。放在“Highlights”那页后面，改完发回给我。",
+      "attach": "fixtures/team-update.pptx",
+      "expect": "a .pptx is sent back with 4 slides; the original three slides keep their titles and text (Team update, Highlights, Next steps); the new slide is slide 3, right after Highlights, and has a title and a native table comparing the two plans (99/299 yuan per month, 3/10 accounts, email/phone support); the slide uses the deck's own layout and fonts, the table fits inside the slide with readable text; the reply says which slide was added"
+    },
+    {
+      "id": "image_annotate",
+      "message": "这是我们后台的截图，帮我把“本月销售额”和“待发货订单”这两块分别用框框起来，各标上名字，发给我。",
+      "attach": "fixtures/admin-dashboard.png",
+      "expect": "2 points: a new picture was sent with a box around the card titled 本月销售额 (left top card) and a box around the card titled 待发货订单 (right top card), each with a readable label naming it (Chinese text not shown as empty boxes); 1 point: boxes or labels exist but one is misplaced, covers the card text or is unreadable; 0: no picture sent or no annotation. The original is kept and the Bot viewed the result before sending. Skill read: image-edit."
+    },
+    {
+      "id": "video_to_gif",
+      "message": "把这个视频前 4 秒做成 GIF，要小于 1MB，发给我。",
+      "attach": "fixtures/order-status.mp4",
+      "expect": "2 points: a GIF of the first 4 seconds (the red ORDER 1042 RECEIVED scene, about 4 s long) under 1000000 bytes was sent, with the Bot stating its measured size; 1 point: a GIF was sent but longer or shorter than 4 s, or its size was not checked; 0: no GIF, or a GIF over 1 MB. Skill read: video-edit, not video."
+    },
+    {
+      "id": "markdown_to_word",
+      "message": "把这个 Markdown 文件转成 Word 文档发给我，表格别丢。",
+      "attach": "fixtures/quarterly-notes.md",
+      "expect": "2 points: a .docx was sent that holds the title, the paragraph, the 3-row sales table with 3 columns (门店, 销售额（万元）, 同比) and the 3 bullet items, with Chinese text as characters; the Bot checked it (render or read-back) before sending; 1 point: a .docx was sent but the table or a list is damaged or no check was made; 0: no .docx or the table is missing. Skill read: file-convert, not document-report."
+    },
+    {
+      "id": "data_chart_regions",
+      "message": "这是我们各地区每月的销售额（万元），哪个地区增长最快？画张图发我。",
+      "attach": "fixtures/monthly-sales-by-region.csv",
+      "expect": "monthly sales in 10k yuan, Jan to Jun 2026, four regions. Fastest growth: 西南 (60 to 92, +53%); 华南 +33% (90 to 120); 华北 +16% (100 to 116); 华东 +5% (120 to 126). 华南 overtakes 华北 in May but 西南 stays the smallest region in absolute terms. Score 2 when the reply names 西南 with the start and end values and a percentage, sends a PNG whose Chinese labels render as text (not boxes), whose title states the finding and whose axes carry units, and gives the numbers behind the chart; 1 when the answer is right but the chart or numbers are missing or labels are broken; 0 when the answer is wrong or no chart"
+    },
+    {
+      "id": "web_to_sheet_nobel",
+      "message": "把维基百科英文版 List of Nobel laureates in Physics 页面（https://en.wikipedia.org/wiki/List_of_Nobel_laureates_in_Physics）里按年份列出获奖者的那张大表做成 Excel 表格发我，要能看出数据来自哪个页面。",
+      "expect": "the first table of the page (Year, Name, Country, Citation, Ref.), roughly 230+ laureate rows growing with each new prize year (the page also has blank spacer rows that are not data). Score 2 when the XLSX has a header row, the Year column stored as numbers, a row count that matches the page (and is stated in the reply), no spacer or image-only empty rows, the page URL and the read time in a Source sheet or cell, and the reply says how the rows were checked; 1 when the table is right but the source link, time or row-count check is missing; 0 when the table is the small by-country table, rows are copied from memory, or no file"
     }
   ]
 }

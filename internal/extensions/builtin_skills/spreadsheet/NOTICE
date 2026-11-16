@@ -1,0 +1,17 @@
+This Skill contains material adapted from Anthropic's xlsx Skill.
+
+Upstream: https://github.com/anthropics/skills, path skills/xlsx
+Pinned commit: e4bb5d960d87126ff3b3a8af1a104b7db67560ba
+License: Apache-2.0 (copy in LICENSE.txt)
+
+Modified by TOFI: the SKILL.md rules on formulas, number formats, function
+choice for LibreOffice, openpyxl cautions and financial-model conventions were
+rewritten from the upstream SKILL.md. scripts/xlsx_recalc.py is new code that
+follows the idea of upstream scripts/recalc.py (LibreOffice calculates a copy,
+a report names the error cells); no upstream code is included. Differences:
+the TOFI script keeps formulas by saving LibreOffice's calculated copy, exits
+non-zero when any cell holds an error (upstream exits 0 with errors found),
+and never edits its input. The upstream advice to open a workbook with
+data_only=True and save it is not carried over, because saving that workbook
+destroys its formulas. The upstream office/ helpers, XML schemas and the
+LibreOffice socket shim are not included.

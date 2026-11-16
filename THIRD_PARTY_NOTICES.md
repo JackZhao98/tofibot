@@ -143,3 +143,20 @@ These are the `FROM` lines in the Dockerfiles of this repository. Each base imag
 | `mirror.gcr.io/library/python` (Worker image, `deploy/microvm/Worker.Dockerfile`) | 3.12-slim | PSF-2.0 (Python); Debian packages: each its own | https://hub.docker.com/_/python |
 
 The tool runner image also installs Debian packages (`python3`, `python3-venv`, `python3-pip`, `iproute2`, `iptables`, `util-linux`, `ca-certificates`) and `gog` (gogcli v0.40.0, license: see upstream).
+
+## 6. Built-in Skills adapted from open-source Skills
+
+Some built-in Skills under `internal/extensions/builtin_skills/` are adapted from open-source Skills. Each such folder keeps the upstream `LICENSE.txt` and a `NOTICE` that names the upstream path, the pinned commit and what TOFI changed. No binary from upstream is bundled.
+
+| Skill | Upstream | Pinned commit | License | What TOFI changed |
+|---|---|---|---|---|
+| `pdf` | https://github.com/anthropics/skills (`skills/pdf`) | e4bb5d960d87126ff3b3a8af1a104b7db67560ba | Apache-2.0 | Text rewritten for the Bot computer; scripts replaced by `scripts/pdf_tools.py` and `scripts/pdf_form.py` (form logic adapted from the upstream form scripts); long material moved to `references/`; no password on a command line |
+| `docx-edit` | https://github.com/anthropics/skills (`skills/docx`, editing part) | e4bb5d960d87126ff3b3a8af1a104b7db67560ba | Apache-2.0 | Text rewritten; one script `scripts/docx_edit.py` replaces the upstream scripts and validators (no XSD bundle, no socket shim, no in-place edits or auto-repair); tracked replacement added |
+| `spreadsheet` | https://github.com/anthropics/skills (`skills/xlsx`) | e4bb5d960d87126ff3b3a8af1a104b7db67560ba | Apache-2.0 | Guidance text adapted and rewritten to the TOFI runtime; scripts are new TOFI code (recalculation keeps formulas and fails on error cells) |
+| `slides` | https://github.com/anthropics/skills (`skills/pptx`) | e4bb5d960d87126ff3b3a8af1a104b7db67560ba | Apache-2.0 | Guidance text adapted and rewritten to the TOFI runtime; scripts are new TOFI code (layout check, slide operations) |
+
+## 7. Built-in Skills informed by open-source Skills
+
+| Skill | Upstream | License | Use |
+|---|---|---|---|
+| `video-edit` | https://github.com/anthropics/skills, `skills/slack-gif-creator`, commit e4bb5d960d87126ff3b3a8af1a104b7db67560ba | Apache-2.0 | Idea only (a byte budget and a shrink loop for GIF size); no text or code reused, no binary bundled. See `internal/extensions/builtin_skills/video-edit/NOTICE`. |
