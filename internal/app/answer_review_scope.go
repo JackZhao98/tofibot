@@ -37,6 +37,11 @@ type toolWorkRecord struct {
 	// reviewSelfConfirming.
 	unlisted bool
 	restored bool
+	// haystack returns the text a figure of the draft can be found in: this
+	// run's tool results and the person's request. It fails, or is nil, when
+	// the results are not available; the reminder then lists every figure
+	// sentence.
+	haystack func() (string, error)
 }
 
 // note records one tool event. Only a review-arming call counts.
@@ -83,19 +88,106 @@ func (t *toolWorkRecord) clean() bool {
 	return !t.restored && !t.unlisted && len(t.unconfirmed) == 0
 }
 
-// draftSentences splits a draft at sentence ends and line breaks.
+// draftSentences splits a draft at sentence ends and line breaks. A full stop
+// between two digits is a decimal point and does not end a sentence.
 func draftSentences(text string) []string {
-	parts := strings.FieldsFunc(text, func(r rune) bool {
-		switch r {
-		case '.', '!', '?', '\n', '。', '！', '？':
-			return true
-		}
-		return false
-	})
-	out := parts[:0]
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
+	rs := []rune(text)
+	var out []string
+	var cur []rune
+	flush := func() {
+		if p := strings.TrimSpace(string(cur)); p != "" {
 			out = append(out, p)
+		}
+		cur = cur[:0]
+	}
+	for i, r := range rs {
+		switch r {
+		case '.':
+			if i > 0 && i+1 < len(rs) && unicode.IsDigit(rs[i-1]) && unicode.IsDigit(rs[i+1]) {
+				cur = append(cur, r)
+				continue
+			}
+			flush()
+		case '!', '?', '\n', '。', '！', '？':
+			flush()
+		default:
+			cur = append(cur, r)
+		}
+	}
+	flush()
+	return out
+}
+
+// figureTokens returns the whole numeric tokens of text, normalised: full-width
+// digits become ASCII, thousands separators (a comma or a thin space before
+// exactly three digits, an underscore) are dropped, and a trailing percent
+// sign is not part of the token.
+func figureTokens(text string) []string {
+	rs := []rune(text)
+	for i, r := range rs {
+		if r >= '０' && r <= '９' {
+			rs[i] = r - '０' + '0'
+		}
+	}
+	digit := func(i int) bool { return i >= 0 && i < len(rs) && rs[i] >= '0' && rs[i] <= '9' }
+	var out []string
+	for i := 0; i < len(rs); {
+		if !digit(i) {
+			i++
+			continue
+		}
+		var tok []rune
+		for digit(i) {
+			tok = append(tok, rs[i])
+			i++
+			if i+1 < len(rs) && digit(i+1) {
+				switch rs[i] {
+				case '_':
+					i++
+				case ',', '\u2009', '\u202f':
+					if digit(i+1) && digit(i+2) && digit(i+3) && !digit(i+4) {
+						i++
+					}
+				}
+			}
+		}
+		if i+1 < len(rs) && rs[i] == '.' && digit(i+1) {
+			tok = append(tok, '.')
+			i++
+			for digit(i) {
+				tok = append(tok, rs[i])
+				i++
+			}
+		}
+		out = append(out, string(tok))
+	}
+	return out
+}
+
+// unshownFigureSentences returns the figure sentences that hold a figure the
+// record does not show. Figures under 10 are too weak to test and count as
+// found. Without a readable record every figure sentence is returned.
+func (t *toolWorkRecord) unshownFigureSentences(text string) []string {
+	all := figureSentences(text)
+	if len(all) == 0 || t.haystack == nil {
+		return all
+	}
+	hay, err := t.haystack()
+	if err != nil {
+		return all
+	}
+	found := map[string]bool{}
+	for _, tok := range figureTokens(hay) {
+		found[tok] = true
+	}
+	var out []string
+	for _, s := range all {
+		for _, tok := range figureTokens(s) {
+			if len(tok) < 2 || found[tok] {
+				continue
+			}
+			out = append(out, s)
+			break
 		}
 	}
 	return out
@@ -134,8 +226,8 @@ func (t *toolWorkRecord) reviewReminder(base, text string) string {
 	if names := t.names(); len(names) > 0 {
 		fmt.Fprintf(&b, "\n- These calls ended without a confirmed result: %s. Every sentence that relies on them lacks support until you inspect the current state or say the result is unknown.", strings.Join(names, ", "))
 	}
-	if fs := figureSentences(text); len(fs) > 0 {
-		b.WriteString("\n- These sentences state figures; each must match a tool result:")
+	if fs := t.unshownFigureSentences(text); len(fs) > 0 {
+		b.WriteString("\n- These sentences state figures that do not appear in the tool results yet. Read each figure from the file or output that holds it (open or print it) in this turn, then keep it or correct it:")
 		for i, s := range fs {
 			if i == 3 {
 				break
@@ -146,6 +238,6 @@ func (t *toolWorkRecord) reviewReminder(base, text string) string {
 	if utf8.RuneCountInString(text) > reviewLongDraftRunes {
 		b.WriteString("\n- The draft is long; confirm that each statement of extent holds for exactly what the results show.")
 	}
-	b.WriteString("\nThis review runs once. After correcting the unsupported sentences, send the answer again with send_message; a draft whose sentences are all supported is sent unchanged.")
+	b.WriteString("\nThis review runs once. After checking, send the answer again with send_message. Figures and facts that were verified stay in it, and a draft whose sentences are all supported is sent unchanged.")
 	return b.String()
 }
