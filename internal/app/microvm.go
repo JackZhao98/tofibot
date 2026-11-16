@@ -164,7 +164,43 @@ func (s *Server) microVMEnvironmentPrompt(ctx context.Context, botID string, run
 	} else if info.DesktopIdleSeconds != nil {
 		idle = fmt.Sprintf(" Desktop idle timeout: %ds (0 disables).", *info.DesktopIdleSeconds)
 	}
-	return fmt.Sprintf("\nBot computer (Linux VM), separate from the service host and Mac; work here is never host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. System directories are read-only (no sudo); install software only in user space (skill: software). Office, PDF, OCR and charting tools are preinstalled for English; fetch other languages' data or fonts into user directories. Attached files are on this Bot computer at the listed paths. %s Stop the desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, computerBrowserEssentialsFor(s.browserEnginePlaywright() && s.browserBotFirst(r))+computerDesktopEssentialsFor(s.desktopEngineA11y())) + idle
+	return fmt.Sprintf("\nBot computer (Linux VM), separate from the service host and Mac; work here is never host/Mac access. cwd=%s/bots/%s, HOME=/workspace/home; /workspace/shared, files, tools, Chrome profile and display are shared. Browser: %s. %s Attached files are on this Bot computer at the listed paths. %s Stop the desktop only on user intent. Private keys use Secret Input; return public keys only.", root, botID, browser, botComputerMeans(), computerBrowserEssentialsFor(s.browserEnginePlaywright() && s.browserBotFirst(r))+computerDesktopEssentialsFor(s.desktopEngineA11y())) + idle
+}
+
+// botComputerToolbox is what deploy/microvm/Dockerfile installs (the E2B image
+// is built from it). Each name is held to its packages there by
+// TestBotComputerToolboxIsInstalled, so the prompt cannot claim a program the
+// image lacks. The browser is not listed: info.Browser names it per image.
+var botComputerToolbox = []struct {
+	Name     string
+	Packages []string
+}{
+	{"Python 3 (pandas, matplotlib, Pillow, openpyxl, python-docx, python-pptx, reportlab, pypdf)", []string{"python3-venv", "python3-pandas", "python3-matplotlib", "python3-pil", "python3-openpyxl", "python3-docx", "python-pptx==", "python3-reportlab", "python3-pypdf"}},
+	{"Node.js 22 with npm", []string{"node:22"}},
+	{"ffmpeg", []string{"ffmpeg"}},
+	{"ImageMagick", []string{"imagemagick"}},
+	{"LibreOffice", []string{"libreoffice-core"}},
+	{"pandoc", []string{"pandoc"}},
+	{"Poppler", []string{"poppler-utils"}},
+	{"Tesseract", []string{"tesseract-ocr"}},
+	{"git", []string{"git"}},
+	{"curl", []string{"curl"}},
+	{"wget", []string{"wget"}},
+}
+
+// botComputerFontPackages back the fonts sentence of botComputerMeans.
+var botComputerFontPackages = []string{"fonts-liberation", "fonts-noto-cjk"}
+
+// botComputerMeans is the Bot computer's capability picture: what is
+// installed, how more gets installed, and that programs written here are the
+// route for work no tool or Skill is made for. It is fixed text, so the system
+// prompt stays cache-stable.
+func botComputerMeans() string {
+	names := make([]string, len(botComputerToolbox))
+	for i, item := range botComputerToolbox {
+		names[i] = item.Name
+	}
+	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. Deliver a finished file with publish_file."
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -618,7 +654,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		}
 		return t
 	}
-	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the Bot computer. HOME and installed tools are shared across all Bots in this Bot computer; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed. To use a saved secret, list its name in secrets: it is set as an environment variable for this command only and masked in the output.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "secrets": map[string]any{"type": "array", "maxItems": maxShellSecrets, "items": map[string]any{"type": "string"}, "description": "Names of saved secrets this command needs"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Command timeout in seconds. Default 60, maximum 120. Nothing keeps running after the call returns; use computer_terminal for longer jobs."}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	shell := call("computer_shell", "Run a bounded shell command with this Bot's default working directory inside the Bot computer; writing and running programs here is the route for work no other tool covers. HOME and installed tools are shared across all Bots in this Bot computer; installing or uninstalling a command affects all of them. Only default working directories differ and remain mutually accessible. Load a project's .env explicitly when needed. To use a saved secret, list its name in secrets: it is set as an environment variable for this command only and masked in the output.", objectSchema(map[string]any{"command": map[string]any{"type": "string", "description": "bash command, for example pwd"}, "secrets": map[string]any{"type": "array", "maxItems": maxShellSecrets, "items": map[string]any{"type": "string"}, "description": "Names of saved secrets this command needs"}, "timeout_sec": map[string]any{"type": "integer", "minimum": 1, "maximum": 120, "description": "Command timeout in seconds. Default 60, maximum 120. Nothing keeps running after the call returns; use computer_terminal for longer jobs."}}, []string{"command"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Command    string   `json:"command"`
 			TimeoutSec int      `json:"timeout_sec,omitempty"`

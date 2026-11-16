@@ -344,7 +344,7 @@ const (
 	sayOutcomeDelegated = "delegated"
 	sayOutcomePending   = "pending"
 
-	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked; when the person sent a message while you worked, the original request is part of the work asked, and a final answer covers it unless the person withdrew it), blocked (a concrete obstacle stops the work and the answer names it), delegated (other members carry the rest through wake or delegate), pending (the answer agrees to, plans or promises work that has not been carried out; it counts as honest only while you hold an open wait for that work). With note or message, pending."
+	sayOutcomeDescription = "With purpose answer, what your answer leaves of the request: done (the work asked for is finished in this turn, or this reply is all that was asked; when the person sent a message while you worked, the original request is part of the work asked, and a final answer covers it unless the person withdrew it), blocked (a concrete obstacle stops the work: one that trying the means of this run ran into, or something only the person can supply; the answer names it, what was tried and what is missing), delegated (other members carry the rest through wake or delegate), pending (the answer agrees to, plans or promises work that has not been carried out; it counts as honest only while you hold an open wait for that work). With note or message, pending."
 
 	// answerPendingWorkReminder is the private send-back for an answer that
 	// leaves agreed work undone. It states the principle only.

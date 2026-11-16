@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/JackZhao98/tofibot/internal/extensions"
@@ -83,6 +84,24 @@ func queryFits(byName map[string]Tool, ranked []string, query string) bool {
 	return extensions.QueryCoverage(runtime.Tool{Name: t.Name, Description: t.Description}, query) >= 0.5
 }
 
+// generalWorkTools are the tools that do work of any kind rather than one
+// task: commands and programs, files, a browser or desktop, and the web.
+var generalWorkTools = []string{"computer_shell", "computer_terminal", "computer_files", "computer_browser", "browser_navigate", "computer_desktop", "computer_action", "web_search", "web_fetch"}
+
+// noCloseMatch answers a capability query that no tool covers. It keeps the
+// model from calling a tool that is not there, and it names the run's general
+// tools, which can still do work that has no dedicated tool.
+func noCloseMatch(nearest, general []string) map[string]any {
+	out := map[string]any{"no_close_match": true, "nearest": nearest}
+	if len(general) == 0 {
+		out["note"] = "No tool matches this query closely, and this run has no general tool for work without a dedicated one. Call only listed tools; when the work needs more than they offer, tell the person what is missing."
+		return out
+	}
+	out["general_tools"] = general
+	out["note"] = "No dedicated tool matches this query closely; call only listed tools. Work without a dedicated tool can still be done with the general tools of this run, listed in general_tools."
+	return out
+}
+
 // Describe the actual registered tool set, not the capabilities of a UI mockup.
 func capabilityTool(registered []Tool) Tool {
 	type entry struct {
@@ -97,9 +116,13 @@ func capabilityTool(registered []Tool) Tool {
 	}
 	entries := make([]entry, 0, len(registered))
 	byName := make(map[string]Tool, len(registered))
+	var generalTools []string
 	for _, tool := range registered {
 		entries = append(entries, entry{tool.Name, capabilitySummary(tool.Description), tool.Deferred})
 		byName[tool.Name] = tool
+		if slices.Contains(generalWorkTools, tool.Name) {
+			generalTools = append(generalTools, tool.Name)
+		}
 	}
 	return Tool{Name: "workspace_capabilities", Description: "Inspect the tools actually available in this run (names and one-line summaries) before changing workspace settings; pass query (what you need to do, in a few words) to find the built-in tools that fit and load them, or names (up to 5) for their full input schemas. Entries marked on_demand are not callable until named here; naming one loads it for the rest of the run. UI prototypes may show features that are not implemented. Never claim a setting was changed until the corresponding tool succeeds.", Parameters: objectSchema(map[string]any{"query": map[string]any{"type": "string", "maxLength": 256, "description": "Optional intent words; returns the best matching built-in tools with their schemas and loads on-demand ones"}, "names": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "maxItems": maxCapabilitySchemaNames, "description": "Optional tool names whose full schemas to return"}}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
@@ -116,7 +139,7 @@ func capabilityTool(registered []Tool) Tool {
 			in.Names = rankCapabilityNames(registered, q)
 			if !queryFits(byName, in.Names, q) {
 				// The nearest tools are listed anyway, but the answer says none fits.
-				data, err := json.Marshal(map[string]any{"no_close_match": true, "nearest": in.Names, "note": "No tool matches this query closely. Do not assume the capability exists; tell the person it is not available here unless a listed tool plainly does it."})
+				data, err := json.Marshal(noCloseMatch(in.Names, generalTools))
 				return string(data), err
 			}
 		}

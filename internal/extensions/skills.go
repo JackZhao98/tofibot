@@ -163,7 +163,7 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 	for _, s := range skills {
 		byName[s.Name] = s
 	}
-	list := runtime.Tool{Name: "list_skills", Description: "List configured read-only skills", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
+	list := runtime.Tool{Name: "list_skills", Description: "List configured read-only Skills, optional guides for some tasks", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}

@@ -1085,7 +1085,7 @@ func skillIndex(skills []Skill) string {
 
 func discoverableSkillTools(runCtx context.Context, skills []Skill, max int) []runtime.Tool {
 	tools := skillToolsMode(skills, max, true)
-	tools[0].Description = "List authorized skill names and short descriptions. Use next_offset to read another page."
+	tools[0].Description = "List authorized Skills, optional guides for some tasks: names and short descriptions. Use next_offset to read another page."
 	tools[0].Parameters = map[string]any{"type": "object", "properties": map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}}, "additionalProperties": false}
 	tools[0].Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {

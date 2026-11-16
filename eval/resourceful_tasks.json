@@ -1,0 +1,87 @@
+{
+  "about": "Open-ended requests that no single tool or Skill covers. Used by TestLiveResourcefulEval (internal/app/live_resourceful_eval_test.go) to find where a Bot gives up before it tries the means it has. The point is to find plumbing gaps, not a score: read every transcript.",
+  "bot_instructions": "你是我的私人助理，说话简洁直接，用中文回答，帮我处理日常的各种事情。",
+  "tasks": [
+    {
+      "id": "video",
+      "message": "帮我做个短视频，主题你定，30 秒以内，做好发我。"
+    },
+    {
+      "id": "cube3d",
+      "message": "做一个旋转的 3D 立方体动画，导出成 GIF 发我。"
+    },
+    {
+      "id": "melody",
+      "message": "帮我做一段《小星星》的旋律音频，wav 或 mp3 都行。"
+    },
+    {
+      "id": "qrcode",
+      "message": "给我生成一个二维码图片，扫出来是 https://tofibot.com"
+    },
+    {
+      "id": "tts",
+      "message": "把这句话读出来做成语音文件发我：今天下午三点开会，别迟到。"
+    },
+    {
+      "id": "chart",
+      "message": "这是我这周每天的步数：周一 6200，周二 8100，周三 4300，周四 9900，周五 7600，周六 12000，周日 3000。帮我画个图看看。"
+    },
+    {
+      "id": "hn",
+      "message": "看看 Hacker News 首页现在排前五的是什么，每条一句话总结给我。"
+    },
+    {
+      "id": "svg2png",
+      "message": "把这段 SVG 转成 PNG 发我：<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"200\"><circle cx=\"100\" cy=\"100\" r=\"80\" fill=\"orange\"/><text x=\"100\" y=\"110\" font-size=\"28\" text-anchor=\"middle\" fill=\"white\">TOFI</text></svg>"
+    },
+    {
+      "id": "countdown",
+      "message": "做一个 10 秒倒计时的视频，每秒响一声滴答。"
+    },
+    {
+      "id": "video_nocomputer",
+      "message": "帮我做个短视频，主题你定，30 秒以内，做好发我。",
+      "no_computer": true
+    },
+    {
+      "id": "video_plain",
+      "message": "帮我做个视频"
+    },
+    {
+      "id": "video_onboarding",
+      "message": "帮我做个视频",
+      "onboarding": true
+    },
+    {
+      "id": "video_scoped",
+      "message": "帮我做个短视频，主题你定，30 秒以内，做好发我。",
+      "instructions": "你是小邮，我的邮件秘书。你负责整理收件箱、起草回复、提醒我重要邮件和截止日期。说话简洁、礼貌。"
+    },
+    {
+      "id": "gif_scoped",
+      "message": "做一个会跳动的爱心 GIF 发我。",
+      "instructions": "你是小邮，我的邮件秘书。你负责整理收件箱、起草回复、提醒我重要邮件和截止日期。说话简洁、礼貌。"
+    },
+    {
+      "id": "stl",
+      "message": "帮我做一个 3D 打印用的小花瓶模型，STL 文件就行。"
+    },
+    {
+      "id": "birthday_song",
+      "message": "帮我做一段 30 秒的生日歌，要有人声唱「祝你生日快乐」。"
+    },
+    {
+      "id": "transcribe",
+      "message": "帮我把这个视频里说的话转成文字：https://www.youtube.com/watch?v=jNQXAC9IVRw"
+    },
+    {
+      "id": "calendar",
+      "message": "看一下我明天日历上有什么安排。"
+    },
+    {
+      "id": "qrcode_nocomputer",
+      "message": "给我生成一个二维码图片，扫出来是 https://tofibot.com",
+      "no_computer": true
+    }
+  ]
+}

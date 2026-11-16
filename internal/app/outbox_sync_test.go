@@ -218,3 +218,43 @@ func TestQuotaStopsOutboxSyncAndPublish(t *testing.T) {
 		t.Fatalf("after raising the limit: %+v", got)
 	}
 }
+
+// A file the Bot saved in the outbox and also published itself, under another
+// name, rides with the reply once, and no later reply sends it again.
+func TestOutboxSkipsContentTheRunAlreadyPublished(t *testing.T) {
+	s, _, conv, run := outboxFixture(t)
+	markComputerUse(t, s, conv, run)
+	p := filepath.Join(guestOutboxDir, "clip.mp4")
+	if err := os.WriteFile(p, []byte("synthetic video bytes"), 0o660); err != nil {
+		t.Fatal(err)
+	}
+	publish := s.publishAttachmentTools(conv, run)[0]
+	raw, _ := json.Marshal(map[string]string{"path": p, "name": "renamed clip.mp4"})
+	if _, err := publish.Execute(context.Background(), raw); err != nil {
+		t.Fatal(err)
+	}
+	got := s.stageOutbox(context.Background(), run, conv)
+	if got.Staged != 0 || got.Skipped != 1 {
+		t.Fatalf("sync after publish: %+v", got)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 1 || names[0] != "renamed clip.mp4" {
+		t.Fatalf("reply files = %v", names)
+	}
+	var outbox int
+	s.store.db.QueryRow(`SELECT COUNT(*) FROM attachments WHERE origin='outbox'`).Scan(&outbox)
+	if outbox != 0 {
+		t.Fatalf("an outbox copy was kept: %d", outbox)
+	}
+	if !s.store.outboxAlreadySynced(p, int64(len("synthetic video bytes")), mtimeNS(t, p)) {
+		t.Fatal("the ledger does not hold the published file, so a later reply would send it again")
+	}
+}
+
+func mtimeNS(t *testing.T, p string) int64 {
+	t.Helper()
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info.ModTime().UnixNano()
+}

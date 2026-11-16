@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -4273,8 +4274,11 @@ func (s *Server) execute(c Conversation, r Run) {
 			return
 		}
 		defer prepared.Close()
-		extensionPrompt = prepared.Instructions
-		tools = append(tools, s.withoutIdleMCPTools(s.withBuiltinSkillStaging(r, prepared.Tools))...)
+		extensionTools := s.withoutIdleMCPTools(s.withBuiltinSkillStaging(r, prepared.Tools))
+		// The routing policy names only what this run can act on: MCP sentences
+		// while an MCP source is usable, the Bot computer sentence with one.
+		extensionPrompt = extensions.WithDiscoveryPolicy(prepared.Instructions, slices.ContainsFunc(extensionTools, func(t Tool) bool { return t.Name == "search_mcp_tools" }), s.computer() != nil)
+		tools = append(tools, extensionTools...)
 		if len(prepared.Diagnostics) > 0 {
 			diagnostics, _ := json.Marshal(prepared.Diagnostics)
 			system += "\nSome configured extensions are unavailable. Consult extension_status when relevant; never claim an unavailable tool was executed."

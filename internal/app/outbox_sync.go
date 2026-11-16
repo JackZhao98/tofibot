@@ -123,6 +123,17 @@ func (s *Store) outboxContentSynced(p, digest string) string {
 	return id
 }
 
+// runStagedContent returns the attachment this run already staged for its
+// reply with the same content, or "".
+func (s *Store) runStagedContent(runID, digest string) string {
+	if digest == "" {
+		return ""
+	}
+	var id string
+	_ = s.db.QueryRow(`SELECT attachment_id FROM run_attachments WHERE run_id=? AND content_sha256=? LIMIT 1`, runID, digest).Scan(&id)
+	return id
+}
+
 func (s *Store) recordOutboxSynced(p string, size, mtime int64, digest, attachmentID string) {
 	if _, err := s.db.Exec(`INSERT OR REPLACE INTO outbox_synced(path,size,mtime_ns,sha256,attachment_id,synced_at) VALUES(?,?,?,?,?,?)`, p, size, mtime, digest, attachmentID, now()); err != nil {
 		log.Printf("[outbox] ledger write failed: %v", err)
@@ -197,6 +208,15 @@ func (s *Server) stageOutbox(ctx context.Context, r Run, c Conversation) outboxR
 			continue
 		}
 		digest := s.store.attachmentDigest(a.ID)
+		if published := s.store.runStagedContent(r.ID, digest); published != "" {
+			// The Bot already published this content in this run (publish_file,
+			// often under another name): one copy rides with the reply, and the
+			// ledger keeps a later run from sending the outbox file again.
+			_ = s.store.deleteUnboundAttachment(a.ID)
+			s.store.recordOutboxSynced(f.Path, f.Size, f.MTimeNS, digest, published)
+			res.Skipped++
+			continue
+		}
 		if existing := s.store.outboxContentSynced(f.Path, digest); existing != "" && existing != a.ID {
 			// Only the timestamp changed: keep the earlier copy, drop this one.
 			_ = s.store.deleteUnboundAttachment(a.ID)
