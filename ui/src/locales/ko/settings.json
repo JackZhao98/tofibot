@@ -838,6 +838,8 @@
         "restore_done": "복원했습니다.",
         "undo": "마지막 복원 되돌리기",
         "undo_done": "복원을 되돌렸습니다.",
+        "interrupt_and_restore": "중단하고 복원",
+        "interrupt_and_undo": "중단하고 되돌리기",
         "error": {
           "generic": "백업 요청에 실패했습니다.",
           "backup_store_unavailable": "백업 스토리지가 응답하지 않습니다.",
@@ -865,7 +867,8 @@
           "backup_repo_missing": "이 위치에 저장소가 없습니다.",
           "backup_no_snapshot": "저장소에 아직 스냅샷이 없습니다.",
           "backup_account_not_in_snapshot": "해당 계정은 스냅샷에 없습니다.",
-          "backup_failed": "백업에 실패했습니다."
+          "backup_failed": "백업에 실패했습니다.",
+          "account_busy": "이 계정의 Bot 실행이 진행 중입니다. 아무것도 바뀌지 않았습니다. 끝날 때까지 기다린 뒤 다시 복원하거나, 실행을 중단하세요."
         }
       },
       "file_move": {

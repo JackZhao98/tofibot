@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 import shutil
 import socket
+import sqlite3
 import stat
 import subprocess
 import sys
@@ -3667,6 +3668,58 @@ class AccountRestoreCliTests(LifecycleBase):
     def test_flag_combinations(self):
         self.assertIn('--account', self.run_main('restore', '--snapshot', 'x')[0])
         self.assertIn('--from-remote', self.run_main('restore', '--account', 'maya', '--yes')[0])
+
+    def account_runs(self, *statuses):
+        directory = tofi_host.P.data / 'accounts' / 'acc1'
+        directory.mkdir(parents=True, exist_ok=True)
+        database = directory / 'tofi.db'
+        if database.exists():
+            database.unlink()
+        connection = sqlite3.connect(str(database))
+        connection.execute('CREATE TABLE runs (id TEXT, status TEXT)')
+        connection.executemany('INSERT INTO runs VALUES (?, ?)', [('r%d' % i, status) for i, status in enumerate(statuses)])
+        connection.commit()
+        connection.close()
+
+    def test_working_runs_hold_the_restore_and_nothing_is_called(self):
+        self.account_runs('running', 'waiting', 'done')
+        code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes', '--wait', '0')
+        self.assertIn('account_busy', code)
+        self.assertIn('--force', code)
+        self.assertIn('1 Bot run', code)
+        self.assertNotIn('account-restore', [c[0] for c in self.calls])
+
+    def test_restore_waits_for_the_runs_to_finish(self):
+        self.account_runs('running')
+        sleeps = []
+
+        def sleep(seconds):
+            sleeps.append(seconds)
+            self.account_runs('done')
+        with mock.patch.object(tofi_host.time, 'sleep', side_effect=sleep):
+            code, out, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes', '--wait', '5')
+        self.assertEqual(code, 0)
+        self.assertEqual(sleeps, [tofi_host.RUN_POLL_SECONDS])
+        self.assertIn('waiting up to 5 minutes', out)
+        self.assertEqual(self.calls[-1], ('account-restore', {'account': 'maya', 'snapshot': self.POINTS[0]['name']},
+                                          tofi_host.HOST_BACKUP_ROUTE))
+
+    def test_force_interrupts_and_says_so(self):
+        self.account_runs('queued')
+        code, _, err = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes', '--force')
+        self.assertEqual(code, 0)
+        self.assertIn('--force interrupts it', err)
+        self.assertEqual(self.calls[-1][1], {'account': 'maya', 'snapshot': self.POINTS[0]['name'], 'interrupt': True})
+        self.undo_available = True
+        code, _, _ = self.run_main('restore', '--account', 'maya', '--undo', '--yes', '--force')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.calls[-1][:2], ('account-undo', {'account': 'maya', 'interrupt': True}))
+
+    def test_a_run_that_starts_meanwhile_is_refused_by_the_app_by_name(self):
+        self.fail['account-restore'] = 'account_busy'
+        code, _, _ = self.run_main('restore', '--from-remote', '--account', 'maya', '--yes')
+        self.assertIn('account_busy', code)
+        self.assertIn('--wait MINUTES', code)
 
 
 if __name__ == '__main__':

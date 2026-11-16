@@ -56,6 +56,8 @@ __pycache__/
 /ui/.primary-followups-*/
 /ui/.dialogs-*/
 /ui/.settings-polish-*/
+/ui/.org-resources-*/
+/ui/.admin-groups-*/
 
 # Eval outputs hold model replies
 /eval/results/

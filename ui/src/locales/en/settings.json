@@ -846,6 +846,8 @@
         "restore_done": "Restored.",
         "undo": "Undo last restore",
         "undo_done": "Restore undone.",
+        "interrupt_and_restore": "Interrupt them and restore",
+        "interrupt_and_undo": "Interrupt them and undo",
         "error": {
           "generic": "The backup storage did not answer.",
           "backup_store_unavailable": "The backup storage did not answer.",
@@ -873,7 +875,8 @@
           "backup_repo_missing": "No repository at this location.",
           "backup_no_snapshot": "The repository has no snapshot yet.",
           "backup_account_not_in_snapshot": "That account is not in the snapshot.",
-          "backup_failed": "The backup failed."
+          "backup_failed": "The backup failed.",
+          "account_busy": "Bot runs of this account are at work. Nothing was changed. Wait for them to finish and restore again, or interrupt them."
         }
       },
       "file_move": {

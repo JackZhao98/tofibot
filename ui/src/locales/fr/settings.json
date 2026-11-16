@@ -854,6 +854,8 @@
         "restore_done": "Restauré.",
         "undo": "Annuler la dernière restauration",
         "undo_done": "Restauration annulée.",
+        "interrupt_and_restore": "Les interrompre et restaurer",
+        "interrupt_and_undo": "Les interrompre et annuler",
         "error": {
           "generic": "La requête de sauvegarde a échoué.",
           "backup_store_unavailable": "Le stockage de sauvegarde ne répond pas.",
@@ -881,7 +883,8 @@
           "backup_repo_missing": "Aucun dépôt à cet emplacement.",
           "backup_no_snapshot": "Le dépôt ne contient pas encore d'instantané.",
           "backup_account_not_in_snapshot": "Ce compte n'est pas dans l'instantané.",
-          "backup_failed": "La sauvegarde a échoué."
+          "backup_failed": "La sauvegarde a échoué.",
+          "account_busy": "Des exécutions de Bot de ce compte sont en cours. Rien n'a été modifié. Attendez qu'elles se terminent puis relancez la restauration, ou interrompez-les."
         }
       },
       "file_move": {

@@ -252,7 +252,7 @@ func TestAccountRestoreCrashWindowIsSettled(t *testing.T) {
 	if _, err := f.g.workspace(f.member); err != nil {
 		t.Fatal(err)
 	}
-	f.g.fence(f.member.ID) // closes the runtime so the directory can move
+	f.g.fence(f.member.ID, true) // closes the runtime so the directory can move
 	dir := filepath.Join(f.g.accountsDir(), f.member.ID)
 	saved := filepath.Join(f.g.accountsDir(), beforeRestoreTag+f.member.ID+"-20261110T030000.000000000Z")
 	if err := os.Rename(dir, saved); err != nil {
