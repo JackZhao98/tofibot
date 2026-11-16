@@ -647,7 +647,7 @@ guest object, check its length, write a temp file and fsync, hash the file and c
 in one transaction. The guest object is deleted later by `cleanupDeletedAttachments`, which re-checks the server file against the row's sha256.
 A `vm:` file that cannot be reached answers HTTP 409 `file_on_detached_computer` (404 `file_missing_on_computer` when the computer answers and lacks it); the web app shows one sentence for either in the file card and the viewer (`AttachmentNotice`, `attachmentDownload.ts`). The portability import writes its attachment bytes straight to this store (`portability_staging.go`, origin `import`), so it needs no computer. `tofi computer remove --purge` refuses while any `vm:` row
 exists unless `--discard-unsaved-files`. Outbox: `/workspace/home/outbox` is copied by `outbox_sync.go` at the end of a run that used the computer
-(20 MiB per file, 200 MiB and 8 files per reply, symlinks refused by the guest, nothing deleted on the computer). Design:
+(20 MiB per file, 200 MiB and 8 files per reply, symlinks refused by the guest, nothing deleted on the computer; a copy whose content the run already staged, a `publish_file` of the same file under another name, is dropped and written to the ledger: `runStagedContent`). Design:
 `docs/design/computer-decoupling.md`. Known gap (eval 2026-11-15, not fixed): HOME is shared by all Bots and the walk is recursive, so working files a Bot leaves under the outbox ride with its reply, and what the 8-file cap defers rides with the next reply of any Bot in any conversation that used the computer; the model-facing text therefore names `publish_file` only.
 
 # Object storage for files (attachment-object-storage P1)
