@@ -418,6 +418,12 @@ func (s *Server) computerActionOn(ctx context.Context, r Run, id, name string, a
 		if !personalActionAllowed(name) {
 			return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 		}
+		// Folder work through any tool (computer_action too) needs this Bot's grant on this Mac; the Mac checks again.
+		if strings.HasPrefix(name, "folders.") {
+			if err := s.macFolderReady(r, id); err != nil {
+				return "", err
+			}
+		}
 	} else if !microVMActions[name] {
 		return "", tooloutcome.InvalidArguments(fmt.Sprintf("unsupported computer action %q", name))
 	}

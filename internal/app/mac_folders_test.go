@@ -331,3 +331,17 @@ func TestFolderCommandLabel(t *testing.T) {
 		t.Fatalf("long commands that share a start share a label: %q %q", a, b)
 	}
 }
+
+// computer_action is not a way around the grant: a Bot without folders on the Mac is refused before anything is queued.
+func TestMacFolderActionThroughComputerActionNeedsTheGrant(t *testing.T) {
+	s := computerTestServer(t)
+	m := enrollMac(t, s, "Studio Mac", folderCaps...)
+	run := activeComputerRun(t, s)
+	_, err := runCall(computerActionTool(s, run), m.id, "folders.read", `{"path":"/Users/a/proj/x"}`)
+	if toolCode(err) != "folder_not_granted" {
+		t.Fatalf("want folder_not_granted, got %v", err)
+	}
+	if job := m.poll(0); job != nil {
+		t.Fatalf("a job was queued: %+v", job)
+	}
+}

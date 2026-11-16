@@ -355,6 +355,11 @@ func macFolderError(code string) (tooloutcome.Outcome, bool) {
 		"too_large":             {tooloutcome.Permanent, "The file is too large for one read or write here. Nothing was changed. Read it in parts with offset and limit, or use a command."},
 		"runtime_unavailable":   {tooloutcome.Permanent, "Commands are not available on this Mac (its TOFI app has no working command sandbox), so nothing was run. Files still work. Tell the person."},
 		"sandbox_fault":         {tooloutcome.Permanent, "The Mac could not confirm that your previous command stopped, so it does not start new commands for you until the TOFI app restarts. Nothing was run. Tell the person."},
+		"startup_failed":        {tooloutcome.Transient, "The Mac could not start its sandbox for this step, so nothing was run. Try once more; if it fails again, tell the person that work in folders on this Mac is not available right now."},
+		"grant_revoked":         {tooloutcome.Denied, "The person removed your access to this folder while the step ran, so it was stopped; whether it partly ran is unknown. Do not retry. Tell the person and work only in the folders still listed."},
+		"connection_changed":    {tooloutcome.Denied, "The Mac's TOFI app switched to another server while the step ran, so it was stopped; whether it partly ran is unknown. Do not retry."},
+		"server_cancelled":      {tooloutcome.Denied, "The step was cancelled on the server while it ran on the Mac, so the Mac stopped it; whether it partly ran is unknown."},
+		"status_unavailable":    {tooloutcome.Transient, "The Mac lost contact with the server while the command ran, so it stopped the command; whether it partly ran is unknown. Check the folder before you run it again."},
 	}
 	w, ok := words[code]
 	if !ok {
@@ -364,8 +369,13 @@ func macFolderError(code string) (tooloutcome.Outcome, bool) {
 	switch code {
 	case "not_found", "not_a_file", "not_a_directory", "old_string_not_found", "old_string_not_unique", "too_large", "outside_grant", "symlink":
 		next = "repair_arguments"
-	case "mac_busy", "file_changed":
+	case "mac_busy", "file_changed", "startup_failed":
 		next = "retry_later"
 	}
-	return tooloutcome.New(w[0], code, "not_executed", w[1], next), true
+	certainty := "not_executed"
+	switch code {
+	case "grant_revoked", "connection_changed", "server_cancelled", "status_unavailable":
+		certainty = "unknown"
+	}
+	return tooloutcome.New(w[0], code, certainty, w[1], next), true
 }
