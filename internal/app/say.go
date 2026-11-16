@@ -466,10 +466,15 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		// resolved holds the files this call created; any refusal after their
 		// resolution deletes them, so a refused call leaves nothing behind.
 		var resolved sayResolution
+		// staged is what this call queued for the reply; a refusal after
+		// staging takes it back before the created files are deleted.
+		var staged sayStaged
 		fail := func(err error) (string, error) {
 			if state != nil {
 				state.discard(callID)
 			}
+			s.unstageSayAttachments(r, staged)
+			staged = sayStaged{}
 			s.discardSayAttachments(resolved)
 			resolved.settle(err)
 			resolved = sayResolution{}
@@ -479,7 +484,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			if in.Purpose == sayNote {
 				return fail(sayAttachmentRefusal("attachments_not_for_note", 0, "a note is private progress and carries no files; use purpose message or answer"))
 			}
-			if len(in.Attachments) > maxSayAttachments || s.store.stagedRunAttachmentCount(r.ID)+len(in.Attachments) > maxSayAttachments {
+			if len(in.Attachments) > maxSayAttachments || s.store.sayAttachmentsToCount(r.ID, in.Attachments) > maxSayAttachments {
 				return fail(sayAttachmentRefusal("attachments_too_many", 0, "a reply carries at most 8 files, counting the files already queued for it in this run"))
 			}
 		}
@@ -626,7 +631,8 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				}
 			}
 			if len(resolved.Items) > 0 {
-				if _, err := s.stageSayAttachments(r, c, resolved); err != nil {
+				var err error
+				if staged, err = s.stageSayAttachments(r, c, resolved); err != nil {
 					return fail(err)
 				}
 			}
@@ -693,18 +699,26 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			}
 			var fileIDs []string
 			if len(resolved.Items) > 0 {
-				staged, err := s.stageSayAttachments(r, c, resolved)
-				if err != nil {
+				var err error
+				if staged, err = s.stageSayAttachments(r, c, resolved); err != nil {
 					return fail(err)
 				}
-				for _, a := range staged {
+				for _, a := range staged.Atts {
 					fileIDs = append(fileIDs, a.ID)
 				}
 			}
 			adopt := state != nil && state.owns(callID)
-			m, err := s.store.publishSayWithFiles(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt, fileIDs)
+			m, replayed, err := s.store.publishSayWithFiles(ctx, r, prefix+r.ID+":"+callID, kind, text, adopt, fileIDs)
 			if err != nil {
 				return fail(err)
+			}
+			if replayed && len(fileIDs) > 0 {
+				// The first publication of this call already carries its files;
+				// the copies this replay made are taken back.
+				s.unstageSayAttachments(r, staged)
+				s.discardSayAttachments(resolved)
+				resolved.settle(nil)
+				return "Delivered " + in.Purpose + " " + m.ID, nil
 			}
 			if state != nil {
 				state.release(callID)
@@ -727,16 +741,18 @@ const chatSegmentClientPrefix = "chat-segment:"
 // With adopt, the message takes the identity of the draft the call's text
 // was streamed into, so the bubble turns into the message in place.
 func (s *Store) publishSay(ctx context.Context, run Run, clientID, kind, content string, adopt bool) (Message, error) {
-	return s.publishSayWithFiles(ctx, run, clientID, kind, content, adopt, nil)
+	m, _, err := s.publishSayWithFiles(ctx, run, clientID, kind, content, adopt, nil)
+	return m, err
 }
 
 // publishSayWithFiles is publishSay that also binds the named files, staged
 // for the run, to the message it writes, in the same transaction; they leave
-// the run's staged set, so the answer does not carry them again.
-func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind, content string, adopt bool, fileIDs []string) (Message, error) {
+// the run's staged set, so the answer does not carry them again. replayed
+// reports a call that was already published: nothing new is bound to it.
+func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind, content string, adopt bool, fileIDs []string) (m Message, replayed bool, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	defer tx.Rollback()
 	var existing Message
@@ -744,44 +760,41 @@ func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind
 		Scan(&existing.ID, &existing.ConversationID, &existing.Seq, &existing.Content, &existing.CreatedAt)
 	if err == nil {
 		if existing.Content != content {
-			return Message{}, errors.New("tool call already published different content")
+			return Message{}, false, errors.New("tool call already published different content")
 		}
-		// A replay binds the same files again; the binding is idempotent.
-		if err = bindRunAttachmentIDsTx(tx, run.ID, existing.ID, fileIDs); err != nil {
-			return Message{}, err
-		}
-		return existing, tx.Commit()
+		// A replay returns the first publication; its files were bound then.
+		return existing, true, nil
 	}
 	if err != sql.ErrNoRows {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	var status string
 	if err = tx.QueryRowContext(ctx, `SELECT status FROM runs WHERE id=? AND conversation_id=? AND bot_id=?`, run.ID, run.ConversationID, run.BotID).Scan(&status); err != nil || status != "running" {
-		return Message{}, errors.New("run is no longer active")
+		return Message{}, false, errors.New("run is no longer active")
 	}
 	var successors int
 	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM run_steering WHERE old_run_id=?`, run.ID).Scan(&successors); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if successors > 0 {
-		return Message{}, errors.New("run has been interrupted by a newer message")
+		return Message{}, false, errors.New("run has been interrupted by a newer message")
 	}
 	if strings.HasPrefix(clientID, sayNoteClientPrefix) {
 		var count int
 		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages WHERE run_id=? AND client_message_id LIKE 'say-note:%'`, run.ID).Scan(&count); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if count >= maxSayNotes {
-			return Message{}, errors.New("note limit reached; deliver the answer")
+			return Message{}, false, errors.New("note limit reached; deliver the answer")
 		}
 	}
 	if strings.HasPrefix(clientID, chatSegmentClientPrefix) {
 		count, err := chatSegmentCountTx(ctx, tx, run.ID)
 		if err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if count >= maxChatSegments {
-			return Message{}, errors.New("chat segment limit reached; finish the reply")
+			return Message{}, false, errors.New("chat segment limit reached; finish the reply")
 		}
 	}
 	t := now()
@@ -799,52 +812,52 @@ func (s *Store) publishSayWithFiles(ctx context.Context, run Run, clientID, kind
 			createdAt = draft.CreatedAt
 		}
 	} else if err = tx.QueryRowContext(ctx, nextMessageSeqSQL, run.ConversationID, run.ConversationID, streamDraftActive).Scan(&seq); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
-	m := Message{ID: id, ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: createdAt}
+	m = Message{ID: id, ConversationID: run.ConversationID, Seq: seq, Role: "assistant", Kind: kind, SenderBotID: run.BotID, RunID: run.ID, Content: content, CreatedAt: createdAt}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO messages(id,conversation_id,seq,role,kind,sender_bot_id,run_id,content,created_at,client_message_id) VALUES(?,?,?,?,?,?,?,?,?,?)`, m.ID, m.ConversationID, m.Seq, m.Role, m.Kind, m.SenderBotID, m.RunID, m.Content, m.CreatedAt, clientID); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if err = recordMessageAttentionTx(tx, m); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if len(fileIDs) > 0 {
 		if err = bindRunAttachmentIDsTx(tx, run.ID, m.ID, fileIDs); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if m.Attachments, err = attachmentMetadata(tx, m.ID); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO events(conversation_id,type,data,created_at) VALUES(?,?,?,?)`, run.ConversationID, "message", string(b), t); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if kind == "segment" {
 		// What a holder posts reaches the member that gave the task (decision 0064).
 		if err = routeHolderMessageTx(tx, run.ID, run.ConversationID, run.BotID, m.ID, m.Content); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE conversations SET updated_at=? WHERE id=?`, t, run.ConversationID); err != nil {
-		return Message{}, err
+		return Message{}, false, err
 	}
 	if rotate {
 		if err = pruneDeltaEventsTx(tx, run.ConversationID, draft.MessageID); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 		if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET message_id=?,seq=0,content='',revision=0,created_at=?,updated_at=? WHERE run_id=? AND status=?`, uuid.NewString(), t, t, run.ID, streamDraftActive); err != nil {
-			return Message{}, err
+			return Message{}, false, err
 		}
 	} else if _, err = tx.ExecContext(ctx, `UPDATE stream_drafts SET seq=0 WHERE run_id=? AND status=?`, run.ID, streamDraftActive); err != nil {
 		// A text delta may have reserved this run's draft sequence; the answer
 		// belongs after the newly delivered message.
-		return Message{}, err
+		return Message{}, false, err
 	}
-	return m, tx.Commit()
+	return m, false, tx.Commit()
 }
 
 // lastSayBeat returns the run's latest say note or message, which rule 3 of

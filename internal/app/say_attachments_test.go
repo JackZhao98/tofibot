@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"image"
 	"net/http"
 	"net/http/httptest"
@@ -388,5 +389,91 @@ func TestPublishFileIsDeferredAndTheDesktopToolHasNoShare(t *testing.T) {
 	}
 	if !strings.Contains(tools[0].Description, "send_message attachments") {
 		t.Errorf("description %q", tools[0].Description)
+	}
+}
+
+// Two files with one name both reach the person: a file supersedes another
+// only when it comes from the same source.
+func TestSendMessageKeepsTwoFilesWithOneName(t *testing.T) {
+	s, c, run := runningCaptureServer(t)
+	s.downloadTransport = http.DefaultTransport
+	site := pictureServer(t, nil)
+	if _, err := sayCall(s, c, run, "n1", `{"purpose":"answer","outcome":"done","text":"Two.","attachments":[{"url":"`+site+`/a/photo.png"},{"url":"`+site+`/b/photo.png"}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 2 || names[0] != "photo.png" || names[1] != "photo.png" {
+		t.Fatalf("reply files %v", names)
+	}
+}
+
+// A refusal after staging (a task id the Bot does not hold) takes back every
+// file the call queued, deletes the ones it made and returns a replaced image.
+func TestSendMessageRefusalAfterStagingRestoresTheReply(t *testing.T) {
+	s, c, run := runningCaptureServer(t)
+	gen, err := s.store.addAttachmentOpts(context.Background(), c.ID, "raw.png", "image/png", bytes.NewReader(sayTestPNG()), attachmentOpts{Origin: attachmentOriginGenerated, BotID: run.BotID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.store.stageRunAttachment(run, c, gen, "image:synthetic"); err != nil {
+		t.Fatal(err)
+	}
+	s.downloadTransport = http.DefaultTransport
+	site := pictureServer(t, nil)
+	before := attachmentCount(t, s, c.ID)
+	if _, err := sayCall(s, c, run, "t1", `{"purpose":"answer","outcome":"done","text":"Finished.","task_id":"task_missing","attachments":[{"url":"`+site+`/final.png","replaces_attachment_id":"`+gen.ID+`"}]}`); err == nil {
+		t.Fatal("an answer for a task the Bot does not hold was accepted")
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 1 || names[0] != "raw.png" {
+		t.Fatalf("reply files after the refusal %v, want the generated image back", names)
+	}
+	if after := attachmentCount(t, s, c.ID); after != before {
+		t.Fatalf("attachments %d -> %d: the refused call left a file", before, after)
+	}
+}
+
+// Files already queued for the reply do not count twice against the cap.
+func TestSendMessageCountsQueuedFilesOnce(t *testing.T) {
+	s, c, run := runningCaptureServer(t)
+	var items []string
+	for i := 0; i < 5; i++ {
+		gen, err := s.store.addAttachmentOpts(context.Background(), c.ID, fmt.Sprintf("image-%d.png", i), "image/png", bytes.NewReader(append(sayTestPNG(), byte(i))), attachmentOpts{Origin: attachmentOriginGenerated, BotID: run.BotID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.store.stageRunAttachment(run, c, gen, fmt.Sprintf("image:%d", i)); err != nil {
+			t.Fatal(err)
+		}
+		items = append(items, `{"attachment_id":"`+gen.ID+`"}`)
+	}
+	if _, err := sayCall(s, c, run, "q1", `{"purpose":"answer","outcome":"done","text":"Five.","attachments":[`+strings.Join(items, ",")+`]}`); err != nil {
+		t.Fatalf("five queued images named again were refused: %v", err)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 5 {
+		t.Fatalf("reply files %v", names)
+	}
+}
+
+// A replayed message call binds no second copy of its files.
+func TestSendMessageReplayedMessageAddsNoCopies(t *testing.T) {
+	s, c, run := runningCaptureServer(t)
+	s.downloadTransport = http.DefaultTransport
+	site := pictureServer(t, nil)
+	args := `{"purpose":"message","outcome":"pending","text":"A picture.","attachments":[{"url":"` + site + `/cat.png"}]}`
+	if _, err := sayCall(s, c, run, "m1", args); err != nil {
+		t.Fatal(err)
+	}
+	before := attachmentCount(t, s, c.ID)
+	if _, err := sayCall(s, c, run, "m1", args); err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if after := attachmentCount(t, s, c.ID); after != before {
+		t.Fatalf("attachments %d -> %d after a replay", before, after)
+	}
+	var bound int
+	if err := s.store.db.QueryRow(`SELECT COUNT(*) FROM attachment_messages am JOIN messages m ON m.id=am.message_id WHERE m.run_id=?`, run.ID).Scan(&bound); err != nil || bound != 1 {
+		t.Fatalf("bound files %d %v, want 1", bound, err)
+	}
+	if names := s.store.runAttachmentNames(run.ID); len(names) != 0 {
+		t.Fatalf("staged after the message %v", names)
 	}
 }

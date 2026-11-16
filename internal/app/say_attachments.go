@@ -12,8 +12,12 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 	"time"
@@ -115,7 +119,7 @@ func (s *Server) resolveSayAttachments(ctx context.Context, r Run, c Conversatio
 		}
 	}()
 	var fetched int64
-	seen := map[string]bool{}
+	seen, keys := map[string]bool{}, map[string]bool{}
 	dctx, cancel := context.WithTimeout(ctx, sayDownloadBudget)
 	defer cancel()
 	for i, item := range items {
@@ -234,6 +238,11 @@ func (s *Server) resolveSayAttachments(ctx context.Context, r Run, c Conversatio
 			fetched += a.Size
 		}
 		got.Replaces, got.Index = item.Replaces, i
+		// Two items of one call never supersede each other.
+		if keys[got.Key] {
+			got.Key = fmt.Sprintf("%s#%d", got.Key, i)
+		}
+		keys[got.Key] = true
 		seen[got.Att.ID] = true
 		res.Items = append(res.Items, got)
 	}
@@ -254,30 +263,195 @@ func (s *Store) stagedRunAttachmentCount(runID string) int {
 	return n
 }
 
-// stageSayAttachments queues the resolved files for the run's reply and
-// applies replaces_attachment_id. It returns the staged attachments.
-func (s *Server) stageSayAttachments(r Run, c Conversation, res sayResolution) ([]Attachment, error) {
-	var out []Attachment
-	for i := range res.Items {
-		it := &res.Items[i]
-		var staged int
-		_ = s.store.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND attachment_id=?`, r.ID, it.Att.ID).Scan(&staged)
-		a := it.Att
-		if staged == 0 {
-			var err error
-			if a, err = s.store.stageRunAttachment(r, c, it.Att, it.Key); err != nil {
-				return nil, err
-			}
-			it.Att = a
-		}
-		if it.Replaces != "" && it.Replaces != a.ID {
-			if _, err := s.store.db.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=? AND request_key LIKE 'image:%'`, r.ID, it.Replaces); err != nil {
-				return nil, err
-			}
-		}
-		out = append(out, a)
+// sayStaged is what one send_message call put into, and took out of, the
+// run's staged set, so a refusal after staging restores the set exactly.
+type sayStaged struct {
+	Atts     []Attachment
+	inserted []string
+	removed  []runAttachmentRow
+}
+
+type runAttachmentRow struct {
+	AttachmentID, RequestKey, Digest, CreatedAt string
+	Ordinal                                     int
+}
+
+// stageSayAttachments queues the resolved files for the run's reply in one
+// transaction: all of them or none. A file supersedes an earlier one of the
+// run only when it comes from the same source (request key), so two files
+// with one name both reach the person. replaces_attachment_id takes its
+// generated image out of the reply. The 8-file cap is checked on the result.
+func (s *Server) stageSayAttachments(r Run, c Conversation, res sayResolution) (sayStaged, error) {
+	var st sayStaged
+	if r.ID == "" || r.ConversationID != c.ID {
+		return st, errors.New("attachment run scope mismatch")
 	}
-	return out, nil
+	digests := make([]string, len(res.Items))
+	for i, it := range res.Items {
+		if it.Att.ConversationID != c.ID {
+			return st, errors.New("attachment run scope mismatch")
+		}
+		d, err := s.store.attachmentSHA256(it.Att.ID)
+		if err != nil {
+			return st, err
+		}
+		digests[i] = d
+	}
+	tx, err := s.store.db.Begin()
+	if err != nil {
+		return st, err
+	}
+	defer tx.Rollback()
+	var status, conv, bot string
+	if err = tx.QueryRow(`SELECT status,conversation_id,bot_id FROM runs WHERE id=?`, r.ID).Scan(&status, &conv, &bot); err != nil || status != "running" || conv != c.ID || bot != r.BotID {
+		return st, errors.New("run is no longer active for this conversation")
+	}
+	remove := func(where string, args ...any) error {
+		rows, err := tx.Query(`SELECT attachment_id,request_key,content_sha256,ordinal,created_at FROM run_attachments WHERE run_id=? AND `+where, append([]any{r.ID}, args...)...)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var row runAttachmentRow
+			if err := rows.Scan(&row.AttachmentID, &row.RequestKey, &row.Digest, &row.Ordinal, &row.CreatedAt); err != nil {
+				rows.Close()
+				return err
+			}
+			st.removed = append(st.removed, row)
+		}
+		rows.Close()
+		_, err = tx.Exec(`DELETE FROM run_attachments WHERE run_id=? AND `+where, append([]any{r.ID}, args...)...)
+		return err
+	}
+	ids := make([]string, len(res.Items))
+	var reused []string
+	for i, it := range res.Items {
+		ids[i] = it.Att.ID
+		var n int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND attachment_id=?`, r.ID, it.Att.ID).Scan(&n); err != nil {
+			return st, err
+		}
+		if n == 0 {
+			key := it.Key
+			if strings.TrimSpace(key) == "" {
+				key = it.Att.Name
+			}
+			var existing string
+			e := tx.QueryRow(`SELECT attachment_id FROM run_attachments WHERE run_id=? AND request_key=? AND content_sha256=?`, r.ID, key, digests[i]).Scan(&existing)
+			if e == nil {
+				// The same bytes from the same source are already queued.
+				ids[i] = existing
+				if it.Created {
+					reused = append(reused, it.Att.ID)
+				}
+			} else {
+				if err = remove("request_key=?", key); err != nil {
+					return st, err
+				}
+				if _, err = tx.Exec(`INSERT INTO run_attachments(run_id,attachment_id,request_key,content_sha256,ordinal,created_at)
+				 VALUES(?,?,?,?,(SELECT COALESCE(MAX(ordinal),0)+1 FROM run_attachments WHERE run_id=?),?)`, r.ID, it.Att.ID, key, digests[i], r.ID, now()); err != nil {
+					return st, err
+				}
+				st.inserted = append(st.inserted, it.Att.ID)
+			}
+		}
+		if it.Replaces != "" && it.Replaces != ids[i] {
+			if err = remove("attachment_id=? AND request_key LIKE 'image:%'", it.Replaces); err != nil {
+				return st, err
+			}
+		}
+	}
+	var count int
+	if err = tx.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=?`, r.ID).Scan(&count); err != nil {
+		return st, err
+	}
+	if count > maxSayAttachments {
+		return sayStaged{}, sayAttachmentRefusal("attachments_too_many", 0, "a reply carries at most 8 files, counting the files already queued for it in this run")
+	}
+	if err = tx.Commit(); err != nil {
+		return sayStaged{}, err
+	}
+	for _, id := range reused {
+		_ = s.store.deleteUnboundAttachment(id)
+	}
+	for _, id := range ids {
+		a, _, err := s.store.Attachment(id)
+		if err != nil {
+			return st, err
+		}
+		st.Atts = append(st.Atts, a)
+	}
+	return st, nil
+}
+
+// unstageSayAttachments takes back what stageSayAttachments did: the rows it
+// queued leave the run's set and the rows it removed return as they were.
+func (s *Server) unstageSayAttachments(r Run, st sayStaged) {
+	if len(st.inserted) == 0 && len(st.removed) == 0 {
+		return
+	}
+	tx, err := s.store.db.Begin()
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+	for _, id := range st.inserted {
+		if _, err = tx.Exec(`DELETE FROM run_attachments WHERE run_id=? AND attachment_id=?`, r.ID, id); err != nil {
+			return
+		}
+	}
+	for _, row := range st.removed {
+		if _, err = tx.Exec(`INSERT OR IGNORE INTO run_attachments(run_id,attachment_id,request_key,content_sha256,ordinal,created_at) VALUES(?,?,?,?,?,?)`, r.ID, row.AttachmentID, row.RequestKey, row.Digest, row.Ordinal, row.CreatedAt); err != nil {
+			return
+		}
+	}
+	_ = tx.Commit()
+}
+
+// attachmentSHA256 is the SHA-256 of a stored attachment's bytes: the stored
+// digest, else read from the file.
+func (s *Store) attachmentSHA256(id string) (string, error) {
+	if d := s.attachmentDigest(id); d != "" {
+		return d, nil
+	}
+	_, path, err := s.Attachment(id)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	f, err := s.openAttachment(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err = io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// sayAttachmentsToCount is how many files the call adds to the reply: items
+// already queued for the run add none, and a replaced generated image leaves.
+func (s *Store) sayAttachmentsToCount(runID string, items []sayAttachmentItem) int {
+	n := s.stagedRunAttachmentCount(runID)
+	for _, it := range items {
+		if id := strings.TrimSpace(it.AttachmentID); id != "" {
+			var staged int
+			_ = s.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND attachment_id=?`, runID, id).Scan(&staged)
+			if staged > 0 {
+				continue
+			}
+		}
+		n++
+		if rep := strings.TrimSpace(it.Replaces); rep != "" {
+			var staged int
+			_ = s.db.QueryRow(`SELECT COUNT(*) FROM run_attachments WHERE run_id=? AND attachment_id=? AND request_key LIKE 'image:%'`, runID, rep).Scan(&staged)
+			n -= staged
+		}
+	}
+	return n
 }
 
 // bindRunAttachmentIDsTx binds the named staged files of a run to a message
