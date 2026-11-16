@@ -16,14 +16,12 @@ type accountActiveRequest struct{ token string }
 func (g *AccountGateway) register(r *http.Request) (*http.Request, Account, func(), bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	a, ok := g.session(r)
+	a, hash, ok := g.sessionToken(r)
 	if !ok {
 		return r, a, func() {}, false
 	}
-	cookie, _ := r.Cookie(ownerCookie)
-	hash := sha256.Sum256([]byte(cookie.Value))
 	var expires int64
-	if g.root.store.db.QueryRow(`SELECT expires_at FROM account_sessions WHERE token_hash=?`, hash[:]).Scan(&expires) != nil {
+	if g.root.store.db.QueryRow(`SELECT expires_at FROM account_sessions WHERE token_hash=?`, hash).Scan(&expires) != nil {
 		return r, a, func() {}, false
 	}
 	ctx, cancel := context.WithDeadline(r.Context(), time.Unix(expires, 0))
@@ -52,14 +50,19 @@ func (g *AccountGateway) cancelAccount(id string) {
 }
 func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a Account) bool {
 	if r.URL.Path == "/api/auth/logout" && r.Method == http.MethodPost {
-		cookie, _ := r.Cookie(ownerCookie)
-		hash := sha256.Sum256([]byte(cookie.Value))
+		// Every session this browser sent is ended (over https that is the https and the http one).
+		var err error
 		g.mu.Lock()
-		_, err := g.root.store.db.Exec(`DELETE FROM account_sessions WHERE token_hash=?`, hash[:])
-		if err == nil {
-			for req, cancel := range g.active[a.ID] {
-				if req.token == string(hash[:]) {
-					cancel()
+		for _, token := range sessionTokens(r, g.cookieSecure(r)) {
+			hash := sha256.Sum256([]byte(token))
+			if _, err = g.root.store.db.Exec(`DELETE FROM account_sessions WHERE token_hash=?`, hash[:]); err != nil {
+				break
+			}
+			for _, active := range g.active {
+				for req, cancel := range active {
+					if req.token == string(hash[:]) {
+						cancel()
+					}
 				}
 			}
 		}
@@ -68,7 +71,7 @@ func (g *AccountGateway) manageAccount(w http.ResponseWriter, r *http.Request, a
 			writeErr(w, 500, "storage", "cannot revoke session")
 			return true
 		}
-		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://"), SameSite: http.SameSiteLaxMode, MaxAge: -1})
+		clearSessionCookies(w, g.cookieSecure(r))
 		r.Header.Del("Cookie")
 		writeJSON(w, 200, g.sessionState(r))
 		return true

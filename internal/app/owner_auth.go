@@ -21,6 +21,56 @@ import (
 )
 
 const ownerCookie = "tofi_owner_session"
+
+// ownerCookieHTTP names the session cookie a plain-http page gets (LAN HTTP or loopback). A browser
+// never sends a Secure cookie to a plain-http page and refuses a plain-http Set-Cookie that would
+// replace or delete a Secure cookie of the same name (RFC 6265bis "Leave Secure Cookies Alone"). With
+// one name, signing in over http while the browser held an https session looped back to the sign-in
+// page: the server made a session, the browser dropped its cookie. Both names are read on every
+// transport, the request's own first, so sessions made before the split stay valid.
+const ownerCookieHTTP = "tofi_owner_session_http"
+
+func sessionCookieName(secure bool) string {
+	if secure {
+		return ownerCookie
+	}
+	return ownerCookieHTTP
+}
+
+// sessionTokens are the session cookie values the request carries, the request's own transport's
+// name first; every cookie of a name counts, so a stale one cannot hide a fresh one.
+func sessionTokens(r *http.Request, secure bool) []string {
+	names := []string{ownerCookie, ownerCookieHTTP}
+	if !secure {
+		names[0], names[1] = names[1], names[0]
+	}
+	var out []string
+	for _, name := range names {
+		for _, c := range r.Cookies() {
+			if c.Name == name && len(c.Value) == 43 {
+				out = append(out, c.Value)
+			}
+		}
+	}
+	return out
+}
+
+// setSessionCookie gives the browser the session cookie for this transport, and the request the same
+// cookie so the response is built as the next request will be.
+func setSessionCookie(w http.ResponseWriter, r *http.Request, secure bool, token string, expires time.Time) {
+	name := sessionCookieName(secure)
+	http.SetCookie(w, &http.Cookie{Name: name, Value: token, Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
+	r.AddCookie(&http.Cookie{Name: name, Value: token})
+}
+
+// clearSessionCookies expires both names. A plain-http page cannot touch a Secure cookie, so a
+// sign-out over http leaves the https session to the https page.
+func clearSessionCookies(w http.ResponseWriter, secure bool) {
+	for _, name := range []string{ownerCookie, ownerCookieHTTP} {
+		http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0)})
+	}
+}
+
 const ownerSessionLifetime = 30 * 24 * time.Hour
 
 // No owner credentials or session tokens are exposed to the agent runtime.
@@ -287,14 +337,14 @@ func (a *ownerAuth) session(r *http.Request) (string, time.Time, bool) {
 	if !a.transportOK(r) {
 		return "", time.Time{}, false
 	}
-	cookie, err := r.Cookie(ownerCookie)
-	if err != nil || len(cookie.Value) != 43 {
-		return "", time.Time{}, false
+	for _, token := range sessionTokens(r, a.cookieSecure(r)) {
+		hash := sha256.Sum256([]byte(token))
+		var expiry int64
+		if a.store.db.QueryRow(`SELECT expires_at FROM owner_sessions WHERE token_hash=?`, hash[:]).Scan(&expiry) == nil && time.Now().Unix() < expiry {
+			return string(hash[:]), time.Unix(expiry, 0), true
+		}
 	}
-	hash := sha256.Sum256([]byte(cookie.Value))
-	var expiry int64
-	err = a.store.db.QueryRow(`SELECT expires_at FROM owner_sessions WHERE token_hash=?`, hash[:]).Scan(&expiry)
-	return string(hash[:]), time.Unix(expiry, 0), err == nil && time.Now().Unix() < expiry
+	return "", time.Time{}, false
 }
 
 // cookieSecure marks session cookies Secure when the request arrived over TLS
@@ -310,9 +360,7 @@ func (a *ownerAuth) issue(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: a.cookieSecure(r), SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
-	// Give the response the same state semantics as a subsequent session request.
-	r.AddCookie(&http.Cookie{Name: ownerCookie, Value: token})
+	setSessionCookie(w, r, a.cookieSecure(r), token, expires)
 	return nil
 }
 func (a *ownerAuth) hash(ctx context.Context, password string, salt []byte) ([]byte, error) {
@@ -451,21 +499,24 @@ func (s *Server) handleOwnerAuth(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if p == "/api/auth/logout" {
 		a.mu.Lock()
-		key, _, ok := a.session(r)
-		if ok {
-			_, err := a.store.db.Exec(`DELETE FROM owner_sessions WHERE token_hash=?`, []byte(key))
-			if err != nil {
-				a.mu.Unlock()
-				writeErr(w, 500, "storage", "cannot revoke session")
-				return true
+		// Every session this browser sent is ended (over https that is the https and the http one).
+		if a.transportOK(r) {
+			for _, token := range sessionTokens(r, a.cookieSecure(r)) {
+				hash := sha256.Sum256([]byte(token))
+				key := string(hash[:])
+				if _, err := a.store.db.Exec(`DELETE FROM owner_sessions WHERE token_hash=?`, hash[:]); err != nil {
+					a.mu.Unlock()
+					writeErr(w, 500, "storage", "cannot revoke session")
+					return true
+				}
+				for req := range a.active[key] {
+					req.cancel()
+				}
+				delete(a.active, key)
 			}
-			for req := range a.active[key] {
-				req.cancel()
-			}
-			delete(a.active, key)
 		}
 		a.mu.Unlock()
-		http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: "", Path: "/", HttpOnly: true, Secure: a.cookieSecure(r), SameSite: http.SameSiteLaxMode, MaxAge: -1, Expires: time.Unix(1, 0)})
+		clearSessionCookies(w, a.cookieSecure(r))
 		respond()
 		return true
 	}

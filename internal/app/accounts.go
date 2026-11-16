@@ -240,17 +240,29 @@ func (g *AccountGateway) Listen() string { return g.root.Listen() }
 
 func (g *AccountGateway) Handler() http.Handler { return http.HandlerFunc(g.handle) }
 func (g *AccountGateway) session(r *http.Request) (Account, bool) {
+	a, _, ok := g.sessionToken(r)
+	return a, ok
+}
+
+// sessionToken is the account and the token hash of the first valid session cookie the request carries.
+func (g *AccountGateway) sessionToken(r *http.Request) (Account, []byte, bool) {
 	var a Account
 	if !g.auth.transportOK(r) {
-		return a, false
+		return a, nil, false
 	}
-	cookie, err := r.Cookie(ownerCookie)
-	if err != nil || len(cookie.Value) != 43 {
-		return a, false
+	for _, token := range sessionTokens(r, g.cookieSecure(r)) {
+		hash := sha256.Sum256([]byte(token))
+		err := g.root.store.db.QueryRow(`SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.legacy FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>? AND a.disabled=0`, hash[:], time.Now().Unix()).Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.MustChangePassword, &a.Legacy)
+		if err == nil {
+			return a, hash[:], true
+		}
 	}
-	hash := sha256.Sum256([]byte(cookie.Value))
-	err = g.root.store.db.QueryRow(`SELECT a.id,a.username,a.email,a.role,a.disabled,a.must_change_password,a.legacy FROM account_sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>? AND a.disabled=0`, hash[:], time.Now().Unix()).Scan(&a.ID, &a.Username, &a.Email, &a.Role, &a.Disabled, &a.MustChangePassword, &a.Legacy)
-	return a, err == nil
+	return Account{}, nil, false
+}
+
+// cookieSecure: the request came over TLS, or TLS ends at a proxy in front of the configured https origin.
+func (g *AccountGateway) cookieSecure(r *http.Request) bool {
+	return r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://")
 }
 func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string) error {
 	token := ownerRandom(32)
@@ -261,8 +273,7 @@ func (g *AccountGateway) issue(w http.ResponseWriter, r *http.Request, id string
 		return err
 	}
 	r.Header.Del("Cookie")
-	r.AddCookie(&http.Cookie{Name: ownerCookie, Value: token})
-	http.SetCookie(w, &http.Cookie{Name: ownerCookie, Value: token, Path: "/", HttpOnly: true, Secure: r.TLS != nil || strings.HasPrefix(strings.ToLower(g.root.publicOrigin), "https://"), SameSite: http.SameSiteLaxMode, MaxAge: int(ownerSessionLifetime.Seconds()), Expires: expires})
+	setSessionCookie(w, r, g.cookieSecure(r), token, expires)
 	return nil
 }
 

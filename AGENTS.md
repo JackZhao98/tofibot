@@ -448,7 +448,7 @@ Community connections (decision 0047): TOFI curates official connectors only; a 
 different package or version voids standing allowances. For a community server the provider's `readOnlyHint` is shown but not obeyed (`communityServer` in
 `resolveMCPToolTier`): its tools are reviewed as writes until the owner marks them read-only. Installed Skills with scripts are copied to the Bot's computer on
 `read_skill` like built-in ones, so prefer MCP for anything holding a credential. Pins and recipes live in `integrations/`.
-Session cookies are Secure when `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. Known open: `computer_shell` shares a uid and loopback with the
+Session cookies are Secure when the request came over TLS or `TOFI_PUBLIC_ORIGIN` is https; Caddy sends HSTS. A plain-http page (LAN HTTP, loopback) gets its own cookie name, `tofi_owner_session_http` (`sessionCookieName`), because a browser drops a plain-http Set-Cookie that would replace a Secure cookie of the same name, so with one name an http sign-in looped back to the sign-in page while an https session was stored. Both names are read on every transport (own one first, `sessionTokens`), sign-out ends every session the request carries and expires both names; over http the Secure one stays for the https page. Known open: `computer_shell` shares a uid and loopback with the
 shared Chrome DevTools port.
 
 # Web search and fetch
