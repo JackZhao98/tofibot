@@ -452,6 +452,11 @@ func (s *Store) moveToGeneration(ctx context.Context, b FileBackend, r moveRow) 
 		}
 		return false, moveCodeErr(codeMoveKeyConflict)
 	}
+	if s.moveStepHook != nil {
+		if herr := s.moveStepHook("after_put"); herr != nil {
+			return false, herr // tests: the process "dies" here, the object stays
+		}
+	}
 	dest := objectDisk(b.Gen, key)
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

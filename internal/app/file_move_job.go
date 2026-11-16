@@ -88,6 +88,8 @@ type fileReport struct {
 	StartedAt       string `json:"started_at"`
 	FinishedAt      string `json:"finished_at,omitempty"`
 	SkippedAccounts int64  `json:"skipped_accounts"`
+	// ProbesDeleted are stale alias probes (TOFI's own objects) the sweep removed; `deleted` counts files only.
+	ProbesDeleted int64 `json:"probes_deleted"`
 	fileScan
 }
 
@@ -426,7 +428,7 @@ func (g *AccountGateway) runFileReport(ctx context.Context, kind string, deep, s
 		}
 	}
 	if sweep && !dry {
-		total.Deleted += g.sweepProbes(ctx, time.Now())
+		rep.ProbesDeleted = g.sweepProbes(ctx, time.Now())
 	}
 	rep.fileScan = total
 	rep.Status, rep.FinishedAt = "done", now()
