@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"go/parser"
 	"go/token"
 	"net/http"
@@ -27,6 +28,9 @@ type gradeProvider struct {
 	calls    atomic.Int32
 	requests []string
 	onCall   func()
+	// With block: the time left before the call's deadline when it came in, and why it ended.
+	blockBudget time.Duration
+	blockEnd    error
 }
 
 func (g *gradeProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*provider.ChatResponse, error) {
@@ -44,7 +48,14 @@ func (g *gradeProvider) Chat(ctx context.Context, req *provider.ChatRequest) (*p
 		g.onCall()
 	}
 	if g.block {
+		budget := time.Duration(-1)
+		if deadline, ok := ctx.Deadline(); ok {
+			budget = time.Until(deadline)
+		}
 		<-ctx.Done()
+		g.mu.Lock()
+		g.blockBudget, g.blockEnd = budget, ctx.Err()
+		g.mu.Unlock()
 		return nil, ctx.Err()
 	}
 	if g.err != nil {
@@ -193,16 +204,21 @@ func TestGraderFailureShipsTheDraft(t *testing.T) {
 	}
 }
 
+// A grader that never answers is cut off by answerGraderTimeout and the draft ships. The proof is the
+// grader call's own context (its deadline was at most the timeout away when it came in, and it ended
+// by that deadline), not how long the run took: a loaded machine makes the run slow, not wrong.
 func TestGraderTimeoutShipsTheDraft(t *testing.T) {
 	old := answerGraderTimeout
 	answerGraderTimeout = 150 * time.Millisecond
 	defer func() { answerGraderTimeout = old }()
 	g := &gradeProvider{block: true}
 	model := newFakeModel(t, fakeStep{calls: []fakeCall{sayAnswerCall("c1", "Ships after the timeout.")}})
-	start := time.Now()
 	s, run := gateRunWith(t, model.engine(t), g, "")
-	if run.Status != "done" || time.Since(start) > 5*time.Second {
-		t.Fatalf("run=%+v after %v", run, time.Since(start))
+	g.mu.Lock()
+	budget, end := g.blockBudget, g.blockEnd
+	g.mu.Unlock()
+	if run.Status != "done" || g.calls.Load() != 1 || budget < 0 || budget > answerGraderTimeout || !errors.Is(end, context.DeadlineExceeded) {
+		t.Fatalf("run=%+v grader calls=%d budget=%v end=%v", run, g.calls.Load(), budget, end)
 	}
 	if rows := assistantRows(t, s.store, run.ConversationID); !equalStrings(kindsAndText(rows), []string{"|Ships after the timeout."}) {
 		t.Fatalf("messages = %q", kindsAndText(rows))
