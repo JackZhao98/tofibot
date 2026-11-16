@@ -970,7 +970,10 @@
           "generation_cleanup_pending": "이 버킷에서는 삭제된 파일이 보존 기간이 지나기를 기다리고 있습니다.",
           "generation_not_found": "폐기할 이전 버킷이 없습니다.",
           "generation_busy": "이 버킷은 방금 교체되었거나 가져오기가 아직 끝나지 않았습니다. 나중에 다시 시도하세요.",
-          "same_physical_bucket": "대상이 원본과 같은 버킷입니다"
+          "same_physical_bucket": "대상이 원본과 같은 버킷입니다",
+          "file_store_unavailable": "버킷이 응답하지 않았습니다. 잠시 후 다시 시도하세요.",
+          "file_store_misconfigured": "버킷의 키가 없거나 거부되었습니다. 오브젝트 스토리지를 확인하세요.",
+          "previous_bucket_refused": "이전 버킷이 키를 거부해서 현재 버킷과 다른 버킷인지 TOFI가 확인할 수 없습니다. 아무것도 옮기지 않았습니다. 그 키에 버킷 읽기 권한을 다시 주세요."
         },
         "to_current": "현재 버킷으로 이동",
         "direction_to_generation": "이전 버킷에서 현재 버킷으로",

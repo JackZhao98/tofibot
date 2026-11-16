@@ -289,10 +289,10 @@ func (g *AccountGateway) aliasedGeneration(ctx context.Context, cfg, prev fileSt
 			unverified = true
 			continue
 		}
-		switch _, serr := st.Stat(ctx, key); {
-		case serr == nil:
+		switch g.probeAnswer(ctx, st, c.Gen, key) {
+		case probeVisible:
 			return c.Gen, false, nil
-		case errors.Is(serr, filestore.ErrNotFound), noSuchBucket(serr):
+		case probeAbsent:
 		default:
 			unverified = true
 		}

@@ -39,6 +39,8 @@ const (
 	// codeSamePhysicalBucket: a probe written to the destination bucket is readable through the source generation,
 	// so both are one bucket. The job refuses to start: moving would journal the only copy for deletion.
 	codeSamePhysicalBucket = "same_physical_bucket"
+	// codePreviousBucketRefused: an earlier generation's key is refused, so the alias check cannot run.
+	codePreviousBucketRefused = "previous_bucket_refused"
 )
 
 // moveCodeErr is a per-file failure with a named code: the job records it and goes on.

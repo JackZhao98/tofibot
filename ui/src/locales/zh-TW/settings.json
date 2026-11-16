@@ -970,7 +970,10 @@
           "generation_cleanup_pending": "已刪除的檔案仍在此儲存貯體中等待保留期結束。",
           "generation_not_found": "沒有可停用的舊儲存貯體。",
           "generation_busy": "此儲存貯體剛剛被替換，或有匯入仍在完成。請稍後再試。",
-          "same_physical_bucket": "目的地與來源是同一個儲存貯體"
+          "same_physical_bucket": "目的地與來源是同一個儲存貯體",
+          "file_store_unavailable": "有儲存貯體沒有回應。請稍後再試。",
+          "file_store_misconfigured": "有儲存貯體的金鑰缺少或被拒絕。請檢查物件儲存。",
+          "previous_bucket_refused": "舊儲存貯體拒絕了它的金鑰，TOFI 無法確認它與目前的儲存貯體是不同的貯體。沒有移動任何檔案。請恢復這把金鑰對該儲存貯體的讀取權限。"
         },
         "to_current": "移到目前儲存貯體",
         "direction_to_generation": "舊儲存貯體到目前儲存貯體",
