@@ -52,6 +52,13 @@ func uiInstallAsset(urlPath string) bool {
 	return urlPath == "/manifest.webmanifest" || strings.HasPrefix(urlPath, "/pwa/")
 }
 
+// versionedBrandAsset reports a brand file requested with a version in its URL (`/brand/tofi-logo-calico-awake.svg?v=awake-calico-3`).
+// The UI changes that version whenever the file changes, so the browser keeps it like a hashed asset. Served no-cache, Safari
+// checked the file again each time an <img> showed it and drew it blank meanwhile: the boot and sidebar cat flickered.
+func versionedBrandAsset(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/brand/") && r.URL.Query().Get("v") != ""
+}
+
 func serveUIFile(w http.ResponseWriter, r *http.Request, path string, info os.FileInfo, immutable bool) {
 	if immutable {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

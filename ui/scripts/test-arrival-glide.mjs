@@ -530,6 +530,44 @@ await check("a long hop jumps the excess first and still ends at the bottom", as
   await context.close();
 });
 
+// Opening a conversation, cards and images above the newest message fill in late (schedule data, attachments, a lazy chunk:
+// a second or more on a slow network). WebKit (Safari) has no native scroll anchoring, so that growth pushed the bottom of the
+// chat down and the follow glide pulled it back: the page twitched once per late block. Chromium's anchoring is switched off
+// here so both engines test the app's own compensation.
+await check("late growth above the newest message keeps it still while following (no native scroll anchoring)", async () => {
+  const { page, context, errors } = await open();
+  // What is painted is the layout after the app's ResizeObserver has run, so the newest message is read in an observer created
+  // after the app's (observers run in creation order). A requestAnimationFrame sample would see the frame before the correction.
+  await page.evaluate(() => {
+    document.querySelector(".message-scroll").style.overflowAnchor = "none";
+    const newest = () => document.querySelector('[data-message-id="m40"]').getBoundingClientRect().top;
+    window.__painted = [newest()];
+    new ResizeObserver(() => window.__painted.push(newest())).observe(document.querySelector(".message-list"));
+  });
+  await startTrace(page);
+  await page.waitForTimeout(100);
+  const grow = ids => page.evaluate(ids => {
+    for (const id of ids) {
+      const filler = document.createElement("div");
+      filler.style.height = "140px";
+      document.querySelector(`[data-message-id="${id}"]`).append(filler);
+    }
+  }, ids);
+  await grow(["m30", "m36"]);
+  await page.waitForTimeout(150);
+  await grow(["m39"]);
+  await page.waitForTimeout(500);
+  const { trace } = await stopTrace(page);
+  const painted = await page.evaluate(() => window.__painted);
+  const moved = Math.max(...painted.map(y => Math.abs(y - painted[0])));
+  assert.ok(painted.length >= 3, `the observer saw ${painted.length} layouts`);
+  assert.ok(moved <= 1, `the newest message was painted ${moved.toFixed(1)}px away from where it was while content above it grew`);
+  assert.ok(Math.abs(trace.at(-1).y - painted[0]) <= 1 && trace.at(-1).fb <= 0.5, `ends ${trace.at(-1).fb}px from the bottom`);
+  assert.ok(!trace.some(f => f.jump), "no jump-to-latest pill");
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 await browser.close();
 server.close();
 rmSync(outDir, { recursive: true, force: true });
