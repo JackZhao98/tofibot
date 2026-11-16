@@ -229,16 +229,17 @@ func (s *Server) approveMCPCallOnce(ctx context.Context, c Conversation, r Run, 
 			if rememberEligible {
 				in.Approval.Remember = target.offer()
 			}
-			q, createErr := s.store.CreateQuestion(c.ID, r, in)
-			if createErr != nil {
-				return createErr
-			}
 			targetKey, targetKind, targetSummary := "", "", ""
 			if rememberEligible {
 				targetKey, targetKind, targetSummary = target.Key, target.Kind, target.Summary
 			}
-			if _, createErr = s.store.db.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,remember_eligible,standing_eligible) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, r.ID, hash, call.Server, call.Tool, call.ConfigVersion, call.TierBinding, targetKey, targetKind, targetSummary, boolInt(rememberEligible), boolInt(standingOffered)); createErr != nil {
-				_, _ = s.store.db.Exec(`DELETE FROM questions WHERE id=? AND status=?`, q.ID, questionPending)
+			// The card and its approval row are one write: a person (or the Remember answer, which reads the row) may
+			// act on the card the moment it is visible.
+			q, createErr := s.store.CreateQuestionWith(c.ID, r, in, func(tx *sql.Tx, q Question) error {
+				_, err := tx.Exec(`INSERT INTO mcp_call_approvals(question_id,run_id,action_hash,server,tool,config_fingerprint,tier_binding,target_key,target_kind,target_summary,remember_eligible,standing_eligible) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, q.ID, r.ID, hash, call.Server, call.Tool, call.ConfigVersion, call.TierBinding, targetKey, targetKind, targetSummary, boolInt(rememberEligible), boolInt(standingOffered))
+				return err
+			})
+			if createErr != nil {
 				return createErr
 			}
 			// Off and shadow modes ask a person at creation. A grant the person
