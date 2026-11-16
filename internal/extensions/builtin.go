@@ -23,10 +23,11 @@ import (
 // directory, cannot be installed over, deleted or edited there, and their
 // scripts are copied to the Bot's computer when the skill is read.
 //
-// Only SKILL.md and scripts/*.py are embedded: the Python tests next to them
-// stay out of the binary.
+// Only SKILL.md, scripts/*.py and references/*.md are embedded: the Python tests
+// next to them stay out of the binary. The frontmatter of a built-in skill may
+// also carry requires: [computer] and kind: deliverable|read|procedure.
 //
-//go:embed builtin_skills/*/SKILL.md builtin_skills/*/scripts/*.py
+//go:embed builtin_skills/*/SKILL.md builtin_skills/*/scripts/*.py builtin_skills/*/references/*.md
 var builtinFS embed.FS
 
 const builtinRoot = "builtin_skills"
@@ -55,11 +56,26 @@ func loadBuiltin() {
 		if err != nil {
 			continue
 		}
-		skill, err := parseSkill(data)
+		skill, manifest, err := parseSkillManifest(data)
 		if err != nil || skill.Name != entry.Name() {
 			builtinIssues = append(builtinIssues, Diagnostic{Server: entry.Name(), Message: "built-in skill manifest invalid"})
 			continue
 		}
+		valid := true
+		for _, r := range manifest.Requires {
+			valid = valid && r == "computer"
+		}
+		switch manifest.Kind {
+		case "deliverable", "read", "procedure":
+		default:
+			valid = false
+		}
+		if !valid {
+			builtinIssues = append(builtinIssues, Diagnostic{Server: entry.Name(), Message: "built-in skill requires or kind invalid"})
+			continue
+		}
+		skill.Requires = manifest.Requires
+		skill.Kind = manifest.Kind
 		skill.Builtin = true
 		skill.files = sub
 		builtinSkills = append(builtinSkills, skill)
@@ -166,7 +182,7 @@ func (m *Manager) loadAllSkills(metadataOnly, withBuiltin bool) ([]Skill, []Diag
 	diags = append(diags, builtinIssues...)
 	for _, s := range user {
 		if IsBuiltinSkill(s.Name) {
-			diags = append(diags, Diagnostic{Server: s.Name, Message: fmt.Sprintf("installed skill %q shares a built-in skill's name and is ignored", s.Name)})
+			diags = append(diags, Diagnostic{Server: s.Name, Message: fmt.Sprintf("installed skill %q (%s) shares a built-in skill's name and is ignored; the built-in skill %q is used", s.Name, s.Path, s.Name)})
 			continue
 		}
 		out = append(out, s)

@@ -282,13 +282,13 @@ func TestRouteAndConfirmationPrinciplesArePresentAndExampleFree(t *testing.T) {
 	if strings.Contains(taskCompletionGuidance, "Try another permitted route after weak results") {
 		t.Fatal("the old route line survives beside the merged one")
 	}
-	if !strings.Contains(researchGuide, "A scripted fetch is a quick first try; when a site refuses it, read the page in the real browser") {
+	if !strings.Contains(builtinSkillBody(t, "web-research"), "A scripted fetch is a quick first try. When the run has a Bot computer and a site refuses the fetch, the page is read in the real browser") {
 		t.Fatal("research guide steers toward script fetching without the browser fallback")
 	}
 	if !strings.Contains(toolEvidencePolicy, "the person did not ask for") {
 		t.Fatal("evidence policy still confirms actions the person asked for")
 	}
-	for name, text := range map[string]string{"taskCompletionGuidance": taskCompletionGuidance, "researchGuide": researchGuide, "send_message": sayToolDescription, "evidence": toolEvidencePolicy} {
+	for name, text := range map[string]string{"taskCompletionGuidance": taskCompletionGuidance, "researchGuide": builtinSkillBody(t, "web-research"), "send_message": sayToolDescription, "evidence": toolEvidencePolicy} {
 		for _, bad := range []string{"e.g.", "for example", "such as", "Reuters", "401", "403", "\"", "「"} {
 			if name == "researchGuide" && (bad == "\"" || bad == "such as") {
 				continue // pre-existing wording outside this change

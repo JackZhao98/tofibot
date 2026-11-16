@@ -1,6 +1,8 @@
 ---
 name: video
 description: Read what a video or animation shows and says, with frame times, scenes, on-screen text and speech.
+requires: [computer]
+kind: read
 ---
 
 # Reading a video

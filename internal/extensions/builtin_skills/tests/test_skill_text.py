@@ -9,9 +9,8 @@ import unittest
 from _support import SKILLS
 
 SKILL_FILES = sorted(glob.glob(os.path.join(SKILLS, "*", "SKILL.md")))
-EXPECTED = {"spreadsheet", "document-report", "slides", "web-page", "code-delivery", "video"}
-# Skills that read a file and deliver none; the deliverable verification wording does not apply.
-READ_ONLY = {"video"}
+# Every folder declares a kind in its frontmatter. Only deliverable Skills keep the delivery sentences; read and procedure Skills deliver no file.
+KINDS = {"deliverable", "read", "procedure"}
 # Principles only: no sample sentences, no contrasts, no keyword lists.
 BANNED = [r"\be\.g\.", r"\bi\.e\.", r"for example", r"for instance", r"such as", r"rather than", r"instead of", r"\bnot\b[^.\n]*\bbut\b",
           r"\bbut not\b", r"\bnever\b[^.\n]*\balways\b", r"[\"“”]"]
@@ -25,8 +24,12 @@ def split(path):
 
 
 class SkillText(unittest.TestCase):
-    def test_the_expected_skills_exist(self):
-        self.assertEqual({os.path.basename(os.path.dirname(p)) for p in SKILL_FILES}, EXPECTED)
+    def test_every_skill_declares_a_kind_and_valid_requires(self):
+        self.assertTrue(SKILL_FILES)
+        for path in SKILL_FILES:
+            meta, _ = split(path)
+            self.assertIn(meta.get("kind"), KINDS, path)
+            self.assertIn(meta.get("requires", "[computer]"), ("[computer]",), path)
 
     def test_frontmatter_is_a_one_line_description(self):
         for path in SKILL_FILES:
@@ -35,11 +38,11 @@ class SkillText(unittest.TestCase):
             self.assertLessEqual(len(meta["description"]), 100, path)
             self.assertNotIn("\n", meta["description"])
 
-    def test_every_skill_states_the_verification_principle(self):
+    def test_deliverable_skills_state_the_verification_principle(self):
         for path in SKILL_FILES:
-            if os.path.basename(os.path.dirname(path)) in READ_ONLY:
+            meta, body = split(path)
+            if meta["kind"] != "deliverable":
                 continue
-            _, body = split(path)
             self.assertIn("Every claim in the reply is true of the delivered", body, path)
             self.assertIn("Publish only the final", body, path)
 

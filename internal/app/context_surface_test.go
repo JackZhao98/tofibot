@@ -96,7 +96,7 @@ func TestResearchGuidanceAppearsOnce(t *testing.T) {
 		t.Fatalf("evidence policy count=%d len=%d", strings.Count(system, toolEvidencePolicy), len(toolEvidencePolicy))
 	}
 	for _, repeated := range []string{"Never bypass a denied target/action", "precise blocker and evidence gap", "Promise future work"} {
-		if strings.Contains(researchGuide, repeated) || strings.Contains(commitmentGuide, repeated) {
+		if strings.Contains(builtinSkillBody(t, "web-research"), repeated) || strings.Contains(commitmentGuide, repeated) {
 			t.Fatalf("optional guide repeats system rule %q", repeated)
 		}
 	}

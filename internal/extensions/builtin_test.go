@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-var builtinNames = []string{"code-delivery", "document-report", "slides", "spreadsheet", "video", "web-page"}
+var builtinNames = []string{"code-delivery", "document-report", "email", "install-software", "slides", "spreadsheet", "video", "web-page", "web-research", "web-tasks"}
 
 func prepareBuiltin(t *testing.T, cfg Config, bot string) *Prepared {
 	t.Helper()
@@ -46,8 +46,8 @@ func TestBuiltinSkillsShipWithTheBinary(t *testing.T) {
 				t.Fatalf("%s ships %s", s.Name, f.Path)
 			}
 		}
-		// video is read-only and ships no script.
-		if !hasManifest || (!hasScript && s.Name != "video") {
+		// Only deliverable Skills ship a script.
+		if !hasManifest || (!hasScript && s.Kind == "deliverable") {
 			t.Fatalf("%s manifest=%v script=%v", s.Name, hasManifest, hasScript)
 		}
 		_, again, _ := BuiltinSkillFiles(s.Name)
@@ -201,4 +201,81 @@ func writeSkillForTest(root, name, manifest string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(root, name, "SKILL.md"), []byte(manifest), 0o600)
+}
+
+func TestBuiltinSkillsDeclareKindAndRequires(t *testing.T) {
+	want := map[string]struct {
+		kind     string
+		computer bool
+	}{
+		"code-delivery": {"deliverable", true}, "document-report": {"deliverable", true}, "slides": {"deliverable", true},
+		"spreadsheet": {"deliverable", true}, "web-page": {"deliverable", true}, "video": {"read", true},
+		"web-research": {"procedure", false}, "email": {"procedure", false}, "web-tasks": {"procedure", true}, "install-software": {"procedure", true},
+	}
+	for _, s := range BuiltinSkills() {
+		w, ok := want[s.Name]
+		if !ok || s.Kind != w.kind || s.NeedsComputer() != w.computer {
+			t.Errorf("%s kind=%q requires=%v", s.Name, s.Kind, s.Requires)
+		}
+	}
+	files, _, err := BuiltinSkillFiles("email")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range files {
+		found = found || f.Path == "references/gmail-browser.md"
+	}
+	if !found {
+		t.Fatalf("email ships no gmail-browser reference: %+v", files)
+	}
+}
+
+func TestSkillsThatNeedAComputerAreHiddenWithoutOne(t *testing.T) {
+	ctx := context.Background()
+	without := prepareBuiltin(t, Config{HasBotComputer: func() bool { return false }}, "bot")
+	for _, hidden := range []string{"slides", "spreadsheet", "document-report", "web-page", "code-delivery", "video", "web-tasks", "install-software"} {
+		if strings.Contains(without.Instructions, `"name":"`+hidden+`"`) {
+			t.Errorf("index lists %s without a computer", hidden)
+		}
+		_, err := discoveryTool(t, without, "read_skill").Execute(ctx, json.RawMessage(`{"name":"`+hidden+`"}`))
+		if err == nil || !strings.Contains(err.Error(), "Bot computer") || !strings.Contains(err.Error(), "Settings > Environments") {
+			t.Errorf("read_skill %s refusal=%v", hidden, err)
+		}
+		if _, err := discoveryTool(t, without, "read_skill_file").Execute(ctx, json.RawMessage(`{"name":"`+hidden+`","path":"SKILL.md"}`)); err == nil {
+			t.Errorf("read_skill_file served %s without a computer", hidden)
+		}
+	}
+	for _, shown := range []string{"web-research", "email"} {
+		if !strings.Contains(without.Instructions, `"name":"`+shown+`"`) {
+			t.Errorf("index lacks %s without a computer", shown)
+		}
+	}
+	list, err := discoveryTool(t, without, "list_skills").Execute(ctx, json.RawMessage(`{}`))
+	if err != nil || strings.Contains(list, `"slides"`) || !strings.Contains(list, `"email"`) {
+		t.Fatalf("list without a computer: %v %s", err, list)
+	}
+	if ref, err := discoveryTool(t, without, "read_skill_file").Execute(ctx, json.RawMessage(`{"name":"email","path":"references/gmail-browser.md"}`)); err != nil || !strings.Contains(ref, "mail.google.com") {
+		t.Fatalf("email reference: %v %q", err, ref)
+	}
+	with := prepareBuiltin(t, Config{HasBotComputer: func() bool { return true }}, "bot")
+	for _, name := range builtinNames {
+		if !strings.Contains(with.Instructions, `"name":"`+name+`"`) {
+			t.Errorf("index lacks %s with a computer", name)
+		}
+	}
+}
+
+func TestCollisionDiagnosticNamesBothSkills(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "skills")
+	if err := writeSkillForTest(dir, "email", "---\nname: email\ndescription: mine\n---\nbody"); err != nil {
+		t.Fatal(err)
+	}
+	p := prepareBuiltin(t, Config{SkillsDir: dir}, "bot")
+	for _, d := range p.Diagnostics {
+		if strings.Contains(d.Message, "installed skill \"email\"") && strings.Contains(d.Message, filepath.Join(dir, "email")) && strings.Contains(d.Message, "built-in skill \"email\" is used") {
+			return
+		}
+	}
+	t.Fatalf("diagnostics=%+v", p.Diagnostics)
 }

@@ -1,6 +1,8 @@
 ---
 name: code-delivery
 description: Change code in a project, run it, and ship a verified archive.
+requires: [computer]
+kind: deliverable
 ---
 
 # Code delivery

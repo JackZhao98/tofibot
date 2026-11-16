@@ -206,6 +206,7 @@ func TestSkillMigrationKeepsEachBotsEffectiveSet(t *testing.T) {
 
 func TestSkillMigrationRunsOnceAndOldTablesAreNotRead(t *testing.T) {
 	env := newLibEnv(t)
+	env.s.microVM = unreachableComputerClient(t)
 	enableSkillsFor(t, env.s, env.a.ID, "deploy")
 	if err := env.s.migrateSkillLibraryData(); err != nil {
 		t.Fatal(err)
@@ -298,6 +299,7 @@ func TestBotCannotChangAnotherBotsColumn(t *testing.T) {
 
 func TestBotEnableAndDisableAreRecordedAndNeedNoApproval(t *testing.T) {
 	env := newLibEnv(t)
+	env.s.microVM = unreachableComputerClient(t)
 	tool := botTool(t, env.s, env.a, false)
 	if _, err := callSkillToolRaw(t, tool, map[string]any{"action": "skill_enable", "name": "deploy"}); err != nil {
 		t.Fatalf("enable without approval: %v", err)

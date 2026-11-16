@@ -1,6 +1,8 @@
 ---
 name: slides
 description: Build PPTX decks; look at the rendered slides before delivering.
+requires: [computer]
+kind: deliverable
 ---
 
 # Slide decks

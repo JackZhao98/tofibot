@@ -65,8 +65,8 @@ func TestSafetyAndGuideRoutingRemainInTheProductionPrompt(t *testing.T) {
 		"Complete the requested deliverable and fields",
 		"Never claim something was searched, verified or done without evidence",
 		"try the Bot computer's other means before reporting a blocker or asking",
-		"read_workflow_guide",
-		"(skill: software)",
+		"read the matching Skill with read_skill",
+		"(skill: install-software)",
 		computerBrowserEssentialsPlaywright,
 		"browser_snapshot",
 		"work here is never host/Mac access",
@@ -294,8 +294,10 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 				// file with publish_file." (+180 measured: 9243 -> 9423).
 				// 9560: plus the video Skill's row in the Skill directory (+133 measured: 9423 -> 9556).
 				// 9566: plus the delivery sentence naming send_message attachments (+6 measured: 9556 -> 9562).
-				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 9566 {
-					t.Errorf("ordinary DM provider system exceeds 9566 runes")
+				// 10052: plus the four new Skills' directory rows (web-research, email, web-tasks, install-software), the new
+				// directory header and the work-guidance line naming read_skill in place of read_workflow_guide (+486 measured: 9562 -> 10048).
+				if tc.name == "dm" && len([]rune(system))+runtime.SystemPromptOverheadRunes() > 10052 {
+					t.Errorf("ordinary DM provider system exceeds 10052 runes")
 				}
 				// 7000: the lookup line's works-newer-than-the-model clause (~45) lands in
 				// every prompt, the longest of which sat 23 under 6950.
@@ -376,8 +378,9 @@ func TestProductionPromptSizeMatrix(t *testing.T) {
 					// 9380: plus the video Skill's directory row, as above (+133 measured: 9243 -> 9376).
 					// 9395: the say tool renamed send_message (+18 measured: 9376 -> 9394).
 					// 9401: plus the delivery sentence naming send_message attachments (+6 measured: 9394 -> 9400).
-					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9401 {
-						t.Errorf("structured DM provider system exceeds 9401 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
+					// 9890: plus the same four Skill rows, header and work-guidance line (+486 measured: 9400 -> 9886).
+					if tc.name == "dm" && len([]rune(system))+runtime.StructuredPromptOverheadRunes() > 9890 {
+						t.Errorf("structured DM provider system exceeds 9890 runes: %d", len([]rune(system))+runtime.StructuredPromptOverheadRunes())
 					}
 					if tc.kind == runKindGroupChat && !strings.Contains(system, "send_message(answer)") {
 						t.Error("structured group prompt does not name say(answer)")

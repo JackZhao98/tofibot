@@ -99,7 +99,7 @@ func TestDiscoveryPolicyNamesOnlyWhatTheRunHas(t *testing.T) {
 			}
 		}
 	}
-	directory := "Configured MCP sources (names only):\nEnabled Skills, optional guides for some tasks (name and purpose):\n"
+	directory := "Configured MCP sources (names only):\nSkills: how-tos for kinds of work; read one with read_skill when the work matches.\n"
 	if got := extensions.WithDiscoveryPolicy(full+directory, false, true); got != extensions.DiscoveryPolicy(false, true)+directory {
 		t.Errorf("replace kept the old policy: %q", got)
 	}

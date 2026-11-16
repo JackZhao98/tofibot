@@ -1,6 +1,8 @@
 ---
 name: spreadsheet
 description: Read, build and check XLSX workbooks with real numbers and formulas.
+requires: [computer]
+kind: deliverable
 ---
 
 # Spreadsheet work

@@ -4,47 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
+
+	"github.com/JackZhao98/tofibot/internal/extensions"
+	"github.com/JackZhao98/tofibot/internal/tooloutcome"
 )
 
-// Built-in skills: task-specific procedures loaded only when a task matches,
-// so the always-present policy stays short and the Bot's persona sets the tone.
-const researchGuide = `Research and news:
-Give the answer with the facts behind it; link the pages you used and say when things happened if timing matters. Open primary pages (the article, filing or official page) and cite those URLs: every link must be the specific page that states the fact, never a home, section, channel, tag or search page; a story you have not opened is not reported. Compute what was asked from data you already fetched (quotes, charts, tables). Distinguish event or publication time from retrieval time and current from delayed data; convert explicit timezones and keep stated dates. Word confirmed facts and guesses differently inside the sentences themselves; no separate caveat line, and none for plain opinions. For a roundup, one good listing page plus opening only the items you report is enough: about 3-5 page reads in total, no cross-checking every date. Prior findings are not fresh evidence. A scripted fetch is a quick first try; when a site refuses it, read the page in the real browser before calling it unreachable.`
-
-const mailGuide = `Email:
-Connected tools come first. Before opening a browser, search the connected tools with search_mcp_tools (no server name) for one that reads or sends mail: a Google or Gmail connection, or any MCP source that offers mail tools. Use it to search, read and, when asked, send; its results are the answer, and you do not need the Bot computer for mail while it works.
-If the connection answers that it is not connected, not authorized or expired, stop and tell the person that mail needs to be reconnected in Settings > Connections, name the connection, and offer to continue once they have done it. If no mail connection exists at all, say that one can be added in Settings > Connections.
-The signed-in Gmail in your Bot computer's browser is the fallback, used only when there is no mail connection, or when the connection is not authorized and the request needs the mail now. Open searches by URL: https://mail.google.com/mail/u/0/#search/<query>, with Gmail operators such as from:, subject:, newer_than:7d, is:unread, category:promotions. Read the result list with browser.read; open a message with browser.click on its subject and read it in full once.
-Opening a mail to read it is fine under read-only requests; do not archive, label, mark, delete or reply unless asked. Tell the user what the relevant mails say and whether they need to do anything.`
-
-const webTasksGuide = `Doing things on websites (forms, orders, bookings, messages, account or settings changes):
-When a connected tool covers the task, use it and skip the page; this guide is for work no connected tool covers, or when the connected tool fails or is not authorized.
-Fill fields with browser.click and desktop.type; select a field's existing text first (key ctrl+a) so typing replaces it, and label every click, type or key with its real effect (none, submit, purchase, send, delete, publish, account). Before an action with an outside effect that the user did not clearly ask for, ask with request_approval naming the exact button. Never enter payment, card, ID or password data unless the user provided it for this purpose. After submitting, read the confirmation page and say what happened.`
-
-const softwareGuide = `Installing and removing software on your Bot computer:
-System directories are read-only (no sudo, no system apt). Install in user space: language package managers, or official release archives unpacked under /workspace/home/.local/opt and linked into /workspace/home/.local/bin (first on PATH, shared by all Bots). Inspect the existing command first and keep existing tools. To uninstall, remove exactly what you installed (the unpacked directory and its links), then verify with command -v and a version check. If a package must come from apt, apt-get download and dpkg-deb -x can extract it into user space with its dependencies and a wrapper. Do not expose credentials.`
+// The workflow guides became built-in Skills (web-research, email, web-tasks,
+// install-software). read_workflow_guide stays for one version as a deferred
+// alias: a topic returns the body of its Skill, and commitments and team return
+// the text that now also sits in the descriptions of the work-item, schedule and
+// team tools.
 
 const commitmentGuide = `Track genuine ongoing commitments with work-item tools: inspect existing items to avoid duplicates, preserve owner and status, mark done only after completion. Ordinary conversation needs no task. Recorded tasks do not execute themselves. Use scheduling tools for future work. To find existing schedules and their ids, call list_schedules (scope self covers every conversation of this Bot). To pause, resume or delete one, name pause_schedule, resume_schedule or delete_schedule in workspace_capabilities (query: schedule) and act on it by id. A one-time schedule already appears in the agenda, so create a task only for a separate broader commitment. A scheduled run is not complete until its run status is done. Follow the scheduled execution's own completion-receipt rules.`
 
 const teamAssemblyGuide = `To assemble a team, call list_groups first. If a group has suitable members and purpose, continue the work in that group with send_group_message. Use invite_bot to add a missing member. Create a new group only when no group fits, and state its purpose. A first create_group call without list_groups is refused and lists the groups that hold the same members; continue in a fitting one, or repeat create_group when the purpose differs. Reuse suitable existing Bots. Create specialists only for missing skills. Use create_group, then send_group_message once to start work. Inside a group, assistant replies publish automatically. Use handoff for a concrete contribution from a listed member and end the turn after successful dispatch; its completed result resumes you. Do not duplicate dispatch, predict results, or send courtesy handoffs. Compare evidence, contribute distinct ideas and integrate a useful conclusion. A one-time message does not authorize changes to another Bot's durable instructions.`
 
-// researchBrowserSentence is the one research-guide sentence that needs a computer.
-const researchBrowserSentence = " A scripted fetch is a quick first try; when a site refuses it, read the page in the real browser before calling it unreachable."
+// workflowGuideSkills maps an alias topic to its Skill.
+var workflowGuideSkills = map[string]string{"research": "web-research", "mail": "email", "web_tasks": "web-tasks", "software": "install-software"}
 
 func workflowGuideTool() Tool { return workflowGuideToolFor(true) }
 
-// workflowGuideToolFor lists only the guides a workspace can act on: mail,
-// web_tasks and software drive the Bot's computer, so a workspace with none
-// offers research, commitments and team.
+// workflowGuideToolFor is the deferred alias. A Skill that requires a Bot
+// computer is refused when the workspace has none, as read_skill refuses it.
 func workflowGuideToolFor(computer bool) Tool {
-	description := "Read one built-in skill when the task matches it: research (looking things up, news, comparing sources), mail (finding, reading or sending email: connected mail tools first), web_tasks (forms, orders, bookings, sending or changing things on websites), software (installing or removing software on your Bot computer), commitments (ongoing work and schedules), team (assembling Bots). Chat and simple questions need none; reuse a skill already read. No side effects."
 	topics := []string{"research", "mail", "web_tasks", "software", "commitments", "team"}
-	if !computer {
-		description = "Read one built-in skill when the task matches it: research (looking things up, news, comparing sources), commitments (ongoing work and schedules), team (assembling Bots). Chat and simple questions need none; reuse a skill already read. No side effects."
-		topics = []string{"research", "commitments", "team"}
-	}
-	return Tool{Name: "read_workflow_guide", Description: description, Parameters: objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": topics}}, []string{"topic"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+	return Tool{Name: "read_workflow_guide", Deferred: true, Description: "Kept for one version: read a Skill with read_skill (web-research, email, web-tasks, install-software). Topics: research, mail, web_tasks, software, commitments, team.", Parameters: objectSchema(map[string]any{"topic": map[string]any{"type": "string", "enum": topics}}, []string{"topic"}), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -54,27 +38,25 @@ func workflowGuideToolFor(computer bool) Tool {
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return "", err
 		}
-		if !computer && in.Topic != "research" && in.Topic != "commitments" && in.Topic != "team" {
-			return "", errors.New("unsupported workflow guide topic")
-		}
 		switch in.Topic {
-		case "research":
-			if !computer {
-				return strings.TrimSuffix(researchGuide, researchBrowserSentence), nil
-			}
-			return researchGuide, nil
-		case "mail":
-			return mailGuide, nil
-		case "web_tasks":
-			return webTasksGuide, nil
-		case "software":
-			return softwareGuide, nil
 		case "commitments":
 			return commitmentGuide, nil
 		case "team":
 			return teamAssemblyGuide, nil
-		default:
+		}
+		name, ok := workflowGuideSkills[in.Topic]
+		if !ok {
 			return "", errors.New("unsupported workflow guide topic")
 		}
+		for _, skill := range extensions.BuiltinSkills() {
+			if skill.Name != name {
+				continue
+			}
+			if !computer && skill.NeedsComputer() {
+				return "", tooloutcome.InvalidArguments("skill " + name + " needs a Bot computer, which this workspace has not set up; a Bot computer is added in Settings > Environments")
+			}
+			return skill.Body, nil
+		}
+		return "", errors.New("unsupported workflow guide topic")
 	}}
 }

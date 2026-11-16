@@ -1572,7 +1572,7 @@ func (s *Server) scheduleTools(c Conversation, r Run) []Tool {
 			}
 			return scheduleToolJSON(x), nil
 		}},
-		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone, next_at_utc and next_at_local.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}, "offset": listOffsetProp}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
+		{Name: "list_schedules", Description: "List scheduled work for this conversation or this Bot across conversations. Use view upcoming, history, or all. Each schedule reports kind, daily_time, weekdays (weekly only), timezone, next_at_utc and next_at_local. Scope self covers every conversation of this Bot. To pause, resume or delete one, name pause_schedule, resume_schedule or delete_schedule in workspace_capabilities (query: schedule) and act by id. A scheduled run is complete when its run status is done, under the completion-receipt rules of the scheduled execution.", Parameters: objectSchema(map[string]any{"scope": map[string]any{"type": "string", "enum": []string{"conversation", "self"}}, "view": map[string]any{"type": "string", "enum": []string{"upcoming", "history", "all"}}, "offset": listOffsetProp}, nil), Execute: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}

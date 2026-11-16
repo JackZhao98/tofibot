@@ -215,7 +215,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 			})
 			return result, e
 		}),
-		tool("create_group", "Create a durable discussion group including the initiating bot. Call list_groups first; if you do not, the first call is refused and lists existing groups that hold the same members. Continue in a fitting group with send_group_message. Create a group only when no existing group has suitable members and purpose.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "purpose": map[string]any{"type": "string", "description": "Optional short statement of what the group is for."}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
+		tool("create_group", "Create a durable discussion group including the initiating bot. Call list_groups first; if you do not, the first call is refused and lists existing groups that hold the same members. Continue in a fitting group with send_group_message. Create a group only when no existing group has suitable members and purpose, and state that purpose. Reuse suitable existing Bots and create specialists only for missing skills. Then call send_group_message once to start work.", map[string]any{"name": map[string]any{"type": "string"}, "bot_ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "purpose": map[string]any{"type": "string", "description": "Optional short statement of what the group is for."}}, []string{"name", "bot_ids"}, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err
 			}
@@ -299,7 +299,7 @@ func (s *Server) teamTools(c Conversation, r Run) []Tool {
 				return string(out), nil
 			})
 		}),
-		tool("invite_bot", "Add an existing bot to a discussion group.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}}, []string{"group_id", "bot_id"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamInvite(ctx, r, args) }),
+		tool("invite_bot", "Add an existing bot to a discussion group when a suitable group lacks a member. A one-time message does not authorize changes to another Bot's durable instructions.", map[string]any{"group_id": map[string]any{"type": "string"}, "bot_id": map[string]any{"type": "string"}}, []string{"group_id", "bot_id"}, func(ctx context.Context, args json.RawMessage) (string, error) { return s.teamInvite(ctx, r, args) }),
 		tool("list_groups", "List discussion groups available to the initiating bot, with purpose and latest message.", map[string]any{}, nil, func(ctx context.Context, args json.RawMessage) (string, error) {
 			if err := ctx.Err(); err != nil {
 				return "", err

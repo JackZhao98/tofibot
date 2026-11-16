@@ -1,6 +1,8 @@
 ---
 name: web-page
 description: Make one self-contained HTML page for phone and desktop; view it in a browser.
+requires: [computer]
+kind: deliverable
 ---
 
 # Single-file web page

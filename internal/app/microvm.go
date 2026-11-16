@@ -200,7 +200,7 @@ func botComputerMeans() string {
 	for i, item := range botComputerToolbox {
 		names[i] = item.Name
 	}
-	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. What the person asks to see or to have reaches them as the thing itself, through send_message attachments: a file you made or downloaded into your own directory (path), a web address (url), or a screen capture by its capture_id."
+	return "Installed: " + strings.Join(names, ", ") + "; fonts for Latin and CJK scripts. The network is open. System directories are read-only (no sudo): install in user space, Python packages in a venv (skill: install-software), and fetch fonts or OCR data for other languages into user directories. Work that no tool or Skill is made for is done by writing and running programs here. What the person asks to see or to have reaches them as the thing itself, through send_message attachments: a file you made or downloaded into your own directory (path), a web address (url), or a screen capture by its capture_id."
 }
 
 // computerBrowserEssentials is the always-present browser recipe; computer_help
@@ -469,7 +469,7 @@ func (s *Server) resourceLease(botID string) *sync.Mutex {
 // already bound to this service's one workspace and therefore never accepts a
 // user-provided VM/socket identifier.
 // effectParam is the model's own statement of a page action's effect.
-var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this changes beyond reading. none: nothing is written, sent, closed, quit or discarded, and the previous state can be brought back; reading, opening, navigating, selecting and searching are none. discard: closes, quits or reverts something that may hold unsaved work, or throws away unsaved changes. delete: removes stored data. Otherwise submit, purchase, send, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation."}
+var effectParam = map[string]any{"type": "string", "enum": actionEffects, "description": "For click/type/key: what this changes beyond reading. none: nothing is written, sent, closed, quit or discarded, and the previous state can be brought back; reading, opening, navigating, selecting and searching are none. discard: closes, quits or reverts something that may hold unsaved work, or throws away unsaved changes. delete: removes stored data. Otherwise submit, purchase, send, publish, account (sign-up, permissions, settings) or other_external. Actions with an effect may need the user's confirmation. Label every click, type and key with its real effect. Before an outside effect the person did not clearly ask for, ask with request_approval naming the exact button. Never enter payment, card, ID or password data the person did not provide for this purpose."}
 
 // computerBrowserFallbackNote opens the description of computer_browser while the browser_ tools are offered.
 const computerBrowserFallbackNote = "Fallback only: use the browser_ tools. Use this tool when a browser_ tool says the browser engine is unavailable."
