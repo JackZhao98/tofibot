@@ -4354,6 +4354,7 @@ func (s *Server) execute(c Conversation, r Run) {
 	// review (on a text final or on a say answer) has already been spent.
 	var observedToolWork, reviewed atomic.Bool
 	var toolWork toolWorkRecord
+	toolWork.haystack = func() (string, error) { return s.store.reviewHaystack(r.ID) }
 	// The answer gate (answer_review.go): graded drafts so far, the cap for this
 	// run, and whether a scheduled receipt repair is under way (which must not
 	// be sent back again).

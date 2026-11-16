@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"slices"
 	"strings"
 
@@ -20,7 +21,7 @@ Do not broaden the request or replay an action with an uncertain outcome; inspec
 // reply itself to the tool record: how far the work reached, what it produced,
 // and where the results live. Whether the work is complete is a separate
 // question, asked after it (D45).
-const replyMatchesRecordPrinciple = `A statement of extent or number holds for exactly what the results show: a check that reached part of a set is reported as reaching that part, a count names what was counted, and an action is reported as done only when its result confirms it. Correct each sentence the record does not support, or do the work that makes it true.
+const replyMatchesRecordPrinciple = `A statement of extent or number holds for exactly what the results show: a check that reached part of a set is reported as reaching that part, a count names what was counted, and an action is reported as done only when its result confirms it. Correct each sentence the record does not support, or do the work that makes it true. A fact the answer needs that the record lacks is checked in this turn and kept.
 Whatever the work leaves behind that the person will rely on (files, stored state, schedules, Bot computer locations), the answer says what exists and where it lives, using the locations the tool results gave. Only what the person asked to receive is published; working files stay on the Bot computer.
 State that a later run reads or compares against is left behind for the person too: the answer names where it is kept and what it holds, whether it sits in a file, in a schedule's instructions or in memory, even when the person never asked to receive it.`
 
@@ -66,6 +67,46 @@ func (s *Store) hasCompletionReviewToolWork(runID string) (bool, error) {
 		AND name NOT IN (`+noCompletionReviewSQL+`)
 	)`, runID).Scan(&found)
 	return found != 0, err
+}
+
+// reviewHaystack is the text a figure of a draft can be checked against: the
+// results of the run's tool calls and the person's request (the run's trigger
+// message and the person's messages since the run began).
+func (s *Store) reviewHaystack(runID string) (string, error) {
+	var b strings.Builder
+	rows, err := s.db.Query(`SELECT result FROM tool_activities WHERE run_id=? AND status IN ('completed','failed') ORDER BY started_at`, runID)
+	if err != nil {
+		return "", err
+	}
+	for rows.Next() {
+		var res sql.NullString
+		if err := rows.Scan(&res); err != nil {
+			rows.Close()
+			return "", err
+		}
+		b.WriteString(res.String)
+		b.WriteByte('\n')
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return "", err
+	}
+	rows.Close()
+	req, err := s.db.Query(`SELECT m.content FROM messages m JOIN runs r ON r.id=? AND m.conversation_id=r.conversation_id
+		WHERE m.id=r.trigger_message_id OR (m.role='user' AND m.created_at>=r.created_at)`, runID)
+	if err != nil {
+		return "", err
+	}
+	defer req.Close()
+	for req.Next() {
+		var c string
+		if err := req.Scan(&c); err != nil {
+			return "", err
+		}
+		b.WriteString(c)
+		b.WriteByte('\n')
+	}
+	return b.String(), req.Err()
 }
 
 // taskCompletionFinalReview avoids an extra model turn for conversational
