@@ -21,27 +21,58 @@ const (
 	browserReadMinChars     = 12000
 )
 
+// browserFindChrome defines shared_chrome_port(): the DevTools port of the
+// shared desktop's Chrome, the one desktop.* and browser.navigate use. The
+// guest names it in TOFI_DEVTOOLS_PORT. An older guest does not, so it is then
+// read from Chrome's command line: only a browser executable counts (never a
+// shell that names the flags), and the arguments may be NUL-separated or one
+// space-joined string, because Chrome rewrites its process title. Reading only
+// NUL-separated arguments made every browser.read answer chrome_not_running on
+// the test machine from 2026-10-31 on, while navigate kept working.
+// opts["proc"] is the process table to read, for tests; it is never sent.
+const browserFindChrome = `
+import glob, os, re
+BROWSERS = {"chrome", "google-chrome", "google-chrome-stable", "chromium", "chromium-browser"}
+def shared_chrome_port():
+    named = os.environ.get("TOFI_DEVTOOLS_PORT", "")
+    if named.isdigit():
+        return int(named)
+    for pid in glob.glob((opts.get("proc") or "/proc") + "/[0-9]*"):
+        try:
+            exe = os.path.basename(os.readlink(pid + "/exe"))
+            if exe.replace(" (deleted)", "") not in BROWSERS:
+                continue
+            data = open(pid + "/cmdline", "rb").read()
+        except Exception:
+            continue
+        port, shared = None, False
+        for a in re.split(rb"[\0 ]+", data.strip(b"\0 ")):
+            m = re.match(rb"--remote-debugging-port=(\d+)$", a)
+            if m:
+                port = int(m.group(1))
+            # Only the shared desktop Chrome, never a headless browser a Bot started.
+            if a.startswith(b"--user-data-dir=") and a.rstrip(b"/").endswith(b"/browser/shared"):
+                shared = True
+        if port and shared:
+            return port
+    return None
+`
+
 // browserScriptHead is the part of every browser helper that finds the shared
 // Chrome, defines the DevTools helpers and picks the foreground page.
 const browserScriptHead = `
-import base64, glob, json, re, sys, time, urllib.request, websocket
+import base64, json, sys, time, urllib.request, websocket
 opts = json.loads(base64.b64decode(sys.argv[1]))
-port = None
-for path in glob.glob("/proc/[0-9]*/cmdline"):
-    try:
-        args = open(path, "rb").read().split(b"\0")
-    except Exception:
-        continue
-    for a in args:
-        m = re.match(rb"--remote-debugging-port=(\d+)$", a)
-        # Only the shared desktop Chrome, never a headless browser a Bot started.
-        if m and any(x.startswith(b"--user-data-dir=") and x.rstrip(b"/").endswith(b"/browser/shared") for x in args):
-            port = int(m.group(1))
-    if port:
-        break
+` + browserFindChrome + `
+port = shared_chrome_port()
 if not port:
     print(json.dumps({"error": "chrome_not_running"})); sys.exit(0)
-pages = [t for t in json.load(urllib.request.urlopen("http://127.0.0.1:%d/json/list" % port, timeout=5)) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
+try:
+    listing = json.load(urllib.request.urlopen("http://127.0.0.1:%d/json/list" % port, timeout=5))
+except OSError:
+    # The named port does not answer: the desktop is up but its Chrome is closed.
+    print(json.dumps({"error": "chrome_not_running"})); sys.exit(0)
+pages = [t for t in listing if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
 seq = [0]
 def send(ws, method, params):
     seq[0] += 1
