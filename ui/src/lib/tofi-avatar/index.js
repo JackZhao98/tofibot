@@ -218,7 +218,7 @@ export function mountCat(host,options={}){
   const reduced=()=>preference==='system'?media.matches:preference;
   let speed=clamp(Number(options.speed)||1,.25,2);
   let current={...rest,o:idle==='awake'?1:0,k:idle==='awake'?0:1};
-  let tailRig=null,svg,body,marksGroup,eyesGroup,outline,fillNode,parts=[],eyes=[],bodyG,legsG,pawsG,legs=[],paws=[],floor=null;
+  let tailRig=null,svg,body,bodyCopies=[],marksGroup,eyesGroup,outline,fillNode,parts=[],eyes=[],bodyG,legsG,pawsG,legs=[],paws=[],floor=null;
   let job=null,raf=0,destroyed=false,lastStepAt=-Infinity;
   // The host's width picks the frame rate. Reading clientWidth here, right after the previous cat wrote its paths, forced a
   // style and layout pass per cat per frame; the width is kept from a ResizeObserver instead (read once before its first call).
@@ -262,11 +262,11 @@ export function mountCat(host,options={}){
     svg.querySelector('title').textContent=coat.label;
     outline.style.display=coat.outline?'':'none';
     marksGroup.replaceChildren();
-    parts=[{node:body,d:shape.body,data:tokens(shape.body)}];
+    parts=[{nodes:bodyCopies,d:shape.body,data:tokens(shape.body)}];
     for(const mark of coat.marks){
       const node=element('path',{d:mark.d,fill:mark.fill});
       marksGroup.append(node);
-      parts.push({node,d:mark.d,data:tokens(mark.d)});
+      parts.push({nodes:[node],d:mark.d,data:tokens(mark.d)});
     }
     const limbFill=typeof coat.fill==='string'&&!coat.fill.startsWith('url')?coat.fill:(coat.body||'#FFFCF6');
     legs.forEach(l=>l.n.setAttribute('fill',limbFill));
@@ -285,17 +285,24 @@ export function mountCat(host,options={}){
     svg=element('svg',{xmlns:svgNS,viewBox:'0 0 320 320',width:'100%',height:'100%',role:'img','data-tofi-avatar':config.shape});
     svg.style.display='block';
     const title=element('title'),defs=element('defs');
+    // No <use> of a shape that moves: after its source path changes, Safari
+    // rebuilds the copy and can paint a frame without it, so the body, coat
+    // and eyes vanished for a frame while a live cat breathed. Every copy is a
+    // real path, and render() writes the same d to all of them.
     body=element('path',{id:uid+'-body',d:shape.body});
+    const clipBody=element('path',{d:shape.body});
     const clip=element('clipPath',{id:uid+'-clip'});
-    clip.append(element('use',{href:'#'+uid+'-body'}));
+    clip.append(clipBody);
     defs.append(body,clip);
-    fillNode=element('use',{href:'#'+uid+'-body'});
+    fillNode=element('path',{d:shape.body});
+    bodyCopies=[body,clipBody,fillNode];
     marksGroup=element('g',{'clip-path':'url(#'+uid+'-clip)'});
     eyesGroup=element('g',{'clip-path':'url(#'+uid+'-clip)'});
     eyes=shape.eyes.map(eye=>{
       const id=uid+'-'+eye.part;
       const node=element('path',{id,d:eye.d,'data-eye':eye.part,'stroke-width':1.8,'stroke-linejoin':'round','paint-order':'stroke fill'});
-      const cp=element('clipPath',{id:id+'-c'});cp.append(element('use',{href:'#'+id}));defs.append(cp);
+      const clipNode=element('path',{d:eye.d});
+      const cp=element('clipPath',{id:id+'-c'});cp.append(clipNode);defs.append(cp);
       // v2 eye decorations: iris pupil + catchlights (clipped to the eye),
       // and expression glyphs (hearts, ^ ^) drawn over it.
       const inner=element('g',{'clip-path':'url(#'+id+'-c)'});
@@ -304,9 +311,10 @@ export function mountCat(host,options={}){
       inner.append(pupil,hi1,hi2);
       const glyph=element('path',{fill:'none','stroke-linecap':'round','stroke-linejoin':'round'});
       eyesGroup.append(node,inner,glyph);
-      return {...eye,node,inner,pupil,hi1,hi2,glyph};
+      return {...eye,node,clipNode,inner,pupil,hi1,hi2,glyph};
     });
-    outline=element('use',{href:'#'+uid+'-body',fill:'none',stroke:'#292B29','stroke-width':4.5,'stroke-linejoin':'round'});
+    outline=element('path',{d:shape.body,fill:'none',stroke:'#292B29','stroke-width':4.5,'stroke-linejoin':'round'});
+    bodyCopies.push(outline);
     // v2 limbs: legs sit behind the body, paws in front. Hidden at rest so the
     // original silhouette is untouched.
     legsG=element('g');pawsG=element('g');bodyG=element('g');
@@ -333,7 +341,9 @@ export function mountCat(host,options={}){
       // tail joins it, so tail and body read as one contour.
       over.o.style.display='none';
       const m=element('mask',{id:uid+'-tailover',maskUnits:'userSpaceOnUse',x:-40,y:-40,width:400,height:400});
-      m.append(element('rect',{x:-40,y:-40,width:400,height:400,fill:'#fff'}),element('use',{href:'#'+uid+'-body',fill:'#000',stroke:'#fff','stroke-width':7}));
+      const maskBody=element('path',{d:shape.body,fill:'#000',stroke:'#fff','stroke-width':7});
+      bodyCopies.push(maskBody);
+      m.append(element('rect',{x:-40,y:-40,width:400,height:400,fill:'#fff'}),maskBody);
       defs.append(m);over.g.setAttribute('mask','url(#'+uid+'-tailover)');
       const fc=element('clipPath',{id:uid+'-tailfront'});const [x0,y0,x1,y1]=TR.front;fc.append(element('rect',{x:x0,y:y0,width:x1-x0,height:y1-y0}));defs.append(fc);
       // front copy: only inside the body AND on the floor strip (tail lying over the paws)
@@ -502,18 +512,20 @@ export function mountCat(host,options={}){
     current={...q};shown={...q};
     if(bodyG){limbs(q);tail(q);}
     const home=q.x===0&&q.y===0&&q.r===0&&q.s===0&&q.b===0&&q.e===0&&!q.t&&!q.u&&!q.k&&!q.pl&&!q.pr&&!q.ps;
-    for(const part of parts)part.node.setAttribute('d',home?part.d:materialPath(part.data,q));
+    for(const part of parts){const d=home?part.d:materialPath(part.data,q);for(const node of part.nodes)node.setAttribute('d',d);}
     for(const [index,eye] of eyes.entries()){
       const direction=clamp(q.g,-1,1);
       const travel=direction*(direction<0?shape.gaze.left:shape.gaze.right)*.65;
       const angle=(eye.angle+q.r)*Math.PI/180;
-      if(travel===0)eye.node.removeAttribute('transform');
-      else eye.node.setAttribute('transform','translate('+(travel*Math.cos(angle)).toFixed(3)+' '+(travel*Math.sin(angle)).toFixed(3)+')');
+      // The clip copy follows the eye's gaze, as the <use> it replaces did.
+      if(travel===0){eye.node.removeAttribute('transform');eye.clipNode.removeAttribute('transform');}
+      else{const shift='translate('+(travel*Math.cos(angle)).toFixed(3)+' '+(travel*Math.sin(angle)).toFixed(3)+')';eye.node.setAttribute('transform',shift);eye.clipNode.setAttribute('transform',shift);}
       const contour=readableContour(eye,shape.eyeCenters[index],performances[shape.key].eyeScale,
         clamp(q.o),clamp(q.lid),q.a*(index===0?1:-1));
       const sz=(eyeStyles[eyeStyle].size||[1,1])[index];
       if(sz!==1){const [ecx,ecy]=shape.eyeCenters[index];for(let i=0;i<contour.length;){if(typeof contour[i]==='string'){i++;continue;}contour[i]=ecx+(contour[i]-ecx)*sz;contour[i+1]=ecy+(contour[i+1]-ecy)*sz;i+=2;}}
-      eye.node.setAttribute('d',materialPath(contour,q));
+      const eyeD=materialPath(contour,q);
+      eye.node.setAttribute('d',eyeD);eye.clipNode.setAttribute('d',eyeD);
       decorate(eye,index,q,travel*Math.cos(angle),travel*Math.sin(angle));
     }
   }
