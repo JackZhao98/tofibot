@@ -7,6 +7,7 @@
 //     overlay is the topmost element at its own centre; the keyboard closes (and, where declared, reopens) it; the
 //     origin's real localStorage is never written.
 // Screenshots: CATALOG_SHOTS=/abs/dir. Only some sections: CATALOG_ONLY=dialogs,menus. Build check only: --build-only.
+// Reproducing a flake: CATALOG_STATE=id1,id2 (only those states), CATALOG_THROTTLE=6 (Chromium CPU slowed 6x), CATALOG_REPEAT=10.
 // Usage: PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm run test:catalog
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -123,20 +124,22 @@ try {
   else pass(`one catalog section for each of components.md §${documented[0]}–§${documented.at(-1)} (${index.reduce((n, s) => n + s.states.length, 0)} states)`);
 
   const only = process.env.CATALOG_ONLY?.split(",");
+  const onlyStates = process.env.CATALOG_STATE?.split(",");
+  const throttle = Number(process.env.CATALOG_THROTTLE || 1);
   const jobs = [];
   for (const section of index) {
     if (only && !only.includes(section.id)) continue;
     const inline = section.states.filter(state => state.kind === "inline");
     for (const width of ["desktop", "phone"]) {
       for (const theme of width === "desktop" ? ["light", "dark"] : ["light"]) {
-        if (inline.length) jobs.push({ section, state: null, width, theme });
-        for (const state of section.states.filter(state => state.kind !== "inline" && state.widths.includes(width))) jobs.push({ section, state, width, theme });
+        if (inline.length && !onlyStates) jobs.push({ section, state: null, width, theme });
+        for (const state of section.states.filter(state => state.kind !== "inline" && state.widths.includes(width) && (!onlyStates || onlyStates.includes(state.id)))) jobs.push({ section, state, width, theme });
       }
     }
   }
 
   const small = index.find(section => section.id === "computer")?.states.find(state => state.id === "small");
-  if (small && (!only || only.includes("computer"))) jobs.push({ section: index.find(section => section.id === "computer"), state: small, width: "desktop", theme: "light", lateChunk: true });
+  if (small && (!only || only.includes("computer")) && (!onlyStates || onlyStates.includes("small"))) jobs.push({ section: index.find(section => section.id === "computer"), state: small, width: "desktop", theme: "light", lateChunk: true });
 
   let checkedProbes = 0, checkedKeys = 0;
   async function run(job) {
@@ -147,6 +150,7 @@ try {
     // must already sit in its place (its box rules are eager), not be measured as an unstyled block and keep those numbers.
     if (lateChunk) await page.route(/BotDesktopPanel|desktop-presence/, async route => { await new Promise(done => setTimeout(done, 1500)); await route.continue(); });
     await page.setViewportSize(WIDTHS[width]);
+    if (throttle > 1) await (await context.newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: throttle });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     const query = new URLSearchParams({ frame: section.id, theme, lng: "en" });
@@ -207,7 +211,7 @@ try {
       fail(`${name}: ${cause instanceof Error ? cause.message.split("\n")[0] : cause}${errors.length ? ` (page errors: ${errors.join("; ")})` : ""}`);
     } finally { await page.close(); }
   }
-  const queue = [...jobs];
+  const queue = Array.from({ length: Math.max(1, Number(process.env.CATALOG_REPEAT || 1)) }, () => jobs).flat();
   await Promise.all(Array.from({ length: Number(process.env.CATALOG_PARALLEL ?? 4) }, async () => { while (queue.length) await run(queue.shift()); }));
   pass(`${jobs.length} frames opened; ${checkedProbes} overlays topmost at their centre; ${checkedKeys} keyboard close checks`);
 

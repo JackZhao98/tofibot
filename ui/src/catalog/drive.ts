@@ -20,6 +20,18 @@ export function driver(root: HTMLElement) {
       await wait(30);
     }
   }
+  /** Waits until no finite animation runs in the document (a disclosure opening, an arrival glide), then two frames for what
+   * the app does when one ends (a conversation pinned to its bottom scrolls again). An infinite one (a loading mark) never ends
+   * and is not waited for. The signal, not a guess of how long the animations take on this machine. */
+  async function settled(timeout = PATIENCE_MS) {
+    const until = performance.now() + Math.max(timeout, PATIENCE_MS);
+    const running = () => document.getAnimations().some(animation => animation.playState === "running" && Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)));
+    while (running()) {
+      if (performance.now() > until) throw new Error("catalog: an animation never finished");
+      await wait(30);
+    }
+    await frames(2);
+  }
   /** Waits until nothing matches (a loading state has finished). */
   async function gone(selector: string, timeout = PATIENCE_MS) {
     const until = performance.now() + Math.max(timeout, PATIENCE_MS); // a caller's smaller number is a guess about speed
@@ -30,7 +42,7 @@ export function driver(root: HTMLElement) {
   }
   const target = async (selector: string | HTMLElement) => typeof selector === "string" ? find(selector) : selector;
   return {
-    root, wait, frames, find, gone,
+    root, wait, frames, find, gone, settled,
     async click(selector: string | HTMLElement) { const element = await target(selector); element.click(); await frames(); return element; },
     /** A mouse moving onto the element: pointer and mouse events, the way the delegated hover handlers listen for them. */
     async hover(selector: string | HTMLElement) {
@@ -72,6 +84,14 @@ export function driver(root: HTMLElement) {
       setter.call(element, text);
       element.setSelectionRange?.(text.length, text.length);
       element.dispatchEvent(new Event("input", { bubbles: true }));
+      await frames();
+      return element;
+    },
+    /** A reader's wheel turn on a scroll pane (negative is up). The conversation stops following its bottom only for a
+     * gesture like this; a scroll set from code is not one, so the pane would pin its bottom again on its next layout. */
+    async wheel(selector: string | HTMLElement, deltaY: number) {
+      const element = await target(selector);
+      element.dispatchEvent(new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true }));
       await frames();
       return element;
     },

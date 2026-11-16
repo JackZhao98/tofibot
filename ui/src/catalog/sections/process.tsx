@@ -104,7 +104,19 @@ const contextBody = (state: RunContextState) => <div className="run-context-cata
 const openPart = (index: number): CatalogState["drive"] => async step => { await step.click(`.run-context-parts > .run-context-part:nth-child(${index}) > summary`); await step.wait(200); };
 
 const TIMELINE: AppOptions = { path: "/b/bot_mochi", timeline: true };
-const openSegments: CatalogState["drive"] = async step => { await step.find(".task-run-block", 4000); await step.wait(600); for (const summary of [...step.root.querySelectorAll<HTMLElement>(".task-activity > .process-line")]) { await step.click(summary); await step.wait(120); } await step.wait(400); step.root.querySelector<HTMLElement>(".task-run-block[data-segment] .task-activity > .process-line")?.scrollIntoView({ block: "center", behavior: "instant" }); };
+// The conversation follows its bottom until a reader scrolls away, and a scroll set from code does not count: on a slow machine
+// its next layout (the full history replacing the first window, a late row opening) pinned the bottom again and left the first
+// row under the header. So the drive waits for the first landing and every opening, then scrolls the way a reader does.
+const openSegments: CatalogState["drive"] = async step => {
+  await step.find(".message-list:not(.is-positioning) .task-run-block", 4000);
+  await step.settled();
+  for (const summary of [...step.root.querySelectorAll<HTMLElement>(".task-activity > .process-line")]) { await step.click(summary); await step.settled(); }
+  const row = step.root.querySelector<HTMLElement>(".task-run-block[data-segment] .task-activity > .process-line");
+  const pane = row?.closest<HTMLElement>(".message-scroll");
+  if (pane) await step.wheel(pane, -120);
+  row?.scrollIntoView({ block: "center", behavior: "instant" });
+  await step.settled();
+};
 const expand = (selector: string): CatalogState["drive"] => async step => { await step.click(selector); await step.wait(400); };
 const LONG = "Working out which of the available tools fits best for the launch review notes and the venue";
 const ctx = { kind: "inline" as const, context: ["catalog-column"] };
