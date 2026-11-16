@@ -67,6 +67,20 @@ class VideoEditCommands(unittest.TestCase):
             header = handle.read(6)
         self.assertEqual(header[:3], b"GIF")
 
+    def test_gif_budget_aims_near_the_budget(self):
+        out = os.path.join(self.dir, "near.gif")
+        loose = run_script("video-edit", "gif_budget", os.path.join(self.dir, "in.mp4"), out, "--duration", 3, "--max-bytes", 50000000)
+        self.assertEqual(loose.returncode, 0, loose.stderr)
+        self.assertIn("width=320", loose.stdout.splitlines()[-1])
+        self.assertIn("fps=15", loose.stdout.splitlines()[-1])
+        full = os.path.getsize(out)
+        budget = int(full * 0.6)
+        tight = run_script("video-edit", "gif_budget", os.path.join(self.dir, "in.mp4"), out, "--duration", 3, "--max-bytes", budget)
+        self.assertEqual(tight.returncode, 0, tight.stderr)
+        size = os.path.getsize(out)
+        self.assertLessEqual(size, budget)
+        self.assertGreaterEqual(size, budget * 0.5, tight.stdout)
+
     def test_gif_budget_exit_code_when_impossible(self):
         out = os.path.join(self.dir, "x.gif")
         result = run_script("video-edit", "gif_budget", os.path.join(self.dir, "in.mp4"), out, "--max-bytes", 500)

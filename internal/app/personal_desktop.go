@@ -50,6 +50,7 @@ type desktopToolInput struct {
 	Key              string   `json:"key,omitempty"`
 	Modifiers        []string `json:"modifiers,omitempty"`
 	Effect           string   `json:"effect,omitempty"`
+	SaveTo           string   `json:"save_to,omitempty"`
 }
 
 func ptrVal(p *int) int {
@@ -330,7 +331,7 @@ func keyChord(key string, modifiers []string) ([]string, string) {
 // personalDesktop runs one translated computer_desktop call on a person's own
 // computer. The approval gate, the computer's lock and the Mac's own refusals
 // are in computerActionOn and the provider.
-func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, args json.RawMessage, detail string) (string, error) {
+func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, args json.RawMessage, detail string, save captureSave) (string, error) {
 	if id == desktopNeedsComputerID {
 		msg := "Pass computer_id: there is no Bot computer"
 		if macs := s.desktopMacs(); len(macs) > 0 {
@@ -351,6 +352,9 @@ func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, 
 	if err := s.personalOfflineError(ctx, id); err != nil {
 		return "", err
 	}
+	if save.Path != "" && s.computer() == nil {
+		return "", saveNeedsBotComputer()
+	}
 	out, err := s.computerActionOn(ctx, r, id, action, args)
 	if err != nil {
 		return "", err
@@ -361,6 +365,9 @@ func (s *Server) personalDesktop(ctx context.Context, r Run, id, action string, 
 		out = applyCaptureDetail(out, detail)
 		// The full picture stays in memory for send_message; it is stored only if sent.
 		out = s.keepCapture(r.ID, keptCapture{ComputerID: id, ComputerName: row.Name, Personal: true}, full, out)
+		if save.Path != "" {
+			return s.saveMacCapture(ctx, r, row.Name, save, full, out)
+		}
 	}
 	return out, nil
 }
@@ -455,7 +462,11 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
-			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail)
+			save, err := captureSaveOf(raw, action)
+			if err != nil {
+				return "", err
+			}
+			return s.personalDesktop(ctx, r, s.desktopToolComputer("computer_desktop", raw), action, args, detail, save)
 		},
 	}
 	return []Tool{s.environmentTool(r, t, false)}
@@ -463,5 +474,5 @@ func (s *Server) personalDesktopTools(r Run) []Tool {
 
 // desktopToolSchema is the argument schema of computer_desktop, the same for every kind of computer.
 func desktopToolSchema() map[string]any {
-	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
+	return objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"desktop.start", "desktop.stop", "desktop.capture", "desktop.snapshot", "desktop.trace", "desktop.click", "desktop.double_click", "desktop.triple_click", "desktop.type", "desktop.key", "desktop.scroll", "desktop.move", "desktop.drag", "start", "stop", "capture", "trace", "click", "double_click", "triple_click", "type", "key", "scroll", "move", "drag"}, "description": "desktop.start/stop/capture/click/double_click/triple_click/type/key/scroll (desktop.snapshot = capture). A double or triple click is one action: opening a folder, a word or a line selection is never two separate click calls."}, "x": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel X from the latest capture"}, "y": map[string]any{"type": "integer", "minimum": 0, "description": "Screen pixel Y from the latest capture"}, "screenshot_width": map[string]any{"type": "integer", "minimum": 1, "maximum": 1280, "description": "Width of the screenshot used for x/y; provide together with screenshot_height"}, "screenshot_height": map[string]any{"type": "integer", "minimum": 1, "maximum": 800, "description": "Height of the screenshot used for x/y; provide together with screenshot_width"}, "direction": map[string]any{"type": "string", "enum": []string{"up", "down", "left", "right"}, "description": "Visible page scroll direction"}, "amount": map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Mouse wheel steps, default 3"}, "text": map[string]any{"type": "string"}, "key": map[string]any{"type": "string", "description": "X11 key name, for example Return or Escape"}, "effect": effectParam, "computer_id": desktopComputerIDParam, "button": desktopButtonParam, "to_x": desktopToParam("X"), "to_y": desktopToParam("Y"), "display": desktopDisplayParam, "modifiers": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "detail": captureDetailParam, "save_to": saveToParam, "last": traceActionParams["last"], "capture_seqs": traceActionParams["capture_seqs"], "columns": traceActionParams["columns"]}, []string{"action"})
 }

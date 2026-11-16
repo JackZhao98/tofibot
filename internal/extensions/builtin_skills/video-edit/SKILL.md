@@ -15,7 +15,13 @@ Reading what a video shows or says belongs to the video Skill. This Skill produc
 - The original file is kept. Every edit writes a new file.
 - Picture and sound stay in sync after cutting, joining and speed changes. Joined clips share one size and frame rate.
 - Burned subtitles are readable, inside the frame and in the right language and encoding.
-- A GIF is only as large as the budget demands: the shrink order keeps the frame rate smooth and the picture legible as long as the size allows.
+- A GIF uses its budget well: the largest picture and the smoothest frame rate that fit, a small margin under the limit; a result far under the budget is made again larger.
+
+## Getting the input file
+
+- A file the person sent is on the Bot computer at the path listed with it.
+- A frame of the screen or of a page is saved with the save_to parameter of desktop.capture on computer_desktop or of browser.snapshot on computer_browser (an absolute .png path under /workspace).
+- A video on the web is downloaded with curl into the Bot's own directory.
 
 ## Probing
 
@@ -39,7 +45,7 @@ Reading what a video shows or says belongs to the video Skill. This Skill produc
 
 ## GIF within a size budget
 
-- `scripts/gif_budget.py` cuts a window of the clip and builds a GIF with a generated palette, then shrinks frame rate, colors and width in that order until the file fits the byte budget; `--help` lists the options. It prints each attempt and exits with code 2 when even the smallest setting is over budget. Pass `--start` and `--duration` for the part to keep.
+- `scripts/gif_budget.py` cuts a window of the clip and builds a GIF with a generated palette. For each frame rate, highest first, it searches the largest width that fits 95% of the byte budget, stops at the first rate whose width is legible, and lowers the colors only when nothing fits; it prints every try and the share of the budget used. `--help` lists the options.
 - A GIF has no sound. Long clips grow fast: a few seconds at 480 pixels wide is the usual range under one megabyte. When a budget cannot be met, cut the clip shorter or offer a short MP4 as well.
 - Palette method by hand: `ffmpeg -t 4 -i in.mp4 -vf 'fps=12,scale=480:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer' out.gif`.
 

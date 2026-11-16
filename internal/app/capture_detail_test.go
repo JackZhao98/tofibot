@@ -29,6 +29,8 @@ type captureComputer struct {
 	shade uint8
 	// failSnapshot makes browser.snapshot fail, as when Chrome is not up.
 	failSnapshot bool
+	// shell answers a shell.exec command; nil gives the answer of a successful move.
+	shell func(command string) string
 }
 
 func (c *captureComputer) Action(ctx context.Context, a computer.Action) (computer.ActionResult, error) {
@@ -48,6 +50,23 @@ func (c *captureComputer) ActionWithin(_ context.Context, a computer.Action, _ t
 			return computer.ActionResult{}, errors.New("synthetic: Chrome is not reachable")
 		}
 		return computer.ActionResult{OK: true, Result: captureJSON(1280, 800, pageURL, shade)}, nil
+	}
+	if a.Name == "shell.exec" {
+		var in struct {
+			Command string `json:"command"`
+		}
+		_ = json.Unmarshal(a.Args, &in)
+		out := map[string]any{"stdout": "saved\n", "exit_code": 0}
+		c.cmu.Lock()
+		answer := c.shell
+		c.cmu.Unlock()
+		if answer != nil {
+			if text := answer(in.Command); text != "" {
+				out = map[string]any{"stdout": text, "exit_code": 0}
+			}
+		}
+		raw, _ := json.Marshal(out)
+		return computer.ActionResult{OK: true, Result: raw}, nil
 	}
 	return computer.ActionResult{OK: true, Result: json.RawMessage(`{}`)}, nil
 }

@@ -521,8 +521,14 @@ func (s *Server) microVMTools(r Run) []Tool {
 			if err != nil {
 				return "", err
 			}
+			var save captureSave
+			if name == "computer_desktop" || name == "computer_browser" {
+				if save, err = captureSaveOf(raw, action); err != nil {
+					return "", err
+				}
+			}
 			if cid := s.desktopToolComputer(name, raw); cid != microVMComputerID {
-				return s.personalDesktop(ctx, r, cid, action, args, captureDetail)
+				return s.personalDesktop(ctx, r, cid, action, args, captureDetail, save)
 			}
 			inputs.ensure(ctx, s, r)
 			s.flushGeneratedImages(ctx, r)
@@ -647,6 +653,9 @@ func (s *Server) microVMTools(r Run) []Tool {
 				out, err = s.afterComputerAction(ctx, r, name, action, raw, args, out, captureDetail)
 				if err == nil && (action == "desktop.capture" || action == "browser.snapshot") {
 					out = s.keepBotCapture(ctx, r, action, picture, out)
+					if save.Path != "" {
+						out, err = s.saveBotCapture(ctx, r, action, save, picture, out)
+					}
 				}
 			}
 			return out, err
@@ -713,7 +722,7 @@ func (s *Server) microVMTools(r Run) []Tool {
 		return in.Action, argsJSON, nil
 	})
 	desktop := call("computer_desktop", computerFallbackNote+" Control the Bot computer's display and Chrome session. "+desktopKindsSentence+" Graphical actions wait for exclusive control; inspect after acquiring it or after the page changes. A successful browser.snapshot already includes a current screenshot: use it directly, without an extra desktop.start or desktop.capture. Use desktop.start when readiness is unknown; desktop.capture is for non-browser UI. Click/double_click/triple_click/type/key/scroll act on the current visible screen. After an input sequence, inspect the result before claiming success. "+captureDetailSentence+" "+traceActionSentence, desktopToolSchema(), s.parseDesktopTool)
-	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace. File uploads in web pages use browser.upload, never the system file dialog."}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
+	browser := call("computer_browser", computerFallbackNote+" Use the shared Chrome. browser.read returns the focused page's text and links (use find to jump to a phrase); prefer it over a screenshot for reading pages, results and articles. browser.click clicks an item by its visible text (a mail subject, button, link) and returns the new page, so no screenshot or coordinates are needed. File uploads in web pages use browser.upload, never the system file dialog. browser.snapshot returns a screenshot for layout and click coordinates; "+captureDetailSentence+" browser.navigate opens a URL in the current tab. All Bots share this Chrome and its logged-in profile.", objectSchema(map[string]any{"action": map[string]any{"type": "string", "enum": []string{"browser.read", "browser.click", "browser.upload", "browser.navigate", "browser.snapshot", "browser.action", "read", "click", "upload", "navigate", "snapshot"}, "description": "browser.read: page text+links (optional find, max_chars); browser.click: click the element showing click text, then returns the page like read; browser.upload: attach files to a file input; browser.navigate needs url; browser.snapshot: screenshot; browser.action switches, opens or closes tabs with target_action"}, "click": map[string]any{"type": "string", "description": "browser.click: visible text of the item to click (a mail subject, button or link label); browser.upload: visible text of the element that opens the file chooser"}, "files": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: paths of files on the Bot computer, inside /workspace. File uploads in web pages use browser.upload, never the system file dialog."}, "attachment_ids": map[string]any{"type": "array", "maxItems": browserUploadMaxFiles, "items": map[string]any{"type": "string"}, "description": "browser.upload: ids of files the person sent in this conversation"}, "selector": map[string]any{"type": "string", "description": "browser.upload: CSS selector of the file input (or a label around it); give selector or click"}, "effect": effectParam, "find": map[string]any{"type": "string", "description": "browser.read: return passages around this phrase"}, "max_chars": map[string]any{"type": "integer", "minimum": 1000, "maximum": 60000, "description": "browser.read: text budget, default 20000"}, "url": map[string]any{"type": "string", "description": "URL for browser.navigate"}, "target_action": map[string]any{"type": "string", "enum": []string{"navigate", "snapshot", "new", "switch", "close"}, "description": "Browser action; new explicitly opens a foreground tab; switch/close require target_id"}, "target_id": map[string]any{"type": "string", "description": "Exact target_id from browser.snapshot; omit to use the actual current foreground tab"}, "detail": captureDetailParam, "save_to": saveToParam, "full_page": fullPageParam}, []string{"action"}), func(raw json.RawMessage) (string, json.RawMessage, error) {
 		var in struct {
 			Action        string   `json:"action"`
 			Detail        string   `json:"detail,omitempty"`
@@ -727,6 +736,8 @@ func (s *Server) microVMTools(r Run) []Tool {
 			Files         []string `json:"files,omitempty"`
 			AttachmentIDs []string `json:"attachment_ids,omitempty"`
 			Selector      string   `json:"selector,omitempty"`
+			SaveTo        string   `json:"save_to,omitempty"`
+			FullPage      bool     `json:"full_page,omitempty"`
 		}
 		if err := decode(raw, &in); err != nil || in.Action == "" {
 			return "", nil, errors.New("computer_browser requires a browser action")
