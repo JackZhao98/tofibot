@@ -15,6 +15,13 @@ kind: deliverable
 - A blurred region hides what it should hide. Text under a blur is unreadable in the result.
 - Size and format fit the use: a picture sent in chat stays under a few megabytes and about 2000 pixels on the long side unless the request asks for more.
 
+## Getting the input file
+
+- A file the person sent is on the Bot computer at the path listed with it.
+- A picture of the screen is saved with the save_to parameter of desktop.capture on computer_desktop; a picture of a page is saved with save_to on browser.snapshot of computer_browser, and full_page together with save_to saves the whole page. save_to is an absolute path under /workspace that ends in .png; the result gives saved_to, saved_width and saved_height, the size of the file's own coordinates.
+- A picture or video on the web is downloaded with curl into the Bot's own directory.
+- A generated image is at the computer_path its result gives.
+
 ## Looking
 
 - A picture reaches you only when you view it; the computer_files tool's files.view action returns a PNG or JPEG as an image, while a path or a listing shows nothing. View the input before choosing coordinates, and view the output before sending it.

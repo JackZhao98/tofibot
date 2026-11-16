@@ -17,6 +17,12 @@ Reading what a video shows or says belongs to the video Skill. This Skill produc
 - Burned subtitles are readable, inside the frame and in the right language and encoding.
 - A GIF is only as large as the budget demands: the shrink order keeps the frame rate smooth and the picture legible as long as the size allows.
 
+## Getting the input file
+
+- A file the person sent is on the Bot computer at the path listed with it.
+- A frame of the screen or of a page is saved with the save_to parameter of desktop.capture on computer_desktop or of browser.snapshot on computer_browser (an absolute .png path under /workspace).
+- A video on the web is downloaded with curl into the Bot's own directory.
+
 ## Probing
 
 - `ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,r_frame_rate -of default=nw=1 in.mp4` gives duration, size, streams, resolution and frame rate. Read it before editing and again on the output.

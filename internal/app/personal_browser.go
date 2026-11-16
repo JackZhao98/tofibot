@@ -109,6 +109,14 @@ func (s *Server) browserTool(r Run, vm *Tool) Tool {
 			forward, _ := json.Marshal(in)
 			return vm.Execute(ctx, forward)
 		}
+		var wantsSave struct {
+			SaveTo   string `json:"save_to"`
+			FullPage bool   `json:"full_page"`
+		}
+		_ = json.Unmarshal(raw, &wantsSave)
+		if wantsSave.SaveTo != "" || wantsSave.FullPage {
+			return "", saveRefusal("save_to_needs_bot_computer", "save_to and full_page on computer_browser work on the Bot computer's Chrome. Take the picture of a person's Mac with computer_desktop capture and save_to.", "repair_arguments")
+		}
 		row, e := s.store.computerRow(id)
 		if e != nil || row.Kind != "personal" {
 			return "", tooloutcome.InvalidArguments("Personal computer not found")
