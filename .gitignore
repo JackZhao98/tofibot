@@ -58,6 +58,8 @@ __pycache__/
 /ui/.settings-polish-*/
 /ui/.org-resources-*/
 /ui/.admin-groups-*/
+/ui/.automation-settings-*/
+/ui/.work-timeline-*/
 
 # Eval outputs hold model replies
 /eval/results/
