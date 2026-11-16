@@ -33,12 +33,29 @@ type Skill struct {
 	// Builtin marks a skill embedded in the binary (see builtin.go); files is
 	// then its folder and Path is empty.
 	Builtin bool `json:"builtin,omitempty"`
-	files   fs.FS
+	// Requires and Kind come from the frontmatter of a built-in skill only:
+	// Requires is ["computer"] for a skill that needs a Bot computer, Kind is
+	// deliverable, read or procedure. Installed skills never carry them.
+	Requires []string `json:"-"`
+	Kind     string   `json:"-"`
+	files    fs.FS
+}
+
+// NeedsComputer reports whether the skill needs a Bot computer to be used.
+func (s Skill) NeedsComputer() bool {
+	for _, r := range s.Requires {
+		if r == "computer" {
+			return true
+		}
+	}
+	return false
 }
 
 type skillManifest struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Requires    []string `yaml:"requires"`
+	Kind        string   `yaml:"kind"`
 }
 
 func loadSkills(root string) ([]Skill, []Diagnostic) { return loadSkillsMode(root, false) }
@@ -116,40 +133,47 @@ func loadSkillsMode(root string, metadataOnly bool) ([]Skill, []Diagnostic) {
 }
 
 func parseSkill(data []byte) (Skill, error) {
+	skill, _, err := parseSkillManifest(data)
+	return skill, err
+}
+
+// parseSkillManifest also returns the manifest, whose requires and kind fields
+// only the built-in loader reads.
+func parseSkillManifest(data []byte) (Skill, skillManifest, error) {
 	text := strings.TrimSpace(string(data))
 	if !strings.HasPrefix(text, "---") {
-		return Skill{}, errors.New("SKILL.md must start with YAML frontmatter")
+		return Skill{}, skillManifest{}, errors.New("SKILL.md must start with YAML frontmatter")
 	}
 	rest := strings.TrimPrefix(text, "---")
 	if i := strings.IndexByte(rest, '\n'); i >= 0 {
 		rest = rest[i+1:]
 	} else {
-		return Skill{}, errors.New("SKILL.md frontmatter is incomplete")
+		return Skill{}, skillManifest{}, errors.New("SKILL.md frontmatter is incomplete")
 	}
 	end := strings.Index(rest, "\n---")
 	if end < 0 {
-		return Skill{}, errors.New("SKILL.md missing closing frontmatter delimiter")
+		return Skill{}, skillManifest{}, errors.New("SKILL.md missing closing frontmatter delimiter")
 	}
 	var manifest skillManifest
 	if err := yaml.Unmarshal([]byte(rest[:end]), &manifest); err != nil {
-		return Skill{}, fmt.Errorf("invalid YAML frontmatter: %w", err)
+		return Skill{}, skillManifest{}, fmt.Errorf("invalid YAML frontmatter: %w", err)
 	}
 	manifest.Name = strings.TrimSpace(manifest.Name)
 	manifest.Description = strings.TrimSpace(manifest.Description)
 	if manifest.Name == "" {
-		return Skill{}, errors.New("skill name is required")
+		return Skill{}, skillManifest{}, errors.New("skill name is required")
 	}
 	if len([]rune(manifest.Name)) > 64 || !skillNamePattern.MatchString(manifest.Name) || strings.Contains(manifest.Name, "--") {
-		return Skill{}, fmt.Errorf("invalid skill name %q", manifest.Name)
+		return Skill{}, skillManifest{}, fmt.Errorf("invalid skill name %q", manifest.Name)
 	}
 	if manifest.Description == "" {
-		return Skill{}, errors.New("skill description is required")
+		return Skill{}, skillManifest{}, errors.New("skill description is required")
 	}
 	if len([]rune(manifest.Description)) > 1024 {
-		return Skill{}, errors.New("skill description exceeds 1024 characters")
+		return Skill{}, skillManifest{}, errors.New("skill description exceeds 1024 characters")
 	}
 	body := strings.TrimSpace(rest[end+4:])
-	return Skill{Name: manifest.Name, Description: manifest.Description, Body: body}, nil
+	return Skill{Name: manifest.Name, Description: manifest.Description, Body: body}, manifest, nil
 }
 
 func within(root, path string) bool {
@@ -163,7 +187,7 @@ func skillToolsMode(skills []Skill, max int, lazy bool) []runtime.Tool {
 	for _, s := range skills {
 		byName[s.Name] = s
 	}
-	list := runtime.Tool{Name: "list_skills", Description: "List configured read-only Skills, optional guides for some tasks", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
+	list := runtime.Tool{Name: "list_skills", Description: "Skills: how-tos for kinds of work; read one with read_skill when the work matches.", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}, Execute: func(ctx context.Context, args json.RawMessage) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/extensions"
 	"github.com/JackZhao98/tofibot/internal/runtime"
 )
 
@@ -17,10 +18,10 @@ func TestWorkflowGuidesAreScopedAndReadOnly(t *testing.T) {
 		expected []string
 		absent   string
 	}{
-		{"research", []string{"publication time", "retrieval time", "link the pages you used", "primary pages"}, "create_group"},
-		{"mail", []string{"#search/", "browser.click on its subject", "read-only requests"}, "create_group"},
-		{"web_tasks", []string{"request_approval", "real effect", "confirmation page"}, "create_group"},
-		{"software", []string{".local/opt", "remove exactly what you installed", "no sudo"}, "create_group"},
+		{"research", []string{"published", "retrieved", "the pages behind them", "specific page"}, "create_group"},
+		{"mail", []string{"Connected tools come first", "gmail-browser.md", "read-only request"}, "create_group"},
+		{"web_tasks", []string{"effect parameter", "confirmation page", "connected tool covers"}, "create_group"},
+		{"software", []string{".local/opt", "exactly what was installed", "no sudo"}, "create_group"},
 		{"commitments", []string{"Recorded tasks do not execute themselves", "one-time schedule already appears", "Use scheduling tools for future work"}, "publication time"},
 		{"team", []string{"reuse suitable existing Bots", "send_group_message once", "resumes you"}, "one-time schedule"},
 	} {
@@ -131,4 +132,16 @@ func TestGuidesAndLazyBotDirectoryAvailableAcrossRunKinds(t *testing.T) {
 	if err != nil || worked {
 		t.Fatalf("guide-only continuation worked=%v err=%v", worked, err)
 	}
+}
+
+// builtinSkillBody returns the body of a built-in Skill for tests.
+func builtinSkillBody(t *testing.T, name string) string {
+	t.Helper()
+	for _, s := range extensions.BuiltinSkills() {
+		if s.Name == name {
+			return s.Body
+		}
+	}
+	t.Fatalf("no built-in skill %s", name)
+	return ""
 }

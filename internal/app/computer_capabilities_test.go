@@ -68,7 +68,7 @@ func TestNoComputerServerRegistersNoComputerToolsAndRunCompletes(t *testing.T) {
 }
 
 func TestNoComputerPromptsNeverClaimAComputer(t *testing.T) {
-	for _, text := range []string{taskCompletionGuidanceFor(false), scheduledNoComputerFallbackGuidance, onboardingSystemPromptFor(false), noComputerSkillNote} {
+	for _, text := range []string{taskCompletionGuidanceFor(false), scheduledNoComputerFallbackGuidance, onboardingSystemPromptFor(false)} {
 		if strings.Contains(strings.ToLower(text), "your own computer") || strings.Contains(text, "signed-in browser") || strings.Contains(text, "computer_browser") {
 			t.Fatalf("no-computer text claims a computer: %.120s", text)
 		}
@@ -85,7 +85,7 @@ func TestNoComputerPromptsNeverClaimAComputer(t *testing.T) {
 			t.Fatalf("%s no-computer welcome is wrong: %q", lang, without)
 		}
 	}
-	for _, topic := range []string{"mail", "web_tasks", "software"} {
+	for _, topic := range []string{"web_tasks", "software"} {
 		raw, _ := json.Marshal(map[string]string{"topic": topic})
 		if _, err := workflowGuideToolFor(false).Execute(t.Context(), raw); err == nil {
 			t.Fatalf("workflow guide %s is offered without a computer", topic)
@@ -93,7 +93,7 @@ func TestNoComputerPromptsNeverClaimAComputer(t *testing.T) {
 	}
 	raw, _ := json.Marshal(map[string]string{"topic": "research"})
 	out, err := workflowGuideToolFor(false).Execute(t.Context(), raw)
-	if err != nil || strings.Contains(out, "real browser") {
+	if err != nil || !strings.Contains(out, "When the run has a Bot computer") {
 		t.Fatalf("research guide without computer: %v %q", err, out)
 	}
 }

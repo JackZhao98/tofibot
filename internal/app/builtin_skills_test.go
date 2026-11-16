@@ -49,8 +49,9 @@ func directoryOf(t *testing.T, s *Server, bot string) string {
 
 func TestBuiltinSkillsAreListedAsBuiltinAndOnByDefault(t *testing.T) {
 	env := newLibEnv(t)
+	env.s.microVM = unreachableComputerClient(t) // Skills that require a Bot computer are offered only with one.
 	listed := listSkillsHTTP(t, env.handler)
-	for _, name := range []string{"spreadsheet", "document-report", "slides", "web-page", "code-delivery", "video"} {
+	for _, name := range []string{"spreadsheet", "document-report", "slides", "web-page", "code-delivery", "video", "web-research", "email", "web-tasks", "install-software"} {
 		item, ok := listed[name]
 		if !ok || !item.Builtin {
 			t.Fatalf("%s = %+v ok=%v", name, item, ok)
@@ -66,6 +67,7 @@ func TestBuiltinSkillsAreListedAsBuiltinAndOnByDefault(t *testing.T) {
 
 func TestBuiltinSkillCanBeTurnedOffAndOnPerBot(t *testing.T) {
 	env := newLibEnv(t)
+	env.s.microVM = unreachableComputerClient(t)
 	path := "/api/bots/" + env.a.ID + "/skills/slides"
 	status, body := extensionHTTP(t, env.handler, http.MethodPut, path, map[string]any{"enabled": false})
 	if status != http.StatusOK {
@@ -187,10 +189,13 @@ func TestInstalledSkillsAndComputerlessBotsAreLeftAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer prepared.Close()
-	// No computer: the body is returned unchanged.
+	// No computer: a Skill that needs one is refused by name, and one that needs none is returned unchanged.
 	plain, _ := toolNamed(env.s.withBuiltinSkillStaging(Run{BotID: env.a.ID}, prepared.Tools), "read_skill")
-	body, err := plain.Execute(context.Background(), json.RawMessage(`{"name":"spreadsheet"}`))
-	if err != nil || strings.Contains(body, "files are on the computer") || !strings.Contains(body, "# Spreadsheet work") {
+	if _, err := plain.Execute(context.Background(), json.RawMessage(`{"name":"spreadsheet"}`)); err == nil || !strings.Contains(err.Error(), "needs a Bot computer") {
+		t.Fatalf("computerless read of a Skill that needs one: %v", err)
+	}
+	body, err := plain.Execute(context.Background(), json.RawMessage(`{"name":"web-research"}`))
+	if err != nil || strings.Contains(body, "files are on the computer") || !strings.Contains(body, "# Web research") {
 		t.Fatalf("computerless read: %v %.120s", err, body)
 	}
 	s, _, statuses := newGuestInputServer(t)
@@ -221,4 +226,23 @@ func installedSkills(s *Server) []extensions.SkillView {
 		}
 	}
 	return out
+}
+
+func TestSkillsThatNeedAComputerAreLeftOutOfARunWithoutOne(t *testing.T) {
+	env := newLibEnv(t)
+	dir := directoryOf(t, env.s, env.a.ID)
+	for _, name := range []string{"slides", "web-tasks", "install-software", "video"} {
+		if strings.Contains(dir, `"name":"`+name+`"`) {
+			t.Fatalf("%s is offered without a Bot computer: %q", name, dir)
+		}
+	}
+	for _, name := range []string{"web-research", "email"} {
+		if !strings.Contains(dir, `"name":"`+name+`"`) {
+			t.Fatalf("%s is missing without a Bot computer: %q", name, dir)
+		}
+	}
+	// The Settings listing still shows every built-in Skill.
+	if _, ok := listSkillsHTTP(t, env.handler)["slides"]; !ok {
+		t.Fatal("slides left the Settings list")
+	}
 }

@@ -1083,9 +1083,21 @@ func skillIndex(skills []Skill) string {
 	return out.String()
 }
 
-func discoverableSkillTools(runCtx context.Context, skills []Skill, max int) []runtime.Tool {
+func discoverableSkillTools(runCtx context.Context, skills []Skill, needsComputer map[string]bool, max int) []runtime.Tool {
 	tools := skillToolsMode(skills, max, true)
-	tools[0].Description = "List authorized Skills, optional guides for some tasks: names and short descriptions. Use next_offset to read another page."
+	for i := 1; i < len(tools) && len(needsComputer) > 0; i++ {
+		inner := tools[i].Execute
+		tools[i].Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
+			var in struct {
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(raw, &in) == nil && needsComputer[in.Name] {
+				return "", tooloutcome.InvalidArguments(fmt.Sprintf("skill %q needs a Bot computer, which this workspace has not set up; a Bot computer is added in Settings > Environments", in.Name))
+			}
+			return inner(ctx, raw)
+		}
+	}
+	tools[0].Description = "Skills: how-tos for kinds of work; read one with read_skill when the work matches. Names and short descriptions; use next_offset to read another page."
 	tools[0].Parameters = map[string]any{"type": "object", "properties": map[string]any{"offset": map[string]any{"type": "integer", "minimum": 0}}, "additionalProperties": false}
 	tools[0].Execute = func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var in struct {

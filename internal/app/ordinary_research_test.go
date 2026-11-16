@@ -108,7 +108,7 @@ func TestOrdinaryResearchPolicyPreservesRestrictionsAndLongRoles(t *testing.T) {
 	}
 	// The research guide extends the always-present block without repeating it.
 	for _, repeated := range []string{"denied target/action", "browser prohibition", "independent authorization", "Expired approval", "precise blocker and evidence gap"} {
-		if strings.Contains(researchGuide, repeated) {
+		if strings.Contains(builtinSkillBody(t, "web-research"), repeated) {
 			t.Fatalf("research guide repeats system boundary %q", repeated)
 		}
 	}

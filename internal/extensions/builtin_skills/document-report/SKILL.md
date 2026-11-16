@@ -1,6 +1,8 @@
 ---
 name: document-report
 description: Write DOCX or PDF documents and reports; look at the rendered pages before delivering.
+requires: [computer]
+kind: deliverable
 ---
 
 # Document and report

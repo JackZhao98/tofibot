@@ -131,6 +131,11 @@ type Config struct {
 	// the Bot's set turns them off. Nil permits every skill; a returned error
 	// makes the run drop every skill (fail closed).
 	SkillAccess func(ctx context.Context, botID string, names []string) (map[string]bool, error)
+	// HasBotComputer reports whether runs have a Bot computer. When it returns
+	// false a built-in skill that requires one is left out of the run's Skill
+	// index and list_skills, and read_skill refuses it by name. Nil means a
+	// computer exists.
+	HasBotComputer func() bool
 	// ConnectionAccess reports which of the named servers the Bot may use: every
 	// connection is open to every Bot until the owner limits it. Nil permits
 	// every server; a returned error makes the run drop every server (fail
@@ -408,6 +413,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	// The access lookup may touch the database, so it runs outside m.mu. Nothing
 	// below sees the unfiltered slice.
 	skills, skillDiags = m.filterSkillsForBot(ctx, botID, skills, skillDiags)
+	skills, needsComputer := m.withoutComputerSkills(skills)
 	if m.cfg.ServerUsable != nil {
 		for name := range servers {
 			if !m.cfg.ServerUsable(ctx, name) {
@@ -468,7 +474,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 				return e2
 			}
 			p.Tools = lazyTools
-			p.Tools = append(p.Tools, discoverableSkillTools(ctx, skills, m.cfg.MaxToolResult)...)
+			p.Tools = append(p.Tools, discoverableSkillTools(ctx, skills, needsComputer, m.cfg.MaxToolResult)...)
 			p.Instructions = discoveryInstructions(servers, skills)
 			if err := ctx.Err(); err != nil {
 				p.Close()
@@ -517,7 +523,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 			return e2
 		}
 		p.Tools = lazyTools
-		p.Tools = append(p.Tools, discoverableSkillTools(ctx, nil, m.cfg.MaxToolResult)...)
+		p.Tools = append(p.Tools, discoverableSkillTools(ctx, nil, nil, m.cfg.MaxToolResult)...)
 		if err := ctx.Err(); err != nil {
 			p.Close()
 			return nil, err
@@ -571,6 +577,25 @@ func (m *Manager) filterSkillsForBot(ctx context.Context, botID string, skills [
 		}
 	}
 	return kept, diags
+}
+
+// withoutComputerSkills drops the built-in skills that require a Bot computer
+// when the run has none, and returns their names so read_skill can refuse them
+// with the reason.
+func (m *Manager) withoutComputerSkills(skills []Skill) ([]Skill, map[string]bool) {
+	if m.cfg.HasBotComputer == nil || m.cfg.HasBotComputer() {
+		return skills, nil
+	}
+	kept := make([]Skill, 0, len(skills))
+	hidden := map[string]bool{}
+	for _, s := range skills {
+		if s.Builtin && s.NeedsComputer() {
+			hidden[s.Name] = true
+			continue
+		}
+		kept = append(kept, s)
+	}
+	return kept, hidden
 }
 
 // SkillsForBot lists the skills enabled for the Bot, failing closed on error.
