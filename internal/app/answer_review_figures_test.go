@@ -77,7 +77,7 @@ func TestSmallFiguresAreIgnored(t *testing.T) {
 
 func TestReviewTextHoldsTheKeepVerifiedPrinciple(t *testing.T) {
 	got := figureReminder(t, "x", "", "It has 85 records.")
-	for _, want := range []string{"open or print it", "keep it or correct it", "Figures and facts that were verified stay in it", "sent unchanged"} {
+	for _, want := range []string{"open or print it", "keep it or correct it", "Verified figures and facts stay", "keep_draft true"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q in %q", want, got)
 		}

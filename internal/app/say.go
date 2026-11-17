@@ -203,6 +203,26 @@ type sayRunState struct {
 	// the outcome label (not scheduled runs).
 	pendingCheck  atomic.Bool
 	checksPending bool
+	// kept holds the full arguments of the answer the completion review sent
+	// back, for one keep_draft send. Guarded by mu.
+	kept json.RawMessage
+}
+
+// keepDraft remembers the refused answer's arguments, replacing any earlier one.
+func (st *sayRunState) keepDraft(raw json.RawMessage) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.kept = append(json.RawMessage(nil), raw...)
+}
+
+// takeKeptDraft returns the kept arguments and forgets them: a kept draft is
+// used at most once.
+func (st *sayRunState) takeKeptDraft() json.RawMessage {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	k := st.kept
+	st.kept = nil
+	return k
 }
 
 // pendingOwed reports whether a pending or delegated answer beginning now may
@@ -352,6 +372,7 @@ const (
 
 	sayCoversOriginalDescription = "With purpose answer, in a run that read a message from the person while it worked: true states that this answer also answers the request the run started with, in full. Omit it, or send false, when the answer addresses only the later message; the original request then stays on your task list and a new run completes it."
 	sayWakeDescription           = "With purpose answer, group chats only: other members to start once your reply is posted, each with a concrete request, at most three. Omit it to start nobody; a plain @mention starts nobody. The group sees each request only as a handed-over line, so write it for the member."
+	sayKeepDraftDescription      = "With purpose answer, right after the review returned your draft: true sends that draft as it was (its text, attachments and other fields); text may be empty."
 	sayTaskDescription           = "With purpose answer: the id of a task you hold. Delivering the answer submits it as that task's result."
 	saySourcesDescription        = "With purpose answer, scheduled runs only: URLs or source names behind current or external information. Delivering the answer records this run as complete."
 	// sayQuietDescription states the principle only: it names the condition on
@@ -375,6 +396,7 @@ func sayToolSchemaFor(c Conversation, r Run) (map[string]any, bool) {
 		strict = false
 	}
 	props["attachments"] = sayAttachmentsSchema()
+	props["keep_draft"] = map[string]any{"type": "boolean", "description": sayKeepDraftDescription}
 	strict = false
 	if !saySendsSources(r) {
 		props["covers_original"] = map[string]any{"type": "boolean", "description": sayCoversOriginalDescription}
@@ -429,6 +451,20 @@ func cleanSaySources(sources []string) ([]string, error) {
 	return out, nil
 }
 
+type sayCallArgs struct {
+	Purpose string           `json:"purpose"`
+	Outcome string           `json:"outcome"`
+	Text    string           `json:"text"`
+	Wake    []groupWakeEntry `json:"wake"`
+	Sources []string         `json:"sources"`
+	Quiet   bool             `json:"quiet"`
+	TaskID  string           `json:"task_id"`
+
+	KeepDraft      bool                `json:"keep_draft"`
+	CoversOriginal bool                `json:"covers_original"`
+	Attachments    []sayAttachmentItem `json:"attachments"`
+}
+
 // sayTool builds the send_message tool for a structured run. The gates mirror the
 // tools it replaces: message exists where send_chat_message did, a group
 // answer carries respond(reply)'s wake list, and a scheduled run's answer is
@@ -445,18 +481,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		var in struct {
-			Purpose string           `json:"purpose"`
-			Outcome string           `json:"outcome"`
-			Text    string           `json:"text"`
-			Wake    []groupWakeEntry `json:"wake"`
-			Sources []string         `json:"sources"`
-			Quiet   bool             `json:"quiet"`
-			TaskID  string           `json:"task_id"`
-
-			CoversOriginal bool                `json:"covers_original"`
-			Attachments    []sayAttachmentItem `json:"attachments"`
-		}
+		var in sayCallArgs
 		if json.Unmarshal(raw, &in) != nil {
 			return "", errors.New("invalid send_message arguments")
 		}
@@ -479,6 +504,25 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 			resolved.settle(err)
 			resolved = sayResolution{}
 			return "", err
+		}
+		if in.KeepDraft && in.Purpose == sayAnswer {
+			var kept json.RawMessage
+			if state != nil {
+				kept = state.takeKeptDraft()
+			}
+			if kept == nil {
+				return fail(tooloutcome.New(tooloutcome.Validation, "keep_draft_unavailable", "not_executed", "No reviewed draft is waiting; send the answer with its text.", "repair_arguments").Err())
+			}
+			// The kept draft stands in for this call; its own fields win.
+			in = sayCallArgs{}
+			if json.Unmarshal(kept, &in) != nil {
+				return fail(errors.New("invalid send_message arguments"))
+			}
+			in.KeepDraft = false
+			text = strings.TrimSpace(stripProgressTags(strings.ReplaceAll(in.Text, "\x00", "")))
+			// This call streamed nothing worth keeping; the draft shows the
+			// kept text once the answer is accepted.
+			state.release(callID)
 		}
 		if len(in.Attachments) > 0 {
 			if in.Purpose == sayNote {
@@ -605,6 +649,7 @@ func (s *Server) sayTool(c Conversation, r Run) Tool {
 				if state.demote != nil {
 					state.demote(text)
 				}
+				state.keepDraft(raw)
 				// A transient, retryable refusal: the same answer re-sent after the
 				// review is accepted (a permanent refusal would bar an identical retry).
 				reminder := taskCompletionFinalReminder

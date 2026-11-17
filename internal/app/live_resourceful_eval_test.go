@@ -384,15 +384,15 @@ func evalCollect(t *testing.T, s *Server, conversationID, fileDir string) map[st
 		runs = append(runs, r)
 	}
 	rows.Close()
-	type toolRow struct{ Run, Name, Status, Args, Result, Outcome string }
+	type toolRow struct{ Run, Name, Status, Args, Result, Outcome, StartedAt, UpdatedAt string }
 	var tools []toolRow
-	rows, err = db.Query(`SELECT t.run_id,t.name,t.status,t.arguments,t.result,COALESCE(t.outcome_json,'') FROM tool_activities t JOIN runs r ON r.id=t.run_id WHERE r.conversation_id=? ORDER BY t.started_at, t.rowid`, conversationID)
+	rows, err = db.Query(`SELECT t.run_id,t.name,t.status,t.arguments,t.result,COALESCE(t.outcome_json,''),t.started_at,t.updated_at FROM tool_activities t JOIN runs r ON r.id=t.run_id WHERE r.conversation_id=? ORDER BY t.started_at, t.rowid`, conversationID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for rows.Next() {
 		var r toolRow
-		_ = rows.Scan(&r.Run, &r.Name, &r.Status, &r.Args, &r.Result, &r.Outcome)
+		_ = rows.Scan(&r.Run, &r.Name, &r.Status, &r.Args, &r.Result, &r.Outcome, &r.StartedAt, &r.UpdatedAt)
 		r.Args, r.Result = evalClip(r.Args, 1500), evalClip(r.Result, 1500)
 		tools = append(tools, r)
 	}
@@ -458,7 +458,7 @@ func evalTranscript(task resourcefulTask, record map[string]any) string {
 	b, _ := json.Marshal(record)
 	var r struct {
 		Runs     []struct{ ID, Kind, Status, Error string }
-		Tools    []struct{ Run, Name, Status, Args, Result, Outcome string }
+		Tools    []struct{ Run, Name, Status, Args, Result, Outcome, StartedAt, UpdatedAt string }
 		Messages []struct{ ID, Kind, Content string }
 		Files    []struct {
 			Name, MIME, Saved string
