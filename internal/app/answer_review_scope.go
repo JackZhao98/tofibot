@@ -238,6 +238,6 @@ func (t *toolWorkRecord) reviewReminder(base, text string) string {
 	if utf8.RuneCountInString(text) > reviewLongDraftRunes {
 		b.WriteString("\n- The draft is long; confirm that each statement of extent holds for exactly what the results show.")
 	}
-	b.WriteString("\nThis review runs once. After checking, send the answer again with send_message. Figures and facts that were verified stay in it, and a draft whose sentences are all supported is sent unchanged.")
+	b.WriteString("\nThis review runs once. A draft that needs no change goes out unchanged with send_message keep_draft true and an empty text; after a change, send the corrected answer with its text. Verified figures and facts stay.")
 	return b.String()
 }
