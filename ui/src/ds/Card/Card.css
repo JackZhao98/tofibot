@@ -8,6 +8,11 @@
 }
 .tb-card--quiet { border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: none; }
 .tb-card--block { background: var(--note-glue), var(--mustard); color: var(--on-block); }
+/* Everything on the mustard block reads in --on-block (the frozen bundle leaves the eyebrow muted and the ghost action in --ink,
+   both pale on mustard in Night). */
+.tb-card--block :is(.tb-eyebrow, .tb-card-title) { color: var(--on-block); }
+.tb-card--block .tb-btn--ghost { color: var(--on-block); }
+.tb-card--block .tb-card-foot { border-top-color: color-mix(in srgb, var(--on-block) 22%, transparent); }
 .tb-card--raised { box-shadow: inset 0 0 0 var(--border-2) var(--grape), var(--note-lift); }
 .tb-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
 .tb-card-title { margin: 2px 0 0; font: 700 18px/1.2 var(--font-display); letter-spacing: -.01em; }

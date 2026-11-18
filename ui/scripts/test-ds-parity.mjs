@@ -68,7 +68,9 @@ const CASES = [
 // Known departures, as [case name pattern, property]. Each is explained in the PR 0.6 report.
 const ALLOWED = [
   [/^TextArea/, "gap"], [/^TextArea/, "align-items"],  // flex properties the spec's shared rule leaves on a block element: no effect
-  [/^Skeleton/, "opacity"],           // a running animation: sampled at different times
+  // Card block: the kit reads the eyebrow, title, ghost action and footer rule in --on-block (pale on mustard in Night in the spec).
+  ...["color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"].map(property => [/^Card block/, property]),
+  [/^Skeleton/, "opacity"],          // a running animation: sampled at different times
   [/^Checkbox/, "position"],           // the kit anchors the hidden input to its label
   [/^Checkbox/, "margin-top"], [/^Checkbox/, "margin-bottom"],  // the kit zeroes the hidden input's margin (V2 base gives inputs one)
 ];

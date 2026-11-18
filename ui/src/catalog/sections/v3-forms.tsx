@@ -31,7 +31,7 @@ export const forms: CatalogState[] = [
       <Card pad={false} title="Flush"><div style={{ padding: 12 }}>Content sets its own padding.</div></Card>
       <Card title="Title only" />
     </div> },
-  { id: "textinput", kind: "inline", label: "TextInput · plain, icon, suffix, mono, disabled, invalid",
+  { id: "textinput", kind: "inline", label: "TextInput · plain, icon, suffix, mono, disabled, password",
     render: () => <div className="catalog-stack">
       <TextInput placeholder="Room name" aria-label="Room name" />
       <TextInput icon="search" placeholder="Search" aria-label="Search" />
@@ -42,7 +42,7 @@ export const forms: CatalogState[] = [
     </div> },
   { id: "textinput-focus", kind: "inline", label: "TextInput · focus (rises to the surface)",
     render: () => <div className="catalog-stack"><TextInput icon="search" defaultValue="Focused" aria-label="Focused" /></div>,
-    drive: async step => { await step.focus("input"); } },
+    force: [{ selector: ".tb-input", state: "focus-within" }] },
   { id: "textarea", kind: "inline", label: "TextArea · rest, filled, disabled",
     render: () => <div className="catalog-stack">
       <TextArea placeholder="Instructions" aria-label="Instructions" />
@@ -51,7 +51,7 @@ export const forms: CatalogState[] = [
     </div> },
   { id: "textarea-focus", kind: "inline", label: "TextArea · focus",
     render: () => <div className="catalog-stack"><TextArea defaultValue="Focused" aria-label="Focused" /></div>,
-    drive: async step => { await step.focus("textarea"); } },
+    force: [{ selector: ".tb-textarea", state: "focus" }] },
   { id: "field", kind: "inline", label: "Field · plain, optional, hint, error; around TextInput and TextArea",
     render: () => <div className="catalog-stack">
       <Field label="Name"><TextInput placeholder="Production bot" /></Field>
