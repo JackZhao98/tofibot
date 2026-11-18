@@ -23,7 +23,7 @@ const iconButtonRow = (variant: "ghost" | "solid", size: "md" | "sm"): CatalogSt
 
 export const actions: CatalogState[] = [
   { id: "read-me", kind: "inline", label: "How to read this section",
-    render: () => <p className="catalog-note">The V3 kit lives in src/ds/. Switch the toolbar's Skin to V3: the kit reads V3 roles, so under Legacy it shows unstyled. Nothing in the product imports it yet.</p> },
+    render: () => <p className="catalog-note">The V3 kit lives in src/ds/. The kit reads V3 roles from the skin.</p> },
   { id: "icon-sizes", kind: "inline", label: "Icon · sizes 16, 20, 24, 32 · outline and filled",
     render: () => <div className="catalog-stack">{(["outline", "filled"] as const).map(variant => <Row key={variant}>
       {[16, 20, 24, 32].map(size => <Specimen key={size} label={`${variant} ${size}`}><span style={{ display: "inline-flex", gap: 8 }}>{SAMPLE.slice(0, 4).map(name => <Icon key={name} name={name} size={size} variant={variant} />)}</span></Specimen>)}

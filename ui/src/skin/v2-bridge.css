@@ -1,17 +1,16 @@
 /* The V2 bridge (V3 PLAN 7.6, PR 1.1). V2 sheets still use V2 names (--clay, --line-soft, --text, --display ...). Under every
-   skin except legacy, each of those names points at a V3 role, so a V2 sheet takes the new colours, type and materials with no
-   edit. Hand-written; the skin-legacy count in scripts/ds-boundary-baseline.json (bridgeUse) only falls, and PR 9.1 deletes
+   skin, each of those names points at a V3 role, so a V2 sheet takes the new colours, type and materials with no
+   edit. Hand-written; the bridgeUse count in scripts/ds-boundary-baseline.json only falls, and PR 9.1 deletes
    this file with the last V2 sheet. New code uses the V3 role, never a name in this file.
    Rules for an entry here:
    - A palette or text name maps to the role of the same meaning (var(--tomato), var(--ink-soft), ...).
    - A name that was fixed artwork in V2 (shadow inks, the Mac preview screen, the theme swatches) keeps its value.
    - V2 --blue is the teal alias, not the person's blue: it maps to --teal. Blue is --you and --cobalt, kept for the person.
-   Not scoped to data-skin="v3": a probe skin or a page with no attribute needs the same names, and legacy.css defines them
-   itself when data-skin="legacy". Skin-dependent values are role references, so light and dark need no second block;
+   Not scoped to data-skin="v3": a probe skin or a page with no attribute needs the same names. Skin-dependent values are role references, so light and dark need no second block;
    only a few numbers differ by theme and have one. */
 @layer reset, tokens, skin, base, vendor, legacy, platform, utilities;
 @layer skin {
-:root:where(:not([data-skin="legacy"])) {
+:root {
   /* Lines */
   --line-soft: var(--line);
   --line-strong: var(--line);
@@ -186,7 +185,7 @@
   --lightbox-scrim: rgba(8, 8, 10, .96);
   --lightbox-ink: #f3eadb;
 }
-:root:where(:not([data-skin="legacy"]))[data-theme="dark"] {
+:root[data-theme="dark"] {
   --ft-text: color-mix(in srgb, var(--ink) 62%, var(--bg));
   --ft-page-mix: 16%;
   --ft-fold-mix: 34%;

@@ -17,10 +17,8 @@ const {default: react} = await import("@vitejs/plugin-react");
 const fixture = await mkdtemp(join(ui, ".primary-followups-"));
 let server, browser;
 try {
-  const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
-  await writeFile(join(fixture, "foundations.css"), foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, ""));
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
-  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
+  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
   await writeFile(join(fixture, "index.html"), '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><script type="module" src="./main.tsx"></script>');
   await writeFile(join(fixture, "main.tsx"), `${styles}
 import React,{useCallback,useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';

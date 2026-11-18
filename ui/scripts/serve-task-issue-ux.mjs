@@ -7,7 +7,7 @@ import {dirname, join} from "node:path";
 import {scenario, question, run, at} from "./task-issue-fixtures.mjs";
 const ui=dirname(dirname(fileURLToPath(import.meta.url)));
 const calls=[];const answers=new Map();
-const plugin={name:"synthetic-task-issue-fixture",enforce:"pre",transform(source,id){if(id.split("?")[0]===join(ui,"src/v2-foundations.css"))return source.replace(/^@import url\([^\n]+\);\n/m,"");},configureServer(server){server.middlewares.use(async(req,res,next)=>{
+const plugin={name:"synthetic-task-issue-fixture",enforce:"pre",configureServer(server){server.middlewares.use(async(req,res,next)=>{
  const url=new URL(req.url,"http://127.0.0.1");
  res.setHeader("Content-Security-Policy","default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self' data:; img-src 'self' data: blob:");
  if(url.pathname==="/b/synthetic-bot") {const raw=await readFile(join(ui,"fixtures/task-issue-ux.html"),"utf8");res.setHeader("Content-Type","text/html");res.end(await server.transformIndexHtml(url.pathname,raw));return;}

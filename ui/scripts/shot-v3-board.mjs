@@ -8,7 +8,7 @@
 //     --section id          only look for the states in this catalog section (default: any)
 //     --live URL            also a live surface: a full URL, or a path for the server given with --origin
 //     --origin URL          an already running dev server (default: a Vite dev server started here)
-//     --skin v3|legacy|probe-a|probe-b   the catalog skin (default v3)
+//     --skin v3|probe-a|probe-b   the catalog skin (default v3)
 //     --themes light,dark   (default both)     --widths 1280,390   (default both)
 //     --ref TEMPLATE        a reference image: "path/Page4-{theme}.png" (also {width}); "state=TEMPLATE" ties it to one
 //                           state ("live" for the live surface); a bare TEMPLATE applies to every shot

@@ -1,4 +1,4 @@
-import legacySkin from "../../skin/legacy.css?raw";
+import v3Skin from "../../skin/v3.css?raw";
 import structureTokens from "../../skin/structure.css?raw";
 import { MOTION, EASE, SPRING } from "../../motion";
 import { TofiIcon, tofiIconNames } from "../../icons";
@@ -6,7 +6,7 @@ import type { CatalogSection } from "../types";
 
 // Read the vocabulary from the real stylesheets (skin and structure), including aliases. Values resolve in the frame's
 // actual theme. Each kind of token lives in one of the two files, so the order within a kind is the file's order.
-const tokens = `${legacySkin}\n${structureTokens}`;
+const tokens = `${v3Skin}\n${structureTokens}`;
 const names = [...new Set([...tokens.matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]))];
 const value = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 function Tokens({ kind }: { kind: "colour" | "type" | "radius" | "shadow" }) {

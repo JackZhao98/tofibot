@@ -26,7 +26,7 @@ export function useAppearance() {
       // index.html ships a light/dark pair keyed on the OS setting; the in-app choice wins once it runs, so drop the media query.
       if (pageColor) document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => { meta.removeAttribute("media"); meta.setAttribute("content", pageColor); });
     };
-    // ?skin=legacy in a dev build shows V2. devSkin() is null in a production build.
+    // A dev build may ask for a skin with ?skin=. devSkin() is null in a production build.
     applySkin(theme, devSkin() ?? undefined);
     syncPageColor();
   }, [theme]);

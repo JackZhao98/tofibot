@@ -131,20 +131,23 @@ for (const file of ["skin/v3.css", "skin/roles.css"]) {
   }
 }
 
-// ---- 8. the V2 bridge covers every V2 name still in use. A name that skin/legacy.css defines and that a product sheet or
-// component still reads must resolve under the default skin: it is a V3 role or structure token, or skin/v2-bridge.css defines it.
-// Without this, a V2 sheet would read an undefined name and silently lose its colour once legacy.css no longer answers.
+// ---- 8. every custom property a product sheet or component reads is defined by something: a V3 role or structure token,
+// skin/v2-bridge.css, or a sheet or component that sets it (a local property such as --x-size). skin/legacy.css, which
+// used to define the V2 names, is gone (PR 2.1), so a V2 name the bridge forgot would read as undefined and silently lose
+// its value. A read with a fallback, var(--x, ...), is allowed to be undefined; so are the names a script or a library sets
+// at run time (RUNTIME_SET).
 {
   const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, "");
-  const names = text => new Set([...strip(text).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
-  const legacyNames = names(readFileSync(join(src, "skin/legacy.css"), "utf8"));
-  const bridgeNames = names(readFileSync(join(src, "skin/v2-bridge.css"), "utf8"));
-  const resolves = name => known.has(name) || bridgeNames.has(name);
+  const bridgeNames = new Set([...strip(readFileSync(join(src, "skin/v2-bridge.css"), "utf8")).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
+  const sources = files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("catalog/"));
+  const defined = new Set([...known, ...bridgeNames]);
+  for (const file of sources) for (const [, name] of strip(readFileSync(file, "utf8")).matchAll(/(--[\w-]+)["']?\s*:/g)) defined.add(name);
+  const RUNTIME_SET = /^--(?:x|y|head-[lts]|rail-[lts]|radix-[\w-]+)$/;
   const used = new Map();
-  for (const file of files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("skin/") && !relative(src, file).startsWith("catalog/"))) {
-    for (const [, name] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)/g)) if (legacyNames.has(name) && !resolves(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
+  for (const file of sources.filter(file => !relative(src, file).startsWith("skin/"))) {
+    for (const [, name, fallback] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)\s*(,)?/g)) if (!fallback && !defined.has(name) && !RUNTIME_SET.test(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
   }
-  for (const [name, where] of used) fail(`${name} is defined by skin/legacy.css and used in ${[...new Set(where)].slice(0, 3).join(", ")}, but nothing defines it under the default skin; map it in skin/v2-bridge.css`);
+  for (const [name, where] of used) fail(`${name} is read by ${[...new Set(where)].slice(0, 3).join(", ")} without a fallback, but nothing defines it; define it in a sheet or map it in skin/v2-bridge.css`);
 }
 
 if (failures.length) {

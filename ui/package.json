@@ -48,7 +48,6 @@
     "test:ds-boundary": "node scripts/test-ds-boundary.mjs",
     "test:selectors-alive": "node scripts/test-selectors-alive.mjs",
     "shot:v3-board": "node scripts/shot-v3-board.mjs",
-    "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:catalog": "node scripts/test-catalog.mjs",
     "preview": "vite preview",

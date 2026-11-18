@@ -15,10 +15,8 @@ if (shots) await mkdir(shots, {recursive: true});
 const fixture = await mkdtemp(join(ui, ".provider-settings-"));
 let server, browser;
 try {
-  const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
-  await writeFile(join(fixture, "foundations.css"), foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, ""));
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
-  const styles = [...main.matchAll(/^import "\.\/([\w-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
+  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
   await writeFile(join(fixture, "index.html"), '<!doctype html><meta charset="utf-8"><div id="root"></div><script type="module" src="./main.tsx"></script>');
   await writeFile(join(fixture, "main.tsx"), `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {i18nReady,setLanguage} from '../src/i18n';import {TimezoneProvider} from '../src/UserTimezone';import {ModelProviders} from '../src/ProviderSettings';import {ModelFields} from '../src/ModelSettings';${styles}
 function Fixture(){const [model,setModel]=useState(new URLSearchParams(location.search).get('model')||'');const [effort,setEffort]=useState('');return <TimezoneProvider><div className="workspace"><div className="settings-page-body"><ModelProviders refreshToken={0} codexRefresh={0} onConfigured={()=>{}} onCodexConfigured={()=>{}}/><section className="settings-section" data-testid="picker"><ModelFields model={model} effort={effort} onChange={(m,e)=>{setModel(m);setEffort(e)}}/><output data-testid="value">{model}|{effort}</output></section></div></div></TimezoneProvider>}

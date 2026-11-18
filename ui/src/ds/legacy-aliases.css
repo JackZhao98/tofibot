@@ -1,0 +1,43 @@
+/* The V2 button classes, drawn with the kit's Button (V3 PLAN 7.5, PR 2.1). .primary-button .secondary-button .st-button
+   .text-button .ghost-button .mcp-button .bs-button keep their names in the TSX until their surface is rebuilt; this sheet
+   gives them the look of .tb-btn so that nothing waits for a rebuild to leave V2.
+
+   Why it is in @layer legacy and not unlayered like the kit: an unlayered rule would beat every contextual V2 override
+   (".view-only-chat-footer .secondary-button { min-height: 44px }", disabled and busy variants, per-sheet sizes). Here the
+   aliases are single-class rules, like the V2 base rules they replaced (deleted in this PR), so each contextual override still
+   beats them exactly as it beat the old base rule. Each override leaves with its sheet (the table in PLAN 7.5 names the PR).
+   The generic states (hover, active, focus, disabled, busy, pressed, danger) are at the specificity of the V2 state rules they
+   replaced. The kit's own components (.tb-btn) are unlayered and beat all of this.
+
+   A rule in this file is counted by test:ds-boundary (aliasRule): the count only falls. Retire a class when its last TSX use
+   is swapped for <Button>; the whole file goes by PR 9.1. No new class, and no !important here (the legacy !important guard in
+   test:css-layers reads ds/aliases.json and refuses one on these classes anywhere). */
+@layer legacy {
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 600 14px/1 var(--font-display); letter-spacing: .01em; text-decoration: none;
+  border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
+  padding: 0 16px; min-height: 40px; color: var(--ink); background: transparent; box-shadow: none;
+  transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), background-color var(--m-quick) var(--ease-out);
+}
+:is(.st-button, .text-button, .mcp-button, .bs-button) { flex: none; min-height: 32px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button) > svg { flex: none; }
+.primary-button { background: var(--tomato); color: var(--on-block); border: var(--edge-bold) solid var(--ink); box-shadow: var(--hard-sm); }
+:is(.secondary-button, .st-button, .mcp-button, .bs-button) { background: var(--surface); }
+:is(.text-button, .ghost-button) { border-color: transparent; }
+:is(.st-button.is-danger, .bs-button.is-danger, .mcp-button.mcp-danger) { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
+:is(.primary-button, .secondary-button, .st-button, .mcp-button, .bs-button):hover:not(:disabled) { background-image: linear-gradient(var(--hover), var(--hover)); }
+:is(.text-button, .ghost-button):hover:not(:disabled) { background-color: var(--hover); }
+.primary-button:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: var(--hard); }
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button):active:not(:disabled) { transform: scale(.98); }
+.primary-button:active:not(:disabled) { transform: translate(2px, 3px); box-shadow: none; }
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button):focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button):disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+:is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button):is([aria-busy="true"], .is-busy) { opacity: .6; cursor: progress; }
+:is(.secondary-button, .st-button, .mcp-button, .bs-button, .text-button, .ghost-button):is([aria-pressed="true"], [aria-selected="true"]) { background-color: var(--sunk); border-color: var(--line); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  :is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button) { transition: none; }
+  :is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button):active:not(:disabled) { transform: none; }
+  .primary-button:hover:not(:disabled) { transform: none; }
+}
+}

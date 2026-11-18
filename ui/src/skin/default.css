@@ -1,10 +1,9 @@
-/* The sheets every entry loads first (V3 PLAN 7.4): structure, the default skin (v3, with its component roles), the V2 skin
-   that stays until PR 2.1 as the rollback (it answers only data-skin="legacy"), the V2 bridge and the base rules. The skin that
+/* The sheets every entry loads first (V3 PLAN 7.4): structure, the default skin (v3, with its component roles), the V2
+   bridge and the base rules. The skin that
    shows is the one skin.ts puts on <html> (DEFAULT_SKIN). Fonts are separate (skin/fonts.css), and so is the OAuth page, which
    concatenates the same files in oauthAssetsPlugin.ts. */
 @import "./structure.css";
 @import "./v3.css";
 @import "./roles.css";
-@import "./legacy.css";
 @import "./v2-bridge.css";
 @import "./base.css";

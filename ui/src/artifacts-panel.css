@@ -78,7 +78,7 @@
 .workspace .artifact-versions li > button:first-child:hover { background: var(--sunk); }
 .workspace .artifact-versions li small { color: var(--muted); font: 11px/1.3 var(--mono); }
 .workspace .artifact-versions-note { color: var(--muted); font: 12px/1.4 var(--body); }
-.workspace .artifact-versions .ghost-button { display: grid; width: 28px; height: 28px; place-items: center; }
+.workspace .artifact-versions .ghost-button { display: grid; width: 28px; height: 28px; min-height: 0; padding: 0; place-items: center; }
 
 .workspace .artifacts-more { display: block; margin: 16px auto 0; }
 .workspace .artifacts-panel button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
