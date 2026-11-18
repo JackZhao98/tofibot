@@ -106,6 +106,20 @@
     "group_limit": "グループ数の上限に達しました。"
   },
   "ds": {
+    "reactionsLabel": "リアクション",
+    "approve": "承認",
+    "decline": "却下",
+    "needsYou": "あなたの確認待ち",
+    "retry": "再試行",
+    "details": "詳細",
+    "toolSteps": "ツールの手順",
+    "step": {
+      "done": "完了",
+      "failed": "未完了",
+      "active": "進行中",
+      "pending": "未着手",
+      "waiting": "確認待ち"
+    },
     "remove": "削除",
     "removeNamed": "{{name}}を削除",
     "dismiss": "閉じる",

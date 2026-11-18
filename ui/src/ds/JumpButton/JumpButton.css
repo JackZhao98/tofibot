@@ -1,0 +1,2 @@
+.tb-jump { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; color: var(--ink); cursor: pointer; }
+.tb-jump:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }

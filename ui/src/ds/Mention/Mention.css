@@ -1,0 +1,9 @@
+.tb-mention { --hl: var(--mustard); padding: 0 2px; margin: 0 1px; border-radius: 2px; font-weight: 600; -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 55%, color-mix(in oklab, var(--hl) var(--hl-mix), transparent) 55% 95%, transparent 95%) 0 0 / 100% 100% no-repeat; }
+.tb-hl--tomato { --hl: var(--tomato); }
+.tb-hl--teal { --hl: var(--teal); }
+.tb-hl--grape { --hl: var(--grape); }
+.tb-hl--lime { --hl: var(--lime); }
+.tb-hl--you { --hl: var(--cobalt); }
+@keyframes tb-mark-hl { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+.tb-mention.is-fresh { animation: tb-mark-hl var(--m-mark-hl) var(--ease-out) var(--m-mark-hl-delay) both; }
+@media (prefers-reduced-motion: reduce) { .tb-mention.is-fresh { animation: none; } }

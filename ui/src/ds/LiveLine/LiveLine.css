@@ -1,0 +1,7 @@
+.tb-liveline { display: flex; align-items: center; gap: 8px; min-height: 28px; font: 400 13px/1.4 var(--font-body); color: var(--ink-soft); }
+.tb-liveline-avatar { display: inline-grid; }
+.tb-livemark { width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: var(--border-2) solid var(--line); border-top-color: var(--teal-text); animation: tb-spin 1s linear infinite; flex: none; }
+.tb-liveline-text { color: var(--teal-text); font-weight: 600; }
+.tb-liveline-time { font: 400 11.5px/1 var(--font-mono); color: var(--muted); }
+@keyframes tb-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tb-livemark { animation: none; } }

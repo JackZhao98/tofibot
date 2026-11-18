@@ -106,6 +106,20 @@
     "group_limit": "The group limit is reached."
   },
   "ds": {
+    "reactionsLabel": "Reactions",
+    "approve": "Approve",
+    "decline": "Decline",
+    "needsYou": "Needs you",
+    "retry": "Retry",
+    "details": "Details",
+    "toolSteps": "Tool steps",
+    "step": {
+      "done": "Done",
+      "failed": "Not finished",
+      "active": "In progress",
+      "pending": "To do",
+      "waiting": "Needs you"
+    },
     "remove": "Remove",
     "removeNamed": "Remove {{name}}",
     "dismiss": "Dismiss",

@@ -106,6 +106,20 @@
     "group_limit": "그룹 수 한도에 도달했습니다."
   },
   "ds": {
+    "reactionsLabel": "반응",
+    "approve": "승인",
+    "decline": "거절",
+    "needsYou": "확인이 필요해요",
+    "retry": "다시 시도",
+    "details": "세부 정보",
+    "toolSteps": "도구 단계",
+    "step": {
+      "done": "완료",
+      "failed": "완료되지 않음",
+      "active": "진행 중",
+      "pending": "할 일",
+      "waiting": "확인 대기"
+    },
     "remove": "제거",
     "removeNamed": "{{name}} 제거",
     "dismiss": "닫기",

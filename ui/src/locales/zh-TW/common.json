@@ -106,6 +106,20 @@
     "group_limit": "已達到群組數量上限。"
   },
   "ds": {
+    "reactionsLabel": "回應",
+    "approve": "核准",
+    "decline": "拒絕",
+    "needsYou": "需要你",
+    "retry": "重試",
+    "details": "詳情",
+    "toolSteps": "工具步驟",
+    "step": {
+      "done": "完成",
+      "failed": "未完成",
+      "active": "進行中",
+      "pending": "待辦",
+      "waiting": "待確認"
+    },
     "remove": "移除",
     "removeNamed": "移除 {{name}}",
     "dismiss": "關閉",

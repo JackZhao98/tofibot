@@ -106,6 +106,20 @@
     "group_limit": "La limite de groupes est atteinte."
   },
   "ds": {
+    "reactionsLabel": "Réactions",
+    "approve": "Approuver",
+    "decline": "Refuser",
+    "needsYou": "Besoin de vous",
+    "retry": "Réessayer",
+    "details": "Détails",
+    "toolSteps": "Étapes des outils",
+    "step": {
+      "done": "Terminé",
+      "failed": "Non terminé",
+      "active": "En cours",
+      "pending": "À faire",
+      "waiting": "En attente de vous"
+    },
     "remove": "Retirer",
     "removeNamed": "Retirer {{name}}",
     "dismiss": "Fermer",
