@@ -18,7 +18,7 @@ import { placeOwners, type OwnerPlacement } from "../activityPlacements";
 import { mergeMessageTimeline } from "../messageTimeline";
 import { DelayedFeedback } from "../DelayedFeedback";
 import { BootScreen } from "../BootScreen";
-import { SidebarAccount, useOwnerSession } from "../OwnerSession";
+import { useOwnerSession } from "../OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "../desktop";
 import { useUserTimezone } from "../UserTimezone";
 import { browserNotifier, type DeliveryItem } from "../attentionNotifier";
@@ -43,7 +43,7 @@ import { applyRunPlan } from "../planMerge";
 import { setPendingSection } from "../settings/pendingSection";
 import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "../settings/deepLinks";
 import type { OpenLinkDeps } from "../settings/linkRuntime";
-import { arrowOpens, OverlayMenu, OverlaySlot, pressToggle, SlotView } from "../overlays/OverlayHost";
+import { OverlayMenu, OverlaySlot, SlotView } from "../overlays/OverlayHost";
 import { ActionHints, useAppearance, useSurfacePresence } from "../InteractionSystem";
 import { useConversationScroll } from "../useConversationScroll";
 import { sidebarAvailable } from "../featureFlags";
@@ -61,8 +61,7 @@ import { useScheduleOccurrences } from "../useScheduleOccurrences";
 import { useScheduleMetadata } from "../useScheduleMetadata";
 import { TofiIcon as Icon } from "../icons";
 import { intlLocale } from "../i18n/format";
-import { BrandLogo } from "../BrandLogo";
-import { PinDock, PinDropZone, PinTile } from "../PinnedDock";
+import { PinTile } from "../PinnedDock";
 import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "../sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "../useSidebarDnd";
 import { usePhoneSwipeBack } from "../usePhoneSwipeBack";
@@ -73,10 +72,8 @@ import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } f
 import { codeText } from "../i18n/codeText";
 import { type AvatarMotion } from "../BotAvatar";
 import { holdAvatarLife } from "../lib/tofi-avatar/index.js";
-import { CATS, EmptyState } from "../EmptyCat";
-import { FinishSetupChip } from "../OnboardingChrome";
 import { useGreetingPlayback } from "../onboardingGreeting";
-import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "../onboardingFlow";
+import { onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "../onboardingFlow";
 import { flipList } from "../motion/legacy/flip";
 import { flySentMessage } from "../sendFlight";
 import "../FileTile";
@@ -112,7 +109,8 @@ import { ChatHeader } from "../chat/ChatHeader";
 import { ChatPane } from "../chat/ChatPane";
 import { ComposerDrafts, emptyComposerDraft } from "../chat/Composer";
 import { ToolSummaryState } from "../chat/RunActivity";
-import { MailDraftCard, FirstRunHero } from "../chat/shared";
+import { MailDraftCard } from "../chat/shared";
+import { Sidebar } from "./Sidebar";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const BotBrowserPanel = lazy(() => import("../BotBrowserPanel").then(m => ({default: m.BotBrowserPanel})));
@@ -2469,18 +2467,7 @@ export function Workspace() {
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="stream-status workspace-status computer-preparing" role="status"><strong>{computerInfo.guest_outdated_required ? t("computer.outdated_required") : computerInfo.error_code === "org_resource_missing" ? t("computer.org_missing") : computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error && !computerInfo.guest_outdated_required ? ` · ${computerInfo.error}` : ""}</span>{computerInfo.guest_outdated_required ? <button className="secondary-button" onClick={() => openSettings("computer")}>{t("computer.open_environments")}</button> : (computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarFolded ? " sidebar-collapsed" : ""}${macNarrow ? " mac-narrow" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         {macNarrow && narrowSidebarOpen && <div className="sidebar-scrim" aria-hidden="true" onClick={() => setNarrowSidebarOpen(false)} />}
-        <aside className={`contact-pane ${mobileList ? "open" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
-          <div className="sidebar-top">{sidebarFolded ? <button className="sidebar-logo-expand" type="button" aria-label={t("sidebar.expand")} data-hint={t("sidebar.expand")} onClick={() => setSidebarFolded(false)}><span className="sidebar-logo-art"><BrandLogo variant="calico" /></span><span className="sidebar-logo-arrow" aria-hidden="true"><Icon name="sidebar" size={20} /></span></button> : <BrandLogo variant="calico" />}<div className="sidebar-actions">{!sidebarFolded && <button className="top-icon-button sidebar-toggle" aria-label={t("sidebar.collapse")} data-hint={t("sidebar.collapse")} onClick={() => setSidebarFolded(true)}><Icon name="sidebar" size={20} /></button>}<button className="icon-button search-trigger" type="button" aria-label={t("search.open")} aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" data-hint={t("search.open")} onClick={() => setSearchOpen(true)}><Icon name="search" size={18} /></button><div className="create-menu-anchor" ref={createMenuRef}><button ref={createMenuTriggerRef} className="icon-button" {...pressToggle(() => setCreateMenuOpen(open => !open))} onKeyDown={arrowOpens(setCreateMenuOpen)} data-hint={t("create.menu")} aria-label={t("create.menu")} aria-haspopup="menu" aria-expanded={createMenuOpen} aria-controls={createMenuOpen ? "create-menu" : undefined}><Icon name="plus" size={18} animated /></button><input ref={botImportRef} type="file" hidden accept=".json,.tofi-bot,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importBotPackage(file); }} />{showCreateMenu && <OverlayMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen} id="create-menu" className="create-menu" label={t("create.menu")} trigger={createMenuTriggerRef} anchor={createMenuRef} {...(sidebarFolded && !isDesktop && matchMedia("(min-width:768px)").matches ? { side: "right", sideOffset: 12 } : { align: "end", sideOffset: 8 })}><button disabled={newBotBusy} onClick={() => { createMenuTriggerRef.current?.focus(); void createNewBot(); }}><Icon name="bot-add" size={18} /><span>{newBotBusy ? t("create.creating") : t("create.new_bot")}</span></button><button onClick={() => { createMenuTriggerRef.current?.focus(); setCreateMenuOpen(false); openCoverPanel("new-group"); }}><Icon name="group-add" size={18} /><span>{t("create.new_group")}</span></button><button disabled={botImportBusy} onClick={() => { setCreateMenuOpen(false); botImportRef.current?.click(); }}><Icon name="upload" size={18} /><span>{botImportBusy ? t("create.importing") : t("create.import_bot")}</span></button>{(newBotError || botImportError) && <p className="error-text" role="alert">{newBotError || botImportError}</p>}</OverlayMenu>}</div></div></div>
-          <div className="contact-section" ref={sidebarListRef}>
-            <PinDropZone label={t("sidebar.drop_to_pin")} hint={t("sidebar.drop_to_pin_hint")}>{pinnedConversations.length > 0 ? <PinDock label={t("sidebar.pinned")}>{pinnedConversations.map(pinTile)}</PinDock> : null}</PinDropZone>
-            {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="section-label"><span>{name}</span></div>{items.map(item => conversationRow(item))}</section>)}
-            <div className="section-label"><span>{t("sidebar.messages")}</span></div>{defaultSidebarConversations.map(item => conversationRow(item, sidebarDndEnabled))}
-            <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
-            {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <Suspense fallback={null}><FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense>}
-            {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose="asleep"><p>{t("sidebar.empty")}</p><button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button></EmptyState>}
-          </div>
-          <div className="sidebar-footer">{onboardingState === "chip" && <FinishSetupChip step={chipStep(modelReady)} onClick={() => setOnboardingForced(chipStep(modelReady))} />}<SidebarAccount connected={linkConnected} onSettings={() => { setPortabilityBotID(""); setPortabilityFile(undefined); openSettings("general", "home"); }} onUsage={() => { setUsageBotId(""); openSettings("usage"); }} onConnection={() => openSettings("models")} onArtifacts={() => { setArtifactsMode("artifacts"); openCoverPanel("artifacts"); }} /></div>
-        </aside>
+        <Sidebar mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} sidebarFolded={sidebarFolded} t={t} setSidebarFolded={setSidebarFolded} setSearchOpen={setSearchOpen} createMenuRef={createMenuRef} createMenuTriggerRef={createMenuTriggerRef} setCreateMenuOpen={setCreateMenuOpen} createMenuOpen={createMenuOpen} botImportRef={botImportRef} importBotPackage={importBotPackage} showCreateMenu={showCreateMenu} newBotBusy={newBotBusy} createNewBot={createNewBot} openCoverPanel={openCoverPanel} botImportBusy={botImportBusy} newBotError={newBotError} botImportError={botImportError} sidebarListRef={sidebarListRef} pinnedConversations={pinnedConversations} pinTile={pinTile} customSidebarSections={customSidebarSections} conversationRow={conversationRow} defaultSidebarConversations={defaultSidebarConversations} sidebarDndEnabled={sidebarDndEnabled} sidebarLiveRef={sidebarLiveRef} onboardingState={onboardingState} visibleSidebarConversations={visibleSidebarConversations} bots={bots} conversations={conversations} modelReady={modelReady} setOnboardingForced={setOnboardingForced} linkConnected={linkConnected} setPortabilityBotID={setPortabilityBotID} setPortabilityFile={setPortabilityFile} openSettings={openSettings} setUsageBotId={setUsageBotId} setArtifactsMode={setArtifactsMode} />
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
         <SlotView slot={sidebarMenuSlot}>{menu => <OverlayMenu open onOpenChange={open => { if (!open) setSidebarContextMenu(null); }} className="sidebar-context-menu" label={menu.conversation.name} point={menu} key={`${menu.conversation.id}:${menu.x}:${menu.y}`}>
           <button onClick={() => togglePinned(menu.conversation)}><Icon name="pin" size={17} />{menu.conversation.pinned ? t("sidebar.unpin") : t("sidebar.pin")}</button>
