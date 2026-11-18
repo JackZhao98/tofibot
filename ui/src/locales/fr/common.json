@@ -120,6 +120,43 @@
       "pending": "À faire",
       "waiting": "En attente de vous"
     },
+    "file": {
+      "open": "Ouvrir",
+      "download": "Télécharger"
+    },
+    "artifact": {
+      "tag": "LIVRABLE",
+      "goto": "Aller au message"
+    },
+    "attach": {
+      "open": "Ouvrir l'image",
+      "openAll": "Ouvrir toutes les images"
+    },
+    "letter": {
+      "from": "DE",
+      "to": "À",
+      "cc": "CC",
+      "subject": "OBJET"
+    },
+    "draft": {
+      "changed": "Modifié",
+      "sent": "Envoyé",
+      "canceled": "Annulé"
+    },
+    "schedule": {
+      "retry": "Réessayer"
+    },
+    "code": {
+      "copy": "Copier",
+      "copied": "Copié",
+      "less": "▴ Réduire",
+      "more_one": "▾ Afficher la ligne restante",
+      "more_many": "▾ Afficher les {{count}} lignes restantes",
+      "more_other": "▾ Afficher les {{count}} lignes restantes",
+      "lines_one": "{{count}} ligne",
+      "lines_many": "{{count}} lignes",
+      "lines_other": "{{count}} lignes"
+    },
     "remove": "Retirer",
     "removeNamed": "Retirer {{name}}",
     "dismiss": "Fermer",

@@ -45,3 +45,19 @@ Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, 
 
 // Kit IV: settings and data (PR 0.9).
 Object.assign(registry, { DataTable, KeyRow, SettingsRow, SettingsSection, Stat });
+
+// ---- Kit III (V3 PLAN 0.8)
+import { ArtifactCard } from "../src/ds/ArtifactCard/ArtifactCard";
+import { AttachmentGrid } from "../src/ds/AttachmentGrid/AttachmentGrid";
+import { CodeBlock } from "../src/ds/CodeBlock/CodeBlock";
+import { DraftCard } from "../src/ds/DraftCard/DraftCard";
+import { FileRow } from "../src/ds/FileRow/FileRow";
+import { FileTile } from "../src/ds/FileTile/FileTile";
+import { InboxDigest } from "../src/ds/InboxDigest/InboxDigest";
+import { Letter } from "../src/ds/Letter/Letter";
+import { ScheduleCard } from "../src/ds/ScheduleCard/ScheduleCard";
+
+// The spec writes the line count as {n}; the kit's i18n writes {{count}}. The wrapper maps the spec's cases onto the kit.
+const n = (text?: string) => text?.replace("{n}", "{{count}}");
+const CodeBlockSpec = (props: Parameters<typeof CodeBlock>[0]) => <CodeBlock {...props} linesLabel={n(props.linesLabel)} moreLabel={n(props.moreLabel)} />;
+Object.assign(registry, { ArtifactCard, AttachmentGrid, CodeBlock: CodeBlockSpec, DraftCard, FileRow, FileTile, InboxDigest, Letter, ScheduleCard });

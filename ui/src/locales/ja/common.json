@@ -120,6 +120,39 @@
       "pending": "未着手",
       "waiting": "確認待ち"
     },
+    "file": {
+      "open": "開く",
+      "download": "ダウンロード"
+    },
+    "artifact": {
+      "tag": "成果物",
+      "goto": "メッセージへ移動"
+    },
+    "attach": {
+      "open": "画像を開く",
+      "openAll": "すべての画像を開く"
+    },
+    "letter": {
+      "from": "差出人",
+      "to": "宛先",
+      "cc": "CC",
+      "subject": "件名"
+    },
+    "draft": {
+      "changed": "修正",
+      "sent": "送信済み",
+      "canceled": "取り消し済み"
+    },
+    "schedule": {
+      "retry": "再試行"
+    },
+    "code": {
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "less": "▴ 折りたたむ",
+      "more_other": "▾ 残り {{count}} 行を表示",
+      "lines_other": "{{count}} 行"
+    },
     "remove": "削除",
     "removeNamed": "{{name}}を削除",
     "dismiss": "閉じる",

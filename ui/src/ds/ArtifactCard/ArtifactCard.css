@@ -1,0 +1,14 @@
+.tb-art { width: 224px; max-width: 100%; display: grid; border: var(--border-1) solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--surface); transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out); }
+.tb-art:hover { box-shadow: var(--shadow-sm); }
+.tb-art--wide { width: 100%; }
+.tb-art-view { aspect-ratio: auto; }
+.tb-art-blank { position: absolute; inset: 0; display: grid; place-items: center; background: var(--sunk); }
+.tb-art-tag { position: absolute; left: 6px; top: 6px; padding: 2px 6px; border: var(--border-1) solid transparent; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--mustard) 26%, var(--surface)); color: var(--mustard-text); font: 600 10px/1.2 var(--font-mono); letter-spacing: .06em; }
+.tb-art-ver { position: absolute; right: 6px; top: 6px; padding: 2px 6px; border-radius: var(--radius-xs); background: var(--code-bg); color: var(--code-ink); font: 600 10px/1.2 var(--font-mono); }
+.tb-art .tb-file-glyph:not(.tb-file-glyph--big) { --fold: 6px; width: 20px; height: 25px; padding-bottom: 3px; border-radius: 2px; }
+.tb-art .tb-file-glyph:not(.tb-file-glyph--big) .tb-file-ext { font-size: 6.5px; }
+.tb-art-from { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-top: var(--border-1) solid var(--line); font: 400 11.5px/1.35 var(--font-body); color: var(--muted); min-width: 0; }
+.tb-art-who { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-art-goto { display: inline-flex; align-items: center; gap: 3px; padding: 0; border: 0; background: none; color: var(--link); font: 600 11.5px/1.35 var(--font-body); cursor: pointer; white-space: nowrap; }
+.tb-art-goto:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (prefers-reduced-motion: reduce) { .tb-art { transition: none; } }

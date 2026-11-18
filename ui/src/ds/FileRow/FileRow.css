@@ -1,0 +1,8 @@
+.tb-filerow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 6px; box-sizing: border-box; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.tb-filerow:hover { background: var(--hover); }
+.tb-filerow:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: calc(var(--focus-offset) * -1); }
+.tb-filerow.is-fresh { box-shadow: inset 3px 0 0 var(--mustard); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.tb-filerow .tb-file-glyph { width: 22px; height: 28px; padding-bottom: 3px; border-radius: 2px 6px 2px 2px; }
+.tb-filerow .tb-file-ext { font-size: 6.5px; }
+.tb-filerow-thumb { width: 28px; height: 28px; flex: none; object-fit: cover; border: var(--border-1) solid transparent; border-radius: var(--radius-xs); }
+.tb-filerow-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
