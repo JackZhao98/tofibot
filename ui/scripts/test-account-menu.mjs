@@ -23,7 +23,7 @@ test("account menu keeps workspace destinations and moves help to General", () =
   assert.doesNotMatch(help, /description=/);
   assert.match(source("ui/src/settings/SettingsPages.tsx"), /function GeneralPage[\s\S]*?<HelpAndFeedback\/>/);
 });
-test("footer omits client wording; menu fades without translation or corner scale", () => {
+test("footer omits client wording; the menu sheet adds no motion of its own", () => {
   const footer = source("ui/src/OwnerSession.tsx").split("export function SidebarAccount")[1];
   assert.ok(footer);
   assert.doesNotMatch(footer, /desktop_client/);

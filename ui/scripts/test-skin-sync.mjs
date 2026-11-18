@@ -6,7 +6,8 @@
 //  5. a probe skin leaves a role at its V3 value;
 //  6. motion.ts or layers.ts drift from the generated tokens.ts;
 //  7. a var(--x) in a stylesheet has no definition anywhere in ui/src;
-//  8. a product stylesheet paints text with a fill token (color: var(--clay) ...).
+//  8. a product stylesheet paints text with a fill token (color: var(--clay) ...);
+//  9. a custom property read in a product sheet or component has no definition and no fallback.
 // Run: npm --prefix ui run test:skin-sync
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -144,6 +145,25 @@ for (const file of ["skin/v3.css", "skin/roles.css"]) {
     }
   };
   inspect(src);
+}
+
+// ---- 9. every custom property a product sheet or component reads is defined by something: a V3 role or structure token,
+// skin/v2-bridge.css, or a sheet or component that sets it (a local property such as --x-size). skin/legacy.css, which
+// used to define the V2 names, is gone (PR 2.1), so a V2 name the bridge forgot would read as undefined and silently lose
+// its value. A read with a fallback, var(--x, ...), is allowed to be undefined; so are the names a script or a library sets
+// at run time (RUNTIME_SET).
+{
+  const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, "");
+  const bridgeNames = new Set([...strip(readFileSync(join(src, "skin/v2-bridge.css"), "utf8")).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
+  const sources = files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("catalog/"));
+  const defined = new Set([...known, ...bridgeNames]);
+  for (const file of sources) for (const [, name] of strip(readFileSync(file, "utf8")).matchAll(/(--[\w-]+)["']?\s*:/g)) defined.add(name);
+  const RUNTIME_SET = /^--(?:x|y|head-[lts]|rail-[lts]|radix-[\w-]+)$/;
+  const used = new Map();
+  for (const file of sources.filter(file => !relative(src, file).startsWith("skin/"))) {
+    for (const [, name, fallback] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)\s*(,)?/g)) if (!fallback && !defined.has(name) && !RUNTIME_SET.test(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
+  }
+  for (const [name, where] of used) fail(`${name} is read by ${[...new Set(where)].slice(0, 3).join(", ")} without a fallback, but nothing defines it; define it in a sheet or map it in skin/v2-bridge.css`);
 }
 
 if (failures.length) {

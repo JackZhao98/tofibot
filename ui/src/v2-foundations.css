@@ -58,6 +58,11 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 @layer legacy {
 .field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
+/* A text button inside a sentence is a link: it keeps the sentence's type and line height. Coarse pointers keep the 44px target. */
+p > .text-button:where(:not(.approval-manage)), div.error-text > .text-button { margin-inline-start: 4px; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; letter-spacing: inherit; text-decoration: underline; text-underline-offset: 3px; }
+p > .text-button:where(:not(.approval-manage)):hover:not(:disabled), div.error-text > .text-button:hover:not(:disabled) { background: transparent; }
+p > .text-button:where(:not(.approval-manage)):active:not(:disabled), div.error-text > .text-button:active:not(:disabled) { transform: none; }
+@media not ((pointer: coarse) or (any-pointer: coarse)) { p > .text-button:where(:not(.approval-manage)), div.error-text > .text-button { min-height: 0; } }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
 .search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 

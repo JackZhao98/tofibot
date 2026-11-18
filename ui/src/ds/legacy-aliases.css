@@ -24,7 +24,7 @@
 :is(.st-button, .mcp-button, .bs-button) { white-space: nowrap; }
 .text-button { color: var(--ink-soft); }
 :is(.primary-button, .secondary-button, .st-button, .text-button, .ghost-button, .mcp-button, .bs-button) > svg { flex: none; }
-.primary-button { background: var(--tomato); color: var(--on-block); border: var(--edge-bold) solid var(--ink); box-shadow: var(--hard-sm); }
+.primary-button { padding-block: 8px; background: var(--tomato); color: var(--on-block); border: var(--edge-bold) solid var(--ink); box-shadow: var(--hard-sm); }
 :is(.secondary-button, .st-button, .mcp-button, .bs-button) { background: var(--surface); }
 :is(.text-button, .ghost-button) { border-color: transparent; }
 :is(.st-button.is-danger, .bs-button.is-danger, .mcp-button.mcp-danger) { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
