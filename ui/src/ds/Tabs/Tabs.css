@@ -1,0 +1,10 @@
+.tb-tablist { display: flex; gap: 22px; max-width: 100%; overflow-x: auto; border-bottom: var(--border-1) solid var(--line); }
+.tb-tab { position: relative; height: 40px; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; transform: none; color: var(--muted); font: 700 14px/1 var(--font-display); white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tb-tab:hover { color: var(--ink); }
+.tb-tab[data-state="active"] { color: var(--ink); }
+.tb-tab[data-state="active"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: var(--tomato); border-radius: 3px 3px 0 0; }
+.tb-tab:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-tab-count { font: 600 11px/1 var(--font-mono); color: var(--muted); }
+.tb-tabpanel { padding-top: 16px; }
+.tb-tabpanel:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (pointer: coarse), (any-pointer: coarse) { .tb-tab { height: 44px; } }

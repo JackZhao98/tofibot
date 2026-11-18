@@ -2,6 +2,7 @@
 // Nothing in the product imports the kit yet: only this catalog does (V3 PLAN 0.6).
 import type { CatalogSection } from "../types";
 import { actions } from "./v3-actions";
+import { choices } from "./v3-choices";
 import { conversation } from "./v3-conversation";
 import { files } from "./v3-files";
 import { forms } from "./v3-forms";
@@ -11,5 +12,5 @@ import { status } from "./v3-status";
 
 export const v3: CatalogSection = {
   id: "v3", number: "V3", title: "V3 components",
-  states: [...actions, ...status, ...forms, ...identity, ...conversation, ...settingsKit, ...files],
+  states: [...actions, ...status, ...forms, ...choices, ...identity, ...conversation, ...settingsKit, ...files],
 };

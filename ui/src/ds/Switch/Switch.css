@@ -1,0 +1,10 @@
+.tb-switch { position: relative; width: 46px; height: 26px; min-width: 46px; min-height: 26px; flex: none; margin: 0; padding: 0; border: var(--border-1) solid var(--edge); border-radius: var(--radius-pill); background: var(--sunk); box-shadow: none; transform: none; cursor: pointer; transition: background-color var(--m-quick) var(--ease-out); }
+.tb-switch-thumb { position: absolute; top: 2px; left: 2px; display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: var(--border-1) solid var(--edge); transition: transform var(--m-base) var(--ease-spring); }
+.tb-switch[data-state="checked"] { background: var(--teal); }
+.tb-switch[data-state="checked"] .tb-switch-thumb { transform: translateX(20px); }
+.tb-switch:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-switch:disabled { opacity: .45; cursor: not-allowed; }
+.tb-switch[aria-busy="true"] { cursor: progress; }
+/* A finger needs 44px: the track stays 26px tall, the hit area grows around it. */
+@media (pointer: coarse), (any-pointer: coarse) { .tb-switch::before { content: ""; position: absolute; inset: -9px -4px; } }
+@media (prefers-reduced-motion: reduce) { .tb-switch, .tb-switch-thumb { transition: none; } }

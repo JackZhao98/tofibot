@@ -56,6 +56,7 @@ const CASES = [
   ["Checkbox", D("Checkbox", { defaultChecked: false }, "Read")],
   ["Checkbox checked", D("Checkbox", { defaultChecked: true }, "Write")],
   ["Checkbox disabled", D("Checkbox", { disabled: true }, "Admin")],
+  ["Tabs", D("Tabs", { tabs: [{ value: "keys", label: "Keys", count: 4 }, { value: "usage", label: "Usage" }], defaultValue: "keys" }, "Keys view.")],
   ...["mustard", "teal", "grape", "cobalt", "lime", "tomato"].map(t => [`Avatar ${t}`, D("Avatar", { name: "Mia Chen", tone: t })]),
   ["Avatar presence", D("Avatar", { name: "Mia Chen", status: "online", size: 48 })],
   ...["tomato", "mustard", "teal", "grape", "lime", "paper"].map(c => [`BotAvatar ${c}`, D("BotAvatar", { name: "Mochi", coat: c, src: "/brand/tofi-logo-calico.svg" })]),
