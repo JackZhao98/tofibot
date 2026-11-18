@@ -93,21 +93,21 @@
   --radius-2xl:22px;
   --radius-pill:999px;
   --edge-soft:1px;
-  --edge:2px;
-  --edge-bold:3px;
+  --legacy-edge-w:2px;
+  --legacy-edge-bold-w:3px;
   --r:14px;
   --r-lg:20px;
-  --hard:0 1px 2px rgba(36,27,20,.06), 0 10px 28px rgba(36,27,20,.10);
-  --hard-sm:0 1px 2px rgba(36,27,20,.08), 0 3px 8px rgba(36,27,20,.06);
+  --shadow:0 1px 2px rgba(36,27,20,.06), 0 10px 28px rgba(36,27,20,.10);
+  --shadow-sm:0 1px 2px rgba(36,27,20,.08), 0 3px 8px rgba(36,27,20,.06);
   --dots:radial-gradient(#2a201914 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(252,251,249,.96);
-  --glass-strong:var(--glass);
+  --legacy-glass:rgba(252,251,249,.96);
+  --legacy-glass-strong:var(--legacy-glass);
   --scrim:rgba(12,14,18,.45);
   --glass-edge:rgba(42,32,25,.14);
   --blur:blur(40px) saturate(1.8);
   --sheen:inset 0 1px 0 rgba(255,255,255,.7);
   /* FloatingDesktop preview keeps dark glass legible over any desktop frame. */
-  --desktop-controls-glass:var(--glass);
+  --desktop-controls-glass:var(--legacy-glass);
   --desktop-controls-solid:#0c0e12;
   --desktop-controls-edge:rgba(255,255,255,.14);
   --desktop-controls-ink:#f3eadb;
@@ -222,7 +222,7 @@
   /* Hover hints: a neutral black chip, never the accent colour. Dark theme inverts (a near-black chip would vanish on the near-black page). */
   --tooltip-bg:#171411;
   --tooltip-ink:#ffffff;
-  --float-shadow:var(--hard);
+  --float-shadow:var(--shadow);
   /* Widget cards (docs/design/widgets-and-sidebar.md): a soft elevation, no outline. Here and not in the lazy
      widget CSS: a :root rule arriving with a chunk restyles every element on the page. */
   --card-elevation:0 1px 2px color-mix(in srgb,var(--shade-ink) 6%,transparent), 0 10px 28px -14px color-mix(in srgb,var(--shade-ink) 28%,transparent);
@@ -262,8 +262,8 @@
   --code-block-bg:#25201b;
   --code-block-ink:#f0e2cf;
   --code-block-edge:#493d32;
-  --hard:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
-  --hard-sm:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.3);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.3);
   --hard-ink:#000;
   --shade:#000;
   --shade-warm:#140e08;
@@ -282,12 +282,12 @@
   --ft-text:#857d6e;
   --ft-other:#857d6e;
   --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
-  --glass:rgba(31,28,24,.96);
-  --glass-strong:var(--glass);
+  --legacy-glass:rgba(31,28,24,.96);
+  --legacy-glass-strong:var(--legacy-glass);
   --sidebar-bg:var(--sunk);
   --glass-edge:rgba(241,230,214,.2);
   --sheen:inset 0 1px 0 rgba(255,255,255,.08);
-  --float-shadow:var(--hard);
+  --float-shadow:var(--shadow);
   --card-elevation:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent), 0 12px 30px -14px color-mix(in srgb,var(--shade) 70%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent);
   --card-lift:0 2px 4px color-mix(in srgb,var(--shade) 50%,transparent), 0 20px 40px -12px color-mix(in srgb,var(--shade) 85%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 6%,transparent);
   --st-lift:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent);
@@ -314,6 +314,6 @@
 }
 /* Without backdrop blur, glass is the plain surface. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --glass:var(--surface); }
+  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --legacy-glass:var(--surface); }
 }
 }

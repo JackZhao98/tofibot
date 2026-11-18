@@ -22,7 +22,7 @@ html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row > :n
 html:not([data-desktop]) .composer-drop-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:color-mix(in srgb,var(--lagoon) 24%,transparent); }
 html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:composer-drop-bob 900ms var(--ease-inout) infinite; }
 @keyframes composer-drop-bob { 50% { transform:translateY(-3px); } }
-.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:40px; padding:3px 8px 3px 4px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--hard-sm); white-space:nowrap; }
+.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:40px; padding:3px 8px 3px 4px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--body); box-shadow:var(--shadow-sm); white-space:nowrap; }
 .web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:32px; height:32px; }
 .web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
 .web-drop-ghost > button { display:none; }

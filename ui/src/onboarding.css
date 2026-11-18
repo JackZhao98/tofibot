@@ -1,11 +1,11 @@
 /* First-run onboarding: a 680px sheet over the blurred workspace, full screen on phones.
-   Colours, edge and shadow come from design-tokens.css; nothing here sets a fixed width on a button or label,
+   Colours, edge and shadow come from the skin (src/skin/); nothing here sets a fixed width on a button or label,
    so long German and French copy wraps instead of being cut. */
 
 .onb-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px 16px; box-sizing:border-box;
   background:color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:onb-fade var(--m-base) var(--ease-out, ease-out); }
 .onb-sheet { position:relative; display:flex; flex-direction:column; width:min(680px,100%); max-height:calc(100dvh - 48px); box-sizing:border-box; min-width:0;
-  background:var(--surface); color:var(--ink); border:var(--edge-bold) solid var(--line); border-radius:var(--r-lg); box-shadow:var(--hard); overflow:hidden;
+  background:var(--surface); color:var(--ink); border:var(--legacy-edge-bold-w) solid var(--line); border-radius:var(--r-lg); box-shadow:var(--shadow); overflow:hidden;
   transition:height var(--m-base) var(--ease-out, ease-out); }
 
 .onb-head { display:flex; align-items:center; gap:12px; padding:16px 20px 6px; }
@@ -57,7 +57,7 @@
 .onb-choice { position:relative; display:grid; align-content:start; gap:4px; padding:14px; text-align:left; border:2px solid var(--line-soft); border-radius:14px; background:var(--surface); color:var(--ink); font:inherit; min-width:0; }
 .onb-choice strong { font:600 14.5px/1.3 var(--display); overflow-wrap:anywhere; }
 .onb-choice small { color:var(--ink-soft); font-size:12.5px; line-height:1.5; }
-.onb-choice[aria-checked="true"] { border-color:var(--line); box-shadow:var(--hard-sm); }
+.onb-choice[aria-checked="true"] { border-color:var(--line); box-shadow:var(--shadow-sm); }
 .onb-choice:disabled { opacity:.7; cursor:default; }
 .onb-choice-icon { display:grid; place-items:center; width:36px; height:36px; margin-bottom:6px; border-radius:10px; background:var(--surface-2); color:var(--ink); }
 .onb-choice[aria-checked="true"] .onb-choice-icon { background:var(--clay); color:var(--on-block); }
@@ -78,7 +78,7 @@
 .onb-code { display:block; width:fit-content; max-width:100%; margin:8px auto 12px; padding:10px 20px; border:2px dashed var(--line-soft); border-radius:10px; background:var(--surface); font:700 26px/1.2 var(--mono); letter-spacing:.18em; user-select:all; overflow-wrap:anywhere; }
 .onb-code-actions { display:flex; align-items:center; justify-content:center; gap:10px 16px; flex-wrap:wrap; }
 
-.onb-connected { display:flex; align-items:center; gap:16px; margin-top:12px; padding:16px 18px; border:var(--edge-bold) solid var(--line); border-radius:16px; background:var(--surface-2); animation:onb-rise var(--m-panel-in) var(--ease-out, ease-out); }
+.onb-connected { display:flex; align-items:center; gap:16px; margin-top:12px; padding:16px 18px; border:var(--legacy-edge-bold-w) solid var(--line); border-radius:16px; background:var(--surface-2); animation:onb-rise var(--m-panel-in) var(--ease-out, ease-out); }
 .onb-connected strong { display:flex; align-items:center; gap:6px; font:700 17px/1.3 var(--display); }
 .onb-connected p { margin:3px 0 0; color:var(--ink-soft); font-size:13px; line-height:1.5; }
 .onb-connected-cat { --cat:72px; }
@@ -134,7 +134,7 @@
 .onb-seg { display:inline-flex; flex-wrap:wrap; gap:2px; max-width:100%; padding:3px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); }
 .onb-seg button { min-height:32px; padding:5px 12px; border:2px solid transparent; border-radius:9px; background:transparent; color:var(--muted); font:600 12px/1.2 var(--display); white-space:normal; }
 .onb-seg button:hover:not(:disabled) { color:var(--ink); }
-.onb-seg button[aria-checked="true"] { border-color:var(--line); background:var(--surface); color:var(--ink); box-shadow:var(--hard-sm); }
+.onb-seg button[aria-checked="true"] { border-color:var(--line); background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); }
 .onb-seg button:disabled { opacity:.5; cursor:default; }
 .onb-adv-rows { display:grid; margin-top:4px; }
 .onb-adv-row { display:flex; align-items:center; justify-content:space-between; gap:12px 16px; flex-wrap:wrap; padding:12px 14px; border-top:1px solid var(--line-soft); }
@@ -151,7 +151,7 @@
 .finish-chip-ring { flex:none; width:18px; height:18px; border-radius:50%; background:conic-gradient(var(--clay) calc(var(--done) * 1turn), var(--line-soft) 0); -webkit-mask:radial-gradient(circle, transparent 5px, black 5.5px); mask:radial-gradient(circle, transparent 5px, black 5.5px); }
 .finish-chip-label { flex:1; min-width:0; overflow-wrap:anywhere; }
 .finish-chip-count { flex:none; color:var(--muted); font:500 10.5px/1 var(--mono); }
-.model-banner { display:flex; align-items:center; gap:12px; box-sizing:border-box; max-width:var(--chat-max); margin:0 auto 10px; padding:10px 12px; border:2px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--honey) 16%, var(--surface)); box-shadow:var(--hard-sm); }
+.model-banner { display:flex; align-items:center; gap:12px; box-sizing:border-box; max-width:var(--chat-max); margin:0 auto 10px; padding:10px 12px; border:2px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--honey) 16%, var(--surface)); box-shadow:var(--shadow-sm); }
 .model-banner-cat { --cat:36px; }
 .model-banner-copy { flex:1; min-width:0; display:grid; gap:2px; }
 .model-banner-copy strong { font:600 13.5px/1.3 var(--display); overflow-wrap:anywhere; }

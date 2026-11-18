@@ -26,6 +26,7 @@ import "../progressive-blur.css";
 import "../context-card.css";
 import "../focus-ring.css";
 import "./mac-settings.css";
+import { applySkin } from "../skin/skin";
 
 // The desktop app picks the colour scheme before the page loads (--tofi-appearance); "system" follows the OS.
 // The workspace's own appearance hook is not used here: it reads page storage and calls workspace-only IPC.
@@ -33,8 +34,7 @@ const preference = window.tofiDesktop?.themePreference;
 const media = matchMedia("(prefers-color-scheme: dark)");
 const applyTheme = () => {
   const theme = preference === "light" || preference === "dark" ? preference : media.matches ? "dark" : "light";
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.colorScheme = theme;
+  applySkin(theme);
 };
 applyTheme();
 if (preference !== "light" && preference !== "dark") media.addEventListener("change", applyTheme);

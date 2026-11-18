@@ -7,6 +7,8 @@
 // - the event streams, sockets and popups the product opens go nowhere.
 // Isolated bundle: this file must never be imported by workspace code.
 
+import { applySkin } from "../skin/skin";
+
 /** A string unique to the catalog. scripts/test-catalog.mjs keeps it out of workspace bundles. */
 export const CATALOG_MARKER = "tofi-design-system-synthetic";
 
@@ -36,8 +38,7 @@ for (const name of ["localStorage", "sessionStorage"] as const) {
 // Read by i18n at module load and by the boot screen before the app applies its appearance.
 window.localStorage.setItem("tofi.language", frameParams.language);
 window.localStorage.setItem("tofi:appearance", frameParams.theme);
-document.documentElement.dataset.theme = frameParams.theme;
-document.documentElement.style.colorScheme = frameParams.theme;
+applySkin(frameParams.theme === "dark" ? "dark" : "light");
 
 export type Synthetic = (url: URL, init: RequestInit | undefined) => Response | Promise<Response>;
 let answer: Synthetic = () => json({});

@@ -28,7 +28,7 @@
 .workspace .work-create-kind button[aria-pressed="true"] {
   border: 2px solid var(--line);
   background: var(--clay);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--on-block);
 }
 .workspace .work-tabs button:focus-visible,
@@ -205,7 +205,7 @@
   border: 2px solid var(--line);
   border-radius: 16px;
   background: var(--surface-2);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
 }
 .workspace .work-create-kind { width: fit-content; max-width: 100%; flex-wrap: wrap; margin-bottom: 2px; }
 .workspace .work-create-kind button { padding: 7px 11px; }
@@ -235,7 +235,7 @@
   border: 2px solid var(--line);
   border-radius: 12px;
   background: var(--clay);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--on-block);
   font: 600 13px/1 var(--display);
 }

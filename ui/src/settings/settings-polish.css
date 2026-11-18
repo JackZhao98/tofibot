@@ -1,4 +1,4 @@
-/* Polish layer: one look for controls inside Settings, sheets and onboarding. Tokens only (design-tokens.css).
+/* Polish layer: one look for controls inside Settings, sheets and onboarding. Tokens only (src/skin/).
    Audited by scripts/test-settings-polish.mjs: no native-looking controls, 12px floor for text, 12px card inset.
    The settings pages' own look is in settings-components.css; what is left here also serves sheets and onboarding. */
 

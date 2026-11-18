@@ -1,4 +1,4 @@
-// The JS mirror of the motion vocabulary in design-tokens.css (--m-* durations, --ease-* curves). Web Animations
+// The JS mirror of the motion vocabulary in skin/structure.css (--m-* durations, --ease-* curves). Web Animations
 // callers take their numbers from here; scripts/test-motion-tokens.mjs fails if the two drift apart or if new
 // code brings in a duration or curve outside the vocabulary.
 export const MOTION = { instant: 80, press: 120, quick: 140, base: 220, panelIn: 280, panelOut: 180, flight: 640 } as const;

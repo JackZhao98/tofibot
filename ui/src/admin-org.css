@@ -1,4 +1,4 @@
-/* Administration: groups, organization resources, the Group column and the bulk bar. Tokens only (design-tokens.css). */
+/* Administration: groups, organization resources, the Group column and the bulk bar. Tokens only (src/skin/). */
 
 /* Accounts list: a checkbox, the open-account row, and the Group menu. The row stays one button; the menu sits beside it. */
 .admin-row-wrap{display:grid;grid-template-columns:32px minmax(0,1fr) 168px;align-items:center;min-width:0;padding-left:12px}

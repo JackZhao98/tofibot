@@ -1,5 +1,5 @@
 // Motion vocabulary guard.
-//  1. design-tokens.css defines the scale (instant 80, press 120, quick 140, base 220, panel-in 280, panel-out 180,
+//  1. skin/structure.css defines the scale (instant 80, press 120, quick 140, base 220, panel-in 280, panel-out 180,
 //     flight 640 ms; easings out/settle/spring/inout/in) and src/motion.ts mirrors it for Web Animations callers.
 //  2. Outside the tokens, a transition/animation may not carry a literal duration under 800 ms, a literal
 //     cubic-bezier() or a bare ease keyword, and TS/TSX may not carry a literal cubic-bezier() or an animate()
@@ -28,16 +28,16 @@ const failures = [];
 const fail = message => failures.push(message);
 
 // ---- 1. the scale itself
-const tokens = readFileSync(join(src, "design-tokens.css"), "utf8");
+const tokens = readFileSync(join(src, "skin/structure.css"), "utf8");
 const SCALE = { "m-instant": 80, "m-press": 120, "m-quick": 140, "m-base": 220, "m-panel-in": 280, "m-panel-out": 180, "m-flight": 640 };
 for (const [name, ms] of Object.entries(SCALE)) {
   const found = new RegExp(`--${name}:\\s*(\\d+)ms`).exec(tokens);
-  if (!found || Number(found[1]) !== ms) fail(`design-tokens.css: --${name} must be ${ms}ms (found ${found ? found[1] + "ms" : "none"})`);
+  if (!found || Number(found[1]) !== ms) fail(`skin/structure.css: --${name} must be ${ms}ms (found ${found ? found[1] + "ms" : "none"})`);
 }
 const CURVES = { out: ".22,1,.36,1", settle: ".2,.8,.2,1", spring: ".34,1.3,.64,1", inout: ".45,0,.2,1", in: ".5,0,.75,0" };
 for (const [name, curve] of Object.entries(CURVES)) {
   const found = new RegExp(`--ease-${name}:\\s*cubic-bezier\\(([^)]*)\\)`).exec(tokens);
-  if (!found || found[1].replace(/\s+/g, "") !== curve) fail(`design-tokens.css: --ease-${name} must be cubic-bezier(${curve})`);
+  if (!found || found[1].replace(/\s+/g, "") !== curve) fail(`skin/structure.css: --ease-${name} must be cubic-bezier(${curve})`);
 }
 const mirror = readFileSync(join(src, "motion.ts"), "utf8");
 const camel = { "m-instant": "instant", "m-press": "press", "m-quick": "quick", "m-base": "base", "m-panel-in": "panelIn", "m-panel-out": "panelOut", "m-flight": "flight" };
@@ -95,7 +95,7 @@ export function scriptViolations(text) {
   return count;
 }
 const counts = {};
-for (const file of tracked("*.css")) if (!skip(file) && file !== "design-tokens.css") { const n = cssViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
+for (const file of tracked("*.css")) if (!skip(file) && file !== "skin/structure.css") { const n = cssViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
 for (const file of [...tracked("*.ts"), ...tracked("*.tsx")]) if (!skip(file) && file !== "motion.ts" && !file.endsWith(".d.ts")) { const n = scriptViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")).files ?? {} : {};
 if (flag("--update-baseline")) {

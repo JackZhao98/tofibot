@@ -24,7 +24,7 @@
 :root .workspace .web-tool-toggle[aria-expanded="true"] .web-tool-chevron{rotate:90deg}
 :root .workspace .web-tool-drawer-inner{min-height:0;overflow:hidden;opacity:0;transform:translateY(-4px);transition:opacity var(--m-quick) var(--ease-settle),transform var(--m-panel-out) var(--ease-settle)}
 :root .workspace .web-tool-drawer.is-open .web-tool-drawer-inner{opacity:1;transform:translateY(0);transition:opacity var(--m-panel-in) var(--ease-out),transform var(--m-panel-in) var(--ease-out)}
-:root .workspace .web-tool-steps{display:grid;gap:2px;margin:8px 0 12px;padding:2px 0 2px 12px;border-left:var(--edge) solid var(--line-soft);list-style:none}
+:root .workspace .web-tool-steps{display:grid;gap:2px;margin:8px 0 12px;padding:2px 0 2px 12px;border-left:var(--legacy-edge-w) solid var(--line-soft);list-style:none}
 :root .workspace .web-tool-run.is-complete .web-tool-steps{margin:6px 0 0 12px}
 :root .workspace .web-tool-step{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:start;gap:8px;min-width:0;padding:4px 0;color:var(--ink-soft);font:var(--type-meta);animation:web-tool-step-in var(--m-panel-in) var(--ease-out) both}
 :root .workspace .web-tool-run.is-complete .web-tool-step{animation:none}

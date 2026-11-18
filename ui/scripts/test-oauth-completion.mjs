@@ -35,10 +35,10 @@ const assets = [];
 oauthAssetsPlugin().generateBundle.call({ emitFile: asset => assets.push(asset) });
 const css = assets.find(asset => asset.fileName === "oauth/connection.css").source;
 const script = assets.find(asset => asset.fileName === "oauth/connection.js").source;
-const tokens = readFileSync(new URL("../src/design-tokens.css", import.meta.url), "utf8");
-assert.equal(css, tokens + "\n" + readFileSync(new URL("../src/oauth/connection.css", import.meta.url), "utf8"));
+const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+assert.equal(css, read("skin/structure.css") + "\n" + read("skin/legacy.css") + "\n" + read("oauth/connection.css"));
 assert.doesNotMatch(css, /@import|https?:\/\//, "strict CSP assets have no external imports");
-assert.match(readFileSync(new URL("../src/interaction-system.css", import.meta.url), "utf8"), /^@import "\.\/design-tokens.css";/);
+assert.match(read("interaction-system.css"), /^@import "\.\/skin\/structure\.css";\n@import "\.\/skin\/legacy\.css";/);
 assert.match(css, /data-state="pending"[^}]+animation:/);
 assert.match(css, /prefers-reduced-motion: reduce/);
 

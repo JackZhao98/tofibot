@@ -1,5 +1,5 @@
 // Layer scale guard (docs/design/tokens.md §9.3-9.5, docs/design/migration.md step 1).
-//  1. design-tokens.css defines the 13 --z-* layers and src/layers.ts mirrors them as Z for TS callers.
+//  1. skin/structure.css defines the 13 --z-* layers and src/layers.ts mirrors them as Z for TS callers.
 //  2. In product CSS a z-index is var(--z-*), calc(var(--z-*) + 1 | - 1), or a local integer -1..3 inside a component's own
 //     stacking context. Older local values above 3 are a per-file ceiling in scripts/layers-baseline.json that can only
 //     shrink (npm run test:layers -- --update-baseline lowers it). TS/TSX never writes a literal z-index (use Z).
@@ -29,13 +29,13 @@ const passed = [];
 // ---- 1. the scale and its mirror
 export const SCALE = { base: 0, raised: 1, "edge-blur": 10, chrome: 20, pill: 30, panel: 40, popover: 50, menu: 60, cover: 70, dialog: 80, toast: 90, tooltip: 100, drag: 110 };
 const camel = name => name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-const tokens = readFileSync(join(src, "design-tokens.css"), "utf8");
+const tokens = readFileSync(join(src, "skin/structure.css"), "utf8");
 const defined = [...tokens.matchAll(/--z-([a-z-]+)\s*:\s*(-?\d+)\s*;/g)].map(m => [m[1], Number(m[2])]);
 for (const [name, value] of Object.entries(SCALE)) {
   const found = defined.filter(([n]) => n === name);
-  if (found.length !== 1 || found[0][1] !== value) fail(`design-tokens.css: --z-${name} must be defined once as ${value} (found ${found.map(f => f[1]).join(", ") || "none"})`);
+  if (found.length !== 1 || found[0][1] !== value) fail(`skin/structure.css: --z-${name} must be defined once as ${value} (found ${found.map(f => f[1]).join(", ") || "none"})`);
 }
-for (const [name] of defined) if (!(name in SCALE)) fail(`design-tokens.css: --z-${name} is not in the layer scale (docs/design/tokens.md §9.3)`);
+for (const [name] of defined) if (!(name in SCALE)) fail(`skin/structure.css: --z-${name} is not in the layer scale (docs/design/tokens.md §9.3)`);
 const mirror = existsSync(join(src, "layers.ts")) ? readFileSync(join(src, "layers.ts"), "utf8") : (fail("src/layers.ts is missing: it mirrors the scale as Z and owns layerRoot()"), "");
 for (const [name, value] of Object.entries(SCALE)) {
   const found = new RegExp(`\\b${camel(name)}:\\s*(-?\\d+)`).exec(mirror);
@@ -60,7 +60,7 @@ export function scriptViolations(text) {
   return [...code.matchAll(/\bzIndex\s*(?::|=)\s*["'`]?\s*-?\d|z-index\s*:\s*-?\d/g)].map(m => m[0]);
 }
 const counts = {};
-for (const file of tracked("*.css")) if (!skip(file) && file !== "design-tokens.css") { const n = cssViolations(readFileSync(join(src, file), "utf8")).length; if (n) counts[`src/${file}`] = n; }
+for (const file of tracked("*.css")) if (!skip(file) && file !== "skin/structure.css") { const n = cssViolations(readFileSync(join(src, file), "utf8")).length; if (n) counts[`src/${file}`] = n; }
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")).files ?? {} : {};
 if (flag("--update-baseline")) {
   const raised = Object.entries(counts).filter(([file, n]) => n > (baseline[file] ?? 0));

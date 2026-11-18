@@ -12,18 +12,18 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 /* Buttons — only primary actions have the chunky outline and offset shadow. */
 :is(.primary-button,.secondary-button) {
   display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  min-height:42px; padding:10px 16px; border:var(--edge) solid var(--line);
+  min-height:42px; padding:10px 16px; border:var(--legacy-edge-w) solid var(--line);
   border-radius:12px; font:600 14px/1.2 var(--display);
   transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out);
 }
 .primary-button,.extension-actions .primary-button {
-  color:var(--on-block); background:var(--yellow); box-shadow:var(--hard-sm);
+  color:var(--on-block); background:var(--yellow); box-shadow:var(--shadow-sm);
 }
 .primary-button:not(:disabled):hover,.extension-actions .primary-button:not(:disabled):hover {
   color:var(--on-block); background:color-mix(in srgb,var(--yellow) 88%,var(--surface));
 }
 .secondary-button {
-  color:var(--ink); background:var(--surface); box-shadow:var(--hard-sm);
+  color:var(--ink); background:var(--surface); box-shadow:var(--shadow-sm);
 }
 .secondary-button:not(:disabled):hover {
   background:var(--surface-2); color:var(--ink);
@@ -38,20 +38,20 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
   opacity:.45; box-shadow:none; color:var(--ink); cursor:not-allowed;
 }
 .delete-dialog-submit {
-  min-height:42px; border:var(--edge) solid var(--line); border-radius:12px;
-  background:var(--danger); color:var(--on-danger); box-shadow:var(--hard-sm);
+  min-height:42px; border:var(--legacy-edge-w) solid var(--line); border-radius:12px;
+  background:var(--danger); color:var(--on-danger); box-shadow:var(--shadow-sm);
   font:600 14px/1.2 var(--display);
 }
 .delete-dialog-submit:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink); background:var(--danger); }
 .delete-dialog-submit:not(:disabled):active { transform:translate(2px,3px); box-shadow:none; }
 .delete-dialog-submit:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .danger-link {
-  min-height:36px; padding:7px 12px; border:var(--edge) solid var(--danger);
+  min-height:36px; padding:7px 12px; border:var(--legacy-edge-w) solid var(--danger);
   border-radius:12px; color:var(--danger-text); background:transparent; box-shadow:none;
   font:600 13px/1.2 var(--display);
 }
 .danger-link:not(:disabled):hover { background:color-mix(in srgb,var(--danger) 10%,transparent); }
-.inline-confirmation .danger-link { color:var(--on-danger); background:var(--danger); border-color:var(--line); box-shadow:var(--hard-sm); }
+.inline-confirmation .danger-link { color:var(--on-danger); background:var(--danger); border-color:var(--line); box-shadow:var(--shadow-sm); }
 .danger-link:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 :is(.primary-button,.secondary-button):focus-visible,
 :is(.icon-button,.top-icon-button,.close-button,.text-button):focus-visible {
@@ -84,7 +84,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 }
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select):focus-visible {
   border-color:var(--line); background:var(--surface); outline:none;
-  box-shadow:var(--hard-sm); transform:translate(-1px,-1px);
+  box-shadow:var(--shadow-sm); transform:translate(-1px,-1px);
 }
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select)[aria-invalid="true"] {
   border-color:var(--danger); background:color-mix(in srgb,var(--danger) 8%,var(--sunk));
@@ -123,7 +123,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
   display:grid; grid-template-columns:36px minmax(0,1fr) 36px 40px;
   grid-template-rows:minmax(48px,auto) 40px; column-gap:4px; row-gap:0;
   min-height:64px; padding:10px 10px 10px 14px; border:2px solid var(--line);
-  border-radius:20px; background:var(--glass); box-shadow:var(--sheen),var(--hard);
+  border-radius:20px; background:var(--legacy-glass); box-shadow:var(--sheen),var(--shadow);
 }
 .workspace .composer .composer-input-wrap {
   grid-column:1/-1; grid-row:1; width:100%; padding:0 4px;
@@ -131,7 +131,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .workspace .composer-row>.dictation-button { grid-column:3; grid-row:2; }
 .workspace .composer-row>.send-button { grid-column:4; grid-row:2; }
 .workspace .composer .composer-row:has(:focus-visible) {
-  border-color:var(--line); box-shadow:var(--sheen),var(--hard);
+  border-color:var(--line); box-shadow:var(--sheen),var(--shadow);
 }
 .workspace .composer-row textarea,.workspace .composer-row textarea:focus,
 .workspace .composer-row textarea:hover {
@@ -149,7 +149,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .workspace .composer-row>.send-button {
   width:40px; height:40px; min-width:40px; flex-basis:40px; margin-left:4px;
   padding:0; border:2px solid var(--line); border-radius:14px;
-  background:var(--yellow); color:var(--on-block); box-shadow:var(--hard-sm);
+  background:var(--yellow); color:var(--on-block); box-shadow:var(--shadow-sm);
 }
 .workspace .composer-row>.send-button:not(:disabled):hover {
   background:color-mix(in srgb,var(--yellow) 88%,var(--surface)); color:var(--on-block);
@@ -181,8 +181,8 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 }
 :root[data-theme] :is(.archive-card,.memory-card,.schedule-card,.extension-card,.verification-card) strong { color:var(--ink); }
 .delete-dialog,.terminal-confirm>div {
-  border:var(--edge-bold) solid var(--line); border-radius:var(--r-lg);
-  background:var(--surface); box-shadow:var(--hard); color:var(--ink);
+  border:var(--legacy-edge-bold-w) solid var(--line); border-radius:var(--r-lg);
+  background:var(--surface); box-shadow:var(--shadow); color:var(--ink);
 }
 .view-only-message.is-user .view-only-message-bubble { color:var(--ink); }
 .segmented { background:var(--surface-2); border:1px solid var(--line-soft); border-radius:12px; }

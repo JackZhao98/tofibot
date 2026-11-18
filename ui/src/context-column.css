@@ -1,5 +1,5 @@
 /* Widgets in the column inside the chat (docs/design/widgets-and-sidebar.md). Loads with ContextCard, the lazy chunk that draws them.
-   A card is a filled surface with a soft elevation (--card-elevation, --card-lift in design-tokens.css): no outline, no hard
+   A card is a filled surface with a soft elevation (--card-elevation, --card-lift in skin/legacy.css): no outline, no hard
    offset shadow. Layout of the column itself (grid track, scrolling, enter/leave) is eager and lives in context-card.css. */
 
 .context-card { min-width:0; min-height:0; border-radius:14px; background:var(--surface); color:var(--ink); box-shadow:var(--card-elevation); overflow:clip; }

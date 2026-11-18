@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { readConversationRoute } from "./conversationRoute";
 import "./boot-screen.css";
+import { applySkin } from "./skin/skin";
 
 /*
  * One look for every wait before the workspace exists: the session check, the first
@@ -23,8 +24,7 @@ try {
   if (!root.dataset.theme) {
     const saved = localStorage.getItem("tofi:appearance");
     const dark = saved === "dark" || (saved !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-    root.dataset.theme = dark ? "dark" : "light";
-    root.style.colorScheme = dark ? "dark" : "light";
+    applySkin(dark ? "dark" : "light");
   }
 } catch { /* the default light tokens apply */ }
 

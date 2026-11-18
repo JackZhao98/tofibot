@@ -3,7 +3,7 @@
 .plan-dock{position:relative;z-index:2;box-sizing:border-box;width:100%;max-width:var(--chat-max);margin:0 auto var(--space-2);display:grid;gap:6px}
 .plan-dock-cards{display:grid;gap:6px;min-width:0}
 .plan-card-frame{min-width:0}
-.plan-card{box-sizing:border-box;min-width:0;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:var(--radius-lg);background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:var(--sheen);color:var(--text-body);font:var(--type-meta);overflow:hidden}
+.plan-card{box-sizing:border-box;min-width:0;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:var(--radius-lg);background:var(--legacy-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:var(--sheen);color:var(--text-body);font:var(--type-meta);overflow:hidden}
 .plan-card-head{margin:0;font:inherit}
 .plan-card-trigger{display:flex;align-items:center;gap:var(--space-2);box-sizing:border-box;width:100%;min-height:36px;margin:0;padding:6px var(--space-3);border:0;border-radius:inherit;background:none;color:var(--text-secondary);font:var(--type-meta);font-variant-numeric:tabular-nums;text-align:start;cursor:pointer}
 .plan-card-trigger:hover{color:var(--text-body)}
@@ -44,7 +44,7 @@
 .plan-steps li[data-state=pending] .plan-step-pictures img,.plan-steps li[data-state=not_done] .plan-step-pictures img{opacity:.72}
 /* The foot line: "+N more" and, in a group, the open to-dos. Frosted pills, since messages scroll behind the dock. */
 .plan-dock-foot{display:flex;align-items:center;gap:var(--space-2);min-width:0}
-.plan-dock-more,.plan-dock-tasks{box-sizing:border-box;min-height:28px;margin:0;padding:4px var(--space-3);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:999px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:var(--type-meta)}
+.plan-dock-more,.plan-dock-tasks{box-sizing:border-box;min-height:28px;margin:0;padding:4px var(--space-3);border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:999px;background:var(--legacy-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font:var(--type-meta)}
 .plan-dock-more{min-width:0;color:var(--text-process);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plan-dock-tasks{display:inline-flex;align-items:center;gap:6px;flex:none;margin-inline-start:auto;color:var(--text-secondary);font-variant-numeric:tabular-nums;cursor:pointer}
 .plan-dock-tasks:hover{color:var(--text-body)}

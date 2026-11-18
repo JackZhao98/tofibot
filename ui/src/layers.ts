@@ -1,7 +1,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-// The JS mirror of the layer scale in design-tokens.css (--z-* tokens, docs/design/tokens.md §9.3) and the one portal
+// The JS mirror of the layer scale in skin/structure.css (--z-* tokens, docs/design/tokens.md §9.3) and the one portal
 // root. scripts/test-layers.mjs fails if the two drift apart, if TS code writes a literal z-index or if an overlay is
 // portaled straight into document.body.
 export const Z = { base: 0, raised: 1, edgeBlur: 10, chrome: 20, pill: 30, panel: 40, popover: 50, menu: 60, cover: 70, dialog: 80, toast: 90, tooltip: 100, drag: 110 } as const;

@@ -15,7 +15,7 @@ function inspect(directory) {
     const name = relative(sourceRoot, path);
     readFileSync(path, "utf8").split("\n").forEach((line, index) => {
       const withoutMask = line.replace(/mask-image:[^;}]+/g, "");
-      if (name === "design-tokens.css" && /^\s*--/.test(withoutMask)) return;
+      if (name.startsWith("skin/") && /^\s*--/.test(withoutMask)) return;
       if (/#[\da-f]{3,8}\b|rgba?\(/i.test(withoutMask)) failures.push(`${name}:${index + 1}`);
     });
   }
