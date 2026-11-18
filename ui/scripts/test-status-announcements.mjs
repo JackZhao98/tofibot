@@ -67,11 +67,11 @@ try {
     "--types", "vite/client", "--resolveJsonModule", "true",
     "--outDir", out, "--skipLibCheck", "--declaration", "false", "--pretty", "false",
   ], { cwd: root });
-  const app = await readFile(join(out, "App.js"), "utf8");
+  const app = await readFile(join(out, "chat/RunActivity.js"), "utf8");
   const desktop = await readFile(join(out, "BotDesktopPanel.js"), "utf8");
-  assert((await readFile(join(root, "src/App.tsx"), "utf8")).includes("<RunStatusAnnouncement key={active.id}"), "conversation identity must remount the announcer");
+  assert((await readFile(join(root, "src/workspace/Workspace.tsx"), "utf8")).includes("<RunStatusAnnouncement key={active.id}"), "conversation identity must remount the announcer");
   assert((await readFile(join(root, "src/BotDesktopPanel.tsx"), "utf8")).includes("<DesktopStatusAnnouncement key={selectedBotId}"), "Bot identity must remount the announcer");
-  const runMount = () => mount(app, "RunStatusAnnouncement", "\nfunction WorkingMembers");
+  const runMount = () => mount(app, "RunStatusAnnouncement", "\nexport function WorkingMembers");
   const viewerMount = () => mount(desktop, "DesktopStatusAnnouncement", "\nexport function BotDesktopPanel");
   const botById = new Map([["bot-a", { name: "Alpha" }]]);
   const run = (id, status, conversation_id = "a") => ({ id, status, conversation_id, bot_id: "bot-a" });

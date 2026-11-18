@@ -59,7 +59,7 @@ try {
   // Exercise the actual compiled App connection callbacks, isolated from visual
   // components. This keeps delayed events/timers deterministic without claiming
   // to emulate the browser's HTTP connection pool.
-  const app = await readFile(join(out, "App.js"), "utf8");
+  const app = await readFile(join(out, "workspace/Workspace.js"), "utf8");
   function between(start, end) {
     const first = app.indexOf(start), last = app.indexOf(end, first);
     assert(first >= 0 && last > first, `locate App callback block: ${start}`);

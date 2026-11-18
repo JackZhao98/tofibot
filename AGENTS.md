@@ -555,6 +555,10 @@ path may assume one. `serveUIFile` (`internal/app/ui_static.go`) serves `/manife
 (`ui/src/installApp.ts`, listener started in `main.tsx`) or on iOS Safari (then `InstallSheet` explains Share > Add to Home Screen);
 nothing shows when already standalone. Some browsers do not offer install on a self-signed certificate (README, install options).
 
+# Web UI source layout (V3 PR 0.5)
+
+`ui/src/App.tsx` is the entry: `App` plus re-exports. The workspace (state, events, sidebar, chat pane and header, all still inline) is `ui/src/workspace/Workspace.tsx`. Chat pieces are in `ui/src/chat/`: `MessageBubble.tsx` (+ `MessageRow`), `Composer.tsx`, `RunActivity.tsx` (live run lines, tool activity), `shared.tsx`. Older notes below that say `App.tsx` mean `Workspace.tsx` unless they name a chat piece. Module order matters for the stylesheet cascade: `Workspace.tsx` keeps bare imports of modules that carry CSS but are used only by `chat/`; do not reorder or remove them.
+
 # Web UI layers
 
 One layer scale, in `ui/src/skin/structure.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10 (unused since the bottom blur was removed), `--z-chrome` 20, `--z-pill` 30,
