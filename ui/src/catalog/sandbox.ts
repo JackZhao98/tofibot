@@ -7,7 +7,8 @@
 // - the event streams, sockets and popups the product opens go nowhere.
 // Isolated bundle: this file must never be imported by workspace code.
 
-import { applySkin } from "../skin/skin";
+import { applySkin, DEFAULT_SKIN } from "../skin/skin";
+import { loadSkin, skinFromParam } from "../skin/sheets";
 
 /** A string unique to the catalog. scripts/test-catalog.mjs keeps it out of workspace bundles. */
 export const CATALOG_MARKER = "tofi-design-system-synthetic";
@@ -30,6 +31,8 @@ export const frameParams = {
   state: params.get("state") ?? "",
   theme: (params.get("theme") === "dark" ? "dark" : "light") as Theme,
   language: params.get("lng") ?? "en",
+  /** ?skin=legacy|v3|probe-a|probe-b. The default skin when absent. */
+  skin: skinFromParam(params.get("skin")) ?? DEFAULT_SKIN,
 };
 
 for (const name of ["localStorage", "sessionStorage"] as const) {
@@ -38,7 +41,10 @@ for (const name of ["localStorage", "sessionStorage"] as const) {
 // Read by i18n at module load and by the boot screen before the app applies its appearance.
 window.localStorage.setItem("tofi.language", frameParams.language);
 window.localStorage.setItem("tofi:appearance", frameParams.theme);
-applySkin(frameParams.theme === "dark" ? "dark" : "light");
+applySkin(frameParams.theme, DEFAULT_SKIN);
+/** Resolves once the frame's skin is in place. The entry waits for it before it renders. */
+export const skinReady: Promise<void> = frameParams.skin === DEFAULT_SKIN ? Promise.resolve()
+  : loadSkin(frameParams.skin).then(() => applySkin(frameParams.theme, frameParams.skin));
 
 export type Synthetic = (url: URL, init: RequestInit | undefined) => Response | Promise<Response>;
 let answer: Synthetic = () => json({});

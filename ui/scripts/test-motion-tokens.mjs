@@ -96,7 +96,7 @@ export function scriptViolations(text) {
 }
 const counts = {};
 for (const file of tracked("*.css")) if (!skip(file) && file !== "skin/structure.css") { const n = cssViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
-for (const file of [...tracked("*.ts"), ...tracked("*.tsx")]) if (!skip(file) && file !== "motion.ts" && !file.endsWith(".d.ts")) { const n = scriptViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
+for (const file of [...tracked("*.ts"), ...tracked("*.tsx")]) if (!skip(file) && file !== "motion.ts" && file !== "skin/tokens.ts" && !file.endsWith(".d.ts")) { const n = scriptViolations(readFileSync(join(src, file), "utf8")); if (n) counts[`src/${file}`] = n; }
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")).files ?? {} : {};
 if (flag("--update-baseline")) {
   const raised = Object.entries(counts).filter(([file, n]) => n > (baseline[file] ?? 0));

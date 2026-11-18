@@ -1,0 +1,494 @@
+{
+  "name": "Tofi Bot Design System V3 (the Tofi skin source)",
+  "version": "3.0",
+  "note": "The one source of the V3 skin. L0 primitives are never emitted as CSS. A value is {primitive.path}, a literal, or var(--role). Edit this file, run `npm --prefix ui run build:skin`, commit the generated files.",
+  "primitives": {
+    "paper": {
+      "50": "#fefdfb",
+      "100": "#f8f5ef",
+      "200": "#eee9e1",
+      "300": "#e7e2d7",
+      "400": "#dcd5c8",
+      "500": "#c6beaf",
+      "600": "#8b8271"
+    },
+    "ink": {
+      "700": "#625a4f",
+      "800": "#403932",
+      "900": "#151310",
+      "950": "#211d19"
+    },
+    "night": {
+      "100": "#f2ede4",
+      "300": "#cfc8bb",
+      "500": "#a49b8f",
+      "600": "#746c63",
+      "700": "#39342f",
+      "750": "#2a2622",
+      "800": "#25221e",
+      "850": "#1b1916",
+      "900": "#110f0d",
+      "950": "#0a0908"
+    },
+    "blue": {
+      "100": "#dce0f4",
+      "500": "#5a6ef2",
+      "600": "#3b52d1",
+      "800": "#3e425b"
+    },
+    "hue": {
+      "tomato": {
+        "fill": "#f0603e",
+        "text": "#b03a1c",
+        "fillDark": "#ff8460",
+        "textDark": "#ff9b7c"
+      },
+      "mustard": {
+        "fill": "#f2b431",
+        "text": "#7f5500",
+        "fillDark": "#ffc94a",
+        "textDark": "#ffd36e"
+      },
+      "teal": {
+        "fill": "#2ea58f",
+        "text": "#0f6b5b",
+        "fillDark": "#45c4ac",
+        "textDark": "#6fd8c3"
+      },
+      "lime": {
+        "fill": "#86c95e",
+        "text": "#346a1b",
+        "fillDark": "#9ad874",
+        "textDark": "#ace38c"
+      },
+      "grape": {
+        "fill": "#b48cf2",
+        "text": "#6a3fbf",
+        "fillDark": "#c9a6ff",
+        "textDark": "#d4b8ff"
+      },
+      "cobalt": {
+        "fill": "#7b8fff",
+        "text": "#2f47c4",
+        "fillDark": "#93a4ff",
+        "textDark": "#aab8ff"
+      },
+      "danger": {
+        "fill": "#a8231a",
+        "text": "#a8231a",
+        "fillDark": "#bb3338",
+        "textDark": "#ff8d8a"
+      }
+    }
+  },
+  "themes": {
+    "light": {
+      "bg": "{paper.200}",
+      "surface": "{paper.100}",
+      "surface-2": "{paper.300}",
+      "sunk": "{paper.400}",
+      "ink": "{ink.900}",
+      "ink-soft": "{ink.800}",
+      "muted": "{ink.700}",
+      "edge": "{paper.600}",
+      "line": "{paper.500}",
+      "tomato": "{hue.tomato.fill}",
+      "tomato-text": "{hue.tomato.text}",
+      "mustard": "{hue.mustard.fill}",
+      "mustard-text": "{hue.mustard.text}",
+      "teal": "{hue.teal.fill}",
+      "teal-text": "{hue.teal.text}",
+      "lime": "{hue.lime.fill}",
+      "lime-text": "{hue.lime.text}",
+      "grape": "{hue.grape.fill}",
+      "grape-text": "{hue.grape.text}",
+      "cobalt": "{hue.cobalt.fill}",
+      "cobalt-text": "{hue.cobalt.text}",
+      "danger": "{hue.danger.fill}",
+      "danger-text": "{hue.danger.text}",
+      "on-block": "{ink.900}",
+      "on-danger": "{paper.100}",
+      "focus": "{hue.cobalt.text}",
+      "accent": "var(--tomato)",
+      "status-working": "var(--teal)",
+      "status-done": "var(--lime)",
+      "status-unread": "var(--mustard)",
+      "status-needs": "var(--grape)",
+      "status-error": "var(--danger)",
+      "link": "var(--cobalt-text)",
+      "bubble-user": "{blue.100}",
+      "bubble-bot": "{paper.300}",
+      "you": "{blue.600}",
+      "code-bg": "{ink.950}",
+      "code-ink": "{paper.200}",
+      "bezel": "{ink.950}",
+      "device-idle": "#4a4641",
+      "tooltip-bg": "{ink.900}",
+      "tooltip-ink": "{paper.100}",
+      "logo-tile": "{paper.50}",
+      "glass": "rgba(248,245,239,.66)",
+      "glass-strong": "rgba(248,245,239,.86)",
+      "scrim": "rgba(21,19,16,.42)",
+      "dot": "rgba(21,19,16,.17)",
+      "hover": "rgba(21,19,16,.06)",
+      "shadow-sm": "0 1px 2px rgba(23,18,13,.08)",
+      "shadow": "0 1px 0 rgba(23,18,13,.06), 0 10px 28px -10px rgba(23,18,13,.28)",
+      "shadow-lg": "0 1px 0 rgba(23,18,13,.06), 0 18px 44px -12px rgba(23,18,13,.34)",
+      "field-inset": "inset 0 1px 2px rgba(23,18,13,.08)",
+      "hard": "3px 4px 0 var(--ink)",
+      "hard-sm": "2px 3px 0 var(--ink)",
+      "note-mix": "15%",
+      "note-glue": "linear-gradient(to bottom, rgba(40, 30, 10, .05), transparent 14px)",
+      "note-lift": "0 1px 1px rgba(40, 30, 10, .06), 0 12px 14px -12px rgba(40, 30, 10, .42)",
+      "note-plan": "color-mix(in srgb, var(--mustard) 15%, var(--surface))",
+      "note-task": "color-mix(in srgb, var(--teal) 15%, var(--surface))",
+      "note-ask": "color-mix(in srgb, var(--grape) 15%, var(--surface))",
+      "note-info": "color-mix(in srgb, var(--ink) 3%, var(--surface))",
+      "letter-paper": "#fffdf8",
+      "letter-rule": "#ece2cf",
+      "hl-mix": "45%",
+      "mark-strike": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M1 10.9C50 9.8 120 10.1 199 9.5Q200.4 9.8 199 10.1C120 11.5 50 11.7 1 11.9Q-.2 11.4 1 10.9Z' fill='%23cfc8bb' fill-opacity='.6'/%3E%3C/svg%3E\")",
+      "mark-strike-2": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M1 10.2C60 10.3 130 10.6 199 11.1Q200.4 11.4 199 11.7C130 12 60 11.9 1 11.6Q-.3 10.9 1 10.2Z' fill='%23cfc8bb' fill-opacity='.6'/%3E%3C/svg%3E\")"
+    },
+    "dark": {
+      "bg": "{night.900}",
+      "surface": "{night.850}",
+      "surface-2": "{night.800}",
+      "sunk": "{night.950}",
+      "ink": "{night.100}",
+      "ink-soft": "{night.300}",
+      "muted": "{night.500}",
+      "edge": "{night.600}",
+      "line": "{night.700}",
+      "tomato": "{hue.tomato.fillDark}",
+      "tomato-text": "{hue.tomato.textDark}",
+      "mustard": "{hue.mustard.fillDark}",
+      "mustard-text": "{hue.mustard.textDark}",
+      "teal": "{hue.teal.fillDark}",
+      "teal-text": "{hue.teal.textDark}",
+      "lime": "{hue.lime.fillDark}",
+      "lime-text": "{hue.lime.textDark}",
+      "grape": "{hue.grape.fillDark}",
+      "grape-text": "{hue.grape.textDark}",
+      "cobalt": "{hue.cobalt.fillDark}",
+      "cobalt-text": "{hue.cobalt.textDark}",
+      "danger": "{hue.danger.fillDark}",
+      "danger-text": "{hue.danger.textDark}",
+      "on-block": "{ink.900}",
+      "on-danger": "{night.100}",
+      "focus": "{hue.cobalt.textDark}",
+      "accent": "var(--tomato)",
+      "status-working": "var(--teal)",
+      "status-done": "var(--lime)",
+      "status-unread": "var(--mustard)",
+      "status-needs": "var(--grape)",
+      "status-error": "var(--danger)",
+      "link": "var(--cobalt-text)",
+      "bubble-user": "{blue.800}",
+      "bubble-bot": "{night.800}",
+      "you": "{blue.500}",
+      "code-bg": "{night.950}",
+      "code-ink": "{paper.200}",
+      "bezel": "{night.750}",
+      "device-idle": "#3d3934",
+      "tooltip-bg": "{night.100}",
+      "tooltip-ink": "{ink.900}",
+      "logo-tile": "{night.100}",
+      "glass": "rgba(27,25,22,.62)",
+      "glass-strong": "rgba(27,25,22,.84)",
+      "scrim": "rgba(0,0,0,.58)",
+      "dot": "rgba(242,237,228,.11)",
+      "hover": "rgba(242,237,228,.07)",
+      "shadow-sm": "0 1px 2px rgba(0,0,0,.4)",
+      "shadow": "0 10px 28px -8px rgba(0,0,0,.6)",
+      "shadow-lg": "0 18px 44px -10px rgba(0,0,0,.7)",
+      "field-inset": "inset 0 1px 2px rgba(0,0,0,.45)",
+      "hard": "3px 4px 0 #000",
+      "hard-sm": "2px 3px 0 #000",
+      "note-mix": "12%",
+      "note-glue": "linear-gradient(to bottom, rgba(255, 255, 255, .04), transparent 14px)",
+      "note-lift": "0 1px 1px rgba(0, 0, 0, .3), 0 12px 14px -12px rgba(0, 0, 0, .8)",
+      "note-plan": "color-mix(in srgb, var(--mustard) 12%, var(--surface))",
+      "note-task": "color-mix(in srgb, var(--teal) 12%, var(--surface))",
+      "note-ask": "color-mix(in srgb, var(--grape) 12%, var(--surface))",
+      "note-info": "color-mix(in srgb, var(--ink) 4%, var(--surface))",
+      "letter-paper": "#f6efe1",
+      "letter-rule": "#e2d6bf",
+      "hl-mix": "32%",
+      "mark-strike": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M1 10.9C50 9.8 120 10.1 199 9.5Q200.4 9.8 199 10.1C120 11.5 50 11.7 1 11.9Q-.2 11.4 1 10.9Z' fill='%23cfc8bb' fill-opacity='.6'/%3E%3C/svg%3E\")",
+      "mark-strike-2": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M1 10.2C60 10.3 130 10.6 199 11.1Q200.4 11.4 199 11.7C130 12 60 11.9 1 11.6Q-.3 10.9 1 10.2Z' fill='%23cfc8bb' fill-opacity='.6'/%3E%3C/svg%3E\")"
+    }
+  },
+  "common": {
+    "roles": {
+      "font-display": "\"Bricolage Grotesque\", \"PingFang SC\", \"HarmonyOS Sans SC\", system-ui, sans-serif",
+      "font-body": "\"PingFang SC\", \"HarmonyOS Sans SC\", -apple-system, system-ui, sans-serif",
+      "font-mono": "\"JetBrains Mono\", ui-monospace, monospace",
+      "radius-xs": "4px",
+      "radius-sm": "8px",
+      "radius-md": "12px",
+      "radius-lg": "16px",
+      "radius-bubble": "18px",
+      "radius-bubble-joined": "6px",
+      "radius-pill": "999px",
+      "glass-blur": "blur(22px) saturate(1.5)",
+      "edge-bold": "2px",
+      "dot-grid": "radial-gradient(circle at 1px 1px, var(--dot) 1.05px, transparent 1.35px)",
+      "dot-step": "20px",
+      "pbt-ramp": "36px",
+      "pbt-blur-1": "4px",
+      "pbt-blur-2": "14px",
+      "pbt-tint": "45%",
+      "bot-tint": "16%",
+      "bot-edge": "34%",
+      "driver-track": "rgba(21, 19, 16, .16)",
+      "driver-track-you": "rgba(255, 255, 255, .2)",
+      "driver-thumb": "#fffdf8",
+      "driver-thumb-shadow": "0 1px 2px rgba(21, 19, 16, .25)",
+      "letter-ink": "#2a2019",
+      "letter-soft": "#54473a",
+      "letter-mute": "#8a7a66",
+      "letter-air-a": "#d9562a",
+      "letter-air-b": "#4f789d",
+      "syn-kw": "#c9a6ff",
+      "syn-str": "#a8db86",
+      "syn-num": "#ffc94a",
+      "syn-com": "#8f8577",
+      "syn-fn": "#9fb0ff",
+      "strike": "color-mix(in srgb, var(--ink-soft) 60%, transparent)",
+      "stamp-tilt": "-2deg",
+      "mark-tick": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 18'%3E%3Cpath d='M3.5 9.1L7.3 12.5Q12 7.9 18 1.8Q18.8 1.6 18.4 2.2Q13.2 9.5 7.3 15.2Q4.6 12.9 2.5 10.1Q2.3 9.2 3.5 9.1Z'/%3E%3C/svg%3E\")",
+      "mark-cross": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-linecap='round'%3E%3Cpath d='M4.4 4.8Q8.1 7.5 11.6 11.4' stroke-width='2.2'/%3E%3Cpath d='M11.5 4.2Q8.2 8.5 4.8 11.8' stroke-width='1.7'/%3E%3C/svg%3E\")"
+    },
+    "structure": [
+      {
+        "id": "space",
+        "note": "Spacing steps (V3.0: 4 8 12 16 22 28 40).",
+        "tokens": {
+          "space-1": "4px",
+          "space-2": "8px",
+          "space-3": "12px",
+          "space-4": "16px",
+          "space-5": "22px",
+          "space-6": "28px",
+          "space-7": "40px"
+        }
+      },
+      {
+        "id": "border",
+        "note": "Border widths.",
+        "tokens": {
+          "border-1": "1px",
+          "border-2": "2px",
+          "border-3": "3px"
+        }
+      },
+      {
+        "id": "focus",
+        "note": "Focus ring. --focus-ring-* are the V2 names, --focus-* the V3.0 names; both exist until the flip.",
+        "tokens": {
+          "focus-ring-width": "2px",
+          "focus-ring-offset": "3px",
+          "focus-width": "2px",
+          "focus-offset": "2px"
+        }
+      },
+      {
+        "id": "type",
+        "note": "Type scale of V2 (reads the V2 font names; V3 type styles arrive with the kit).",
+        "tokens": {
+          "type-hero": "700 40px/1.05 var(--display)",
+          "type-title": "700 20px/1.2 var(--display)",
+          "type-button": "600 14px/1 var(--display)",
+          "type-body": "400 15px/1.6 var(--body)",
+          "type-row-title": "600 14px/1.4 var(--body)",
+          "type-meta": "400 13px/1.5 var(--body)",
+          "type-label": "600 10px/1.2 var(--mono)",
+          "label-tracking": ".14em",
+          "type-status": "600 11px/1.4 var(--mono)",
+          "type-status-regular": "400 11px/1.4 var(--mono)",
+          "type-code": "400 13px/1.6 var(--mono)"
+        }
+      },
+      {
+        "id": "motion",
+        "note": "Motion vocabulary (one scale; the guard is scripts/test-motion-tokens.mjs, the JS mirror is motion.ts and the generated tokens.ts).\nDurations: instant = hover fades, press = pressed feedback, quick = toggles, tooltips and fades, base = arrivals, disclosures and glides, panel-in and panel-out = panels, drawers, dialogs and page pushes (leaving is about 35% shorter), flight = the send flight only.\nEasings: out = default, settle = exits, spring = the one small-object bounce (never layout), inout = travelling things, in = things that leave for good, pop = popups (a fast start that settles softly), pen = the tick stroke, stamp = the approval stamp.\nArrival and mark timings run once, when a state changes.",
+        "tokens": {
+          "ease-press": "var(--m-press)",
+          "m-instant": "80ms",
+          "m-press": "120ms",
+          "m-quick": "140ms",
+          "m-base": "220ms",
+          "m-panel-in": "280ms",
+          "m-panel-out": "180ms",
+          "m-flight": "640ms",
+          "ease-out": "cubic-bezier(.22,1,.36,1)",
+          "ease-settle": "cubic-bezier(.2,.8,.2,1)",
+          "ease-spring": "cubic-bezier(.34,1.3,.64,1)",
+          "ease-inout": "cubic-bezier(.45,0,.2,1)",
+          "ease-in": "cubic-bezier(.5,0,.75,0)",
+          "ease-pop": "cubic-bezier(.16,1,.3,1)",
+          "m-pop-in": "180ms",
+          "m-pop-out": "120ms",
+          "ease-pen": "cubic-bezier(.3, .7, .2, 1)",
+          "ease-stamp": "cubic-bezier(.34, 1.4, .64, 1)",
+          "m-arrive": "220ms",
+          "m-arrive-reduced": "120ms",
+          "m-mark-fill": "120ms",
+          "m-mark-tick": "240ms",
+          "m-mark-strike": "280ms",
+          "m-mark-strike-delay": "120ms",
+          "m-mark-hl": "340ms",
+          "m-mark-hl-delay": "160ms",
+          "m-mark-stamp": "240ms"
+        }
+      },
+      {
+        "id": "layout",
+        "note": "Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until the flip; see changes.",
+        "tokens": {
+          "chat-max": "760px",
+          "sidebar-width": "272px",
+          "sidebar-collapsed": "72px",
+          "settings-rail": "216px",
+          "settings-content": "760px",
+          "window-w": "min(1180px,calc(100vw - 48px),88vw)",
+          "window-w-cover": "min(880px,calc(100vw - 48px),88vw)",
+          "window-w-cover-wide": "min(1080px,calc(100vw - 48px),88vw)",
+          "window-h": "min(760px,calc(100dvh - 48px),86dvh)"
+        }
+      },
+      {
+        "id": "z",
+        "note": "Layer scale (the guard is scripts/test-layers.mjs, the JS mirror is layers.ts and the generated tokens.ts). Global layers are only for things placed against the viewport (position:fixed or portaled into #tofi-layers); stacking inside a component uses its own stacking context and the local integers -1..3. One step between neighbours is reserved for calc(var(--z-*) +/- 1).",
+        "tokens": {
+          "z-base": "0",
+          "z-raised": "1",
+          "z-edge-blur": "10",
+          "z-chrome": "20",
+          "z-pill": "30",
+          "z-panel": "40",
+          "z-popover": "50",
+          "z-menu": "60",
+          "z-cover": "70",
+          "z-dialog": "80",
+          "z-toast": "90",
+          "z-tooltip": "100",
+          "z-drag": "110"
+        }
+      },
+      {
+        "id": "panel",
+        "note": "Widget column and sidebar panels (context-card.css).",
+        "tokens": {
+          "panel-gap": "12px",
+          "widget-bleed-l": "44px",
+          "widget-bleed-r": "16px",
+          "widget-bleed-b": "16px"
+        }
+      },
+      {
+        "id": "sender",
+        "note": "Message sender groups (sender-groups.css).",
+        "tokens": {
+          "sender-avatar": "34px",
+          "sender-gap": "10px",
+          "sender-gutter": "calc(var(--sender-avatar) + var(--sender-gap))",
+          "sender-caption": "21px"
+        }
+      },
+      {
+        "id": "shell",
+        "note": "Shell widths (v2-app.css).",
+        "tokens": {
+          "v2-sidebar-width": "272px",
+          "v2-chat-width": "760px"
+        }
+      }
+    ],
+    "properties": [
+      {
+        "name": "--paint-r",
+        "syntax": "<length>",
+        "inherits": false,
+        "initial": "0px",
+        "note": "The avatar picker's paint reveal animates this (BotAvatarPicker.tsx). Registered here, not in the picker's lazy CSS: an @property rule arriving with a chunk restyles every element on the page."
+      }
+    ]
+  },
+  "scopes": {
+    "letter": {
+      "selector": ":is(.tb-letter, .tb-env.is-lifted)",
+      "note": "The Letter and the lifted envelope stay light paper in dark mode (bundle.css:816).",
+      "values": {
+        "ink": "#151310",
+        "ink-soft": "#403932",
+        "muted": "#625a4f",
+        "surface": "#f8f5ef",
+        "surface-2": "#e7e2d7",
+        "sunk": "#dcd5c8",
+        "line": "#c6beaf",
+        "edge": "#8b8271",
+        "hover": "rgba(21, 19, 16, .06)",
+        "on-block": "#151310",
+        "tomato-text": "#b03a1c",
+        "mustard-text": "#7f5500"
+      }
+    }
+  },
+  "fonts": {
+    "display": {
+      "family": "Bricolage Grotesque",
+      "license": "OFL-1.1",
+      "files": [
+        "bricolage-grotesque-latin.woff2",
+        "bricolage-grotesque-latin-ext.woff2"
+      ],
+      "status": "Self-hosted in fonts.css: optical size and weight axes, as V3.0 loads them."
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "license": "OFL-1.1",
+      "files": [
+        "jetbrains-mono-400.woff2",
+        "jetbrains-mono-600.woff2"
+      ],
+      "status": "Already self-hosted in fonts.css."
+    }
+  },
+  "fallbacks": {
+    "noBackdropFilter": {
+      "glass": "var(--glass-strong)"
+    },
+    "reducedTransparency": {
+      "glass": "var(--surface)",
+      "glass-strong": "var(--surface)",
+      "glass-blur": "none",
+      "pbt-blur-1": "0px",
+      "pbt-blur-2": "0px",
+      "pbt-tint": "100%"
+    },
+    "forcedColors": {
+      "bg": "Canvas",
+      "surface": "Canvas",
+      "surface-2": "Canvas",
+      "sunk": "Canvas",
+      "ink": "CanvasText",
+      "ink-soft": "CanvasText",
+      "muted": "CanvasText",
+      "edge": "ButtonText",
+      "line": "ButtonText",
+      "focus": "Highlight",
+      "accent": "Highlight",
+      "link": "LinkText"
+    }
+  },
+  "changes": [
+    {
+      "names": [
+        "settings-rail"
+      ],
+      "note": "Kept at 216px, the V2 width. V3.0 draws 232px. Decide at the flip (PLAN 9.3, PR 1.1); until then the legacy skin must not move."
+    }
+  ]
+}

@@ -77,8 +77,9 @@ The Web app also keeps its own notices:
 |---|---|---|---|
 | Fredoka (Latin subset of the variable font, modified) | see `ui/THIRD_PARTY_NOTICES.md` | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/fredoka |
 | JetBrains Mono (Regular and SemiBold, unmodified) | 2.304 | SIL OFL 1.1 | https://github.com/JetBrains/JetBrainsMono |
+| Bricolage Grotesque (Latin and Latin Extended, optical size and weight axes, unmodified) | Fontsource 5.3.0 | SIL OFL 1.1 | https://github.com/ateliertriay/bricolage |
 
-Font files are in `ui/src/assets/fonts`. The full OFL texts are in [`ui/public/licenses/fredoka-OFL.txt`](ui/public/licenses/fredoka-OFL.txt), [`ui/public/licenses/jetbrains-mono-OFL.txt`](ui/public/licenses/jetbrains-mono-OFL.txt) and [`assets/OFL-Fredoka.txt`](assets/OFL-Fredoka.txt). The Web app ships no CJK font.
+Font files are in `ui/src/assets/fonts`. The full OFL texts are in [`ui/public/licenses/fredoka-OFL.txt`](ui/public/licenses/fredoka-OFL.txt), [`ui/public/licenses/jetbrains-mono-OFL.txt`](ui/public/licenses/jetbrains-mono-OFL.txt), [`ui/public/licenses/bricolage-grotesque-OFL.txt`](ui/public/licenses/bricolage-grotesque-OFL.txt) and [`assets/OFL-Fredoka.txt`](assets/OFL-Fredoka.txt). The Web app ships no CJK font.
 
 ### Brand and icon assets
 

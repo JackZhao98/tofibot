@@ -1,0 +1,71 @@
+{
+  "account-menu.css": {
+    "blur": 2
+  },
+  "approval-card.css": {
+    "color": 2
+  },
+  "boot-screen.css": {
+    "blur": 6
+  },
+  "catalog/catalog.css": {
+    "font": 1
+  },
+  "catalog/world.ts": {
+    "svgPaint": 4
+  },
+  "cover-shell.css": {
+    "blur": 2
+  },
+  "desktop-presence.css": {
+    "blur": 2
+  },
+  "desktop-shell.css": {
+    "blur": 2
+  },
+  "extensions-system.css": {
+    "blur": 2
+  },
+  "file-preview.css": {
+    "blur": 2
+  },
+  "handover.css": {
+    "blur": 2
+  },
+  "interaction-system.css": {
+    "blur": 4
+  },
+  "message-attachment.css": {
+    "blur": 2
+  },
+  "message-reactions.css": {
+    "font": 2
+  },
+  "new-group.css": {
+    "blur": 2
+  },
+  "onboarding.css": {
+    "blur": 2
+  },
+  "provider-settings.css": {
+    "font": 2
+  },
+  "settings-system.css": {
+    "blur": 4
+  },
+  "settings/settings-components.css": {
+    "blur": 2
+  },
+  "styles.css": {
+    "font": 5
+  },
+  "terminal.css": {
+    "blur": 2
+  },
+  "TerminalScreen.tsx": {
+    "font": 1
+  },
+  "web-tools-settings.css": {
+    "font": 1
+  }
+}

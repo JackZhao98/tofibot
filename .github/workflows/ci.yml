@@ -59,6 +59,10 @@ jobs:
       - run: npm --prefix ui run test:i18n
       - run: npm --prefix ui run test:motion-tokens
       - run: npm --prefix ui run test:final-v2-tokens
+      # The V3 skin: generated files equal the source and V3.0, contrast pairs hold, no new hard-coded colour, font or blur.
+      - run: npm --prefix ui run test:skin-sync
+      - run: npm --prefix ui run test:skin-contrast
+      - run: npm --prefix ui run test:skin-palette
       - run: npm --prefix ui run test:avatar-lib
       - run: npm --prefix ui run build
       - run: npm --prefix ui run test:lazy-css

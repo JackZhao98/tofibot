@@ -1,7 +1,7 @@
 // The isolated Design System bundle. Never imported by the workspace.
 // The sandbox must evaluate before any product module (it replaces storage and the network): keep it the first import.
 import "../cascade.css";
-import { CATALOG_MARKER, frameParams } from "./sandbox";
+import { CATALOG_MARKER, frameParams, skinReady } from "./sandbox";
 import { mountFrame } from "./Frame";
 // The product's global stylesheets, in the order src/main.tsx imports them (scripts/test-catalog.mjs keeps the two
 // lists equal), so the cascade in a frame is the cascade in the app.
@@ -36,7 +36,7 @@ import { Shell, catalogIndex } from "./Shell";
 // The marker comes first so that any bundle containing this entry carries it (scripts/test-catalog.mjs looks for it).
 document.documentElement.dataset.catalog = CATALOG_MARKER;
 
-void i18nReady.finally(() => {
+void Promise.allSettled([i18nReady, skinReady]).then(() => {
   if (frameParams.section) {
     const section = SECTIONS.find(item => item.id === frameParams.section);
     if (!section) throw new Error(`catalog: no section ${frameParams.section}`);

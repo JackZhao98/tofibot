@@ -200,6 +200,15 @@ add their own styles on top; a thing used in many places is defined once.
   caret, the default field look, the default focus ring). Third-party CSS goes through `ui/src/vendor/` into `vendor`.
   Every V2 product sheet is wrapped in `legacy` until its surface is rebuilt. V3 kit styles are not in a layer, and a
   style outside a layer always wins over every layer, whatever its specificity or load order.
+- The V3 skin has one source: `ui/src/skin/v3.tokens.json` (primitives, roles per theme, structure tokens, `changes[]`).
+  `npm --prefix ui run build:skin` writes `skin/v3.css`, `skin/structure.css`, `skin/tokens.ts` and the two probe skins;
+  never edit them by hand. `v3` is not the default yet (`DEFAULT_SKIN` stays `legacy`). It is a lazy sheet
+  (`skin/sheets.ts`), reachable from the catalog (the Skin switch, `?skin=`) and, in a dev build only, with `?skin=v3`;
+  `devSkin()` is a compile-time constant, so a production bundle never loads it. Component roles (`--c-*`) go in
+  hand-written `skin/roles.css`, each with its first use. Guards: `test:skin-sync` (generated files equal a fresh build, values
+  equal `ui/test-fixtures/design/v3.0/` unless `changes[]` names them, today's structure values unchanged), `test:skin-contrast`,
+  and `test:skin-palette` (a ratchet of literal colours, fonts and blur lengths outside `skin/`, baseline in
+  `ui/scripts/skin-palette-baseline.json`; it replaces `test:v2-palette`).
 - Rules that must force a result stay outside the layers on purpose, in `ui/src/forced.css`: the global reduced-motion
   rule and the reduced-motion `!important` rules of long-lived sheets, the iOS 16 px input size, every `app-region`
   declaration; `ui/src/forced-focus.css` holds the pointer-modality ring rule. Do not add `!important` in `legacy`: a

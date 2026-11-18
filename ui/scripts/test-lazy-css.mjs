@@ -17,6 +17,10 @@ for (const page of readdirSync(dist).filter(name => name.endsWith(".html"))) {
   for (const [, href] of readFileSync(join(dist, page), "utf8").matchAll(/<link[^>]+href="\/?assets\/([^"]+\.css)"/g)) eager.add(href);
 }
 const lazy = readdirSync(join(dist, "assets")).filter(name => name.endsWith(".css") && !eager.has(name));
+// A non-default skin is a lazy sheet on purpose (V3 PLAN 7.4): its whole point is to restyle the page once, on the person's
+// action (skin/sheets.ts loads it, then data-skin flips in one frame). Only these named, generated sheets (skin/v3.css and the
+// two probe skins; Vite hashes the file name) may carry :root custom properties. The layer order below still applies to them.
+const SKIN_SHEETS = /^(?:v3|probe-a|probe-b)-[\w-]+\.css$/;
 
 /** Style rules as [selector, body] at any depth (inside @media, @supports, @layer), plus the at-rule preludes. */
 function rules(css) {
@@ -45,6 +49,7 @@ const ROOT_ONLY = /^(?::root|html)(?:\[[^\]]*\]|:root|:not\([^)]*\)|:where\([^)]
 
 const problems = [];
 for (const file of lazy) {
+  if (SKIN_SHEETS.test(file)) continue;
   const { out, atRules } = rules(readFileSync(join(dist, "assets", file), "utf8"));
   for (const at of atRules) if (/^@property\b/.test(at)) problems.push(`${file}: ${at}`);
   for (const [selector, body] of out) {
@@ -63,4 +68,4 @@ if (problems.length) {
   console.error(`lazy css: FAIL. A lazy rule that restyles the whole page belongs in the skin (src/skin/) or another eager sheet, and every built sheet must keep the cascade.css layer order:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
-console.log(`lazy css: ${lazy.length} lazy stylesheets, ${eager.size} eager; no @property or :root custom properties in lazy CSS; layer order kept PASS`);
+console.log(`lazy css: ${lazy.length} lazy stylesheets, ${eager.size} eager; no @property or :root custom properties in lazy CSS (the named skin sheets excepted); layer order kept PASS`);
