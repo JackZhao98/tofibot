@@ -4,6 +4,7 @@ import { LazyGroupAvatar as GroupAvatar } from "../LazyGroupAvatar";
 import { intlLocale } from "../i18n/format";
 import { BotAvatar, type AvatarMotion } from "../BotAvatar";
 import type { Message } from "../types";
+import { lazy } from "react";
 
 export function Avatar({ id, group = false, mini = false, motion, members }: { label: string; id: string; group?: boolean; mini?: boolean; motion?: AvatarMotion; members?: string[] }) {
   if (group) return <span className={`avatar group-avatar ${mini ? "mini" : ""}`} aria-hidden="true"><GroupAvatar ids={members ?? []} iconSize={mini ? 14 : 19} /></span>;
@@ -49,3 +50,7 @@ export function previewText(value: string, max = 160) {
   const normalized = readReplyMarker(value).body.replace(/\[(.*?)]\([^)]*\)?|[*_`#>]/g, "$1").replace(/\s+/g, " ").trim();
   return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
 }
+
+export const FirstRunHero = lazy(() => import("../FirstRunHero").then(module => ({ default: module.FirstRunHero })));
+
+export const MailDraftCard = lazy(() => import("../MailDraftCard").then(module => ({ default: module.MailDraftCard })));

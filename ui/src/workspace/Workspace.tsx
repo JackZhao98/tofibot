@@ -15,7 +15,7 @@ import { sameData } from "../sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "../taskIssuePresentation";
 import { i18n, useTranslation } from "../i18n";
 import { placeOwners, type OwnerPlacement } from "../activityPlacements";
-import { mergeMessageTimeline, precedingBlockBotIds, previousRenderedIndex } from "../messageTimeline";
+import { mergeMessageTimeline } from "../messageTimeline";
 import { DelayedFeedback } from "../DelayedFeedback";
 import { BootScreen } from "../BootScreen";
 import { SidebarAccount, useOwnerSession } from "../OwnerSession";
@@ -29,7 +29,6 @@ import "../MessageReactions";
 import { applyUserReaction } from "../reactionState";
 import { applyMessageTask } from "../messageLink";
 import { setMessageActions, tappedMessageActionsId } from "../messageActionsStore";
-import { attachmentUrl } from "../filePreviewModel";
 import "../DisplayCard";
 import { useQuestions } from "../useQuestions";
 import { toolActivityKey } from "../toolTimeline";
@@ -39,7 +38,7 @@ import { rowIndicator } from "../rowIndicator";
 import { useMailDrafts } from "../mailDrafts";
 import { buildQuestionTimeline } from "../questionTimeline";
 import type { SettingsEntry, SettingsTab, SettingsView } from "../SettingsShell";
-import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, FloatingDesktop, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, PlanDock } from "../lazyPanels";
+import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, UpdateBanner, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, FloatingDesktop, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle } from "../lazyPanels";
 import { applyRunPlan } from "../planMerge";
 import { setPendingSection } from "../settings/pendingSection";
 import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "../settings/deepLinks";
@@ -74,17 +73,16 @@ import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } f
 import { codeText } from "../i18n/codeText";
 import { type AvatarMotion } from "../BotAvatar";
 import { holdAvatarLife } from "../lib/tofi-avatar/index.js";
-import { CATS, EmptyCat, EmptyState } from "../EmptyCat";
+import { CATS, EmptyState } from "../EmptyCat";
 import { FinishSetupChip } from "../OnboardingChrome";
 import { useGreetingPlayback } from "../onboardingGreeting";
 import { chipStep, onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "../onboardingFlow";
-import { LoadingCat } from "../motion/legacy/LoadingCat";
 import { flipList } from "../motion/legacy/flip";
 import { flySentMessage } from "../sendFlight";
 import "../FileTile";
 import { preloadSendFailure } from "../SendReceipt";
 import { applyInbox } from "../messageDelivery";
-import { receiptFor, runsByTrigger } from "../sendReceipts";
+import { runsByTrigger } from "../sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "../botActivity";
 import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, toolActionLabel } from "../toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "../runProgress";
@@ -93,7 +91,6 @@ import { draftDeltaApplies } from "../draftDelta";
 import { DraftStream } from "../draftStream";
 import type { TaskCardModel, TaskFeed } from "../taskCards";
 import { useProxyChallenge } from "../ProxyChallengeSlot";
-import { shouldShowReplyQuote } from "../replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "../runFamily";
 import { clearSentDraft, parseStoredDrafts, storableDrafts, type ComposerReply } from "../composerDraft";
 import { outboxStorageKey, writeOutbox, type OutboxEntry, type SendPayload } from "../outbox";
@@ -103,26 +100,25 @@ import { observeVisualViewport, visualViewportMetrics } from "../visualViewport"
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "../types";
 import { MOTION, EASE } from "../motion";
 import { useWidgetAutomation } from "../useWidgetAutomation";
-import { ComputerLookContext } from "../ComputerLookButton";
 import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterConversation, foldWidget, forgetWidgets, isEmpty, moveWidget, normalizeWidgetOrder, openCover, openSidebar, openWidget, stashWidgets, toggleSidebar, WIDGET_ORDER, toggleSidebarExpanded, toggleWidget, type CoverId, type SidebarId, type Surfaces, type WidgetId, type WidgetsByConversation } from "../surfaces";
 import { useSurfaceEscape } from "../useSurfaceEscape";
 import type { SurfaceCtx } from "../SurfaceViews";
 import { traceUnderReply } from "../workTraceLayout";
-import { Avatar, SenderHead, blockKey, formatTime, jumpToMessage, messageId, previewText } from "../chat/shared";
-import { ActivityViewContext, CompactLiveLine, ExpiryFinishingContext, LiveRunStatus, RunStartContext, RunStatusAnnouncement, ToolActivityList, WorkingMembers, setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "../chat/RunActivity";
-import { MessageBubble, MessageRow, localizeMessageRef, type RowHandlers, type RowModel } from "../chat/MessageBubble";
-import { Composer, type ComposerAttachment, type ComposerDraft } from "../chat/Composer";
+import { Avatar, SenderHead, blockKey, jumpToMessage, messageId, previewText } from "../chat/shared";
+import { setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "../chat/RunActivity";
+import { MessageBubble, localizeMessageRef, type RowHandlers } from "../chat/MessageBubble";
+import { type ComposerAttachment, type ComposerDraft } from "../chat/Composer";
 import { ChatHeader } from "../chat/ChatHeader";
+import { ChatPane } from "../chat/ChatPane";
+import { ComposerDrafts, emptyComposerDraft } from "../chat/Composer";
+import { ToolSummaryState } from "../chat/RunActivity";
+import { MailDraftCard, FirstRunHero } from "../chat/shared";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const BotBrowserPanel = lazy(() => import("../BotBrowserPanel").then(m => ({default: m.BotBrowserPanel})));
 /** The Mac app's narrow window (it is never under 820 px): the sidebar is a capsule that opens over the chat. */
 const MAC_NARROW = "(min-width:768px) and (max-width:1023px)";
-const DayOneTemplates = lazy(() => import("../DayOneTemplates"));
-const HandoverChips = lazy(() => import("../HandoverChips"));
-const FirstRunHero = lazy(() => import("../FirstRunHero").then(module => ({ default: module.FirstRunHero })));
 const WorkspaceToast = lazy(() => import("../WorkspaceToast").then(module => ({ default: module.WorkspaceToast })));
-const MailDraftCard = lazy(() => import("../MailDraftCard").then(module => ({ default: module.MailDraftCard })));
 /** The sidebar a `?side=` address names opens with the page; widgets and covers never come from the address. */
 /** Where the person's widget order is kept: this browser, this account (a per-viewer preference, the same in every conversation). */
 const widgetOrderKey = (accountId?: string) => `tofi:widget-order:${accountId ?? "local"}`;
@@ -135,7 +131,6 @@ const initialSurfaces = (accountId?: string): Surfaces => {
 };
 type SidebarLayout = { pinned: string[]; sections: Record<string, string> };
 type SidebarContextMenu = { x: number; y: number; conversation: Conversation };
-type ToolSummaryState = { loading: boolean; error?: string };
 function loadedToolRunIDs(messages: Message[], runs: Run[] = []) {
   const messageIDs = new Set(messages.map(message => message.id));
   const runIDs = new Set(messages.map(message => message.run_id).filter((id): id is string => Boolean(id)));
@@ -157,32 +152,7 @@ function readSidebarLayout(): SidebarLayout {
     return { pinned: [], sections: {} };
   }
 }
-function relatedChatTarget(message: Message, source: Conversation, conversations: Conversation[], bots: Bot[]): ViewOnlyChatTarget | null {
-  const targetID = message.notice?.target_conversation_id;
-  if (!targetID || targetID === source.id || (message.kind !== "notice" && message.kind !== "forward_result" && message.kind !== "message_ref")) return null;
-  const fromBotID = message.notice?.from_bot_id ?? "";
-  const rawTargetIDs = message.notice?.target_bot_ids?.length ? message.notice.target_bot_ids : message.notice?.to_bot_ids ?? [message.notice?.to_bot_id].filter((id): id is string => Boolean(id));
-  const targetBotIDs = Array.from(new Set(rawTargetIDs.filter((id) => id !== fromBotID)));
-  const botName = (id: string) => bots.find((bot) => bot.id === id)?.name ?? id;
-  const sourceName = fromBotID ? botName(fromBotID) : source.name;
-  const syntheticName = message.notice?.target_name?.includes(" ↔ ") ? "" : message.notice?.target_name ?? "";
-  const targetName = syntheticName || targetBotIDs.map(botName).join(i18n.t("chat:list.separator")) || i18n.t("chat:related.bot_conversation");
-  const listed = conversations.find((conversation) => conversation.id === targetID);
-  const target = listed ?? {
-    id: targetID,
-    kind: "group" as const,
-    name: targetName,
-    bot_ids: targetBotIDs,
-    updated_at: message.created_at,
-    user_visible: false,
-  };
-  if (!target) return null;
-  const sentBySource = Boolean(fromBotID && (source.bot_id === fromBotID || source.bot_ids.includes(fromBotID)));
-  return { source, target, sourceBotIds: fromBotID ? [fromBotID] : undefined, targetBotIds: targetBotIDs, sourceName, targetName, runId: message.notice?.target_run_id || undefined, label: sentBySource ? "Messaged" : "Message from" };
-}
 type StoredComposerDraft = Omit<ComposerDraft, "attachments"> & { attachments: Omit<ComposerAttachment, "file">[] };
-type ComposerDrafts = Record<string, ComposerDraft>;
-const emptyComposerDraft = (): ComposerDraft => ({ content: "", attachments: [] });
 /** Per server instance and per owner: a shared browser never shows one person's unsent text to the next. */
 function composerDraftStorageKey(instanceId: string, ownerId?: string) {
   return `tofi:composer-drafts:${window.location.origin}:${instanceId}${ownerId ? `:${ownerId}` : ""}`;
@@ -237,11 +207,6 @@ function asBot(data: EventEnvelope): Bot | null {
   return typeof candidate.id === "string" && typeof candidate.name === "string" &&
     typeof candidate.dm_conversation_id === "string" ? value as Bot : null;
 }
-/** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
-function copyableMessageText(message: Message) {
-  const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
-  return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
-}
 /** Holds a jump to message `id` for its first moments. Just after a conversation opens the list can remount its rows (the
  * flash then sits on a node that is gone) and the scroll hook can still land on the newest message (a phone, once the
  * list pane has slid away). Within the settle window the flash goes back on the node that stayed, and the message is
@@ -266,12 +231,6 @@ function formatListTime(value: string, timeZone: string) {
   const now = new Date();
   if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
   return dateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
-}
-function formatDay(value: string, timeZone: string) {
-  return dateTimeFormat(intlLocale(), { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
-}
-function formatDateDivider(value: string, timeZone: string) {
-  return `${formatDay(value, timeZone)} ${formatTime(value, timeZone)}`;
 }
 /** The server pings every 15s; this much silence on a stream means the link died without closing. */
 const STREAM_STALE_MS = 30_000;
@@ -2536,129 +2495,7 @@ export function Workspace() {
           <button className="delete-menu-action" onClick={() => { confirmDelete(menu.conversation); setSidebarContextMenu(null); }}><Icon name="trash" size={17} />{t("sidebar.delete")}</button>
         </OverlayMenu>}</SlotView>
 
-        <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
-          {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
-            <ChatHeader chatHeaderRef={chatHeaderRef} setMobileList={setMobileList} t={t} active={active} columnMode={columnMode} toggleWidgetId={toggleWidgetId} openCoverPanel={openCoverPanel} botById={botById} conversationMotion={conversationMotion} nativePanel={nativePanel} browserT={browserT} computerButton={computerButton} artifactsOn={artifactsOn} setArtifactsMode={setArtifactsMode} sidebarId={sidebarId} toggleSidebarId={toggleSidebarId} headerMenuTriggerRef={headerMenuTriggerRef} headerMenuOpen={headerMenuOpen} setHeaderMenuOpen={setHeaderMenuOpen} desktopBot={desktopBot} openTerminalSurface={openTerminalSurface} openSidebarId={openSidebarId} openWidgetId={openWidgetId} copyConversationLink={copyConversationLink} confirmDelete={confirmDelete} />
-            <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
-            <div className="chat-body">
-              <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
-                <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
-                  {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
-                  {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
-                  {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
-                  {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
-                    <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
-                    conversationItems.map((item, index) => {
-                      if (index < timelineFrom) return null;
-                      // A part holder's message folds under its parent's task card (taskCards.ts); an Activity block anchored to it stays.
-                      if (item.kind === "message" && taskView?.folded.has(item.message.id)) return placementsAt("message", item.message.id).map(renderPlacement);
-                      const previousItem = conversationItems[index - 1];
-                      const previousTime = previousItem?.kind === "message" ? previousItem.message.created_at : previousItem?.kind === "question" ? previousItem.question.created_at : previousItem?.draft.created_at;
-                      if (item.kind === "mail_draft") {
-                        const draft = item.draft;
-                        if (ownedBy(draft)) return placementsAt("draft", draft.draft_id).map(renderPlacement);
-                        const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
-                      }
-                      if (item.kind === "question") {
-                        const question = item.question;
-                        if (ownedBy(question)) return placementsAt("question", question.question_id).map(renderPlacement);
-                        const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
-                      }
-                      const message = item.message;
-                      const previous = previousItem?.kind === "message" ? previousItem.message : undefined;
-                      const senderKey = message.role === "user" ? "user" : message.sender_bot_id ?? message.role;
-                      const previousKey = previous ? previous.role === "user" ? "user" : previous.sender_bot_id ?? previous.role : "";
-                      const sameDay = Boolean(previous && dateInTimezone(previous.created_at, timezone) === dateInTimezone(message.created_at, timezone));
-                      const gap = previous ? +new Date(message.created_at) - +new Date(previous.created_at) : 0;
-                      const unread = message.seq === viewport.unreadSeq;
-                      // A task block (name label + Activity) directly above already names its Bot: show the name once.
-                      const anchorOf = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? { kind: "message" as const, id: candidate.message.id } : candidate?.kind === "question" ? { kind: "question" as const, id: candidate.question.question_id } : candidate?.kind === "mail_draft" ? { kind: "draft" as const, id: candidate.draft.draft_id } : undefined;
-                      const itemTime = (candidate: (typeof conversationItems)[number] | undefined) => candidate?.kind === "message" ? candidate.message.created_at : candidate?.kind === "question" ? candidate.question.created_at : candidate?.draft.created_at;
-                      const drawnAbove = conversationItems[previousRenderedIndex(conversationItems, index, candidate => (candidate.kind === "question" ? ownedBy(candidate.question) : candidate.kind === "mail_draft" ? ownedBy(candidate.draft) : false) && !precedingBlockBotIds(anchorOf(candidate), ownerAnchors).length)];
-                      const blockBotIds = active.kind === "group" ? precedingBlockBotIds(anchorOf(drawnAbove), ownerAnchors) : [];
-                      const blockTime = itemTime(drawnAbove);
-                      const compact = Boolean(previous && !unread && !message.notice && !previous.notice && sameDay && gap < 5 * 60_000 && senderKey === previousKey) || Boolean(blockBotIds.length && message.role !== "user" && !unread && !message.notice && blockBotIds.includes(senderKey) && blockTime && dateInTimezone(blockTime, timezone) === dateInTimezone(message.created_at, timezone) && +new Date(message.created_at) - +new Date(blockTime) < 5 * 60_000);
-                      const showDivider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(message.created_at, timezone) || +new Date(message.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                      const showIdentity = (active.kind === "group" || message.kind === "forward_result" || message.kind === "notice" && runById.get(message.run_id ?? "")?.stop_reason === "approval_expired") && message.role !== "user" && (active.kind === "group" || !compact);
-                      const processTools = toolTimeline.beforeMessageId.get(message.id) ?? [];
-                      const processProgress = (foldedProgress.progressByFinalId.get(message.id) ?? []).filter(note => !ownedRunIDs.has(note.run_id ?? "") && keepActivityRun(note.run_id));
-                      const afterTools = toolTimeline.afterMessageId.get(message.id) ?? [];
-                      const processSummaryByRunID = new Map(toolSummaryAnchors.beforeMessageId.get(message.id)?.map(summary => [summary.run_id, summary]) ?? []);
-                      for (const summary of terminalToolSummaries) if (!ownedRunIDs.has(summary.run_id) && processTools.some(activity => activity.run_id === summary.run_id)) processSummaryByRunID.set(summary.run_id, summary);
-                      const afterSummaries = terminalToolSummaries.filter(summary => !ownedRunIDs.has(summary.run_id) && afterTools.some(activity => activity.run_id === summary.run_id));
-                      for (const summary of toolSummaryAnchors.afterMessageId.get(message.id) ?? []) afterSummaries.push(summary);
-                      const processSummaryErrors = Object.fromEntries((toolSummaryErrorAnchors.beforeMessageId.get(message.id) ?? []).map(({ run_id }) => [run_id, toolSummaryState[run_id]?.error ?? t("tools.summary_unavailable")]));
-                      const afterSummaryErrors = Object.fromEntries((toolSummaryErrorAnchors.afterMessageId.get(message.id) ?? []).map(({ run_id }) => [run_id, toolSummaryState[run_id]?.error ?? t("tools.summary_unavailable")]));
-                      const processSummaryLoading = Object.fromEntries((toolSummaryLoadingAnchors.beforeMessageId.get(message.id) ?? []).map(({ run_id }) => [run_id, true]));
-                      const afterSummaryLoading = Object.fromEntries((toolSummaryLoadingAnchors.afterMessageId.get(message.id) ?? []).map(({ run_id }) => [run_id, true]));
-                      const processSummaries = [...processSummaryByRunID.values()];
-                      const processAggregateRunIDs = new Set([...processSummaries.map(summary => summary.run_id), ...Object.keys(processSummaryErrors), ...Object.keys(processSummaryLoading)]);
-                      const afterAggregateRunIDs = new Set([...afterSummaries.map(summary => summary.run_id), ...Object.keys(afterSummaryErrors), ...Object.keys(afterSummaryLoading)]);
-                      const processAggregateTools = loadedToolActivities.filter(activity => processAggregateRunIDs.has(activity.run_id));
-                      const afterAggregateTools = loadedToolActivities.filter(activity => afterAggregateRunIDs.has(activity.run_id));
-                      const replyMarker = readReplyMarker(message.content || drafts[message.id]?.content || "");
-                      // Older model replies sometimes echoed a fabricated ID. The run's
-                      // trigger is the only trustworthy fallback for that legacy output.
-                      const runTriggerId = message.run_id ? runById.get(message.run_id)?.trigger_message_id : undefined;
-                      const isEarlierInChat = (candidate: Message | undefined): candidate is Message => Boolean(candidate && candidate.conversation_id === message.conversation_id && candidate.seq < message.seq);
-                      const runTrigger = runTriggerId ? messageById.get(runTriggerId) : undefined;
-                      const replyTarget = replyMarker.ids.length ? replyMarker.ids.map(id => messageById.get(id)).find(isEarlierInChat) ?? (isEarlierInChat(runTrigger) ? runTrigger : undefined) : undefined;
-                      const showReplyQuote = shouldShowReplyQuote(quoteTimeline, quoteIndexById.get(message.id) ?? -1, replyTarget);
-                      const canReact = messageRecordIDs.has(message.id) && !message.local;
-                      // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
-                      const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
-                      const receiptState = receiptFor(message, runsForMessage.get(message.id), lastReplySeq > message.seq);
-                      const receiptNames = receiptState ? receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot") : undefined;
-                      const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
-                      const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
-                      const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
-                      const isStub = !messageRecordIDs.has(message.id);
-                      const hasProcessTools = Boolean(processTools.length || processProgress.length || processSummaries.length || Object.keys(processSummaryErrors).length || Object.keys(processSummaryLoading).length);
-                      const hasAfterTools = Boolean(afterTools.length || afterSummaries.length || Object.keys(afterSummaryErrors).length || Object.keys(afterSummaryLoading).length);
-                      const ownersHere = placementsAt("message", message.id);
-                      const model: RowModel = {
-                        message, isLast: index === conversationItems.length - 1, arrival: arrivalIDs.current.has(blockKey(message)), streamed: streamedIDs.current.has(message.id),
-                        dividerLabel: showDivider ? formatDateDivider(message.created_at, timezone) : undefined, unread, timezone, canReact, isGroup: active.kind === "group", archived: Boolean(active.archived),
-                        isStub, liveId: isStub || drafts[message.id]?.status === "active" ? message.id : undefined, drafting: drafts[message.id]?.status === "active" && streamConnected,
-                        replyTarget: showReplyQuote ? replyTarget : undefined, replyTargetName: replyTarget?.role === "user" ? t("message.you") : replyTarget?.sender_bot_name ?? (replyTarget?.sender_bot_id ? botById.get(replyTarget.sender_bot_id)?.name ?? knownBotNames.current.get(replyTarget.sender_bot_id) : undefined),
-                        senderName: message.sender_bot_name ?? (message.sender_bot_id ? knownBotNames.current.get(message.sender_bot_id) : undefined),
-                        targetBot: message.notice?.to_bot_id ? botById.get(message.notice.to_bot_id) : undefined, sender: message.sender_bot_id ? botById.get(message.sender_bot_id) : undefined,
-                        run: message.run_id ? runById.get(message.run_id) : undefined, traceRun: traceRunFor(message),
-                        toolLists: hasProcessTools || hasAfterTools ? { details: toolDetailState, botById, activeRunIds } : undefined,
-                        processTools: hasProcessTools ? [...processTools, ...processAggregateTools] : undefined, processProgress: hasProcessTools ? processProgress : undefined, processSummaries: hasProcessTools ? processSummaries : undefined, processSummaryErrors: hasProcessTools ? processSummaryErrors : undefined, processSummaryLoading: hasProcessTools ? processSummaryLoading : undefined,
-                        afterTools: hasAfterTools ? [...afterTools, ...afterAggregateTools] : undefined, afterSummaries: hasAfterTools ? afterSummaries : undefined, afterSummaryErrors: hasAfterTools ? afterSummaryErrors : undefined, afterSummaryLoading: hasAfterTools ? afterSummaryLoading : undefined,
-                        scheduleOccurrence: message.run_id ? scheduleOccurrences.get(message.run_id) : undefined, schedulePending: scheduleCardPending(message.run_id), schedule: message.run_id ? scheduleMetadata.get(scheduleOccurrences.get(message.run_id)?.schedule_id ?? "") : undefined,
-                        canRetrySchedule: !(active.archived || ownedRunIDs.has(message.run_id ?? "")),
-                        relatedChat: relatedChatTarget(message, active, conversations, bots), compact, showIdentity,
-                        noticeTargetAvailable: !message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id),
-                        allowOpenDM: active.kind === "group" || message.kind === "forward_result",
-                        canDraftReply: !active.archived && !isDesktop && message.card?.type === "mail", canMention: !active.archived,
-                        receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.local && message.client_message_id && canRetrySend(message.client_message_id)),
-                        hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
-                        botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
-                        ownerNodes: ownersHere.length ? ownersHere.map(renderPlacement) : undefined, ownsNext: ownersHere.some(placementDraws),
-                        taskCards: taskView?.byMessage.get(message.id),
-                      };
-                      return <MessageRow key={blockKey(message)} model={model} h={rowHandlers} stream={draftStream} />;
-                    })}
-                  {greeting.stage === "typing" && activeBot && <CompactLiveLine key={`greeting-${greeting.shown}`} label={`${t("live.thinking")}…`} botId={activeBot.id} botName={activeBot.name} at={activeBot.created_at} showName={false} ariaLabel={t("live.status_label", { name: activeBot.name })} />}
-                  {active.kind === "dm" && !active.archived && activeBot && !activeBot.archived && loadedId === active.id && !loadingMessages && !snapshotError && greeting.stage === "done" && messages.every(message => message.role !== "user") && <Suspense fallback={null}>{activeBot.onboarding_pending
-                    ? <HandoverChips botId={activeBot.id} onPick={message => { updateComposerDraft(active.id, draft => ({ ...draft, content: message })); requestAnimationFrame(() => { const box = document.querySelector<HTMLTextAreaElement>("form.composer textarea"); box?.focus(); box?.setSelectionRange(message.length, message.length); }); }} />
-                    : <DayOneTemplates conversationId={active.id} botId={activeBot.id} onOpenTasks={() => openSidebarId("tasks")} />}</Suspense>}
-                  <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
-                  {placementsAt(undefined).map(renderPlacement)}
-                  {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
-                  {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
-                </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
-              </div>
-              {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
-            </div>
-            {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<>{(runs.some(run => run.plan) || taskItems.some(task => task.checklist?.length) || openTasks > 0) && <PlanDock key={active.id} runs={runs} tasks={taskItems} botById={botById} group={active.kind === "group"} openTasks={openTasks} onOpenTasks={() => openSidebarId("tasks")} />}<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} /></>} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} dictationReady={config?.dictation_configured === true} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
-          </>}
-        </main>
+        <ChatPane header={active ? <ChatHeader chatHeaderRef={chatHeaderRef} setMobileList={setMobileList} t={t} active={active} columnMode={columnMode} toggleWidgetId={toggleWidgetId} openCoverPanel={openCoverPanel} botById={botById} conversationMotion={conversationMotion} nativePanel={nativePanel} browserT={browserT} computerButton={computerButton} artifactsOn={artifactsOn} setArtifactsMode={setArtifactsMode} sidebarId={sidebarId} toggleSidebarId={toggleSidebarId} headerMenuTriggerRef={headerMenuTriggerRef} headerMenuOpen={headerMenuOpen} setHeaderMenuOpen={setHeaderMenuOpen} desktopBot={desktopBot} openTerminalSurface={openTerminalSurface} openSidebarId={openSidebarId} openWidgetId={openWidgetId} copyConversationLink={copyConversationLink} confirmDelete={confirmDelete} /> : null} mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} active={active} routeUnavailable={routeUnavailable} t={t} setMobileList={setMobileList} onboardingState={onboardingState} createNewBot={createNewBot} newBotBusy={newBotBusy} newBotError={newBotError} runs={runs} botById={botById} loadedId={loadedId} loadingMessages={loadingMessages} taskAnnouncements={taskAnnouncements} viewport={viewport} expiryFinishing={expiryFinishing} runStarts={runStarts} activityView={activityView} computerLook={computerLook} messageListRef={messageListRef} onMessageListPointerOver={onMessageListPointerOver} onMessageListPointerLeave={onMessageListPointerLeave} onMessageListFocus={onMessageListFocus} onMessageListBlur={onMessageListBlur} onMessageListKeyDown={onMessageListKeyDown} jumpLatest={jumpLatest} historyError={historyError} loadOlder={loadOlder} loadingOlder={loadingOlder} hasMore={hasMore} questions={questions} mailDrafts={mailDrafts} snapshotError={snapshotError} refreshTaskStatus={refreshTaskStatus} setSnapshotError={setSnapshotError} conversationItems={conversationItems} greeting={greeting} timelineFrom={timelineFrom} taskView={taskView} placementsAt={placementsAt} renderPlacement={renderPlacement} ownedBy={ownedBy} timezone={timezone} refreshConversations={refreshConversations} ownerAnchors={ownerAnchors} runById={runById} toolTimeline={toolTimeline} foldedProgress={foldedProgress} ownedRunIDs={ownedRunIDs} keepActivityRun={keepActivityRun} toolSummaryAnchors={toolSummaryAnchors} terminalToolSummaries={terminalToolSummaries} toolSummaryErrorAnchors={toolSummaryErrorAnchors} toolSummaryState={toolSummaryState} toolSummaryLoadingAnchors={toolSummaryLoadingAnchors} loadedToolActivities={loadedToolActivities} drafts={drafts} messageById={messageById} quoteTimeline={quoteTimeline} quoteIndexById={quoteIndexById} messageRecordIDs={messageRecordIDs} runHasActivity={runHasActivity} runsForMessage={runsForMessage} lastReplySeq={lastReplySeq} knownBotNames={knownBotNames} arrivalIDs={arrivalIDs} streamedIDs={streamedIDs} streamConnected={streamConnected} traceRunFor={traceRunFor} toolDetailState={toolDetailState} activeRunIds={activeRunIds} scheduleOccurrences={scheduleOccurrences} scheduleCardPending={scheduleCardPending} scheduleMetadata={scheduleMetadata} conversations={conversations} bots={bots} canRetrySend={canRetrySend} showActivity={showActivity} revealedRuns={revealedRuns} botNames={botNames} reactionMenu={reactionMenu} placementDraws={placementDraws} rowHandlers={rowHandlers} draftStream={draftStream} activeBot={activeBot} messages={messages} updateComposerDraft={updateComposerDraft} openSidebarId={openSidebarId} loadToolDetails={loadToolDetails} pendingRuns={pendingRuns} error={error} proxyChallenged={proxyChallenged} openCoverPanel={openCoverPanel} taskItems={taskItems} openTasks={openTasks} conversationMotion={conversationMotion} toolActivities={toolActivities} runSignals={runSignals} stepRunIds={stepRunIds} setRuns={setRuns} setError={setError} avatarMention={avatarMention} composerDrafts={composerDrafts} send={send} config={config} connectModel={connectModel} composerDraftReady={composerDraftReady} />
 
         {modalPanelOpen && <button type="button" className="detail-backdrop" aria-label={t("detail.close")} onClick={() => { if (settingsShown) window.dispatchEvent(new Event("tofi-settings-close")); else closeSidebarPanel(); }} />}
         {columnMode && <Suspense fallback={columnWidgets.includes("usage") ? <aside className="detail-pane widget-column"><section className="context-card surface-loading"><div className="detail-heading"><h2>{t("contextCard.title.usage")}</h2><button className="close-button" aria-label={t("detail.close")} onClick={() => closeWidgetId("usage")}><Icon name="close" size={18}/></button></div><div className="surface-skeleton" aria-busy="true"><i/><i/><i/></div></section></aside> : null}><WidgetColumn ids={columnWidgets} order={surfaces.order} folded={columnFolded} focus={surfaces.focus} covered={Boolean(cover)} onFold={foldWidgetId} onClose={closeWidgetId} onMove={moveWidgetId} render={(id, leaving) => id === "computer" ? desktopNode(leaving) : id === "members" && active?.kind !== "group" || !active ? null : <WidgetView key={active.id} id={id} ctx={surfaceCtx} />} /></Suspense>}

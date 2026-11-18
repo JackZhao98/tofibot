@@ -348,3 +348,5 @@ export function WebToolActivityRun({ runId, items, notes, summary, summaryError,
 function ToolActivityRun(props: ToolRunProps) {
   return <WebToolActivityRun {...props} />;
 }
+
+export type ToolSummaryState = { loading: boolean; error?: string };
