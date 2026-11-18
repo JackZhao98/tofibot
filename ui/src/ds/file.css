@@ -1,0 +1,40 @@
+/* V3 kit: what FileTile, FileRow and ArtifactCard share: the folded glyph, the name and meta, and the preview drawings.
+   Final values of the frozen bundle (the last rule wins). Every colour is a skin role. */
+.tb-file-glyph { --fold: 8px; position: relative; flex: none; box-sizing: border-box; display: grid; place-items: end center; width: 26px; height: 32px; padding-bottom: 4px; border: var(--border-1) solid transparent; border-radius: 3px; color: var(--on-block); clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%); }
+.tb-file-glyph::before { content: ""; position: absolute; top: 0; right: 0; width: var(--fold); height: var(--fold); border-bottom-left-radius: 2px; background: linear-gradient(225deg, transparent 50%, color-mix(in srgb, var(--code-bg) 24%, transparent) 50%); }
+.tb-file-ext { font: 700 7.5px/1 var(--font-mono); letter-spacing: .04em; }
+.tb-file--tomato { background: var(--tomato); } .tb-file--cobalt { background: var(--cobalt); } .tb-file--lime { background: var(--lime); }
+.tb-file--mustard { background: var(--mustard); } .tb-file--grape { background: var(--grape); } .tb-file--teal { background: var(--teal); }
+.tb-file--neutral { background: var(--surface-2); color: var(--ink); }
+.tb-file-glyph--big { --fold: 13px; width: 44px; height: 54px; padding-bottom: 7px; border-radius: 4px; }
+.tb-file-glyph--big .tb-file-ext { font-size: 10px; }
+.tb-file-main { flex: 1; min-width: 0; display: grid; }
+.tb-file-name { font: 600 13px/1.35 var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-file-meta { font: 400 11px/1.35 var(--font-mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-files { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.tb-fv-media { position: absolute; inset: 0; display: block; }
+.tb-fv-media > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tb-fv-page > img, .tb-fv-pdf .tb-fv-sheet > img { object-position: top; }
+.tb-fv-pdf { box-sizing: border-box; padding: 10px 40px 0; background: var(--sunk); }
+.tb-fv-sheet { display: block; height: 100%; overflow: hidden; border: var(--border-1) solid var(--line); border-bottom: 0; background: var(--logo-tile); box-shadow: 4px 0 0 var(--line); }
+.tb-fv-sheet > img { width: 100%; height: auto; display: block; }
+.tb-fv-lines { position: absolute; inset: 0; box-sizing: border-box; padding: 9px 11px; overflow: hidden; }
+.tb-fv-lines > span { display: block; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.tb-fv-code { background: var(--code-bg); color: var(--code-ink); font: 400 10px/1.55 var(--font-mono); }
+.tb-fv-code > span:nth-child(odd) { opacity: .92; }
+.tb-fv-paper { background: var(--surface); color: var(--ink-soft); font: 400 10.5px/1.55 var(--font-body); }
+.tb-fv-paper > span { white-space: nowrap; }
+.tb-fv-paper > span:first-child { font: 700 13px/1.3 var(--font-display); color: var(--ink); margin-bottom: 4px; }
+.tb-fv-table { position: absolute; inset: 0; box-sizing: border-box; padding: 8px; background: var(--surface); display: grid; align-content: start; }
+.tb-fv-row { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); border-bottom: var(--border-1) solid var(--line); }
+.tb-fv-row > span { padding: 4px 5px; font: 400 10px/1.2 var(--font-mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-fv-row > span + span { border-left: var(--border-1) solid var(--line); }
+.tb-fv-row.is-head { background: var(--surface-2); }
+.tb-fv-row.is-head > span { font: 600 8.5px/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-top: 6px; padding-bottom: 6px; }
+.tb-fv-audio { position: absolute; inset: 0; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--surface-2); }
+.tb-fv-wave { flex: 1; height: 48px; display: flex; align-items: center; gap: 3px; }
+.tb-fv-wave > i { flex: 1; min-width: 2px; background: var(--teal); border-radius: 1px; }
+.tb-fv-play { display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box; border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); color: var(--ink); flex: none; }
+.tb-fv-play--center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.tb-fv-chip { position: absolute; left: 6px; bottom: 6px; padding: 3px 6px; border-radius: var(--radius-xs); background: var(--code-bg); color: var(--code-ink); font: 600 10.5px/1.2 var(--font-mono); letter-spacing: .02em; }
+.tb-fv-audio .tb-fv-chip { left: auto; right: 8px; }

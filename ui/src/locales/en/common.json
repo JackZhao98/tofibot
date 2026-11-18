@@ -120,6 +120,41 @@
       "pending": "To do",
       "waiting": "Needs you"
     },
+    "file": {
+      "open": "Open",
+      "download": "Download"
+    },
+    "artifact": {
+      "tag": "ARTIFACT",
+      "goto": "Go to message"
+    },
+    "attach": {
+      "open": "Open picture",
+      "openAll": "Open all pictures"
+    },
+    "letter": {
+      "from": "FROM",
+      "to": "TO",
+      "cc": "CC",
+      "subject": "SUBJECT"
+    },
+    "draft": {
+      "changed": "Edited",
+      "sent": "Sent",
+      "canceled": "Canceled"
+    },
+    "schedule": {
+      "retry": "Retry"
+    },
+    "code": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "less": "▴ Show less",
+      "more_one": "▾ Show the other line",
+      "more_other": "▾ Show the other {{count}} lines",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines"
+    },
     "remove": "Remove",
     "removeNamed": "Remove {{name}}",
     "dismiss": "Dismiss",

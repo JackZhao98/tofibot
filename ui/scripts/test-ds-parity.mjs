@@ -77,6 +77,40 @@ const CASES = [
   ["Stat", D("Stat", { label: "Spend this month", value: "$42.18", delta: "21% of limit", spark: [20, 35, 30, 50, 45, 70, 60] })],
   ["Stat up", D("Stat", { label: "Runs", value: "1,284", delta: "+12% vs last month", deltaTone: "up", spark: [40, 42, 55, 48, 62, 58, 80] })],
   ["Stat down unit", D("Stat", { label: "Failed", value: "7", unit: "runs", delta: "+3", deltaTone: "down" })],
+  // ---- Kit III: files and rich objects (V3 PLAN 0.8). Labels are passed where the spec's default is Chinese.
+  ["FileTile compact", D("FileTile", { kind: "archive", ext: "zip", name: "firmware-2.4.zip", meta: "7.9 MB", onDownload: noop })],
+  ["FileTile compact no action", D("FileTile", { kind: "doc", ext: "docx", name: "Old contract.docx", meta: "Expired" })],
+  ["FileTile table", D("FileTile", { kind: "sheet", ext: "csv", name: "Prices.csv", meta: "85 rows", onOpen: noop, onDownload: noop, preview: { type: "table", rows: [["City", "Country", "Price"], ["Tokyo", "Japan", "4,800"], ["Berlin", "Germany", "39"]] } })],
+  ["FileTile md", D("FileTile", { kind: "md", ext: "md", name: "Notes.md", meta: "2 KB", onOpen: noop, preview: { type: "md", lines: ["Weekly sync", "Price table moves.", "", "Lin owns Europe."] } })],
+  ["FileTile code", D("FileTile", { kind: "code", ext: "py", name: "sync.py", onOpen: noop, onDownload: noop, preview: { type: "code", lines: ["import json", "def load(folder):", "    return []"] } })],
+  ["FileTile audio", D("FileTile", { kind: "audio", ext: "mp3", name: "Voice note.mp3", meta: "0:42", onOpen: noop, preview: { type: "audio", label: "0:42" } })],
+  ["FileTile pdf", D("FileTile", { kind: "pdf", name: "Report.pdf", meta: "3 pages", onOpen: noop, onDownload: noop, preview: { type: "pdf", src: "/catalog/report-page.svg", label: "3 pages" } })],
+  ["FileTile video", D("FileTile", { kind: "video", ext: "mov", name: "Recording.mov", onOpen: noop, preview: { type: "video", src: "/catalog/lake.svg", label: "0:42" } })],
+  ...["pdf", "doc", "sheet", "slides", "code", "md", "archive", "text"].map(kind => [`FileRow ${kind}`, D("FileRow", { kind, name: "Weekly report", meta: "3 pages", onOpen: noop })]),
+  ["FileRow thumb", D("FileRow", { thumb: "/catalog/sunset.svg", name: "Homepage.png", meta: "1600 x 1000", onOpen: noop })],
+  ["FileRow fresh", D("FileRow", { kind: "pdf", name: "Weekly report.pdf", meta: "just now", fresh: true, freshLabel: "New", onOpen: noop })],
+  ["ArtifactCard preview", D("ArtifactCard", { kind: "pdf", name: "Report.pdf", meta: "3 pages", tag: "ARTIFACT", version: "v3", preview: { type: "pdf", src: "/catalog/report-page.svg" }, onOpen: noop, onDownload: noop })],
+  ["ArtifactCard blank", D("ArtifactCard", { kind: "archive", ext: "zip", name: "Assets.zip", meta: "48 MB", tag: "ARTIFACT", onOpen: noop, onDownload: noop })],
+  ["ArtifactCard wide from", D("ArtifactCard", { wide: true, kind: "page", ext: "html", name: "Compare.html", tag: "ARTIFACT", preview: { type: "page", src: "/catalog/web-page.svg" }, from: "Probe", onGoto: noop, gotoLabel: "Go to message", onOpen: noop })],
+  ["AttachmentGrid 1 sized", D("AttachmentGrid", { items: [{ src: "/catalog/sunset.svg", width: 1600, height: 1000 }], onOpen: noop })],
+  ["AttachmentGrid 1 portrait", D("AttachmentGrid", { items: [{ src: "/catalog/valley.svg", width: 900, height: 1200 }], onOpen: noop })],
+  ["AttachmentGrid 2", D("AttachmentGrid", { items: ["/catalog/field.svg", "/catalog/night.svg"], onOpen: noop })],
+  ["AttachmentGrid 3 video", D("AttachmentGrid", { items: ["/catalog/field.svg", { src: "/catalog/lake.svg", kind: "video", duration: "0:42" }, "/catalog/night.svg"], onOpen: noop })],
+  ["AttachmentGrid 4", D("AttachmentGrid", { items: ["/catalog/field.svg", "/catalog/night.svg", "/catalog/lake.svg", "/catalog/desert.svg"], onOpen: noop })],
+  ["AttachmentGrid 9", D("AttachmentGrid", { items: Array(9).fill("/catalog/field.svg"), onOpen: noop })],
+  ["Letter in", D("Letter", { from: "Lin Wei", to: "you@tofi.example", subject: "Q3 prices", subjectLabel: "SUBJECT", postmark: ["Received", "09:12", "11.17"], note: { avatar: "M", title: "Mochi's read", text: "Needs your yes." }, folded: true, more: "Show full mail", onMore: noop, actions: D("Button", { size: "sm", variant: "secondary" }, "Reply"), hint: "Drafted", primary: D("Button", { size: "sm", variant: "primary" }, "Open") }, "Hi, the Europe column changes on Monday. Please confirm.")],
+  ["Letter in plain", D("Letter", { from: "Lin Wei", to: "you@tofi.example", subject: "Lunch?", subjectLabel: "SUBJECT" }, "Are you free on Friday?")],
+  ["Letter out", D("Letter", { direction: "out", to: "Lin Wei", cc: "Mia Chen", subject: "Re: Q3 prices", subjectLabel: "SUBJECT", stamp: "cat", sign: "Mochi, for Mia", attachment: "Prices.csv", actions: D("Button", { size: "sm", variant: "ghost" }, "Edit"), hint: "Not sent yet", primary: D("Button", { size: "sm", variant: "primary" }, "Send") }, "Monday works.")],
+  ["InboxDigest", D("InboxDigest", { label: "Sorted mail", items: [{ from: "Lin Wei", subject: "Q3 price table", tag: { label: "Needs reply", tone: "tomato" }, time: "09:12", lifted: true }, { from: "Billing", subject: "Invoice 1042", tag: { label: "Bill" }, time: "08:40" }, { from: "Calendar", subject: "Sync moved", tag: { label: "Notice", tone: "quiet" }, time: "08:02" }] })],
+  ["DraftCard message", D("DraftCard", { kind: "Draft", title: "Post to the team", dest: "Posts to Launch group", actions: D("Button", { size: "sm", variant: "ghost" }, "Edit"), hint: "Not posted yet", primary: D("Button", { size: "sm", variant: "primary" }, "Send") }, "Price table moves to Monday.")],
+  ["DraftCard form", D("DraftCard", { kind: "Needs you", title: "Expense claim", dest: "Company expenses", changedLabel: "Edited", fields: [["Amount", "4,200", true], ["Date", "11.16"]], primary: D("Button", { size: "sm", variant: "primary" }, "Submit") })],
+  ["DraftCard sent", D("DraftCard", { state: "sent", sentLabel: "Sent", receipt: "Posted at 14:20", after: D("Button", { size: "sm", variant: "ghost" }, "View") }, "Price table moves to Monday. Berlin and Paris switch to the new list; London stays on the old one until the thirtieth.")],
+  ["DraftCard canceled", D("DraftCard", { state: "canceled", canceledLabel: "Canceled", receipt: "Canceled at 14:21", after: D("Button", { size: "sm", variant: "ghost" }, "Restore") }, "Price table moves to Monday. Berlin and Paris switch to the new list.")],
+  ...["done", "run", "error"].map(state => [`ScheduleCard ${state}`, D("ScheduleCard", { state, time: "09:00", day: "Daily", title: "Morning summary", meta: "Daily 09:00 - run 12", statusLabel: state === "error" ? "Failed" : "12:31", bodyLabel: "TASK", ...(state === "error" ? { error: "No answer in time.", onRetry: noop, retryLabel: "Retry" } : {}) }, "Read the new mail and post a summary.")],),
+  ["CodeBlock short", D("CodeBlock", { filename: "sync.py", lang: "python", lines: ["import json", "# note", "def load(path):", "    return json.loads(\"{}\") + 1.5", "", "if x and not y: print('a')"], copyLabel: "Copy", copiedLabel: "Copied", linesLabel: "{n} lines" })],
+  ["CodeBlock folded", D("CodeBlock", { lines: ["const a = 1", "const b = 2", "const c = 3", "const d = 4", "const e = 5"], maxLines: 3, linesLabel: "{n} lines", moreLabel: "Show the other {n} lines", copyLabel: "Copy" })],
+  ["CodeBlock actions", D("CodeBlock", { lines: ["echo hi"], showActions: true, onDownload: noop, downloadLabel: "Download", copyLabel: "Copy", linesLabel: "{n} lines" })],
+  ["CodeBlock copied", D("CodeBlock", { lines: ["echo hi"], copied: true, copiedLabel: "Copied", linesLabel: "{n} lines" })],
 ];
 
 // Known departures, as [case name pattern, property]. Each is explained in the PR 0.6 report.
@@ -87,6 +121,11 @@ const ALLOWED = [
   [/^Skeleton/, "opacity"],          // a running animation: sampled at different times
   [/^Checkbox/, "position"],           // the kit anchors the hidden input to its label
   [/^Checkbox/, "margin-top"], [/^Checkbox/, "margin-bottom"],  // the kit zeroes the hidden input's margin (V2 base gives inputs one)
+  // Kit III: the Letter note title was a literal brown (#6d5a2a); the kit reads --mustard-text (no raw colours outside the skin).
+  ...["color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"].map(property => [/^Letter in$/, property]),
+  [/^DraftCard form/, "width"],  // the kit's label column is 96px (spec 76px): "Category" plus the "Edited" mark does not fit in 76px
+  [/^ScheduleCard run/, "opacity"], [/^ScheduleCard run/, "transform"],  // the running dot breathes: sampled at different times
+  [/^CodeBlock copied/, "animation-name"],  // the kit's copy glyph spins into the tick (owner exception, PLAN 8.3); the spec swaps at once
 ];
 
 // ---- Kit II: conversation and work (PR 0.7)

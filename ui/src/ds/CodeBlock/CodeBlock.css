@@ -1,0 +1,25 @@
+/* The terminal plate. The five syntax colours are the --syn-* roles of the skin. */
+.tb-code { max-width: 560px; margin: 0; overflow: hidden; border: var(--border-1) solid var(--line); border-radius: 12px; background: var(--code-bg); box-shadow: var(--shadow-sm); }
+.tb-code-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-bottom: var(--border-1) solid var(--line); background: var(--surface-2); font: 400 11px/1.3 var(--font-mono); color: var(--muted); }
+.tb-code-head b { font-weight: 600; color: var(--ink); }
+.tb-code-head > :not(:first-child):not(.tb-code-acts)::before { content: "·"; margin-right: 8px; color: var(--muted); }
+.tb-code-acts { display: flex; gap: 4px; margin-left: auto; }
+.tb-code-head > .tb-code-acts::before { content: none; }
+.tb-code-act { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: var(--border-1) solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink-soft); font: 600 11px/1 var(--font-display); cursor: pointer; }
+.tb-code-act:hover { color: var(--ink); border-color: var(--edge); }
+.tb-code-act:focus-visible, .tb-code-more:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-code-act.is-done { color: var(--lime-text); }
+/* The copy glyph spins into a filled tick. */
+.tb-code-act.is-done svg { animation: tb-code-tick var(--m-panel-in) var(--ease-spring) both; }
+@keyframes tb-code-tick { from { opacity: 0; scale: .4; rotate: -45deg; } to { opacity: 1; scale: 1; rotate: 0deg; } }
+.tb-code-dl { opacity: 0; transition: opacity var(--m-quick) var(--ease-out); }
+.tb-code:hover .tb-code-dl, .tb-code.is-hover .tb-code-dl, .tb-code-dl:focus-visible { opacity: 1; }
+@media (hover: none) { .tb-code-dl { opacity: 1; } }
+.tb-code-body { margin: 0; padding: 10px 0 12px; overflow-x: auto; font: 400 12.5px/1.65 var(--font-mono); color: var(--code-ink); }
+.tb-code-line { display: grid; grid-template-columns: 38px minmax(0, 1fr); }
+.tb-code-rest { display: block; }
+.tb-code-line i { padding-right: 12px; text-align: right; font-style: normal; color: color-mix(in srgb, var(--code-ink) 32%, transparent); user-select: none; }
+.tb-code-line code { padding-right: 14px; font: inherit; white-space: pre; background: none; color: inherit; }
+.tb-syn-kw { color: var(--syn-kw); } .tb-syn-str { color: var(--syn-str); } .tb-syn-num { color: var(--syn-num); } .tb-syn-fn { color: var(--syn-fn); } .tb-syn-com { color: var(--syn-com); font-style: italic; }
+.tb-code-more { display: block; width: 100%; padding: 7px 12px 9px; border: 0; border-top: var(--border-1) dashed color-mix(in srgb, var(--code-ink) 18%, transparent); background: none; color: color-mix(in srgb, var(--code-ink) 62%, transparent); font: 400 11px/1.3 var(--font-mono); text-align: left; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .tb-code-act.is-done svg { animation: none; } .tb-code-dl { transition: none; } }

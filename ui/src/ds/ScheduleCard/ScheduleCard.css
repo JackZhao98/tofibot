@@ -1,0 +1,29 @@
+/* A page torn from a desk calendar. The band takes the run's state: lime done, teal running, danger failed. */
+.tb-sched { display: flex; gap: 14px; align-items: flex-start; max-width: 520px; padding: 12px 14px 12px 12px; border: var(--border-1) solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.tb-sched-leaf { position: relative; flex: none; display: grid; justify-items: center; gap: 3px; width: 56px; padding: 17px 0 7px; border-radius: 7px; background: var(--surface); box-shadow: 0 0 0 var(--border-1) var(--line), 0 2px 0 -1px var(--surface), 0 2px 0 0 var(--line), 0 4px 0 -1px var(--surface), 0 4px 0 0 var(--line); }
+.tb-sched-leaf::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 11px; border-radius: 7px 7px 0 0; background: var(--lime); }
+.tb-sched.is-run .tb-sched-leaf::before { background: var(--teal); }
+.tb-sched.is-error .tb-sched-leaf::before { background: var(--danger); }
+.tb-sched-rings::before, .tb-sched-rings::after { content: ""; position: absolute; top: -4px; width: 4px; height: 10px; border-radius: 3px; background: var(--ink-soft); box-shadow: 0 0 0 1.5px var(--surface); }
+.tb-sched-rings::before { left: 15px; } .tb-sched-rings::after { right: 15px; }
+.tb-sched-leaf b { font: 600 17px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.tb-sched-leaf small { font: 600 9.5px/1.2 var(--font-mono); letter-spacing: .06em; color: var(--muted); }
+.tb-sched-main { flex: 1; min-width: 0; display: grid; gap: 4px; padding-top: 3px; }
+.tb-sched-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0; border: 0; background: none; color: var(--muted); text-align: left; }
+button.tb-sched-row { cursor: pointer; }
+button.tb-sched-row:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); border-radius: var(--radius-xs); }
+.tb-sched-chev { transition: rotate var(--m-quick) var(--ease-out); }
+.tb-sched-row[data-state="open"] .tb-sched-chev { rotate: 90deg; }
+.tb-sched-title { flex: 1; min-width: 0; overflow: hidden; font: 600 14.5px/1.3 var(--font-display); color: var(--ink); white-space: nowrap; text-overflow: ellipsis; }
+.tb-sched-st { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 600 11px/1 var(--font-mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.tb-sched-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); }
+.tb-sched-st.is-run i { background: var(--teal); animation: tb-breath 2.4s var(--ease-inout) infinite; }
+.tb-sched-st.is-error { color: var(--danger-text); }
+.tb-sched-st.is-error i { display: grid; place-items: center; width: 15px; height: 15px; background: var(--danger); color: var(--on-danger); font: 700 10px/1 var(--font-mono); font-style: normal; }
+.tb-sched-meta { font: 400 11px/1.4 var(--font-mono); color: var(--muted); }
+.tb-sched-body { margin-top: 6px; padding: 8px 10px; border-radius: 9px; background: var(--sunk); font: 400 13px/1.6 var(--font-body); color: var(--ink-soft); }
+.tb-sched-body small { display: block; font: 600 10px/1.8 var(--font-mono); letter-spacing: .12em; color: var(--muted); }
+.tb-sched-err { display: flex; align-items: center; gap: 10px; margin-top: 4px; font: 400 13px/1.4 var(--font-body); color: var(--danger-text); }
+.tb-sched-err button { padding: 0; border: 0; background: none; color: var(--ink); font: 600 13px/1.4 var(--font-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tb-sched-err button:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (prefers-reduced-motion: reduce) { .tb-sched-st.is-run i { animation: none; } .tb-sched-chev { transition: none; } }

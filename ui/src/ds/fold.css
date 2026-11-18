@@ -1,0 +1,9 @@
+/* V3 kit: the fold. A Radix Collapsible content that opens as a grid row, 0fr to 1fr (V3 PLAN 8.2). The content holds one
+   child element. Unlayered like the rest of the kit; the keyframes read the motion tokens. */
+.tb-fold { display: grid; grid-template-rows: 1fr; overflow: hidden; }
+.tb-fold > * { min-height: 0; }
+.tb-fold[data-state="open"] { animation: tb-fold-open var(--m-base) var(--ease-out); }
+.tb-fold[data-state="closed"] { grid-template-rows: 0fr; animation: tb-fold-close var(--m-base) var(--ease-settle); }
+@keyframes tb-fold-open { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+@keyframes tb-fold-close { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tb-fold[data-state] { animation: none; } }

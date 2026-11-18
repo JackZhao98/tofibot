@@ -1,0 +1,25 @@
+.tb-draft { max-width: 540px; overflow: hidden; border: var(--border-1) solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
+/* What waits for you: the bold ink edge and the hard shadow (S2, S3). */
+.tb-draft.is-pending { border-color: transparent; box-shadow: inset 0 0 0 var(--edge-bold) var(--ink), var(--hard); }
+.tb-draft-head { display: flex; align-items: center; gap: 10px; padding: 13px 14px 0; }
+.tb-draft-title { font: 600 16px/1.3 var(--font-display); color: var(--ink); }
+.tb-draft-dest { padding: 5px 14px 0; font: 400 11.5px/1.4 var(--font-mono); color: var(--muted); }
+.tb-draft-body { margin: 12px 14px 0; padding: 0 0 0 14px; border-left: var(--border-2) solid color-mix(in srgb, var(--tomato) 50%, transparent); font: 400 15px/1.7 var(--font-body); color: var(--ink); }
+.tb-draft-fields { display: grid; margin: 12px 14px 0; overflow: hidden; border: var(--border-1) solid var(--line); border-radius: 10px; background: var(--surface); }
+.tb-draft-fields > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 9px 12px; border-top: var(--border-1) solid var(--line); }
+.tb-draft-fields > div:first-child { border-top: 0; }
+.tb-draft-fields dt { font: 400 11px/1.4 var(--font-mono); color: var(--muted); }
+.tb-draft-fields dt i { margin-left: 6px; font-style: normal; color: var(--tomato-text); }
+.tb-draft-fields dd { margin: 0; font: 600 14px/1.45 var(--font-body); color: var(--ink); }
+.tb-draft-fields .is-changed dd span { padding: 0 2px; background: linear-gradient(transparent 55%, color-mix(in oklab, var(--mustard) var(--hl-mix), transparent) 55% 95%, transparent 95%); }
+.tb-draft-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 12px; padding: 9px 12px 10px; border-top: var(--border-1) dashed var(--line); }
+.tb-draft-hint { font: 400 11px/1.3 var(--font-mono); color: var(--muted); }
+.tb-draft-end { margin-left: auto; }
+.tb-draft:not(.is-pending) .tb-draft-body { margin-top: 12px; font-size: 14px; line-height: 1.7; color: var(--ink-soft); border-left-color: var(--line); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tb-draft.is-canceled .tb-draft-body { background: var(--mark-strike) 0 0 / 100% 1.7em repeat-y; }
+.tb-draft.is-canceled { opacity: .82; }
+.tb-draft-foot .tb-stamp { display: inline-block; padding: 2px 9px; border: 1.5px solid currentColor; border-radius: 4px; color: var(--lime-text); font: 600 12px/1.45 var(--font-mono); letter-spacing: .08em; transform: rotate(var(--stamp-tilt)); }
+.tb-draft-foot .tb-stamp--quiet { color: var(--muted); }
+.tb-draft-foot .tb-stamp.is-fresh { animation: tb-draft-stamp var(--m-mark-stamp) var(--ease-stamp) both; }
+@keyframes tb-draft-stamp { 0% { opacity: 0; transform: scale(1.28) rotate(-7deg); } 65% { opacity: 1; transform: scale(.97) rotate(-1.6deg); } 100% { opacity: 1; transform: scale(1) rotate(var(--stamp-tilt)); } }
+@media (prefers-reduced-motion: reduce) { .tb-draft-foot .tb-stamp.is-fresh { animation: none; } }

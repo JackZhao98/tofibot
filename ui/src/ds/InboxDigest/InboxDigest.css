@@ -1,0 +1,12 @@
+/* The lifted envelope is paper like the Letter: the skin scope `letter` gives it the light roles in Night. */
+.tb-inbox { max-width: 520px; padding: 0 0 4px; border: var(--border-1) solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.tb-env { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-top: var(--border-1) solid var(--line); font: 400 13px/1.4 var(--font-body); color: var(--ink); }
+.tb-env:first-child, .tb-env.is-lifted + .tb-env { border-top: 0; }
+.tb-env-from { flex: none; min-width: 84px; font-weight: 600; }
+.tb-env-subject { flex: 1; min-width: 0; overflow: hidden; color: var(--ink-soft); text-overflow: ellipsis; white-space: nowrap; }
+.tb-env-tag { flex: none; padding: 3px 6px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--mustard) 24%, var(--surface)); color: var(--mustard-text); font: 600 10px/1.2 var(--font-mono); }
+.tb-env-tag--tomato { background: color-mix(in srgb, var(--tomato) 20%, var(--surface)); color: var(--tomato-text); }
+.tb-env-tag--quiet { background: var(--sunk); color: var(--muted); }
+.tb-env small { flex: none; font: 400 10.5px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tb-env:not(.is-lifted) { opacity: .92; }
+.tb-env.is-lifted { position: relative; z-index: var(--z-raised); margin: -8px -6px 6px 10px; border: var(--border-1) solid var(--line); border-radius: 10px; background: var(--letter-paper); color: var(--letter-ink); box-shadow: var(--note-lift); transform: rotate(-1deg); }

@@ -120,6 +120,41 @@
       "pending": "Offen",
       "waiting": "Wartet auf dich"
     },
+    "file": {
+      "open": "Öffnen",
+      "download": "Herunterladen"
+    },
+    "artifact": {
+      "tag": "ERGEBNIS",
+      "goto": "Zur Nachricht"
+    },
+    "attach": {
+      "open": "Bild öffnen",
+      "openAll": "Alle Bilder öffnen"
+    },
+    "letter": {
+      "from": "VON",
+      "to": "AN",
+      "cc": "CC",
+      "subject": "BETREFF"
+    },
+    "draft": {
+      "changed": "Geändert",
+      "sent": "Gesendet",
+      "canceled": "Abgebrochen"
+    },
+    "schedule": {
+      "retry": "Erneut versuchen"
+    },
+    "code": {
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "less": "▴ Weniger anzeigen",
+      "more_one": "▾ Weitere Zeile anzeigen",
+      "more_other": "▾ Weitere {{count}} Zeilen anzeigen",
+      "lines_one": "{{count}} Zeile",
+      "lines_other": "{{count}} Zeilen"
+    },
     "remove": "Entfernen",
     "removeNamed": "{{name}} entfernen",
     "dismiss": "Schließen",

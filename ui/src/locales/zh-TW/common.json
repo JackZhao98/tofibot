@@ -120,6 +120,39 @@
       "pending": "待辦",
       "waiting": "待確認"
     },
+    "file": {
+      "open": "開啟",
+      "download": "下載"
+    },
+    "artifact": {
+      "tag": "作品",
+      "goto": "前往訊息"
+    },
+    "attach": {
+      "open": "開啟圖片",
+      "openAll": "開啟全部圖片"
+    },
+    "letter": {
+      "from": "寄件者",
+      "to": "收件者",
+      "cc": "副本",
+      "subject": "主旨"
+    },
+    "draft": {
+      "changed": "已改",
+      "sent": "已傳送",
+      "canceled": "已取消"
+    },
+    "schedule": {
+      "retry": "重試"
+    },
+    "code": {
+      "copy": "複製",
+      "copied": "已複製",
+      "less": "▴ 收合",
+      "more_other": "▾ 展開其餘 {{count}} 行",
+      "lines_other": "{{count}} 行"
+    },
     "remove": "移除",
     "removeNamed": "移除 {{name}}",
     "dismiss": "關閉",
