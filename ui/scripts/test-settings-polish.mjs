@@ -662,11 +662,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   let scenarioRuns = 0;
   const combos = [];
   for (const [vpName, width, height] of VIEWPORTS) for (const theme of THEMES) combos.push({vpName, width, height, theme});
-  async function runCombo({vpName, width, height, theme}) {
+  async function runScenario({vpName, width, height, theme}, scenario) {
     const mobile = width < 700;
-    const queue = scenarios.filter(scenario => !only || only.test(scenario.id));
-    // The scenarios are mostly waiting (settle delays, focus sweep), so a few workers per combo cut the wall time without changing what is audited.
-    const worker = async () => { for (let scenario; (scenario = queue.shift());) {
+    {
       let context, page;
       const startedAt = Date.now();
       try {
@@ -692,8 +690,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         warnings.push(`scenario ${scenario.id} (${vpName}, ${theme}) failed: ${error.message.split("\n")[0]}`);
         violations.push({kind: "scenario-error", selector: scenario.id, detail: error.message.split("\n")[0], scenario: scenario.id, viewport: vpName, theme});
       } finally { await context?.close(); }
-    } };
-    await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 4)}, worker));
+    }
   }
   // Vite transforms a module on its first request. Load each selected surface once, alone, so the parallel pages below
   // do not all wait on the same cold transforms.
@@ -708,7 +705,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator(".onb-welcome h2").waitFor();
     await context.close();
   }
-  await Promise.all(combos.map(runCombo));
+  // One pool for every viewport and theme. Separate pools opened 16 pages at once, and the import scenarios ran their key
+  // derivation together in all of them, which starved page loads on an 8-core machine.
+  const queue = combos.flatMap(combo => selected.map(scenario => ({combo, scenario})));
+  const worker = async () => { for (let job; (job = queue.shift());) await runScenario(job.combo, job.scenario); };
+  await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 6)}, worker));
 
   // ---- Report
   const unique = new Map();
