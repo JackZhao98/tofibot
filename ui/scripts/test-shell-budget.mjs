@@ -1,6 +1,6 @@
 // Shell budgets, measured in a production build in a real browser (synthetic data; /api is answered in the page):
 //  1. Panels are code-split: Settings, the Bot desktop, onboarding and the other on-demand panels are not in the entry chunks,
-//     and the entry JS (gzip) stays at or under 331 KB (was 80% of the pre-split 394,757 bytes; raised 2026-10-30 and 2026-11-15).
+//     and the entry JS (gzip) stays at or under 335 KB (was 80% of the pre-split 394,757 bytes; raised 2026-10-30, 2026-11-15 and 2026-11-18).
 //  2. Opening Settings shows its frame in the first frame or two: first visible frame <= 32 ms (<= 100 ms at 4x CPU, Chromium),
 //     with no frame over 50 ms in the next 200 ms. A cold chunk (slow network) still shows the frame at once, then the content.
 //  3. The phone list/chat change is an iOS-style push: the chat slides in from the right over the list while the list shifts left
@@ -30,7 +30,8 @@ const only = (process.env.SHELL_BUDGET_ONLY || "struct,panel,phone").split(",");
 // 80% of the pre-split size.
 // Owner decision 2026-10-30: 330 KB (gzip) until a slimming pass after v0.6.0 brings it back down.
 // Owner 2026-11-15 (D82 record): +1 KB for the step list card's entry wiring (run_plan event, lazy plan chunk, history line).
-const EAGER_GZIP_BUDGET = 331 * 1024;
+// Owner 2026-11-18 (D82 record): +4 KB for the V3 split of App.tsx (props to ChatPane, ChatHeader and Sidebar) and the Bot colour store.
+const EAGER_GZIP_BUDGET = 335 * 1024;
 const ownDist = !process.env.SHELL_BUDGET_DIST;
 const dist = process.env.SHELL_BUDGET_DIST || mkdtempSync(join(tmpdir(), "tofi-shell-budget-"));
 if (ownDist) await build({ configFile: false, root: ui, plugins: [react()], build: { outDir: dist, emptyOutDir: true }, logLevel: "error" });
@@ -50,7 +51,7 @@ for (const name of ["SettingsPanel", "BotDesktopPanel", "Onboarding", "BotSettin
   assert.ok(!eager.some(file => file.includes(`/${name}-`)), `${name} is not an entry-time chunk`);
 }
 console.log(`entry JS: ${eager.length} files, ${gzip} bytes gzip (budget ${EAGER_GZIP_BUDGET})`);
-assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within its 331 KB budget: ${gzip} > ${EAGER_GZIP_BUDGET}`);
+assert.ok(gzip <= EAGER_GZIP_BUDGET, `entry JS must stay within its 335 KB budget: ${gzip} > ${EAGER_GZIP_BUDGET}`);
 }
 
 // ---- browser harness ----

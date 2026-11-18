@@ -621,7 +621,8 @@ Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches
 - Entry bundle (D31 as amended by D82, `test:dialogs`): only the parts every chat shows are eager: the message action bar
   (`ui/src/MessageHoverActions.tsx`, Toolbar + DismissableLayer) and the tool-step drawer and run-context toggle in the message
   list (`App.tsx`, Collapsible). Dialogs, menus, popovers and the Settings controls stay in lazy chunks. The entry may grow
-  for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82.
+  for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82. The budget is
+  335 KB (owner 2026-11-18, for the V3 split of `App.tsx`).
 - `Disclosure` and `AppearancePicker` are in `ui/src/InteractionPrimitives.tsx` (lazy chunks only).
 - Collapsible content gets the class `collapsible-content` (`interaction-system.css`) and holds one child element: a
   keyframed grid row, 0fr to 1fr. Do not use CSS transitions or `--radix-collapsible-content-height` with Radix Collapsible:
