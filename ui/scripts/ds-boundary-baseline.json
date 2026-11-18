@@ -192,7 +192,7 @@
     "webFork": 4
   },
   "settings-system.css": {
-    "bridgeUse": 18
+    "bridgeUse": 16
   },
   "settings/automation.css": {
     "bridgeUse": 4
@@ -204,7 +204,7 @@
     "bridgeUse": 2
   },
   "settings/settings-components.css": {
-    "bridgeUse": 18
+    "bridgeUse": 16
   },
   "settings/spend-cap.css": {
     "bridgeUse": 1
