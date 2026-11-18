@@ -1,4 +1,14 @@
 {
-  "note": "The V2 button classes that src/ds/legacy-aliases.css draws with the kit Button (V3 PLAN 7.5). test:css-layers refuses a legacy !important that names one. Remove a class when its last use in TSX is swapped; the file goes by PR 9.1. PR 2.2 adds field-note and error-text.",
-  "classes": ["primary-button", "secondary-button", "st-button", "text-button", "ghost-button", "mcp-button", "bs-button"]
+  "note": "The V2 button classes that src/ds/legacy-aliases.css draws with the kit Button (V3 PLAN 7.5). test:css-layers refuses a legacy !important that names one. Remove a class when its last use in TSX is swapped; the file goes by PR 9.1. field-note and error-text (PR 2.2) are restyled in place in v2-foundations.css, not in the alias sheet.",
+  "classes": [
+    "primary-button",
+    "secondary-button",
+    "st-button",
+    "text-button",
+    "ghost-button",
+    "mcp-button",
+    "bs-button",
+    "field-note",
+    "error-text"
+  ]
 }
