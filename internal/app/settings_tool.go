@@ -52,6 +52,9 @@ type settingReader func(ctx context.Context, sr settingRun, t Target) (SettingVa
 type settingBinding struct {
 	read  settingReader
 	write settingWriter
+	// stored, when set, maps (current text, requested text) to the text the writer will really store, so the unchanged check and the
+	// audit row hold the stored value. A revert is exempt: it restores the old text exactly (see exactRevertContext).
+	stored func(oldText, newText string) string
 }
 
 var settingBindings = map[string]*settingBinding{}

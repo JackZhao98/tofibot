@@ -30,11 +30,16 @@ function hydrateGround(botId: string, ground: unknown): void {
   const key = `${GROUND_PREFIX}${botId}`;
   try {
     const held = localStorage.getItem(key);
-    if (typeof ground !== "string") { if (held !== null) localStorage.removeItem(key); return; }
-    if (held === ground) return;
-    localStorage.setItem(key, ground);
+    if (typeof ground !== "string") {
+      if (held === null) return;
+      localStorage.removeItem(key);
+    } else {
+      if (held === ground) return;
+      localStorage.setItem(key, ground);
+    }
   } catch { return; /* storage unavailable: the default ground applies */ }
-  window.dispatchEvent(new CustomEvent(GROUND_EVENT, { detail: { botId, ground } }));
+  // A removed ground is announced too (no ground in the detail): listeners fall back to the Bot's default.
+  window.dispatchEvent(new CustomEvent(GROUND_EVENT, { detail: { botId, ground: typeof ground === "string" ? ground : undefined } }));
 }
 
 /**
@@ -45,8 +50,9 @@ export function hydrateBotAvatars(send: Send, bots: readonly ServerBot[]): void 
   for (const bot of bots) {
     let held: string | null = null;
     try { held = localStorage.getItem(`${LOCAL_PREFIX}${bot.id}`); } catch { /* storage unavailable: the server's look still applies after a reload */ }
+    // The ground follows the server, so a Bot with no look (cleared) has none either.
+    hydrateGround(bot.id, bot.avatar?.ground);
     if (bot.avatar) {
-      hydrateGround(bot.id, bot.avatar.ground);
       const config = { schemaVersion: 1, shape: bot.avatar.shape, pattern: bot.avatar.pattern, palette: bot.avatar.palette };
       const next = JSON.stringify(config);
       let same = false;

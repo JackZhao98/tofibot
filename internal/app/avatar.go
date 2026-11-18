@@ -155,7 +155,10 @@ func (s *Store) botAvatar(id string) (string, error) {
 }
 
 // SetBotAvatar stores a look (already normalized) or clears it with "".
-func (s *Store) SetBotAvatar(id, avatar string) error {
+func (s *Store) SetBotAvatar(id, avatar string) error { return s.setBotAvatar(id, avatar, true) }
+
+// setBotAvatar stores a look; keep carries a stored ground into a version 1 look (false: store exactly what is given, for a revert).
+func (s *Store) setBotAvatar(id, avatar string, keep bool) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -165,7 +168,9 @@ func (s *Store) SetBotAvatar(id, avatar string) error {
 	if err := tx.QueryRow(`SELECT avatar FROM bots WHERE id=?`, id).Scan(&current); err != nil {
 		return err
 	}
-	avatar = keepGround(current, avatar)
+	if keep {
+		avatar = keepGround(current, avatar)
+	}
 	if current == avatar {
 		return nil
 	}

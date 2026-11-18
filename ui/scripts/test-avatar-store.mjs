@@ -37,7 +37,7 @@ console.log("PASS avatarSync and avatarStore share the key and the event");
   const mem = new Map();
   const events = [];
   globalThis.localStorage = {getItem: key => mem.has(key) ? mem.get(key) : null, setItem: (key, value) => void mem.set(key, String(value)), removeItem: key => void mem.delete(key)};
-  globalThis.window = Object.assign(new EventTarget(), {dispatchEvent: event => (events.push(event.type), true)});
+  globalThis.window = Object.assign(new EventTarget(), {dispatchEvent(event) { events.push(event.type); return EventTarget.prototype.dispatchEvent.call(this, event); }});
   globalThis.CustomEvent = class extends Event { constructor(type, init) { super(type); this.detail = init?.detail; } };
   const {openUiModules} = await import("./ui-modules.mjs");
   const modules = await openUiModules({language: "en"});
@@ -94,7 +94,26 @@ console.log("PASS avatarSync and avatarStore share the key and the event");
     assert.equal(gs.getStoredBotGround("bot_d"), undefined, "a Bot with a look and no ground drops a stale copy");
     assert.equal(mem.get("tofi:bot-avatar:bot_d") !== undefined, true, "the look copy is kept");
     assert.deepEqual(sent, [], "hydrating a stored look sends nothing");
+    // A removed ground is announced, and a subscriber falls back to the default (event and storage event alike).
+    sy.hydrateBotAvatars(send, [{id: "bot_f", avatar: served}]);
+    const heard = [];
+    const off = gs.subscribeBotGround("bot_f", ground => heard.push(ground));
+    sy.hydrateBotAvatars(send, [{id: "bot_f", avatar: {...served, schemaVersion: 1, ground: undefined}}]);
+    assert.deepEqual(heard, [gs.defaultBotGround("bot_f")], "removal reaches subscribers as the default");
+    const storageEvent = new Event("storage"); storageEvent.key = "tofi:bot-ground:bot_f"; storageEvent.newValue = null;
+    globalThis.window.dispatchEvent(storageEvent);
+    assert.deepEqual(heard, [gs.defaultBotGround("bot_f"), gs.defaultBotGround("bot_f")], "a storage removal falls back to the default");
+    off();
+    // A cleared look (the server has none) drops the ground copy and announces it; a held look is still handed up.
+    sy.hydrateBotAvatars(send, [{id: "bot_g", avatar: served}]);
+    assert.equal(gs.getStoredBotGround("bot_g"), "mustard");
+    events.length = 0; sent.length = 0;
+    sy.hydrateBotAvatars(send, [{id: "bot_g", avatar: null}]);
+    assert.equal(gs.getStoredBotGround("bot_g"), undefined, "no look on the server, no ground copy");
+    assert.ok(events.includes("tofi:ground-change"), "the clear is announced");
+    assert.equal(gs.exportBotLook("bot_g").ground, undefined, "an export no longer carries the cleared ground");
     // A v1 look pushed from here carries no ground key (the server keeps the stored one).
+    sent.length = 0;
     mem.set("tofi:bot-avatar:bot_e", JSON.stringify({schemaVersion: 1, shape: "curl", pattern: "solid", palette: "ivory"}));
     sy.hydrateBotAvatars(send, [{id: "bot_e", avatar: null}]);
     assert.ok(sent.length === 1 && !sent[0].includes("ground"), "the held look goes up as version 1");

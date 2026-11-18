@@ -52,10 +52,11 @@ export function saveBotGround(botId: string, ground: Ground) {
 export function subscribeBotGround(botId: string, listener: (ground: Ground) => void) {
   const handleChange = (event: Event) => {
     const custom = event as CustomEvent<{ botId?: string; ground?: Ground }>;
-    if (custom.detail?.botId === botId && custom.detail.ground) listener(custom.detail.ground);
+    // No ground in the event means it was removed: the Bot shows its default.
+    if (custom.detail?.botId === botId) listener(isGround(custom.detail.ground) ? custom.detail.ground : defaultBotGround(botId));
   };
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === `${GROUND_PREFIX}${botId}` && isGround(event.newValue)) listener(event.newValue);
+    if (event.key === `${GROUND_PREFIX}${botId}`) listener(isGround(event.newValue) ? event.newValue : defaultBotGround(botId));
   };
   window.addEventListener(GROUND_CHANGE_EVENT, handleChange);
   window.addEventListener("storage", handleStorage);
