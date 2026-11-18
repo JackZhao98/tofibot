@@ -128,7 +128,7 @@ There are no copied-English placeholders, so nothing untranslated can be mistake
 ## Hardcoded text ratchet
 
 `scripts/i18n-baseline.json` holds, per file, the count of CJK text runs and obvious English UI phrases still in source
-(`src/locales`, `src/motion-lab`, `src/catalog` and `src/i18n/languages.ts` are excluded). A file may not exceed its count; files not listed must have none.
+(`src/locales`, `src/catalog` and `src/i18n/languages.ts` are excluded). A file may not exceed its count; files not listed must have none.
 `src/catalog` is the isolated Design System bundle (D81, superseding D34). Its specimen labels are English synthetic data for UI review; the Settings wrapper is localized in all seven languages. It ships separately as `design-system.html`; product source must never import it. The real components inside its frames use the product catalogs, switchable to all seven languages.
 After converting files, the integrator runs `npm run test:i18n -- --update-baseline` (it refuses increases). Batch workers do not edit the baseline.
 Comments are ignored; text in strings, templates and JSX counts.

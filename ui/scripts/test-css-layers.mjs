@@ -77,7 +77,7 @@ function count(file) {
   return tally;
 }
 
-const sheets = walk(src).filter(file => file.endsWith(".css") && !/\/(catalog|motion-lab)\/|\/acceptance\//.test(file)).sort();
+const sheets = walk(src).filter(file => file.endsWith(".css") && !/\/catalog\/|\/acceptance\//.test(file)).sort();
 const current = Object.fromEntries(sheets.map(file => [relative(src, file), count(file)]).filter(([, tally]) => Object.values(tally).some(Boolean)));
 if (process.argv.includes("--update")) {
   writeFileSync(baselineFile, `${JSON.stringify(current, null, 2)}\n`);

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { mountCat } from "../../lib/tofi-avatar/index.js";
-import "./primitives.css";
+import "./LoadingCat.css";
 
 const WAKE_AFTER = 350;
 

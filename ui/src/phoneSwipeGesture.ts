@@ -14,8 +14,8 @@ import { holdAvatarLife } from "./lib/tofi-avatar/index.js";
  * It only starts on touch or pen, on a horizontal-first move, never in a text field or in something scrolled sideways.
  * Nothing goes through React until a completed swipe commits; the panes move by transform only.
  *
- * The travel after release is the part the two experiment variants differ in (`Settle`): phoneSwipeEngine.ts bakes the
- * spring into Web Animations keyframes (compositor); src/motion-lab/experiments/phoneSwipeMotion.ts drives it with Motion.
+ * The travel after release (`Settle`) lives in phoneSwipeEngine.ts, which bakes the spring into Web Animations keyframes
+ * (compositor).
  */
 
 export const SWIPE = {

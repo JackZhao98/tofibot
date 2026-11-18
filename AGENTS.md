@@ -191,8 +191,7 @@ Owner 2026-11-13: no global or fallback style may override a component. The glob
 add their own styles on top; a thing used in many places is defined once.
 
 - `ui/src/cascade.css` declares `@layer reset, tokens, base, components, platform, utilities;`. Every entry (`main.tsx`,
-  `desktop-settings/main.tsx`, `catalog/main.tsx`, `motion-lab/main.tsx`, the Mac pages) imports it before any other
-  stylesheet.
+  `desktop-settings/main.tsx`, `catalog/main.tsx`, the Mac pages) imports it before any other stylesheet.
 - Global defaults go in a layer: `reset` (box sizing), `tokens` (all custom properties, `design-tokens.css`, including the
   high-contrast and no-blur overrides and the few component tokens), `base` (element defaults: page colours, selection,
   caret, the default field look, the default focus ring). Component styles are not in a layer, and a style outside a
@@ -223,7 +222,8 @@ loaded by `usePhoneSwipeBack.ts` on a phone-sized window only; it moves the pane
 `setMobileList(true)` as the back button (flushSync, `data-swipe=done` keeps CSS transitions from replaying). `test:swipe-back`
 (also `SWIPE_BACK_ENGINE=webkit`) holds it. The swipe-back keeps its own engine (step 4 measured
 Motion and kept our code, D35). `motion` is a dependency used only in lazy chunks: the Bot computer window (`FloatingDesktop.tsx`) and the step
-list card (`PlanCard.tsx`); `test:motion-experiment` and `TOFI_MOTION_EXPERIMENT=motion` in the dev server use it too.
+list card (`PlanCard.tsx`). The Motion Lab is retired (V3 PR 0.1); the few lab helpers the product still calls live in
+`ui/src/motion/legacy/` and go with their last caller, and `prefersReducedMotion` is in `ui/src/motion/reduced.ts`.
 
 # Process line
 

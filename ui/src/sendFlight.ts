@@ -1,4 +1,4 @@
-import { arcPoints } from "./motion-lab/lib/choreo";
+import { arcPoints } from "./motion/legacy/choreo";
 import { MOTION, EASE } from "./motion";
 import { layerRoot } from "./layers";
 

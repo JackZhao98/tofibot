@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { catalog, paletteOptions, type AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { randomBotAvatarConfig } from "./avatarStore";
-import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
+import { SPRINGS, springEasing } from "./motion/legacy/spring";
 import { useTranslation } from "./i18n";
 import "./bot-avatar-picker-motion.css";
 import { MOTION, EASE } from "./motion";
