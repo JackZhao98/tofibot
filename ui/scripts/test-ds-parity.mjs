@@ -117,6 +117,8 @@ const CASES = [
 // Known departures, as [case name pattern, property]. Each is explained in the PR 0.6 report.
 const ALLOWED = [
   [/^TextArea/, "gap"], [/^TextArea/, "align-items"],  // flex properties the spec's shared rule leaves on a block element: no effect
+  // AttachmentGrid: the cell button inherits the text colour; the spec leaves the browser's default black (found by test:skin-sensitivity).
+  ...["color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "outline-color", "caret-color", "column-rule-color", "text-decoration-color", "text-emphasis-color", "-webkit-text-fill-color", "-webkit-text-stroke-color"].map(property => [/^AttachmentGrid/, property]),
   // Card block: the kit reads the eyebrow, title, ghost action and footer rule in --on-block (pale on mustard in Night in the spec).
   ...["color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"].map(property => [/^Card block/, property]),
   [/^Skeleton/, "opacity"],          // a running animation: sampled at different times
