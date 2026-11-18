@@ -41,7 +41,7 @@
   --surface-sunk: var(--sunk);
   --surface-soft: var(--surface-2);
   --surface-hover: var(--hover);
-  --selected-bg: color-mix(in srgb, var(--ink) 9%, var(--surface));
+  --selected-bg: color-mix(in srgb, var(--ink) 9%, transparent);
   /* Palette: the V2 hue names became the five V3 slots. */
   --clay: var(--tomato);
   --clay-text: var(--tomato-text);

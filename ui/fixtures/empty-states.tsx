@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { useState, type ReactNode } from "react";
 import { i18nReady, setLanguage } from "../src/i18n";
-import "../src/fonts.css";
+import "../src/skin/fonts.css";
 import "../src/styles.css";
 import "../src/interaction-system.css";
 import "../src/settings-system.css";
