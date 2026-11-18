@@ -1,4 +1,4 @@
-// The lazy skin sheets (V3 PLAN 7.4). The default skin and legacy are eager (skin/default.css, every entry), so only the probe
+// The lazy skin sheets (V3 PLAN 7.4). The default skin is eager (skin/default.css, every entry), so only the probe
 // skins are here. A skin is one <link> to its generated sheet; applySkin flips data-skin after loadSkin resolves, so the
 // restyle is one frame. Only the catalog imports this file, so a production entry never reaches these sheets.
 import probeA from "./probe-a.css?url";
@@ -8,9 +8,9 @@ import type { ProbeSkinId, SkinId } from "./skin";
 const SHEETS: Record<ProbeSkinId, string[]> = { "probe-a": [probeA], "probe-b": [probeB] };
 const loading = new Map<string, Promise<void>>();
 
-/** Resolves when the skin's stylesheet is in the document. The default skin and legacy are already there. */
+/** Resolves when the skin's stylesheet is in the document. The default skin is already there. */
 export function loadSkin(skin: SkinId | ProbeSkinId): Promise<void> {
-  if (skin === "legacy" || skin === "v3") return Promise.resolve();
+  if (skin === "v3") return Promise.resolve();
   const known = loading.get(skin);
   if (known) return known;
   const links = SHEETS[skin].map(href => {
@@ -31,5 +31,5 @@ export function loadSkin(skin: SkinId | ProbeSkinId): Promise<void> {
 
 /** A skin name from the address bar, or null when it names none. The catalog accepts all of them. */
 export function skinFromParam(value: string | null): SkinId | ProbeSkinId | null {
-  return value === "legacy" || value === "v3" || value === "probe-a" || value === "probe-b" ? value : null;
+  return value === "v3" || value === "probe-a" || value === "probe-b" ? value : null;
 }

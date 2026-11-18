@@ -31,7 +31,7 @@ export const frameParams = {
   state: params.get("state") ?? "",
   theme: (params.get("theme") === "dark" ? "dark" : "light") as Theme,
   language: params.get("lng") ?? "en",
-  /** ?skin=legacy|v3|probe-a|probe-b. The default skin when absent. */
+  /** ?skin=v3|probe-a|probe-b. The default skin when absent. */
   skin: skinFromParam(params.get("skin")) ?? DEFAULT_SKIN,
 };
 

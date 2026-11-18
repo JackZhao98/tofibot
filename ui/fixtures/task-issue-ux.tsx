@@ -12,6 +12,7 @@ import "../src/web-tool-steps.css";
 import "../src/web-sidebar-list.css";
 import "../src/chat-header.css";
 import "../src/context-card.css";
+import "../src/ds/legacy-aliases.css";
 const params = new URLSearchParams(location.search);
 document.documentElement.lang = params.get("lang") === "en" ? "en" : "zh-CN";
 localStorage.setItem("tofi:appearance", params.get("theme") === "dark" ? "dark" : "light");

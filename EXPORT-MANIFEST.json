@@ -831,7 +831,6 @@
     "ui/scripts/test-desktop-video-recovery.mjs": "b5ffbf97e30b8559a63f8b09e5dd08daf17271d84091025e39f84598a47bee61",
     "ui/scripts/test-desktop-video-visibility.mjs": "1ee4931080168ee3fe1622b6ca1323b3e736015ed2158733f2a0c7c67674428a",
     "ui/scripts/test-failure-retry-browser.mjs": "15de42f5017233ce2789d5e4caf0b55a885148cf078a5713d86d831d331d1ef1",
-    "ui/scripts/test-final-v2-tokens.mjs": "e9a07a6f4dc727dccc916dab010207efe5a54d18e1c9d15a4384bda9d106d12f",
     "ui/scripts/test-floating-desktop.mjs": "298e938f8fb7ed413ab88d8eaf4784a0655a18ed90100633ea1e9f972b6295a9",
     "ui/scripts/test-mcp-oauth.mjs": "f799488a0c8838b2b4851a8df82de972dc746059ffa984ace112caa03ea67dd6",
     "ui/scripts/test-message-markdown.mjs": "b96b884ae36510715b7fdb2b3c04f9ca601f77df4d4078a984bc62519933fff6",
@@ -1300,8 +1299,6 @@
     "ui/test-fixtures/design/icons/svg/workflow.svg": "b5da165ddbbe471485b64250682223b35f386fd8b09c6ea599b396d3d3691a11",
     "ui/test-fixtures/design/icons/svg/workspace-filled.svg": "d7a663322a99c6156ee46574141749864f6c57c2c8632f4e56b35a76bc8a27b3",
     "ui/test-fixtures/design/icons/svg/workspace.svg": "473284fcd56598a76eb6c2f05b300920d8f90fe412fc3f85da9d57ceaf8f415c",
-    "ui/test-fixtures/design/tokens/colors.css": "4ab92065bacc6e1f20f0039c3c3606a67dc9d9bcdaa3097d7f67834aa53134ad",
-    "ui/test-fixtures/design/tokens/tokens.json": "17d934c4f6058632283c2c13ccd444bd1c090a9f847a3d84c6265fb9dd2a7fa6",
     "ui/tsconfig.json": "398ffb92e92a46b6ce911315515d87bb6b9861e500ba6a7653ab07e89921957b",
     "ui/vite.config.ts": "3873d808c6aeb00d9feb09b7db4a0675faa426c5d36d76e931dfb26bf8f02860"
   },

@@ -197,7 +197,7 @@ async function streamCases(browser, origin) {
 import React,{Profiler,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady} from '../src/i18n';import {BotBrowserVideo} from '../src/BotBrowserVideo';
 import {BotBrowserPanel} from '../src/BotBrowserPanel';import {FloatingDesktop} from '../src/FloatingDesktop';
-import '../src/desktop-system.css';import '../src/v2-foundations.css';
+import '../src/desktop-system.css';import '../src/v2-foundations.css';import '../src/ds/legacy-aliases.css';
 function Probe(){const [s,S]=useState((window as any).__source);const [v,V]=useState(true);const [big,B]=useState(false);const [open,O]=useState(true);
 (window as any).__setSource=S;(window as any).__visible=V;(window as any).__close=()=>O(false);
 return <div className="workspace">{open&&(location.search.includes('shell')?<FloatingDesktop small={!big} expanded={big} onClose={()=>O(false)}><BotBrowserPanel source={s} expanded={big} onClose={()=>O(false)} onExpand={()=>B(!big)}/></FloatingDesktop>:<Profiler id="video" onRender={()=>{(window as any).__commits++}}><BotBrowserVideo source={s} visible={v} onStatus={S}/></Profiler>)}</div>}

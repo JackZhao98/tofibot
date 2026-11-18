@@ -38,7 +38,7 @@
 .workspace .work-panel select:focus-visible,
 .workspace .work-panel input:focus-visible,
 .workspace .work-panel textarea:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
-.workspace .work-panel .work-add { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; }
+.workspace .work-panel .work-add { display: grid; width: 38px; height: 38px; min-height: 0; padding: 0; place-items: center; border-radius: 12px; }
 
 .workspace .work-member-select { position: relative; margin-bottom: 20px; }
 /* A group with goals filters by member and by goal, side by side. */

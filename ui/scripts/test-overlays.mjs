@@ -578,9 +578,7 @@ await check("identity card: hover opens it in #tofi-layers without taking focus;
   let server;
   try {
     const main = await readFile(join(ui, "src/main.tsx"), "utf8");
-    const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
-    await writeFile(join(fixture, "foundations.css"), foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, ""));
-    const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
+    const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
     await writeFile(join(fixture, "index.html"), '<!doctype html><meta charset="utf-8"><div id="root"></div><div id="tofi-layers"></div><script type="module" src="./main.tsx"></script>');
     await writeFile(join(fixture, "main.tsx"), `${styles}
 import {createRoot} from 'react-dom/client';

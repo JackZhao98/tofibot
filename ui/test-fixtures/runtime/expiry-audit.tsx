@@ -11,6 +11,7 @@ import "../../src/settings-system.css";
 import "../../src/desktop-system.css";
 import "../../src/conversation-workspace.css";
 import "../../src/v2-foundations.css";
+import "../../src/ds/legacy-aliases.css";
 import "../../src/v2-app.css";
 import "../../src/web-tool-steps.css";
 import "../../src/chat-header.css";

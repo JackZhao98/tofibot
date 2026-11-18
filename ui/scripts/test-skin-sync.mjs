@@ -5,7 +5,9 @@
 //  4. a structure token that exists today (test-fixtures/design/legacy-structure.json) changes value before the flip;
 //  5. a probe skin leaves a role at its V3 value;
 //  6. motion.ts or layers.ts drift from the generated tokens.ts;
-//  7. a var(--x) in a stylesheet has no definition anywhere in ui/src.
+//  7. a var(--x) in a stylesheet has no definition anywhere in ui/src;
+//  8. a product stylesheet paints text with a fill token (color: var(--clay) ...);
+//  9. a custom property read in a product sheet or component has no definition and no fallback.
 // Run: npm --prefix ui run test:skin-sync
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -108,10 +110,9 @@ for (const file of files) {
   for (const [, name] of text.matchAll(/(--[\w-]+)\s*:/g)) defined.add(name);
   for (const [, name] of text.matchAll(/["'`](--[\w-]+)["'`]/g)) defined.add(name); // style={{ "--x": ... }}, setProperty("--x")
 }
-// Set at run time by a library or from a template string, so no literal definition exists. --m-fast is a real gap
-// (web-tools-settings.css), left as it is because naming it a duration would change today's transitions.
+// Set at run time by a library or from a template string, so no literal definition exists.
 const RUNTIME = [/^--radix-/, /^--head-[lts]$/, /^--rail-[lts]$/];
-const KNOWN_UNDEFINED = new Set(["--m-fast"]);
+const KNOWN_UNDEFINED = new Set();
 const undefinedUses = new Map();
 for (const file of files.filter(file => file.endsWith(".css"))) {
   const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -131,20 +132,38 @@ for (const file of ["skin/v3.css", "skin/roles.css"]) {
   }
 }
 
-// ---- 8. the V2 bridge covers every V2 name still in use. A name that skin/legacy.css defines and that a product sheet or
-// component still reads must resolve under the default skin: it is a V3 role or structure token, or skin/v2-bridge.css defines it.
-// Without this, a V2 sheet would read an undefined name and silently lose its colour once legacy.css no longer answers.
+// ---- 8. no product stylesheet paints text with a fill token (carried over from the retired test:final-v2-tokens, PR 2.1).
+// A fill (--clay, --yellow, --danger, --status-error ...) is a background; the text role is its -text twin or --ink.
+{
+  const FILL_AS_TEXT = /(?<![\w-])color\s*:\s*var\(--(?:clay|iris|lagoon|honey|yellow|pink|blue|orange|green|danger|status-error|status-working|status-done|status-unread)\)/;
+  const inspect = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) { if (entry.name !== "lib") inspect(path); continue; }
+      if (!entry.name.endsWith(".css") || relative(src, path).startsWith("skin/")) continue;
+      if (FILL_AS_TEXT.test(readFileSync(path, "utf8"))) fail(`Fill token used as foreground in ${relative(src, path)}`);
+    }
+  };
+  inspect(src);
+}
+
+// ---- 9. every custom property a product sheet or component reads is defined by something: a V3 role or structure token,
+// skin/v2-bridge.css, or a sheet or component that sets it (a local property such as --x-size). skin/legacy.css, which
+// used to define the V2 names, is gone (PR 2.1), so a V2 name the bridge forgot would read as undefined and silently lose
+// its value. A read with a fallback, var(--x, ...), is allowed to be undefined; so are the names a script or a library sets
+// at run time (RUNTIME_SET).
 {
   const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, "");
-  const names = text => new Set([...strip(text).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
-  const legacyNames = names(readFileSync(join(src, "skin/legacy.css"), "utf8"));
-  const bridgeNames = names(readFileSync(join(src, "skin/v2-bridge.css"), "utf8"));
-  const resolves = name => known.has(name) || bridgeNames.has(name);
+  const bridgeNames = new Set([...strip(readFileSync(join(src, "skin/v2-bridge.css"), "utf8")).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
+  const sources = files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("catalog/"));
+  const defined = new Set([...known, ...bridgeNames]);
+  for (const file of sources) for (const [, name] of strip(readFileSync(file, "utf8")).matchAll(/(--[\w-]+)["']?\s*:/g)) defined.add(name);
+  const RUNTIME_SET = /^--(?:x|y|head-[lts]|rail-[lts]|radix-[\w-]+)$/;
   const used = new Map();
-  for (const file of files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("skin/") && !relative(src, file).startsWith("catalog/"))) {
-    for (const [, name] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)/g)) if (legacyNames.has(name) && !resolves(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
+  for (const file of sources.filter(file => !relative(src, file).startsWith("skin/"))) {
+    for (const [, name, fallback] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)\s*(,)?/g)) if (!fallback && !defined.has(name) && !RUNTIME_SET.test(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
   }
-  for (const [name, where] of used) fail(`${name} is defined by skin/legacy.css and used in ${[...new Set(where)].slice(0, 3).join(", ")}, but nothing defines it under the default skin; map it in skin/v2-bridge.css`);
+  for (const [name, where] of used) fail(`${name} is read by ${[...new Set(where)].slice(0, 3).join(", ")} without a fallback, but nothing defines it; define it in a sheet or map it in skin/v2-bridge.css`);
 }
 
 if (failures.length) {

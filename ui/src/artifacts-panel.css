@@ -69,7 +69,7 @@
 .workspace .artifact-source { display: grid; flex: 1; min-width: 0; font: 11px/1.35 var(--body); color: var(--muted); }
 .workspace .artifact-conversation { overflow: hidden; color: var(--ink-soft); text-overflow: ellipsis; white-space: nowrap; }
 .workspace .artifact-conversation em { margin-left: 6px; font-style: normal; color: var(--muted); }
-.workspace .artifact-goto { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 10px; }
+.workspace .artifact-goto { display: grid; flex: 0 0 32px; width: 32px; height: 32px; min-height: 0; padding: 0; place-items: center; border-radius: 10px; }
 
 .workspace .artifact-versions-toggle { justify-self: start; font: 600 12px/1.3 var(--display); }
 .workspace .artifact-versions { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
@@ -78,7 +78,7 @@
 .workspace .artifact-versions li > button:first-child:hover { background: var(--sunk); }
 .workspace .artifact-versions li small { color: var(--muted); font: 11px/1.3 var(--mono); }
 .workspace .artifact-versions-note { color: var(--muted); font: 12px/1.4 var(--body); }
-.workspace .artifact-versions .ghost-button { display: grid; width: 28px; height: 28px; place-items: center; }
+.workspace .artifact-versions .ghost-button { display: grid; width: 28px; height: 28px; min-height: 0; padding: 0; place-items: center; }
 
 .workspace .artifacts-more { display: block; margin: 16px auto 0; }
 .workspace .artifacts-panel button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }

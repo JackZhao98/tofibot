@@ -80,6 +80,9 @@
   "display-card.css": {
     "bridgeUse": 21
   },
+  "ds/legacy-aliases.css": {
+    "aliasRule": 23
+  },
   "empty-states.css": {
     "bridgeUse": 8
   },
@@ -192,7 +195,7 @@
     "webFork": 4
   },
   "settings-system.css": {
-    "bridgeUse": 19
+    "bridgeUse": 18
   },
   "settings/automation.css": {
     "bridgeUse": 4
@@ -256,7 +259,7 @@
     "webFork": 26
   },
   "v2-foundations.css": {
-    "bridgeUse": 9
+    "bridgeUse": 8
   },
   "web-file-drop.css": {
     "bridgeUse": 8,

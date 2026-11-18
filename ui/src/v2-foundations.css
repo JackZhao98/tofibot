@@ -1,35 +1,8 @@
 /* Final V2 primitives shared by every Web surface. Component-specific geometry
    belongs to the owning surface, not to the old global control rules. */
 
-/* Buttons — only primary actions have the chunky outline and offset shadow. */
+/* Buttons: .primary-button, .secondary-button and .text-button are drawn by ds/legacy-aliases.css (PR 2.1). */
 @layer legacy {
-:is(.primary-button,.secondary-button) {
-  display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  min-height:42px; padding:10px 16px; border:var(--legacy-edge-w) solid var(--line);
-  border-radius:12px; font:600 14px/1.2 var(--display);
-  transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out),color var(--m-press) var(--ease-out);
-}
-.primary-button,.extension-actions .primary-button {
-  color:var(--on-block); background:var(--yellow); box-shadow:var(--shadow-sm);
-}
-.primary-button:not(:disabled):hover,.extension-actions .primary-button:not(:disabled):hover {
-  color:var(--on-block); background:color-mix(in srgb,var(--yellow) 88%,var(--surface));
-}
-.secondary-button {
-  color:var(--ink); background:var(--surface); box-shadow:var(--shadow-sm);
-}
-.secondary-button:not(:disabled):hover {
-  background:var(--surface-2); color:var(--ink);
-}
-:is(.primary-button,.secondary-button):not(:disabled):hover {
-  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink);
-}
-:is(.primary-button,.secondary-button):not(:disabled):active {
-  transform:translate(2px,3px); box-shadow:none;
-}
-:is(.primary-button,.secondary-button):disabled {
-  opacity:.45; box-shadow:none; color:var(--ink); cursor:not-allowed;
-}
 .delete-dialog-submit {
   min-height:42px; border:var(--legacy-edge-w) solid var(--line); border-radius:12px;
   background:var(--danger); color:var(--on-danger); box-shadow:var(--shadow-sm);
@@ -46,12 +19,11 @@
 .danger-link:not(:disabled):hover { background:color-mix(in srgb,var(--danger) 10%,transparent); }
 .inline-confirmation .danger-link { color:var(--on-danger); background:var(--danger); border-color:var(--line); box-shadow:var(--shadow-sm); }
 .danger-link:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
-:is(.primary-button,.secondary-button):focus-visible,
-:is(.icon-button,.top-icon-button,.close-button,.text-button):focus-visible {
+:is(.icon-button,.top-icon-button,.close-button):focus-visible {
   outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px;
 }
-:is(.text-button,.close-button) { color:var(--ink-soft); background:transparent; box-shadow:none; }
-:is(.text-button,.close-button):hover { color:var(--ink); background:var(--surface-2); }
+.close-button { color:var(--ink-soft); background:transparent; box-shadow:none; }
+.close-button:hover { color:var(--ink); background:var(--surface-2); }
 :is(.icon-button,.top-icon-button,.close-button) {
   width:36px; height:36px; min-width:36px; border:1.5px solid var(--line-soft);
   border-radius:12px; background:var(--surface); color:var(--ink-soft);
@@ -86,6 +58,11 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 @layer legacy {
 .field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
+/* A text button inside a sentence is a link: it keeps the sentence's type and line height. Coarse pointers keep the 44px target. */
+p > .text-button:where(:not(.approval-manage)), div.error-text > .text-button { margin-inline-start: 4px; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; letter-spacing: inherit; text-decoration: underline; text-underline-offset: 3px; }
+p > .text-button:where(:not(.approval-manage)):hover:not(:disabled), div.error-text > .text-button:hover:not(:disabled) { background: transparent; }
+p > .text-button:where(:not(.approval-manage)):active:not(:disabled), div.error-text > .text-button:active:not(:disabled) { transform: none; }
+@media not ((pointer: coarse) or (any-pointer: coarse)) { p > .text-button:where(:not(.approval-manage)), div.error-text > .text-button { min-height: 0; } }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
 .search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 
@@ -158,10 +135,4 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .view-only-message.is-user .view-only-message-bubble { color:var(--ink); }
 .segmented { background:var(--surface-2); border:1px solid var(--line-soft); border-radius:12px; }
 .segmented button.selected { background:var(--surface); color:var(--ink); box-shadow:0 0 0 1px var(--line-soft); }
-
-@media (prefers-reduced-motion:reduce) {
-  :is(.primary-button,.secondary-button) { transition:none; }
-  :is(.primary-button,.secondary-button):not(:disabled):hover,
-  :is(.primary-button,.secondary-button):not(:disabled):active { transform:none; }
-}
 }

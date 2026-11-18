@@ -78,14 +78,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .st-link:disabled{opacity:.5;cursor:not-allowed}
 .st-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:4px}
 
-/* Buttons. Quiet (default): filled, lifted, no outline. The one orange primary keeps the 2px line, the hard shadow and the press. */
-.st-button,.mcp-settings .mcp-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:none;min-height:32px;box-sizing:border-box;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--ink);font:600 13px/1 var(--body);white-space:nowrap;text-decoration:none;transition:background-color var(--m-press),transform var(--m-press)}
-.st-button:hover:not(:disabled),.mcp-settings .mcp-button:hover:not(:disabled){background:color-mix(in srgb,var(--surface) 70%,var(--sunk))}
-.st-button:active:not(:disabled),.mcp-settings .mcp-button:active:not(:disabled){transform:translateY(1px)}
-.st-button:disabled,.mcp-settings .mcp-button:disabled{opacity:.5;cursor:not-allowed}
-.st-button:focus-visible,.mcp-settings .mcp-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
-.st-button.is-danger,.mcp-settings .mcp-danger{color:var(--danger-text)}
-.st-button>svg{flex:none}
+/* Buttons: .st-button and .mcp-button are drawn by ds/legacy-aliases.css (PR 2.1); the .settings-shell rules below keep the settings size. */
 .settings-shell .primary-button{min-height:36px;padding:0 16px;border-radius:10px;font:600 13.5px/1 var(--display)}
 /* In-place confirm (ConfirmAction): the trigger is quiet danger text; the confirming step is the filled red one, still without outline or hard shadow. */
 .settings-shell .danger-link{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}

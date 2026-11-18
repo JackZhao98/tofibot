@@ -41,7 +41,7 @@ assert.equal(css, read("skin/structure.css") + "\n" + read("skin/v3.css") + "\n"
 assert.doesNotMatch(css, /@import/, "strict CSP assets have no external imports");
 assert.deepEqual([...css.matchAll(/https?:\/\/[^'")\s]+/g)].map(match => match[0]).filter(url => url !== "http://www.w3.org/2000/svg"), [], "strict CSP assets name no host");
 assert.match(read("interaction-system.css"), /^@import "\.\/skin\/default\.css";/);
-assert.match(read("skin/default.css"), /@import "\.\/structure\.css";\n@import "\.\/v3\.css";\n@import "\.\/roles\.css";\n@import "\.\/legacy\.css";\n@import "\.\/v2-bridge\.css";/);
+assert.match(read("skin/default.css"), /@import "\.\/structure\.css";\n@import "\.\/v3\.css";\n@import "\.\/roles\.css";\n@import "\.\/v2-bridge\.css";/);
 assert.match(css, /data-state="pending"[^}]+animation:/);
 assert.match(css, /prefers-reduced-motion: reduce/);
 

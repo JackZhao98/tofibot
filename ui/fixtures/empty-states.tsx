@@ -16,6 +16,7 @@ import "../src/web-file-drop.css";
 import "../src/web-sidebar-list.css";
 import "../src/chat-header.css";
 import "../src/context-card.css";
+import "../src/ds/legacy-aliases.css";
 import { FirstRunHero } from "../src/FirstRunHero";
 import { MemoryPanel } from "../src/MemoryPanel";
 import { ArchivePanel } from "../src/ArchivePanel";

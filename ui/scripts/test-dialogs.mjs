@@ -262,10 +262,8 @@ const { focusRingProbe } = await import("./focus-audit.mjs");
 const harness = await mkdtemp(join(ui, ".dialogs-"));
 let server, browser;
 try {
-  const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
-  await writeFile(join(harness, "foundations.css"), foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, ""));
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
-  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
+  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
   await writeFile(join(harness, "index.html"), '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><div id="tofi-layers"></div><script type="module" src="./main.tsx"></script>');
   await writeFile(join(harness, "main.tsx"), `${styles}
 import '../src/settings/settings-components.css';import '../src/computer-resources.css';import '../src/extensions-system.css';

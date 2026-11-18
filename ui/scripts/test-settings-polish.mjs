@@ -232,10 +232,8 @@ let server, browser;
 const violations = [];
 const warnings = [];
 try {
-  const foundations = await readFile(join(ui, "src/v2-foundations.css"), "utf8");
-  await writeFile(join(fixture, "foundations.css"), foundations.replace(/^@import url\("https:\/\/fonts\.googleapis\.com\/[^"\n]+"\);\r?\n/m, ""));
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
-  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => match[1] === "v2-foundations.css" ? "import './foundations.css';" : `import '../src/${match[1]}';`).join("");
+  const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
   await writeFile(join(fixture, "index.html"), '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><script type="module" src="./main.tsx"></script>');
   await writeFile(join(fixture, "main.tsx"), `${styles}
 import React,{useEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
@@ -413,6 +411,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   async function newPage(width, height, theme) {
     const context = await browser.newContext({viewport: {width, height}, reducedMotion: "no-preference", colorScheme: theme, locale: "en-US", acceptDownloads: true, hasTouch: width < 700});
+    context.setDefaultTimeout(READY_MS);
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
     const admin = createAdmin();
@@ -428,6 +427,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     return {page, context, admin};
   }
+  // Every wait in a scenario is a readiness wait, so navigation and actions get this limit too (explicit short waits keep theirs).
   const READY_MS = 60000;
   async function openTab(page, tab, mobile, params = {}) {
     const query = new URLSearchParams({lang: "en", tab, view: "page", ...params});
@@ -581,6 +581,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const at = "2026-10-01T00:00:00Z";
   async function onboardingPage(width, height, theme) {
     const context = await browser.newContext({viewport: {width, height}, colorScheme: theme, locale: "en-US", hasTouch: width < 700});
+    context.setDefaultTimeout(READY_MS);
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
     page.on("pageerror", error => warnings.push(`pageerror: ${error.message}`));
@@ -693,6 +694,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       } finally { await context?.close(); }
     } };
     await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 4)}, worker));
+  }
+  // Vite transforms a module on its first request. Load each selected surface once, alone, so the parallel pages below
+  // do not all wait on the same cold transforms.
+  const selected = scenarios.filter(scenario => !only || only.test(scenario.id));
+  for (const tab of new Set(selected.filter(scenario => !scenario.onboarding).map(scenario => scenario.tab))) {
+    const {page, context} = await newPage(1440, 900, "light");
+    await openTab(page, tab, false);
+    await context.close();
+  }
+  if (selected.some(scenario => scenario.onboarding)) {
+    const {page, context} = await onboardingPage(1440, 900, "light");
+    await page.locator(".onb-welcome h2").waitFor();
+    await context.close();
   }
   await Promise.all(combos.map(runCombo));
 

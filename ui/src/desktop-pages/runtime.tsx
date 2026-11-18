@@ -9,6 +9,7 @@ import "../desktop-system.css";
 import "../v2-foundations.css";
 import "../settings/settings-components.css";
 import "../settings/settings-polish.css";
+import "../ds/legacy-aliases.css";
 import "../forced.css";
 import "./pages.css";
 import { applySkin } from "../skin/skin";

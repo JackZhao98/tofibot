@@ -70,7 +70,7 @@
 @keyframes approval-result-in { from { opacity:0; transform:translateY(4px); } }
 @media(max-width:560px) { .approval-card { padding:15px; } .approval-title { font-size:17px; } .approval-actions > button { min-height:44px; } }
 .approval-always-hint { margin:8px 0 0; }
-.approval-manage { display:inline-flex; align-items:center; gap:2px; min-height:0; padding:0 2px; vertical-align:baseline; border-radius:var(--radius-sm); font:var(--type-meta); color:var(--ink-soft); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; transition:color var(--m-quick) var(--ease-out),text-decoration-color var(--m-quick) var(--ease-out); }
+.approval-manage { display:inline-flex; align-items:center; gap:2px; min-height:0; padding:0 2px; border:0; vertical-align:baseline; border-radius:var(--radius-sm); font:var(--type-meta); color:var(--ink-soft); text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; transition:color var(--m-quick) var(--ease-out),text-decoration-color var(--m-quick) var(--ease-out); }
 .approval-manage:hover { color:var(--ink); text-decoration-color:currentColor; background:transparent; }
 .approval-manage > svg { flex:none; transition:transform var(--m-quick) var(--ease-out); }
 .approval-manage:hover > svg { transform:translateX(2px); }

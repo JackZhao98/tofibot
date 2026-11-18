@@ -106,7 +106,7 @@ export function Shell() {
       <div className="catalog-toolbar">
         <Segmented label="Theme" value={themeKey} options={[["light", "Light"], ["dark", "Dark"], ["both", "Both"]]} onChange={key => update({ themes: THEME_CHOICES[key] })} />
         <Segmented label="Width" value={widthKey} options={[["desktop", "1280"], ["phone", "390"], ["both", "Both"]]} onChange={key => update({ widths: WIDTH_CHOICES[key] })} />
-        <Segmented label="Skin" value={view.skin} options={[["legacy", "Legacy"], ["v3", "V3"], ["probe-a", "Probe A"], ["probe-b", "Probe B"]]} onChange={skin => update({ skin })} />
+        <Segmented label="Skin" value={view.skin} options={[["v3", "V3"], ["probe-a", "Probe A"], ["probe-b", "Probe B"]]} onChange={skin => update({ skin })} />
         <label className="catalog-switch"><span>Language</span><Select value={view.language} onValueChange={value => update({ language: value as Language })}>
           {LANGUAGES.map(language => <option key={language} value={language}>{LANGUAGE_ENDONYMS[language]}</option>)}</Select></label>
       </div>
