@@ -1,9 +1,8 @@
-// Shared harness for the phone swipe-back (D35): builds the production bundle (optionally with the step 4 Motion variants
-// swapped in by motionExperimentPlugin), serves it with a synthetic API, opens a 390 px touch page on a chat and drives a
-// finger. Chromium gets real touch input through CDP (Input.dispatchTouchEvent: touch-action, pointercancel and scrolling
+// Shared harness for the phone swipe-back (D35): builds the production bundle, serves it with a synthetic API, opens a
+// 390 px touch page on a chat and drives a finger. Chromium gets real touch input through CDP (Input.dispatchTouchEvent: touch-action, pointercancel and scrolling
 // behave as on a phone); WebKit gets synthetic touch PointerEvents dispatched in the page (it has no CDP), which exercises
 // the same engine but not the browser's own pan decision. Synthetic data only.
-// Callers: scripts/test-swipe-back.mjs, scripts/test-motion-experiment.mjs.
+// Caller: scripts/test-swipe-back.mjs.
 import http from "node:http";
 import zlib from "node:zlib";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
@@ -15,15 +14,10 @@ import react from "@vitejs/plugin-react";
 
 export const ui = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
-/** A production build like test-shell-budget's; `experiment` ("swipe", "cascade", "motion") swaps the Motion variants in. */
-export async function buildUI({ experiment = "" } = {}) {
+/** A production build like test-shell-budget's. */
+export async function buildUI() {
   const outDir = mkdtempSync(join(tmpdir(), "tofi-swipe-"));
-  const plugins = [react()];
-  if (experiment) {
-    const { motionExperimentPlugin } = await import(join(ui, "motionExperimentPlugin.ts"));
-    plugins.unshift(motionExperimentPlugin(experiment));
-  }
-  await build({ configFile: false, root: ui, plugins, build: { outDir, emptyOutDir: true }, logLevel: "error" });
+  await build({ configFile: false, root: ui, plugins: [react()], build: { outDir, emptyOutDir: true }, logLevel: "error" });
   return outDir;
 }
 

@@ -66,7 +66,7 @@ await check("the engine is a lazy chunk, fetched on a phone-sized window only", 
   assert.equal(sizes.lazy.length, 1, `one phoneSwipeEngine chunk (${sizes.lazy.map(c => c.file).join(", ")})`);
   console.log(`    entry ${sizes.entry} B gzip; engine chunk ${sizes.lazy[0].gzip} B gzip`);
   assert.ok(sizes.lazy[0].gzip <= 3000, `the engine chunk is small (${sizes.lazy[0].gzip} B)`);
-  assert.ok(!sizes.files.some(file => /motion|framer/i.test(file) && !/motion-lab/.test(file)), "no Motion chunk in the build");
+  assert.ok(sizes.entry <= 331 * 1024, `the entry stays within the shell budget (${sizes.entry} B gzip, 331 KB as in test:shell-budget)`);
   const before = server.requested.length;
   const wide = await openChat(browser, engineName, server.origin, { width: 1280, height: 860 });
   await wide.page.waitForTimeout(800);

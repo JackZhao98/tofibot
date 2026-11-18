@@ -1,5 +1,5 @@
-import { prefersReducedMotion } from "./motion-lab/lib/hooks";
-import { SPRINGS, springEasing } from "./motion-lab/lib/spring";
+import { prefersReducedMotion } from "./motion/reduced";
+import { SPRINGS, springEasing } from "./motion/legacy/spring";
 import "./mail-send-flight.css";
 import { postmarkDate, postmarkSVG } from "./postmark";
 import { EASE } from "./motion";

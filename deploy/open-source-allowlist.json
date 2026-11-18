@@ -105,14 +105,11 @@
     "ui/THIRD_PARTY_NOTICES.md",
     "ui/catalog.html",
     "ui/index.html",
-    "ui/motion-lab.html",
-    "ui/motionExperimentPlugin.ts",
     "ui/oauthAssetsPlugin.ts",
     "ui/package-lock.json",
     "ui/package.json",
     "ui/tsconfig.json",
-    "ui/vite.config.ts",
-    "ui/vite.motion-lab.config.ts"
+    "ui/vite.config.ts"
   ],
   "prefixes": [
     "cmd/",
