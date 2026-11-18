@@ -133,6 +133,4 @@ p > .text-button:where(:not(.approval-manage)):active:not(:disabled), div.error-
   background:var(--surface); box-shadow:var(--shadow); color:var(--ink);
 }
 .view-only-message.is-user .view-only-message-bubble { color:var(--ink); }
-.segmented { background:var(--surface-2); border:1px solid var(--line-soft); border-radius:12px; }
-.segmented button.selected { background:var(--surface); color:var(--ink); box-shadow:0 0 0 1px var(--line-soft); }
 }

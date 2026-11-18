@@ -109,7 +109,7 @@
     "bridgeUse": 1
   },
   "interaction-system.css": {
-    "bridgeUse": 25
+    "bridgeUse": 21
   },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
@@ -256,7 +256,7 @@
     "webFork": 26
   },
   "v2-foundations.css": {
-    "bridgeUse": 8
+    "bridgeUse": 6
   },
   "web-file-drop.css": {
     "bridgeUse": 8,

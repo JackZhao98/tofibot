@@ -1,6 +1,6 @@
 import { useDropzone } from "react-dropzone";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import * as RadioGroup from "@radix-ui/react-radio-group";
+import { Segmented as KitSegmented } from "../ds/Segmented/Segmented";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
 import * as Switch from "@radix-ui/react-switch";
 import {TofiIcon} from "../icons";
@@ -121,11 +121,9 @@ export function DangerZone({title, children}: {title: ReactNode; children: React
   return <section className="settings-sec danger-zone" aria-labelledby={id}><div className="settings-sec-head"><h4 id={id}>{title}</h4></div>{children}</section>;
 }
 
-/** Segmented control: a radiogroup over a short list. */
+/** Segmented control: the kit's, a radiogroup over a short list. The class `segmented` is the hook of the surfaces that place it (and of the tests). */
 export function Segmented<T extends string>({value, options, onChange, label, disabled = false}: {value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void; label: string; disabled?: boolean}) {
-  return <RadioGroup.Root value={value} onValueChange={onChange} disabled={disabled} className="segmented" aria-label={label}>
-    {options.map(option => <RadioGroup.Item key={option.value} value={option.value}>{option.label}</RadioGroup.Item>)}
-  </RadioGroup.Root>;
+  return <KitSegmented className="segmented" value={value} options={options} onChange={onChange} label={label} disabled={disabled} />;
 }
 
 /** Short help text stays visible; the long version sits behind a "Details" disclosure. */
