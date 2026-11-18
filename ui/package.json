@@ -113,6 +113,7 @@
     "test:motion-tokens": "node scripts/test-motion-tokens.mjs",
     "test:layers": "node scripts/test-layers.mjs",
     "test:css-layers": "node scripts/test-css-layers.mjs",
+    "test:ds-parity": "node scripts/test-ds-parity.mjs",
     "test:select-guard": "node scripts/test-select-guard.mjs",
     "test:overlays": "node scripts/test-overlays.mjs",
     "test:dialogs": "node scripts/test-dialogs.mjs",

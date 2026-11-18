@@ -1,8 +1,9 @@
 /* The pressed-in text control look, shared by TextInput and TextArea (and later Select): `sunk` + the inset at rest, up to
    `surface` with the soft shadow on focus. The properties the V2 base layer sets on bare inputs are set here again, because
    this sheet is unlayered and a layered default must never show through. */
+.tb-input { display: flex; align-items: center; gap: 8px; padding: 0 12px; }
 .tb-input, .tb-textarea {
-  display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0; padding: 0 12px;
+  min-height: 40px; margin: 0;
   background: var(--sunk); border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
   box-shadow: var(--field-inset); color: var(--ink); transform: none;
   transition: box-shadow var(--m-quick) var(--ease-out), background-color var(--m-quick) var(--ease-out);
