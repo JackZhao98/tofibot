@@ -1,0 +1,6 @@
+.tb-empty { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 36px 20px; border: var(--border-1) dashed var(--line); border-radius: var(--radius-md); color: var(--ink); }
+.tb-empty-icon { width: 56px; height: 56px; display: grid; place-items: center; border: var(--border-1) solid transparent; border-radius: var(--radius-md); background: color-mix(in srgb, var(--mustard) 24%, var(--surface)); color: var(--mustard-text); margin-bottom: 6px; }
+.tb-empty-art img { width: 88px; height: auto; display: block; }
+.tb-empty-title { margin: 0; font: 700 18px/1.2 var(--font-display); }
+.tb-empty-text { margin: 0; max-width: 34ch; color: var(--ink-soft); font: 400 14px/1.5 var(--font-body); }
+.tb-empty-action { margin-top: 8px; }

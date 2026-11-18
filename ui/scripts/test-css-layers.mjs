@@ -116,7 +116,8 @@ for (const file of sheets) {
     if (skipped(rule.at)) continue;
     const layers = layersOf(rule.at);
     if (layers.length > 1) fail(`src/${name}: "${rule.selector}" is in nested layers (${layers.join(" > ")})`);
-    if (!UNLAYERED.has(name) && !layers.some(layer => GLOBAL_LAYERS.has(layer))) fail(`src/${name}: "${rule.selector}" must be in @layer legacy or a global layer`);
+    // The V3 kit (src/ds/) is unlayered on purpose: it must beat every layer (PLAN 1, 7.5).
+    if (!UNLAYERED.has(name) && !name.startsWith("ds/") && !layers.some(layer => GLOBAL_LAYERS.has(layer))) fail(`src/${name}: "${rule.selector}" must be in @layer legacy or a global layer`);
     if (!layers.includes("legacy") || !/!\s*important/.test(rule.body)) continue;
     legacyImportant += (rule.body.match(/!\s*important/g) || []).length;
     if (LONG_LIVED.has(name)) fail(`src/${name}: "${rule.selector}" uses !important in a long-lived sheet; use :is(#_, ...) or forced.css`);

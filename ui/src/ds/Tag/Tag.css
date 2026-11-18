@@ -1,0 +1,4 @@
+.tb-tag { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px 0 8px; font: 600 12px/1 var(--font-body); border: var(--border-1) solid var(--line); border-radius: var(--radius-xs); background: var(--surface-2); color: var(--ink); }
+.tb-tag-x { border: 0; background: none; padding: 2px; color: var(--muted); display: grid; border-radius: 3px; }
+.tb-tag-x:hover { color: var(--ink); background: var(--hover); }
+.tb-tag-x:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }

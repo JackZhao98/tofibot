@@ -1,0 +1,22 @@
+/* Card is a borderless sticky note in a pale tint (owner 2026-11-17; the last rule of bundle.css wins, so solid and glass are
+   notes too). quiet is the hairline card for long lists; block is mustard; raised adds the grape ring of what waits for you. */
+.tb-card {
+  --note: var(--note-info);
+  font: 400 15px/1.6 var(--font-body);
+  border: 0; border-radius: var(--radius-xs); background: var(--note-glue), var(--note); color: var(--ink);
+  box-shadow: var(--note-lift); -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.tb-card--quiet { border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: none; }
+.tb-card--block { background: var(--note-glue), var(--mustard); color: var(--on-block); }
+/* Everything on the mustard block reads in --on-block (the frozen bundle leaves the eyebrow muted and the ghost action in --ink,
+   both pale on mustard in Night). */
+.tb-card--block :is(.tb-eyebrow, .tb-card-title) { color: var(--on-block); }
+.tb-card--block .tb-btn--ghost { color: var(--on-block); }
+.tb-card--block .tb-card-foot { border-top-color: color-mix(in srgb, var(--on-block) 22%, transparent); }
+.tb-card--raised { box-shadow: inset 0 0 0 var(--border-2) var(--grape), var(--note-lift); }
+.tb-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 0; }
+.tb-card-title { margin: 2px 0 0; font: 700 18px/1.2 var(--font-display); letter-spacing: -.01em; }
+.tb-card-actions { display: flex; gap: 8px; }
+.tb-card-body { padding: 14px 18px 18px; }
+.tb-card--flush .tb-card-body { padding: 0; }
+.tb-card-foot { padding: 12px 18px; border-top: var(--border-1) solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }

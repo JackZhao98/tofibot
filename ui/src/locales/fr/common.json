@@ -104,5 +104,23 @@
     "invalid_policy": "Cette politique n’est pas valide.",
     "group_exists": "Un groupe portant ce nom existe déjà.",
     "group_limit": "La limite de groupes est atteinte."
+  },
+  "ds": {
+    "remove": "Retirer",
+    "removeNamed": "Retirer {{name}}",
+    "dismiss": "Fermer",
+    "loading": "Chargement",
+    "presence": {
+      "online": "En ligne",
+      "away": "Absent",
+      "offline": "Hors ligne"
+    },
+    "botState": {
+      "thinking": "Réfléchit",
+      "working": "Au travail",
+      "waiting": "Besoin de vous",
+      "error": "Erreur",
+      "asleep": "Endormi"
+    }
   }
 }

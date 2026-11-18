@@ -1,0 +1,7 @@
+.tb-progress { display: grid; gap: 6px; }
+.tb-progress-head { display: flex; justify-content: space-between; font: 500 13px/1.3 var(--font-body); color: var(--ink-soft); }
+.tb-progress-track { height: 12px; border: var(--border-1) solid var(--line); border-radius: var(--radius-pill); background: var(--sunk); overflow: hidden; }
+.tb-progress-fill { height: 100%; background: repeating-linear-gradient(-45deg, var(--teal) 0 8px, var(--lime) 8px 16px); border-right: var(--border-1) solid transparent; transition: width var(--m-base) var(--ease-out); }
+.tb-progress--warning .tb-progress-fill { background: var(--mustard); }
+.tb-progress--danger .tb-progress-fill { background: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .tb-progress-fill { transition: none; } }

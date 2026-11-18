@@ -1,0 +1,1 @@
+.tb-kbd { font: 600 11px/1 var(--font-mono); padding: 3px 6px; border: var(--border-1) solid var(--line); border-bottom-width: 3px; border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); }

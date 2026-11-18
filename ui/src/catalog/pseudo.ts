@@ -2,8 +2,8 @@
 // that uses :hover, :active or :focus-visible gets a twin in which that pseudo-class is a class instead
 // (.catalog-hover, .catalog-active, .catalog-focus). Putting the class on an element shows exactly what the product's
 // own CSS draws for that state: nothing is restyled by hand. The originals stay, so the frame still reacts to the mouse.
-const CLASS: Record<string, string> = { hover: "catalog-hover", active: "catalog-active", "focus-visible": "catalog-focus" };
-const PSEUDO = /:(hover|active|focus-visible)(?![-\w])/g;
+const CLASS: Record<string, string> = { hover: "catalog-hover", active: "catalog-active", "focus-visible": "catalog-focus", focus: "catalog-focus", "focus-within": "catalog-focus-within" };
+const PSEUDO = /:(hover|active|focus-visible|focus-within|focus)(?![-\w])/g;
 const NEGATED = /:not\([^)]*:(hover|active|focus-visible)/;
 const done = new WeakSet<CSSStyleSheet>();
 
@@ -55,7 +55,7 @@ export function installForcedStates() {
   new MutationObserver(sweep).observe(document.head, { childList: true, subtree: true, characterData: true });
 }
 
-export type ForcedState = "hover" | "active" | "focus";
+export type ForcedState = "hover" | "active" | "focus" | "focus-within";
 /** Put a forced state on every element the selector matches inside `root` (the root itself included). */
 export function force(root: HTMLElement, selector: string, state: ForcedState) {
   const targets = [...(root.matches(selector) ? [root] : []), ...root.querySelectorAll<HTMLElement>(selector)];

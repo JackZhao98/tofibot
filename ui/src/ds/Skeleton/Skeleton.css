@@ -1,0 +1,4 @@
+.tb-skel { display: grid; gap: 10px; }
+.tb-skel-line { display: block; height: 12px; border-radius: var(--radius-xs); background: var(--line); animation: tb-skel 1.6s var(--ease-inout) infinite; }
+@keyframes tb-skel { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .tb-skel-line { animation: none; } }

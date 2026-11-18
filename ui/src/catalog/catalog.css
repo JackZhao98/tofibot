@@ -36,7 +36,7 @@
 html.catalog-frame-inline .catalog-stage { height: auto; overflow: visible; display: block; padding: 16px 20px 24px; }
 html.catalog-frame-overlay .catalog-stage { padding: 16px 20px; }
 html.catalog-frame .catalog-state { margin: 0 0 22px; }
-html.catalog-frame .catalog-caption { margin: 0 0 8px; color: var(--muted); font: 600 12px/1.4 var(--body); letter-spacing: .02em; text-transform: uppercase; }
+html.catalog-frame .catalog-caption { margin: 0 0 8px; color: var(--muted); font: 600 12px/1.4 var(--font-body, var(--body)); letter-spacing: .02em; text-transform: uppercase; }
 html.catalog-frame .catalog-caption span { margin-left: 8px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 /* A context class of the catalog's own (CatalogState.context): the width of the chat column, for cards shown alone. */
 html.catalog-frame .catalog-column { max-width: var(--chat-max, 760px); margin: 0 auto; }
@@ -57,3 +57,12 @@ html.catalog-frame .catalog-control-grid label { display:grid; gap:6px; }
 
 .catalog-shell [data-catalog-section="foundations"] .catalog-frames { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .catalog-shell [data-catalog-section="foundations"] .catalog-frame-box { width:100%; }
+
+/* Catalog chrome in a frame uses a face that resolves under both skins: V3 names the body face --font-body, V2 --body. */
+html.catalog-frame body { font-family: var(--font-body, var(--body)); }
+/* The V3 kit section: specimen layout only. Each kit component keeps its own look from src/ds/. */
+html.catalog-frame .catalog-specimen { display: grid; gap: 6px; justify-items: start; align-content: start; }
+html.catalog-frame .catalog-specimen > small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+html.catalog-frame .catalog-stack { display: grid; gap: 12px; max-width: 520px; }
+html.catalog-frame .catalog-dots { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background-color: var(--bg); background-image: var(--dot-grid); background-size: var(--dot-step) var(--dot-step); }
+html.catalog-frame .catalog-note { margin: 0 0 12px; color: var(--muted); }

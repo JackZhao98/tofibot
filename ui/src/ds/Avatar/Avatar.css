@@ -1,0 +1,12 @@
+.tb-avatar { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; border: var(--border-1) solid transparent; font: 700 13px/1 var(--font-display); color: var(--on-block); overflow: visible; }
+.tb-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.tb-avatar--mustard { background: var(--mustard); }
+.tb-avatar--teal { background: var(--teal); }
+.tb-avatar--grape { background: var(--grape); }
+.tb-avatar--cobalt { background: var(--cobalt); }
+.tb-avatar--lime { background: var(--lime); }
+.tb-avatar--tomato { background: var(--tomato); }
+.tb-presence { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: var(--border-2) solid var(--bg); }
+.tb-presence.is-online { background: var(--lime); }
+.tb-presence.is-away { background: var(--mustard); }
+.tb-presence.is-offline { background: var(--muted); }
