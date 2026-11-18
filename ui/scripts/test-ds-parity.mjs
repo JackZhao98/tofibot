@@ -56,6 +56,11 @@ const CASES = [
   ["Checkbox", D("Checkbox", { defaultChecked: false }, "Read")],
   ["Checkbox checked", D("Checkbox", { defaultChecked: true }, "Write")],
   ["Checkbox disabled", D("Checkbox", { disabled: true }, "Admin")],
+  ["Switch off", D("Switch", { label: "Sound" })],
+  ["Switch on", D("Switch", { label: "Sound", defaultChecked: true })],
+  ["Switch disabled", D("Switch", { label: "Sound", defaultChecked: true, disabled: true })],
+  ["Segmented", D("Segmented", { label: "View", options: ["List", "Board", "Week"], defaultValue: "Board" })],
+  ["Segmented icons", D("Segmented", { label: "Theme", options: [{ value: "light", label: "Light", icon: "sun" }, { value: "dark", label: "Dark", icon: "moon" }], defaultValue: "dark" })],
   ["Tabs", D("Tabs", { tabs: [{ value: "keys", label: "Keys", count: 4 }, { value: "usage", label: "Usage" }], defaultValue: "keys" }, "Keys view.")],
   ...["mustard", "teal", "grape", "cobalt", "lime", "tomato"].map(t => [`Avatar ${t}`, D("Avatar", { name: "Mia Chen", tone: t })]),
   ["Avatar presence", D("Avatar", { name: "Mia Chen", status: "online", size: 48 })],
@@ -219,8 +224,9 @@ try {
       await page.route(`${origin}/__${side}`, route => route.fulfill({ contentType: "text/html", body: html(side) }));
       await page.goto(`${origin}/__${side}`);
       await page.waitForLoadState("networkidle");
-      // The product's TofiIcon wraps the drawing in <g> groups (motion hooks); they draw nothing, so they are skipped.
-      return page.evaluate(props => [...document.querySelectorAll(".case")].map(box => [...box.querySelectorAll("*:not(g)")].map(el => {
+      // The product's TofiIcon wraps the drawing in <g> groups (motion hooks); they draw nothing, so they are skipped. Radix adds a
+      // hidden form input beside a Switch or radio in a server render (aria-hidden, not in the browser tree outside a form): skipped too.
+      return page.evaluate(props => [...document.querySelectorAll(".case")].map(box => [...box.querySelectorAll('*:not(g, input[aria-hidden="true"])')].map(el => {
         const style = getComputedStyle(el);
         const rect = el.getBoundingClientRect();
         return { tag: el.tagName.toLowerCase(), values: { ...Object.fromEntries(props.map(p => [p, style.getPropertyValue(p)])), width: `${Math.round(rect.width)}`, height: `${Math.round(rect.height)}` } };

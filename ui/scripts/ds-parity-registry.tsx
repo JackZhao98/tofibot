@@ -43,10 +43,12 @@ import { TaskCard } from "../src/ds/TaskCard/TaskCard";
 import { ToolSteps } from "../src/ds/ToolSteps/ToolSteps";
 Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, ProcessLine, ProgressiveBlur, Reactions, SidebarRow, StepList, TaskCard, ToolSteps });
 
-// Forms (PR 2.2): Tabs is Radix with the spec's tags. Switch and Segmented are not here: Radix adds a hidden input beside the
-// button in a server render, which the spec does not have. Select is not here: the spec's is a native <select>.
+// Forms (PR 2.2): Radix components with the spec's tags (test-ds-parity skips the hidden input Radix adds in a server render).
+// Select is not here: the spec's is a native <select>.
+import { Segmented } from "../src/ds/Segmented/Segmented";
+import { Switch } from "../src/ds/Switch/Switch";
 import { Tabs } from "../src/ds/Tabs/Tabs";
-Object.assign(registry, { Tabs });
+Object.assign(registry, { Segmented, Switch, Tabs });
 
 // Kit IV: settings and data (PR 0.9).
 Object.assign(registry, { DataTable, KeyRow, SettingsRow, SettingsSection, Stat });
