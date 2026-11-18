@@ -37,9 +37,9 @@ function Choices({ disabled = false }: { disabled?: boolean }) {
   </div>;
 }
 
-function SelectField({ size, disabled = false, placeholder, field, id, "aria-invalid": invalid, "aria-describedby": describedBy }: { size?: "md" | "sm"; disabled?: boolean; placeholder?: string; field?: string; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }) {
+function SelectField({ size, disabled = false, placeholder, id, "aria-invalid": invalid, "aria-describedby": describedBy }: { size?: "md" | "sm"; disabled?: boolean; placeholder?: string; id?: string; "aria-invalid"?: boolean; "aria-describedby"?: string }) {
   const [value, setValue] = useState(placeholder ? "unset" : "claude");
-  return <Select value={value} onValueChange={setValue} options={MODELS} size={size} disabled={disabled} placeholder={placeholder} aria-label="Model" id={id} data-field={field} aria-invalid={invalid} aria-describedby={describedBy} />;
+  return <Select value={value} onValueChange={setValue} options={MODELS} size={size} disabled={disabled} placeholder={placeholder} aria-label="Model" id={id} aria-invalid={invalid} aria-describedby={describedBy} />;
 }
 
 function Drawer({ initial }: { initial: boolean }) {
@@ -72,10 +72,10 @@ export const choices: CatalogState[] = [
       <SelectField disabled />
       <Field label="Model" error="Choose a model to continue."><SelectField /></Field>
     </div> },
-  { id: "select-open", kind: "inline", label: "Select · open list (Menu material; the chosen row is bold with a tick, the row under the pointer is ink)",
-    render: () => <div className="catalog-stack" style={{ minHeight: 180 }}><SelectField field="open-me" /></div>,
+  { id: "select-open", kind: "overlay", probe: ".tb-select-list", keyboard: { close: "Escape" }, label: "Select · open list (Menu material; the chosen row is bold with a tick, the row under the pointer is ink)",
+    render: () => <div className="catalog-stack"><SelectField /></div>,
     // [data-state] is the Radix trigger: until its lazy chunk arrives the field is a plain button that opens nothing.
-    drive: async step => { await step.click('[data-field="open-me"]'); await step.find(".tb-select-list"); await step.settled(); } },
+    drive: async step => { await step.click(".tb-select[data-state]"); await step.find(".tb-select-list"); await step.settled(); } },
   { id: "select-phone", kind: "inline", widths: ["phone"], label: "Switch, Segmented and Select in settings rows on a phone (390 px, 700 or narrower)",
     note: "Switches and segmented controls stay beside the text; the Select takes the full row under it.",
     render: () => <div className="catalog-stack">
