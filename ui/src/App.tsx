@@ -1,4 +1,4 @@
-import { MessageHoverActions } from "./MessageHoverActions";
+import "./MessageHoverActions";
 import { FocusScope } from "@radix-ui/react-focus-scope";
 import { keepFocus } from "./focusModality";
 import { useNativeSidePanel } from "./useNativeSidePanel";
@@ -22,15 +22,15 @@ import { SidebarAccount, useOwnerSession } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
 import { TimezoneProvider, useUserTimezone } from "./UserTimezone";
 import { browserNotifier, type DeliveryItem } from "./attentionNotifier";
-import { dateInTimezone, dateTimeFormat, formatExactTime } from "./timezone";
-import { AttachmentList } from "./MessageAttachment";
+import { dateInTimezone, dateTimeFormat } from "./timezone";
+import "./MessageAttachment";
 import { FilePreviewHost } from "./FileViewer";
-import { MessageReactions } from "./MessageReactions";
+import "./MessageReactions";
 import { applyUserReaction } from "./reactionState";
 import { applyMessageTask } from "./messageLink";
-import { setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
+import { setMessageActions, tappedMessageActionsId } from "./messageActionsStore";
 import { attachmentUrl, fileKind } from "./filePreviewModel";
-import { DisplayCard } from "./DisplayCard";
+import "./DisplayCard";
 import { useQuestions } from "./useQuestions";
 import { toolActivityKey } from "./toolTimeline";
 import { setToolResultLoader } from "./toolResultLoader";
@@ -39,12 +39,11 @@ import { rowIndicator } from "./rowIndicator";
 import { useMailDrafts } from "./mailDrafts";
 import { buildQuestionTimeline } from "./questionTimeline";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, PlanDock } from "./lazyPanels";
+import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, PlanDock } from "./lazyPanels";
 import { applyRunPlan } from "./planMerge";
 import { setPendingSection } from "./settings/pendingSection";
-import { linkRuntime, provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
+import { provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import type { OpenLinkDeps } from "./settings/linkRuntime";
-import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayPopover, OverlayMenu, OverlaySlot, pressToggle, SlotView } from "./overlays/OverlayHost";
 import { ActionHints, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
@@ -52,16 +51,15 @@ import { sidebarAvailable } from "./featureFlags";
 import { conversationPath, readConversationRoute, readSideParam, withSideParam } from "./conversationRoute";
 import { useConversationNavigation } from "./useConversationNavigation";
 import { useDesktopPresence } from "./desktopPresence";
-import { setComputerCapability, useHasComputer } from "./computerCapability";
+import { setComputerCapability } from "./computerCapability";
 import { setCapabilityPolicy } from "./capabilityPolicy";
 import type { DeleteTarget } from "./DeleteConversationDialog";
 import { PrimaryBadge, otherActiveBots } from "./PrimaryAssistant";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
-import { ScheduledTaskRow } from "./ScheduledTaskRow";
-import { occurrenceRootKey, type ScheduleOccurrence } from "./scheduleOccurrences";
+import "./ScheduledTaskRow";
+import { occurrenceRootKey } from "./scheduleOccurrences";
 import { useScheduleOccurrences } from "./useScheduleOccurrences";
 import { useScheduleMetadata } from "./useScheduleMetadata";
-import type { Schedule } from "./types";
 import { TofiIcon as Icon } from "./icons";
 import { ComposerGlyph } from "./ComposerGlyph";
 import { intlLocale } from "./i18n/format";
@@ -70,12 +68,11 @@ import { PinDock, PinDropZone, PinTile } from "./PinnedDock";
 import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "./useSidebarDnd";
 import { usePhoneSwipeBack } from "./usePhoneSwipeBack";
-import { lazy, memo, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { errorText } from "./errorText";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } from "./api";
 import { codeText } from "./i18n/codeText";
-import { MessageMarkdown } from "./MessageMarkdown";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { holdAvatarLife } from "./lib/tofi-avatar/index.js";
 import { CatStage, type CatHandle } from "./CatStage";
@@ -87,7 +84,7 @@ import { LoadingCat } from "./motion/legacy/LoadingCat";
 import { flipList } from "./motion/legacy/flip";
 import { flySentMessage } from "./sendFlight";
 import { FileTile } from "./FileTile";
-import { DeliveryNote, SendReceipt, preloadSendFailure } from "./SendReceipt";
+import { preloadSendFailure } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
@@ -95,8 +92,7 @@ import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildTool
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
-import { DraftStream, useLiveDraft } from "./draftStream";
-import { rowModelEqual } from "./timelineRow";
+import { DraftStream } from "./draftStream";
 import type { TaskCardModel, TaskFeed } from "./taskCards";
 import { layerRoot } from "./layers";
 import { useProxyChallenge } from "./ProxyChallengeSlot";
@@ -107,7 +103,6 @@ import { outboxStorageKey, writeOutbox, type OutboxEntry, type SendPayload } fro
 import type { OutboxContext, OutboxController } from "./outboxController";
 import { adoptPreview, dropPreview, registerPreview } from "./attachmentImages";
 import { useDictation } from "./useDictation";
-import { useSmoothStreamText } from "./useSmoothStreamText";
 import { observeVisualViewport, visualViewportMetrics } from "./visualViewport";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
@@ -120,20 +115,17 @@ import type { SurfaceCtx } from "./SurfaceViews";
 import { traceUnderReply } from "./workTraceLayout";
 import { Avatar, SenderHead, blockKey, formatTime, jumpToMessage, messageId, previewText } from "./chat/shared";
 import { ActivityViewContext, CompactLiveLine, ExpiryFinishingContext, LiveRunStatus, RunStartContext, RunStatusAnnouncement, ToolActivityList, WorkingMembers, setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "./chat/RunActivity";
+import { MessageBubble, MessageRow, localizeMessageRef, type RowHandlers, type RowModel } from "./chat/MessageBubble";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const BotBrowserPanel = lazy(() => import("./BotBrowserPanel").then(m => ({default: m.BotBrowserPanel})));
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
-// Shown only before the first Bot exists.
-/** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
-const WorkTrace = lazy(() => import("./WorkTrace"));
 /** The Mac app's narrow window (it is never under 820 px): the sidebar is a capsule that opens over the chat. */
 const MAC_NARROW = "(min-width:768px) and (max-width:1023px)";
 const DayOneTemplates = lazy(() => import("./DayOneTemplates"));
 const HandoverChips = lazy(() => import("./HandoverChips"));
 const FirstRunHero = lazy(() => import("./FirstRunHero").then(module => ({ default: module.FirstRunHero })));
 const WorkspaceToast = lazy(() => import("./WorkspaceToast").then(module => ({ default: module.WorkspaceToast })));
-const SettingsChangeNotice = lazy(() => import("./SettingsChangeNotice"));
 const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
 /** The sidebar a `?side=` address names opens with the page; widgets and covers never come from the address. */
 /** Where the person's widget order is kept: this browser, this account (a per-viewer preference, the same in every conversation). */
@@ -268,10 +260,6 @@ function asBot(data: EventEnvelope): Bot | null {
 function copyableMessageText(message: Message) {
   const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
   return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
-}
-/** Holds a message's action bar and mounts it only while that message is the active one. */
-function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
-  return useMessageActionsOpen(id) ? <>{children}</> : null;
 }
 /** Holds a jump to message `id` for its first moments. Just after a conversation opens the list can remount its rows (the
  * flash then sits on a node that is gone) and the scroll hook can still land on the newest message (a phone, once the
@@ -2717,211 +2705,11 @@ export function Workspace() {
     </div>
   );
 }
-/** Cross-conversation capsules are stored with English labels; show them in the UI language. */
-export function localizeMessageRef(content: string) {
-  const text = content.trim();
-  if (text.startsWith("Message from ")) return i18n.t("chat:related.message_from", { name: text.slice(13) });
-  if (text.startsWith("Messaged ")) return i18n.t("chat:related.messaged", { name: text.slice(9) });
-  return text;
-}
-function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; onOpen: (target: ViewOnlyChatTarget) => void }) {
-  const { t } = useTranslation("chat");
-  const targetIDs = target.targetBotIds?.length ? target.targetBotIds : target.target.kind === "group" ? target.target.bot_ids : [target.target.bot_id ?? target.target.id];
-  const label = target.label ?? (target.target.kind === "group" ? "Messaged" : "Message from");
-  const displayIDs = label === "Message from" && target.sourceBotIds?.length ? target.sourceBotIds : targetIDs;
-  const displayName = label === "Message from" && target.sourceName ? target.sourceName : target.targetName ?? target.target.name;
-  const visibleDisplayIDs = displayIDs.slice(0, 3);
-  return <button type="button" className="related-message-link" aria-label={label === "Message from" ? t("related.from_aria", { name: displayName }) : t("related.to_aria", { name: displayName })} onClick={() => onOpen(target)}><span>{label === "Message from" ? t("related.from") : t("related.to")}</span><span className="related-message-avatars">{visibleDisplayIDs.map((id) => <BotAvatar key={id} id={id} mini />)}{displayIDs.length > visibleDisplayIDs.length && <em>+{displayIDs.length - visibleDisplayIDs.length}</em>}</span><span className="related-message-name">{displayName}</span><Icon name="chevron-right" size={14} /></button>;
-}
-function SmoothStreamMarkdown({ content, mention, active, streaming = false }: { content: string; mention?: React.ReactNode; active: boolean; streaming?: boolean }) {
-  const visible = useSmoothStreamText(content, active);
-  return <MessageMarkdown content={visible} mention={mention} cursor={active} reuse={!streaming} />;
-}
 const SNAPSHOT_CACHE_LIMIT = 50;
 /** Blocks drawn before the first paint of a conversation that opens at its newest message. */
 const FIRST_PAINT_BLOCKS = 12;
 const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
-export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
-  const hasComputer = useHasComputer();
-  const { t } = useTranslation("chat");
-  const {timezone} = useUserTimezone();
-  const toolsRunning = run?.status === "running" || run?.status === "queued";
-  const answerRef = useRef<HTMLDivElement>(null);
-  const previousToolLayout = useRef<{ live: boolean; offset: number } | null>(null);
-  useLayoutEffect(() => {
-    if (isDesktop || !answerRef.current) return;
-    // Only an answer that sat under live tool rows can slide when they go: text with no tool rows above it has nothing to measure.
-    if (!tools && !previousToolLayout.current?.live) return;
-    const answer = answerRef.current;
-    // Measured against the message's own body, so scrolling or a change above the message can never read as the answer moving.
-    const body = answer.closest<HTMLElement>(".message-body");
-    const offset = answer.getBoundingClientRect().top - (body?.getBoundingClientRect().top ?? 0);
-    const previous = previousToolLayout.current;
-    if (previous?.live && !toolsRunning && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const dy = previous.offset - offset;
-      if (Math.abs(dy) > 1) answer.animate({ transform: [`translateY(${dy}px)`, "translateY(0)"] }, { duration: MOTION.panelIn, easing: EASE.out });
-    }
-    previousToolLayout.current = { live: toolsRunning, offset };
-  });
-  if (message.kind === "ui_card" && message.card) {
-    const label = sender?.name ?? senderName ?? "Bot";
-    return <article className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
-      {showAvatar && <div className="message-avatar"><Avatar label={label} id={message.sender_bot_id ?? "bot"} mini /></div>}
-      <div className="message-body">{showIdentity && (!compact || showAvatar) && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
-    </article>;
-  }
-  if (message.kind === "scheduled_task") {
-    return <ScheduledTaskRow message={message} run={run} occurrence={scheduleOccurrence} pending={schedulePending} schedule={schedule} timezone={timezone} onRetry={onRetrySchedule} />;
-  }
-  if (message.kind === "message_ref" && message.notice) {
-    return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{localizeMessageRef(message.content)}</span>}</div></article>;
-  }
-  if (message.kind === "notice" && message.notice?.type === "resume") {
-    // Posted by the server when a run continues from a checkpoint; the text is localized here.
-    const resumeKey = `message.resume_${message.notice.reason || "continuing"}` as "message.resume_task";
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey, message.notice)}</span></div></article>;
-  }
-  if (message.kind === "notice" && message.notice?.type === "settings_change") {
-    // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.
-    return <Suspense fallback={null}><SettingsChangeNotice notice={message.notice} fallback={message.content} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`} /></Suspense>;
-  }
-  if (message.kind === "notice" && message.notice?.type === "spend_alert") {
-    // Posted once by the server when the month's spend reaches 80% of the limit; the text is localized here.
-    const notice = message.notice;
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value, percent: Math.round(Number(notice.new_value) / Math.max(1, Number(notice.old_value)) * 100) })}</span> <button onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</button></div></article>;
-  }
-  if (message.kind === "notice" && message.notice?.type === "command_exit") {
-    // Posted by the server when a command a Bot waited on has ended; the text is localized here.
-    const notice = message.notice;
-    const label = notice.reason === "interrupted" ? t("message.command_exit_interrupted")
-      : notice.reason === "closed" ? t("message.command_exit_closed")
-      : notice.exit_code !== undefined ? t("message.command_exit", { code: notice.exit_code }) : t("message.command_exit_unknown");
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{label}</span> {hasComputer && <button onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</button>}</div></article>;
-  }
-  const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
-    (message.notice.type === "handoff" || message.notice.type === "forward") &&
-    message.notice.target_conversation_id === message.conversation_id;
-  if (message.kind === "notice" && message.notice && !assignment) {
-    const target = message.notice.target_conversation_id;
-    const noticeSender = sender?.name;
-    // The server's English sentence is the fallback; a forward between known bots is worded here, in the UI's language.
-    const noticeText = message.notice.type !== "forward" || !targetBot?.name ? message.content
-      : message.sender_bot_id === "system" ? t("message.routed_to", { to: targetBot.name })
-      : noticeSender ? t("message.handed_over", { from: noticeSender, to: targetBot.name }) : message.content;
-    const showSender = noticeSender && !noticeText.startsWith(noticeSender);
-    const content = <>{showSender && <><span>{noticeSender}</span> · </>}{noticeText}</>;
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{noticeTargetAvailable ? <button onClick={() => onNavigate?.(target)}>{content}</button> : <span>{content}</span>}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
-  }
-  const isUser = message.role === "user";
-  const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? t("message.system") : isUser ? t("message.you") : sender?.name ?? senderName ?? (message.role === "tool" ? t("message.tool") : "Bot");
-  const draftText = typeof draft === "string" ? draft : draft?.content ?? "";
-  const scheduled = isUser && run?.kind === "schedule";
-  const hideMeta = compact && !scheduled && !showAvatar;
-  const rawBody = message.content || draftText;
-  const contextLabel = (sender?.name || senderName) && message.sender_bot_id ? `[sender ${sender?.name ?? senderName} id=${message.sender_bot_id}]` : "";
-  let body = contextLabel && rawBody.startsWith(contextLabel) ? rawBody.slice(contextLabel.length).trimStart() : rawBody;
-  body = readReplyMarker(body).body;
-  if (assignment) {
-    // Only collapse the structured recipient at the start; ordinary @ references stay text.
-    const text = body.trimStart();
-    const aliases = [targetBot?.name, message.notice!.to_bot_id].filter((name): name is string => Boolean(name)).sort((a, b) => b.length - a.length);
-    const existing = aliases.find(name => text.startsWith(`@${name}`) && (text.length === name.length + 1 || /[\s,:\uFF0C\uFF1A]/.test(text[name.length + 1])));
-    if (existing) body = text.slice(existing.length + 1).trimStart();
-  }
-  if (assignment) {
-    // A delegation is the colleague's brief: the chat shows one handoff line, the brief on request.
-    const toName = targetBot?.name ?? t("message.member");
-    return <article className="message message-notice message-assignment" data-run-id={message.run_id} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t("message.handed_over", { from: label, to: toName })}</span>{body.trim() && <details className="assignment-brief"><summary>{t("message.view_brief")}</summary><MessageMarkdown content={body} /></details>}</div></article>;
-  }
-  const mention = assignment ? <span className="message-mention"><Avatar label={targetBot?.name ?? t("message.member")} id={message.notice!.to_bot_id} mini /><span>@{targetBot?.name ?? t("message.member")}</span></span> : undefined;
-  const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
-  const toolRow = tools && <div className="message-tools">{tools}</div>;
-  const grouped = showAvatar && !isUser;
-  // A person's attachments sit above the text bubble, on their own (a photo is not a bubble); an image-only message has no bubble at all.
-  const hasAttachments = Boolean(message.attachments?.length);
-  const mediaOnly = hasAttachments && !body.trim();
-  const avatar = showAvatar && !isUser && <div className="sender-avatar">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>;
-  const userAttachments = isUser && hasAttachments ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" || message.local?.state === "retrying" ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}{userAttachments}{!mediaOnly && <div className="message-content" ref={answerRef}>{avatar}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>}{!isUser && hasAttachments && <div className="message-attachments bot-attachments">{mediaOnly && avatar}<AttachmentList attachments={message.attachments} /></div>}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
-}
-/** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
-export interface RowModel {
-  message: Message; isLast: boolean; arrival: boolean; streamed: boolean; dividerLabel?: string; unread: boolean; timezone: string;
-  canReact: boolean; isGroup: boolean; archived: boolean;
-  /** The draft whose live text this row follows, and whether the bubble shows it as still being written. */
-  liveId?: string; isStub: boolean; drafting: boolean;
-  replyTarget?: Message; replyTargetName?: string; senderName?: string; targetBot?: Bot; sender?: Bot; run?: Run; /** Set when this is the final reply of a run that kept a work trace and its Activity list is not drawn. */ traceRun?: Run;
-  toolLists?: { details: Record<string, ToolDetailState>; botById: Map<string, Bot>; activeRunIds: Set<string> };
-  processTools?: ToolActivity[]; processProgress?: Message[]; processSummaries?: ToolActivityRunSummary[]; processSummaryErrors?: Record<string, string>; processSummaryLoading?: Record<string, boolean>;
-  afterTools?: ToolActivity[]; afterSummaries?: ToolActivityRunSummary[]; afterSummaryErrors?: Record<string, string>; afterSummaryLoading?: Record<string, boolean>;
-  scheduleOccurrence?: ScheduleOccurrence; schedulePending: boolean; schedule?: Schedule; canRetrySchedule: boolean;
-  relatedChat: ViewOnlyChatTarget | null; compact: boolean; showIdentity: boolean; noticeTargetAvailable: boolean; allowOpenDM: boolean; canDraftReply: boolean; canMention: boolean;
-  receipt?: NonNullable<ReturnType<typeof receiptFor>>; receiptNames?: string[]; canRetryReceipt: boolean;
-  hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
-  botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number; h?: number } | null;
-  ownerNodes?: React.ReactNode[];
-  /** A task block that draws something follows this message directly: its action bar floats instead of reserving a row, so the block sits at the normal item gap. */
-  ownsNext?: boolean;
-  /** Task cards under this message: plain models whose identity holds until the task changes. */
-  taskCards?: TaskCardModel[];
-}
-/** Stable entry points a row calls; each forwards to the workspace's newest closure, so they never change identity. */
-export interface RowHandlers {
-  openMenu: (messageId: string, x: number, y: number) => void;
-  closeMenu: () => void;
-  hostPointerDown: () => void;
-  hostClick: (event: React.MouseEvent<HTMLElement>, messageId: string) => void;
-  react: (messageId: string, anchor: DOMRect) => void;
-  toggleActivity: (runId: string) => void;
-  reply: (message: Message) => void;
-  retrySend: (clientMessageId: string) => void;
-  editUnsent: (clientMessageId: string) => void;
-  deleteUnsent: (clientMessageId: string) => void;
-  retryRun: (runId: string) => Promise<void>;
-  loadDetails: (runId: string, offset: number) => Promise<void>;
-  retrySummary: (runId: string) => void;
-  navigate: (id: string) => void;
-  openRelated: (target: ViewOnlyChatTarget) => void;
-  draftReply: (message: Message) => Promise<boolean>;
-  mention: (bot: Bot) => void;
-  setReaction: (message: Message, emoji: string, present: boolean) => Promise<void>;
-}
-/**
- * One message in the timeline. It is skipped unless its own model changed, and the text of a message still
- * being written reaches it directly from the draft stream: a streamed chunk redraws this row and nothing else.
- */
-export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: RowModel; h: RowHandlers; stream: DraftStream }) {
-  const { t } = useTranslation("chat");
-  const live = useLiveDraft(stream, m.liveId);
-  const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
-  const draft = m.drafting ? live ?? "" : undefined;
-  const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
-  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
-  const mark = m.receipt && (m.receipt.state === "delivered" || m.receipt.state === "read") ? { state: m.receipt.state, names: m.receiptNames ?? [], group: m.isGroup } : undefined;
-  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText} mark={mark}
-      onReact={anchor => h.react(message.id, anchor)}
-      onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
-      onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
-  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
-    {m.dividerLabel !== undefined && <div className="date-divider"><span>{m.dividerLabel}</span></div>}
-    {m.unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
-    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
-      <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
-        run={m.run} tools={tools}
-        scheduleOccurrence={m.scheduleOccurrence} schedulePending={m.schedulePending} schedule={m.schedule} onRetrySchedule={m.canRetrySchedule ? h.retryRun : undefined}
-        draft={draft}
-        relatedChat={m.relatedChat} onOpenRelatedChat={h.openRelated}
-        compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
-    </div>
-    {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
-    {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
-    {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}
-    {m.ownerNodes}
-    {m.taskCards && <Suspense fallback={null}>{m.taskCards.map(card => <TaskCard key={card.id} card={card} />)}</Suspense>}
-    {m.afterTools ? <ToolActivityList activities={m.afterTools} summaries={m.afterSummaries} summaryErrors={m.afterSummaryErrors} summaryLoading={m.afterSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} group={m.isGroup} /> : null}
-  </div>;
-}, (previous, next) => previous.h === next.h && previous.stream === next.stream && rowModelEqual(previous.model, next.model));
 export function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useTranslation("chat");
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
@@ -3315,4 +3103,5 @@ export function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestRep
   return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <Suspense fallback={null}><PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} /></Suspense>}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}<div className="composer-row">{!isDesktop && <Suspense fallback={null}><WebFileDropOverlay key={`drop-${conversation.id}`} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} /></Suspense>}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button ref={addMenuTriggerRef} type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} {...pressToggle(() => setAddMenuOpen(open => !open))} onKeyDown={arrowOpens(setAddMenuOpen)}><Icon name="plus" size={22} /></button>{addMenuOpen && <OverlayMenu open onOpenChange={setAddMenuOpen} className="composer-add-menu" label={t("composer.add_attachment")} trigger={addMenuTriggerRef} anchor={addMenuRef} side="top" sideOffset={12}><button type="button" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></OverlayMenu>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><ComposerChipTile attachment={attachment} /><span className="composer-attachment-name">{attachment.name}</span>{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-controls={mentionQuery !== null && mentionMatches.length ? `mention-${conversation.id}` : undefined} aria-activedescendant={mentionQuery !== null && mentionMatches[mentionIndex] ? `mention-${conversation.id}-${mentionMatches[mentionIndex].id}` : undefined} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <OverlayPopover open onOpenChange={open => { if (!open) setMentionQuery(null); }} anchor={mentionAnchor} side="top" align="start" sideOffset={8} takeFocus={false} id={`mention-${conversation.id}`} className="mention-menu" role="listbox" aria-label={t("composer.mention_label", { name: conversation.name })}><div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>{mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button ref={index === mentionIndex ? selectedMention : undefined} id={`mention-${conversation.id}-${bot.id}`} type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}<div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div></OverlayPopover>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && dictationReady && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <><button ref={stopTriggerRef} type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} aria-haspopup="menu" aria-expanded={stopMenuOpen} disabled={!canCompose} onClick={() => { if (panelLoaded("stopMenu")) setStopMenuOpen(open => !open); else { preloadPanel("stopMenu"); void stopWorkingRuns(); } }} onKeyDown={arrowOpens(setStopMenuOpen)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>{stopMenuOpen && <Suspense fallback={null}><ComposerStopMenu runs={working()} stepRunIds={stepRunIds} bots={bots} trigger={stopTriggerRef} onClose={() => setStopMenuOpen(false)} onStopped={onRunsStopped} onError={onStopError} /></Suspense>}</>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
 }
 export default App;
+export { MessageBubble } from "./chat/MessageBubble";
 export { RunStatusAnnouncement, RetryFamilyAudit, WorkingMembers, WebToolActivityRun, CompactLiveLine, RunStartContext } from "./chat/RunActivity";
