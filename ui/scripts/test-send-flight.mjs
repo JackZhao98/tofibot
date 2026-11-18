@@ -1,22 +1,25 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-const root=resolve(import.meta.dirname,'..'), out=mkdtempSync(join(tmpdir(),'tofi-flight-'));
+// Compiled inside ui/node_modules so the emitted files resolve react and friends.
+const root=resolve(import.meta.dirname,'..'), out=mkdtempSync(join(root,'node_modules','.tofi-flight-'));
 try {
  execFileSync(join(root,'node_modules/.bin/tsc'),['src/sendFlight.ts','--ignoreConfig','--target','ES2022','--module','ES2022','--moduleResolution','Bundler','--outDir',out,'--skipLibCheck'],{cwd:root});
- // Node's module resolver requires an extension for the compiled local helper.
- const {readFileSync}=await import('node:fs');
- const file=join(out,'sendFlight.js'); writeFileSync(file,readFileSync(file,'utf8').replace('./motion-lab/lib/choreo','./motion-lab/lib/choreo.js'));
+ // Node's ESM resolver needs an extension on every compiled relative import (./motion is both motion.js and a folder).
+ const {readFileSync,readdirSync}=await import('node:fs');
+ for (const name of readdirSync(out,{recursive:true})) if (String(name).endsWith('.js')) { const path=join(out,String(name)); writeFileSync(path,readFileSync(path,'utf8').replace(/(from\s*['"])(\.{1,2}\/[^'"]+?)(['"])/g,(m,a,spec,c)=>/\.[cm]?js$/.test(spec)?m:a+spec+'.js'+c)); }
+ const file=join(out,'sendFlight.js');
  const {flySentMessage}=await import(pathToFileURL(file));
  let reduced=false,id=0;const frames=new Map(),ghosts=new Set();
  globalThis.window={matchMedia:()=>({matches:reduced})};
  globalThis.requestAnimationFrame=cb=>{frames.set(++id,cb);return id};
  globalThis.cancelAnimationFrame=id=>frames.delete(id);
  globalThis.getComputedStyle=()=>({padding:'8px',font:'14px sans-serif',lineHeight:'20px',color:'white',backgroundColor:'black',border:'none',borderColor:'black',borderRadius:'8px'});
- globalThis.document={body:{append:g=>ghosts.add(g)}};
+ // sendFlight portals into the #tofi-layers root (layers.ts); the stub hands back one that collects the ghosts.
+ const layer={append:g=>ghosts.add(g)};
+ globalThis.document={getElementById:()=>layer,body:{append:g=>ghosts.add(g)}};
  function target(){return {isConnected:true,style:{visibility:''},rect:{left:20,top:80,width:300,height:60},getBoundingClientRect(){return this.rect},cloneNode(){const g={style:{},setAttribute(){},remove(){ghosts.delete(g)},animate(keys){g.keys=keys;let done,fail;g.animation={finished:new Promise((a,b)=>{done=a;fail=b}),cancel(){fail(new Error('cancelled'))},finish(){done()}};return g.animation}};this.ghost=g;return g}}}
  const tick=()=>{const pending=[...frames.values()];frames.clear();pending.forEach(cb=>cb())};
  const origin={left:30,top:400};
