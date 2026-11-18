@@ -200,15 +200,7 @@ add their own styles on top; a thing used in many places is defined once.
   caret, the default field look, the default focus ring). Third-party CSS goes through `ui/src/vendor/` into `vendor`.
   Every V2 product sheet is wrapped in `legacy` until its surface is rebuilt. V3 kit styles are not in a layer, and a
   style outside a layer always wins over every layer, whatever its specificity or load order.
-- The V3 skin has one source: `ui/src/skin/v3.tokens.json` (primitives, roles per theme, structure tokens, `changes[]`).
-  `npm --prefix ui run build:skin` writes `skin/v3.css`, `skin/structure.css`, `skin/tokens.ts` and the two probe skins;
-  never edit them by hand. `v3` is not the default yet (`DEFAULT_SKIN` stays `legacy`). It is a lazy sheet
-  (`skin/sheets.ts`), reachable from the catalog (the Skin switch, `?skin=`) and, in a dev build only, with `?skin=v3`;
-  `devSkin()` is a compile-time constant, so a production bundle never loads it. Component roles (`--c-*`) go in
-  hand-written `skin/roles.css`, each with its first use. Guards: `test:skin-sync` (generated files equal a fresh build, values
-  equal `ui/test-fixtures/design/v3.0/` unless `changes[]` names them, today's structure values unchanged), `test:skin-contrast`,
-  and `test:skin-palette` (a ratchet of literal colours, fonts and blur lengths outside `skin/`, baseline in
-  `ui/scripts/skin-palette-baseline.json`; it replaces `test:v2-palette`).
+- The V3 skin and kit: see "Web UI: skin and kit" below.
 - Rules that must force a result stay outside the layers on purpose, in `ui/src/forced.css`: the global reduced-motion
   rule and the reduced-motion `!important` rules of long-lived sheets, the iOS 16 px input size, every `app-region`
   declaration; `ui/src/forced-focus.css` holds the pointer-modality ring rule. Do not add `!important` in `legacy`: a
@@ -219,6 +211,42 @@ add their own styles on top; a thing used in many places is defined once.
   tokens file (`ui/scripts/css-layers-baseline.json`). Counts only go down; lower the baseline with `--update` in the
   commit that removes them. Totals at the start (2026-11-13): global 22, rootBump 241, webFork 47, important 79,
   tokenDef 1. A new component never needs a `:root` bump: the field and focus defaults no longer outrank it.
+
+# Web UI: skin and kit
+
+Where things live:
+- `ui/src/skin/`: the skin. `v3.tokens.json` is the one source. `build:skin` writes `v3.css`, `structure.css`, `tokens.ts` and
+  the two probe skins (`probe-a.css`, `probe-b.css`). Do not edit generated files. `roles.css` (hand-written) holds the
+  component roles `--c-*`; add a role only with its first use. `skin.ts` `applySkin` is the only writer of `data-skin` and
+  `data-theme`. `DEFAULT_SKIN` is still `legacy`; `v3` loads lazily (`sheets.ts`, the catalog Skin switch, `?skin=v3` in dev).
+- `ui/src/ds/`: the V3 kit. One folder per component (`.tsx` and `.css`), class names `tb-*`. Kit CSS is not in a layer, so it
+  wins over `legacy` and `vendor`. Kit code reads skin roles only (`var(--ink)`, `var(--c-...)`), never a literal.
+- `ui/src/forced.css` and `forced-focus.css`: rules that must force a result (reduced motion, forced colours, drag
+  regions). They stay outside the layers.
+- `ui/src/vendor/`: third-party CSS, imported with `layer(vendor)`.
+
+Rules:
+- Use skin roles only. No literal colour, font family or blur length outside `skin/`.
+- The kit is unlayered. A V2 sheet is in `@layer legacy`. Do not write `!important` in `legacy`. When a V2 rule must win,
+  raise it with `:is(#_, .selector)`.
+- A sheet outside `ds/` may place a `.tb-*` element (layout properties) and nothing else. No `:root` token outside `skin/`,
+  no `html:not([data-desktop])`.
+
+Commands (run in `ui/`):
+- `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.
+- `test:skin-palette`, `test:skin-contrast`, `test:css-layers`: static guards (CI).
+- `test:ds-boundary`: static ratchet for the rules above and for legacy aliases and bridge names (CI). Baseline:
+  `scripts/ds-boundary-baseline.json`. A count can fall, never rise. Lower it with `--update`.
+- `test:selectors-alive` (`ci-local`): fails when a script uses a class, id or `data-` name that `src/` no longer has. Baseline:
+  `scripts/selectors-alive-baseline.json`. Lower it with `--update`.
+- `test:skin-sensitivity` (`ci-local`, needs `PLAYWRIGHT_MODULE`): renders the catalog sections whose id starts with `v3` under
+  both probe skins. A colour, border, outline, shadow, fill or stroke that is equal in both is hard-coded. Baseline:
+  `scripts/skin-sensitivity-baseline.json` (empty). Add catalog states for new components so they are probed.
+- `test:ds-parity` compares the kit with the frozen V3.0 spec. It needs `V3_SPEC=<path to the frozen spec folder>` and
+  `PLAYWRIGHT_MODULE`. Without `V3_SPEC` it prints SKIPPED and exits 0 (the folder is not tracked).
+- `node scripts/shot-v3-board.mjs --out DIR --states a,b [--live URL] [--ref "path/Page4-{theme}.png"]` writes 2x images in
+  light and dark at 1280 and 390 px. Slices are at most 2200 image pixels high. With `--ref`, each slice also gets a
+  side-by-side file. `--list` prints the catalog state ids.
 
 # Web UI motion
 
