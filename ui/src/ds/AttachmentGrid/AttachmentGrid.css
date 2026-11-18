@@ -1,5 +1,5 @@
 .tb-attach { display: grid; gap: 4px; width: 100%; }
-.tb-attach-cell { position: relative; display: block; min-width: 0; padding: 0; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); cursor: zoom-in; }
+.tb-attach-cell { color: inherit; position: relative; display: block; min-width: 0; padding: 0; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); cursor: zoom-in; }
 .tb-attach-cell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform var(--m-base) var(--ease-out); }
 .tb-attach-cell:hover img { transform: scale(1.03); }
 .tb-attach-cell:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }

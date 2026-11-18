@@ -1,0 +1,57 @@
+{
+  "test-catalog.mjs": [
+    ".web-oauth-link",
+    ".web-oauth-node",
+    ".web-oauth-provider"
+  ],
+  "test-chat-ui-browser.mjs": [
+    "#flight-result"
+  ],
+  "test-composer-resilience.mjs": [
+    ".mobile-back"
+  ],
+  "test-connections.mjs": [
+    ".local-mcp-card",
+    ".local-mcp-panel",
+    ".mcp-service-tools",
+    ".mcp-tools",
+    ".web-oauth-link",
+    ".web-oauth-provider"
+  ],
+  "test-desktop-settings.mjs": [
+    "#mac-code",
+    "#mac-name"
+  ],
+  "test-environments.mjs": [
+    ".device-pairing-code",
+    ".env-this-mac",
+    ".environment-summary"
+  ],
+  "test-friend-feedback-browser.mjs": [
+    ".desktop-frame-status",
+    ".desktop-mini-controls",
+    ".desktop-mini-open"
+  ],
+  "test-live-fixes.mjs": [
+    ".edge-blur"
+  ],
+  "test-overlays.mjs": [
+    ".send-receipt-tip"
+  ],
+  "test-search-palette.mjs": [
+    ".new-bot-dialog"
+  ],
+  "test-send-receipts.mjs": [
+    ".mobile-back"
+  ],
+  "test-settings-changes.mjs": [
+    "#n-stale",
+    "#n-unknown"
+  ],
+  "test-sidebar-pins.mjs": [
+    ".pin-dropzone"
+  ],
+  "test-tool-tiers-e2e.mjs": [
+    ".ui-select-chevron"
+  ]
+}
