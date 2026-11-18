@@ -41,7 +41,7 @@
   --surface-sunk: var(--sunk);
   --surface-soft: var(--surface-2);
   --surface-hover: var(--hover);
-  --selected-bg: var(--surface);
+  --selected-bg: color-mix(in srgb, var(--ink) 9%, var(--surface));
   /* Palette: the V2 hue names became the five V3 slots. */
   --clay: var(--tomato);
   --clay-text: var(--tomato-text);
@@ -115,14 +115,14 @@
   --paper: var(--letter-paper);
   --paper-ink: var(--letter-ink);
   --paper-rule: var(--letter-rule);
-  --paper-muted: var(--letter-mute);
+  --paper-muted: var(--letter-soft);
   --airmail-red: var(--letter-air-a);
   --airmail-blue: var(--letter-air-b);
   --sticky: color-mix(in srgb, var(--mustard) 30%, var(--letter-paper));
   --mail-paper: var(--letter-paper);
   --mail-stripe-paper: var(--letter-paper);
   --mail-ink: var(--letter-ink);
-  --mail-muted: var(--letter-mute);
+  --mail-muted: var(--letter-soft);
   --mail-post-blue: var(--letter-air-b);
   --mail-post-red: var(--letter-air-a);
   --mail-rule: var(--letter-rule);

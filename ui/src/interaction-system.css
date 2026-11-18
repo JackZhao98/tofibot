@@ -219,7 +219,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure-inner>.model-fields{margin:8px 0}
 
 :root[data-theme="dark"] .member-option{background:var(--surface);border-color:var(--line)}
-:root[data-theme="dark"] .member-option.selected{background:var(--selected-bg);border-color:var(--line-strong)}
+:root[data-theme="dark"] .member-option.selected{background:var(--selected-bg);border-color:var(--edge)}
 .archive-open{display:block;max-width:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;font-weight:600;overflow-wrap:anywhere}
 .archive-open:hover{text-decoration:underline;text-underline-offset:3px}
 .bot-identity-card button{margin-top:7px}

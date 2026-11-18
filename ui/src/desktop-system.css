@@ -2,7 +2,7 @@
 @layer legacy {
 html[data-desktop="darwin"],html[data-desktop="darwin"] body,html[data-desktop="darwin"] #root,
 html[data-desktop="darwin"] .workspace,html[data-desktop="darwin"] .workspace-grid{background:transparent}
-html[data-desktop="darwin"] .contact-pane{background:color-mix(in srgb,var(--sidebar-bg) 34%,transparent);padding-top:56px;border-right-color:var(--line-soft)}
+html[data-desktop="darwin"] .contact-pane{background:var(--c-sidebar-bg);padding-top:56px;border-right-color:var(--line-soft)}
 html[data-desktop="darwin"] .chat-pane{background:var(--bg)}
 /* A window does not rubber-band: lists scroll inside themselves (overscroll-behavior:contain on each list). */
 html[data-desktop] body{overscroll-behavior:none}
@@ -19,8 +19,8 @@ html[data-desktop="darwin"] .workspace .chat-header > .chat-header-drag{display:
 html[data-desktop="darwin"] .native-titlebar{position:fixed;inset:0 auto auto 0;width:var(--native-sidebar-width,272px);height:48px;z-index:calc(var(--z-panel) + 1);user-select:none}
 html[data-desktop="darwin"] .sidebar-collapsed .contact-pane{padding-top:58px}
 html[data-desktop="darwin"] .sidebar-collapsed .sidebar-top{margin-top:0}
-html[data-desktop="darwin"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 78%,transparent)}
-html[data-desktop="darwin"][data-window-focused="false"] .contact-row.active{background:color-mix(in srgb,var(--selected-bg) 55%,transparent)}
+html[data-desktop="darwin"] .contact-row.active{background:var(--c-srow-active-bg)}
+html[data-desktop="darwin"][data-window-focused="false"] .contact-row.active{background:color-mix(in srgb,var(--c-srow-active-bg) 85%,transparent)}
 html[data-desktop="darwin"][data-window-focused="false"] .sidebar-top,html[data-desktop="darwin"][data-window-focused="false"] .sidebar-footer{color:var(--text-soft)}
 html[data-desktop="darwin"][data-fullscreen="true"] .contact-pane{padding-top:16px}
 html[data-desktop="darwin"][data-fullscreen="true"] .native-titlebar{display:none}
@@ -37,7 +37,7 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 .owner-subtitle{margin:10px 0 28px;color:var(--ink-soft);font:14px/1.55 var(--body);text-align:center}
 .owner-card form{gap:16px}
 .owner-card label{font:13px/1.45 var(--body);color:var(--ink-soft)}
-.owner-card input{height:48px;margin-top:7px;border:2px solid transparent;border-radius:12px;background:var(--sunk);color:var(--ink);font:15px var(--body);box-shadow:inset 0 2px 0 color-mix(in srgb,var(--line) 8%,transparent)}
+.owner-card input{height:48px;margin-top:7px;border:var(--border-1) solid var(--edge);border-radius:12px;background:var(--sunk);color:var(--ink);font:15px var(--body);box-shadow:inset 0 2px 0 color-mix(in srgb,var(--line) 8%,transparent)}
 .owner-card input:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .owner-card label small{display:block;color:var(--muted);font:11px/1.5 var(--body);margin-top:8px}
 .owner-card .primary-button{width:100%;min-height:48px;border-radius:12px;margin-top:6px;font:600 15px/1.2 var(--display)}
@@ -59,7 +59,8 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 html[data-desktop="darwin"] .desktop-floating-shell.is-expanded{z-index:var(--z-dialog)}
 
 /* Keep the native material close to the reading plane in dark mode. The light material is unchanged. */
-html[data-desktop="darwin"][data-theme="dark"] .contact-pane{background:var(--sidebar-bg);border-right-color:var(--line-soft)}
+/* The Mac sidebar is the skin's own material in both themes: --c-sidebar-bg (a share of the surface over the native vibrancy; skin/v3.tokens.json platforms.darwin). V2 made it opaque in dark. */
+html[data-desktop="darwin"][data-theme="dark"] .contact-pane{border-right-color:var(--line-soft)}
 /* A drawer's backdrop starts under the titlebar strip: the strip keeps moving the window and the traffic lights stay clear. */
 html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto}
 

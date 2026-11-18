@@ -93,8 +93,8 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .workspace .composer .composer-row {
   display:grid; grid-template-columns:36px minmax(0,1fr) 36px 40px;
   grid-template-rows:minmax(48px,auto) 40px; column-gap:4px; row-gap:0;
-  min-height:64px; padding:10px 10px 10px 14px; border:2px solid var(--line);
-  border-radius:20px; background:var(--legacy-glass); box-shadow:var(--sheen),var(--shadow);
+  min-height:64px; padding:10px 10px 10px 14px; border:var(--c-composer-border);
+  border-radius:20px; background:var(--legacy-glass); box-shadow:var(--c-composer-shadow);
 }
 .workspace .composer .composer-input-wrap {
   grid-column:1/-1; grid-row:1; width:100%; padding:0 4px;
@@ -102,7 +102,7 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 .workspace .composer-row>.dictation-button { grid-column:3; grid-row:2; }
 .workspace .composer-row>.send-button { grid-column:4; grid-row:2; }
 .workspace .composer .composer-row:has(:focus-visible) {
-  border-color:var(--line); box-shadow:var(--sheen),var(--shadow);
+  border-color:var(--ink); box-shadow:var(--c-composer-shadow);
 }
 .workspace .composer-row textarea,.workspace .composer-row textarea:focus,
 .workspace .composer-row textarea:hover {

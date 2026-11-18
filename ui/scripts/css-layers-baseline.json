@@ -246,7 +246,7 @@
   },
   "v2-app.css": {
     "global": 0,
-    "rootBump": 15,
+    "rootBump": 14,
     "webFork": 26,
     "important": 0,
     "tokenDef": 0

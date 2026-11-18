@@ -422,8 +422,8 @@
   },
   "scopes": {
     "letter": {
-      "selector": ":is(.tb-letter, .tb-env.is-lifted)",
-      "note": "The Letter and the lifted envelope stay light paper in dark mode (bundle.css:816).",
+      "selector": ":is(.tb-letter, .tb-env.is-lifted, .mail-draft-letter)",
+      "note": "The Letter and the lifted envelope stay light paper in dark mode (bundle.css:816). 1.1 adds the V2 mail draft letter (.mail-draft-letter), the same paper object, so its ink stays dark on it.",
       "values": {
         "ink": "#151310",
         "ink-soft": "#403932",
