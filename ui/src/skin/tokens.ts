@@ -165,6 +165,10 @@ export const SKIN_ROLES = [
   "strike",
   "stamp-tilt",
   "mark-tick",
-  "mark-cross"
+  "mark-cross",
+  "mark-a-tick",
+  "mark-a-cross",
+  "mark-b-tick",
+  "mark-b-cross"
 ] as const;
 export type SkinRole = (typeof SKIN_ROLES)[number];

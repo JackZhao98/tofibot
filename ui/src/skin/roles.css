@@ -1,6 +1,17 @@
 /* L2 component roles (V3 PLAN 7.1): hand-written, in @layer skin. A role is one component's own hook into the skin
-   (--c-composer-border, --c-btn-primary-shadow, --c-srow-active-outline and so on). Its default is written in L1 roles, and
-   a second skin overrides it in its own file.
-   A role is added only with its first real use. There is none yet: the V3 kit components arrive in later PRs, and each adds
-   the roles it reads here. Until then nothing loads this file; skin/sheets.ts adds it to the v3 sheet set with the first role. */
-@layer skin {}
+   (--c-composer-border, --c-srow-active-outline and so on). Its default is written in L1 roles, and a second skin overrides
+   it in its own file. A role is added only with its first real use.
+   The Mac material (skin/v3.tokens.json platforms.darwin) overrides the sidebar roles under :root[data-desktop="darwin"]:
+   it is a rule of the skin generator, one specificity step above these defaults, so source order does not matter.
+   Loaded with skin/v3.css (skin/sheets.ts). */
+@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;
+@layer skin {
+  :root {
+    /* Sidebar and SidebarRow (0.7). On the web: the V3 ground, plain. */
+    --c-sidebar-bg: var(--surface-2);
+    --c-app-bg: var(--bg);
+    --c-srow-hover: var(--hover);
+    --c-srow-active-bg: var(--surface);
+    --c-srow-active-outline: var(--edge-bold) solid var(--ink);
+  }
+}
