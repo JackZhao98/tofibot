@@ -10,8 +10,8 @@ const T0 = Math.floor(Date.now() / 60_000) * 60_000 - 45 * 60_000;
 export const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
 
 export const BOTS: Bot[] = [
-  { id: "bot_mochi", name: "Mochi", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_mochi", created_at: at(-9000), is_primary: true, effective_model: "synthetic-model", effective_reasoning_effort: "medium" },
-  { id: "bot_miso", name: "Miso", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_miso", created_at: at(-8000) },
+  { id: "bot_mochi", name: "Mochi", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_mochi", created_at: at(-9000), is_primary: true, avatar: { schemaVersion: 2, shape: "loaf", pattern: "tabby", palette: "tabby", ground: "teal" }, effective_model: "synthetic-model", effective_reasoning_effort: "medium" },
+  { id: "bot_miso", name: "Miso", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_miso", created_at: at(-8000), avatar: { schemaVersion: 1, shape: "curl", pattern: "solid", palette: "honey" } },
   { id: "bot_nori", name: "Nori", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_nori", created_at: at(-7000) },
   { id: "bot_ledger", name: "Ledger", instructions: "Synthetic", model: "default", dm_conversation_id: "dm_ledger", created_at: at(-6000), archived: true },
 ];

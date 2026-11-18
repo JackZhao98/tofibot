@@ -12,7 +12,10 @@ const pushed = new Set<string>();
 /** The app's `request` (api.ts). It is handed in: a lazy chunk that imports api.ts itself reshuffles the entry bundle (test:shell-budget). */
 export type Send = (path: string, init: { method: string; body: string }) => Promise<unknown>;
 
-type Look = { schemaVersion?: number; shape?: string; pattern?: string; palette?: string };
+const GROUND_PREFIX = "tofi:bot-ground:";
+const GROUND_EVENT = "tofi:ground-change";
+
+type Look = { schemaVersion?: number; shape?: string; pattern?: string; palette?: string; ground?: string };
 type ServerBot = { id: string; avatar?: Look | null };
 
 /** A look is saved on the server. A refusal or no connection leaves the copy; the next load hands it up again. */
@@ -20,6 +23,18 @@ export function pushBotAvatar(send: Send, botId: string, look: Look): void {
   if (pushed.has(botId)) return;
   pushed.add(botId);
   void send(`/api/bots/${encodeURIComponent(botId)}`, { method: "PATCH", body: JSON.stringify({ avatar: look }) }).catch(() => pushed.delete(botId));
+}
+
+/** The server's ground goes to this browser's copy (key and event as avatarStore); a Bot with a look but no ground drops a stale copy. */
+function hydrateGround(botId: string, ground: unknown): void {
+  const key = `${GROUND_PREFIX}${botId}`;
+  try {
+    const held = localStorage.getItem(key);
+    if (typeof ground !== "string") { if (held !== null) localStorage.removeItem(key); return; }
+    if (held === ground) return;
+    localStorage.setItem(key, ground);
+  } catch { return; /* storage unavailable: the default ground applies */ }
+  window.dispatchEvent(new CustomEvent(GROUND_EVENT, { detail: { botId, ground } }));
 }
 
 /**
@@ -31,6 +46,7 @@ export function hydrateBotAvatars(send: Send, bots: readonly ServerBot[]): void 
     let held: string | null = null;
     try { held = localStorage.getItem(`${LOCAL_PREFIX}${bot.id}`); } catch { /* storage unavailable: the server's look still applies after a reload */ }
     if (bot.avatar) {
+      hydrateGround(bot.id, bot.avatar.ground);
       const config = { schemaVersion: 1, shape: bot.avatar.shape, pattern: bot.avatar.pattern, palette: bot.avatar.palette };
       const next = JSON.stringify(config);
       let same = false;
