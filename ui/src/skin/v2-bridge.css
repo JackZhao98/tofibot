@@ -1,0 +1,195 @@
+/* The V2 bridge (V3 PLAN 7.6, PR 1.1). V2 sheets still use V2 names (--clay, --line-soft, --text, --display ...). Under every
+   skin except legacy, each of those names points at a V3 role, so a V2 sheet takes the new colours, type and materials with no
+   edit. Hand-written; the skin-legacy count in scripts/ds-boundary-baseline.json (bridgeUse) only falls, and PR 9.1 deletes
+   this file with the last V2 sheet. New code uses the V3 role, never a name in this file.
+   Rules for an entry here:
+   - A palette or text name maps to the role of the same meaning (var(--tomato), var(--ink-soft), ...).
+   - A name that was fixed artwork in V2 (shadow inks, the Mac preview screen, the theme swatches) keeps its value.
+   - V2 --blue is the teal alias, not the person's blue: it maps to --teal. Blue is --you and --cobalt, kept for the person.
+   Not scoped to data-skin="v3": a probe skin or a page with no attribute needs the same names, and legacy.css defines them
+   itself when data-skin="legacy". Skin-dependent values are role references, so light and dark need no second block;
+   only a few numbers differ by theme and have one. */
+@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;
+@layer skin {
+:root:where(:not([data-skin="legacy"])) {
+  /* Lines */
+  --line-soft: var(--line);
+  --line-strong: var(--line);
+  --border-edge: var(--line);
+  --border-soft: var(--line);
+  --glass-edge: var(--line);
+  --edge-soft: 1px;
+  /* Text */
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --text-body: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-meta: var(--muted);
+  --text-process: var(--muted);
+  --text-on-block: var(--on-block);
+  --on-accent: var(--on-block);
+  --inverse: var(--ink);
+  --on-inverse: var(--bg);
+  --surface-inverse: var(--ink);
+  --text-on-inverse: var(--bg);
+  --wait: var(--muted);
+  /* Grounds */
+  --sidebar-bg: var(--surface-2);
+  --surface-page: var(--bg);
+  --surface-card: var(--surface);
+  --surface-raised: var(--surface-2);
+  --surface-sunk: var(--sunk);
+  --surface-soft: var(--surface-2);
+  --surface-hover: var(--hover);
+  --selected-bg: var(--surface);
+  /* Palette: the V2 hue names became the five V3 slots. */
+  --clay: var(--tomato);
+  --clay-text: var(--tomato-text);
+  --iris: var(--grape);
+  --iris-text: var(--grape-text);
+  --lagoon: var(--teal);
+  --lagoon-text: var(--teal-text);
+  --lagoon-text-light: var(--teal-text);
+  --honey: var(--mustard);
+  --honey-text: var(--mustard-text);
+  --green: var(--lime);
+  --green-text: var(--lime-text);
+  --yellow: var(--clay);
+  --yellow-text: var(--clay-text);
+  --pink: var(--iris);
+  --pink-text: var(--iris-text);
+  --blue: var(--lagoon);
+  --blue-text: var(--lagoon-text);
+  --orange: var(--honey);
+  --orange-text: var(--honey-text);
+  --success: var(--lime);
+  --amber: var(--mustard-text);
+  --accent-primary: var(--tomato);
+  --accent-primary-text: var(--tomato-text);
+  --accent-decide: var(--grape);
+  --accent-decide-text: var(--grape-text);
+  --focus-ring: var(--focus);
+  --work-status-ink: var(--teal-text);
+  --status-wait: var(--muted);
+  --status-working-text: var(--teal-text);
+  --status-unread-text: var(--mustard-text);
+  --status-done-text: var(--lime-text);
+  --status-error-text: var(--danger-text);
+  /* Shadows, materials and shape */
+  --card-elevation: var(--shadow);
+  --card-lift: var(--shadow-lg);
+  --float-shadow: var(--shadow);
+  --menu-shadow: var(--shadow);
+  --panel-float-elevation: var(--shadow);
+  --st-lift: var(--shadow-sm);
+  --field-inset-shadow: var(--field-inset);
+  --sheen: 0 0 0 0 transparent;
+  --legacy-glass: var(--glass-strong);
+  --legacy-glass-strong: var(--glass-strong);
+  --blur: var(--glass-blur);
+  --dots: var(--dot-grid) 0 0/var(--dot-step) var(--dot-step);
+  --hard-ink: var(--on-block);
+  --shade: #000;
+  --shade-warm: #140e08;
+  --shade-ink: #2a2019;
+  --white: #fff;
+  --legacy-edge-w: 2px;
+  --legacy-edge-bold-w: 3px;
+  --radius-xl: 20px;
+  --radius-2xl: 22px;
+  --r: 14px;
+  --r-lg: 20px;
+  --panel-radius: 16px;
+  --bubble-radius: var(--radius-bubble);
+  --bubble-joined: var(--radius-bubble-joined);
+  --bubble-tail: 5px;
+  --bubble-bot-ink: var(--ink);
+  --bubble-user-ink: var(--ink);
+  --bubble-inset: var(--surface);
+  --bubble-inset-ink: var(--ink);
+  /* Type */
+  --display: var(--font-display);
+  --body: var(--font-body);
+  --mono: var(--font-mono);
+  /* Stationery: the Letter's paper, ink and post colours */
+  --paper: var(--letter-paper);
+  --paper-ink: var(--letter-ink);
+  --paper-rule: var(--letter-rule);
+  --paper-muted: var(--letter-mute);
+  --airmail-red: var(--letter-air-a);
+  --airmail-blue: var(--letter-air-b);
+  --sticky: color-mix(in srgb, var(--mustard) 30%, var(--letter-paper));
+  --mail-paper: var(--letter-paper);
+  --mail-stripe-paper: var(--letter-paper);
+  --mail-ink: var(--letter-ink);
+  --mail-muted: var(--letter-mute);
+  --mail-post-blue: var(--letter-air-b);
+  --mail-post-red: var(--letter-air-a);
+  --mail-rule: var(--letter-rule);
+  --mail-line: var(--letter-rule);
+  --mail-footer: color-mix(in srgb, var(--letter-rule) 45%, var(--letter-paper));
+  --mail-note: var(--sticky);
+  --mail-note-ink: var(--letter-ink);
+  --mail-note-muted: var(--letter-mute);
+  /* Code: V3 code is a dark well in both themes. Inline code is a quiet chip on the ground instead. */
+  --code-block-bg: var(--code-bg);
+  --code-block-ink: var(--code-ink);
+  --code-block-edge: var(--code-bg);
+  --code-inline-bg: var(--sunk);
+  --code-inline-ink: var(--ink);
+  --code-inline-edge: var(--line);
+  /* File type tiles take the hue slots (the V3 file glyphs do). Pill text is --on-block, so every fill is a bright slot or a mid grey. */
+  --ft-pdf: var(--tomato);
+  --ft-image: var(--grape);
+  --ft-sheet: var(--lime);
+  --ft-doc: var(--cobalt);
+  --ft-md: var(--grape);
+  --ft-slides: var(--mustard);
+  --ft-code: var(--teal);
+  --ft-json: var(--mustard);
+  --ft-archive: var(--tomato);
+  --ft-media: var(--cobalt);
+  --ft-text: color-mix(in srgb, var(--ink) 42%, var(--bg));
+  --ft-other: var(--ft-text);
+  --ft-on: var(--on-block);
+  --ft-page-mix: 9%;
+  --ft-fold-mix: 26%;
+  --ft-edge-mix: 24%;
+  /* Brand-logo plates */
+  --mark-plate: var(--logo-tile);
+  --mark-plate-dark: #111;
+  /* Fixed artwork: the remote-computer preview is a dark screen in both themes. */
+  --desktop-controls-glass: rgba(21, 19, 16, .92);
+  --desktop-controls-solid: #0c0e12;
+  --desktop-controls-edge: rgba(255, 255, 255, .14);
+  --desktop-controls-ink: #f3eadb;
+  --desktop-controls-hover: rgba(255, 255, 255, .14);
+  --desktop-controls-grip: rgba(255, 255, 255, .5);
+  --desktop-screen: var(--desktop-controls-solid);
+  --desktop-actor-glass: var(--desktop-controls-glass);
+  --desktop-pointer-ink: var(--on-block);
+  --desktop-pointer-surface: var(--teal);
+  --desktop-bezel: var(--bezel);
+  --desktop-bezel-fill: #15181e;
+  --desktop-bezel-shadow: 0 12px 32px rgba(0, 0, 0, .2);
+  --desktop-switch-track: rgba(255, 255, 255, .06);
+  --desktop-switch-idle: rgba(255, 255, 255, .16);
+  --desktop-switch-badge-shadow: 0 1px 0 rgba(0, 0, 0, .3);
+  /* Fixed artwork: the appearance swatches show both themes at once. */
+  --swatch-light-bg: #eee9e1;
+  --swatch-light-edge: #c6beaf;
+  --swatch-light-ink: #403932;
+  --swatch-dark-bg: #110f0d;
+  --swatch-dark-edge: #39342f;
+  --swatch-dark-ink: #cfc8bb;
+  /* Image lightbox: the same in both themes. */
+  --lightbox-scrim: rgba(8, 8, 10, .96);
+  --lightbox-ink: #f3eadb;
+}
+:root:where(:not([data-skin="legacy"]))[data-theme="dark"] {
+  --ft-text: color-mix(in srgb, var(--ink) 62%, var(--bg));
+  --ft-page-mix: 16%;
+  --ft-fold-mix: 34%;
+  --ft-edge-mix: 34%;
+}
+}

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { TaskRunBlock } from "../src/TaskRunBlock";
 import { buildTaskOwners } from "../src/taskIssuePresentation";
 import { i18nReady } from "../src/i18n";
-import "../src/fonts.css";
+import "../src/skin/fonts.css";
 import "../src/styles.css";
 import "../src/interaction-system.css";
 import "../src/settings-system.css";

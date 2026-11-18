@@ -1,13 +1,11 @@
-@import "./skin/structure.css";
-@import "./skin/legacy.css";
+@import "./skin/default.css";
 @layer base {
 body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 form[aria-busy=true]{cursor:progress}
 }
 @layer legacy {
-.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
-.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
+.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
 .workspace .contact-row:focus-visible{outline-offset:-3px}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
 .search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}

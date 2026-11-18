@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { layerRoot, topLayerDialog } from "./layers";
-import { applySkin, devSkin, loadDevSkin } from "./skin/skin";
+import { applySkin, devSkin } from "./skin/skin";
 
 export type ThemePreference = "system" | "light" | "dark";
 export function useAppearance() {
@@ -26,14 +26,9 @@ export function useAppearance() {
       // index.html ships a light/dark pair keyed on the OS setting; the in-app choice wins once it runs, so drop the media query.
       if (pageColor) document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => { meta.removeAttribute("media"); meta.setAttribute("content", pageColor); });
     };
-    applySkin(theme);
+    // ?skin=legacy in a dev build shows V2. devSkin() is null in a production build.
+    applySkin(theme, devSkin() ?? undefined);
     syncPageColor();
-    // ?skin=v3 in a dev build: load the lazy sheet, then switch in one step. devSkin() is null in a production build.
-    const skin = devSkin();
-    if (!skin) return undefined;
-    let current = true;
-    void loadDevSkin(skin).then(() => { if (current) { applySkin(theme, skin); syncPageColor(); } });
-    return () => { current = false; };
   }, [theme]);
   useEffect(() => { void window.tofiDesktop?.appearance(preference); }, [preference]);
   function choose(value: ThemePreference) { setPreference(value); try { localStorage.setItem("tofi:appearance", value); window.dispatchEvent(new StorageEvent("storage", { key: "tofi:appearance", newValue: value })); } catch { /* Keep in-memory preference. */ } }

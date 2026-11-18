@@ -26,9 +26,6 @@
   "bot-tools.css": {
     "bridgeUse": 2
   },
-  "BrandLogo.css": {
-    "bridgeUse": 1
-  },
   "chat-header.css": {
     "bridgeUse": 14
   },
@@ -259,7 +256,7 @@
     "webFork": 26
   },
   "v2-foundations.css": {
-    "bridgeUse": 10
+    "bridgeUse": 9
   },
   "web-file-drop.css": {
     "bridgeUse": 8,

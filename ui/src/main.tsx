@@ -8,7 +8,7 @@ import { ProxyChallengeSlot } from "./ProxyChallengeSlot";
 import { i18nReady, useLanguage } from "./i18n";
 import { installFocusModality } from "./focusModality";
 import { watchInstallPrompt } from "./installApp";
-import "./fonts.css";
+import "./skin/fonts.css";
 import "./styles.css";
 
 installFocusModality();
@@ -48,5 +48,4 @@ import "./sidebar-rail.css";
 import "./chat-header.css";
 import "./progressive-blur.css";
 import "./context-card.css";
-import "./focus-ring.css";
 import "./forced.css";

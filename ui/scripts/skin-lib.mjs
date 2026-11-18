@@ -118,6 +118,9 @@ export function probeValue(value, probe) {
 
 // ---- emitters
 
+/** The root the default skin styles: its own attribute, or none. */
+export const DEFAULT_ROOT = ':root:where([data-skin="v3"], :not([data-skin]))';
+
 const cascadeOrder = () => readFileSync(join(ui, "src", "cascade.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").match(/@layer [^;]+;/)[0];
 const declare = (values, indent = "  ") => Object.entries(values).map(([name, value]) => `${indent}--${name}: ${value};`).join("\n");
 const comment = (text, indent = "") => `${indent}/* ${text.split("\n").join(`\n${indent}   `)} */`;
@@ -126,7 +129,8 @@ const comment = (text, indent = "") => `${indent}/* ${text.split("\n").join(`\n$
 export function emitSkin(source, skin, transform = value => value) {
   const resolved = resolveSource(source);
   const mapAll = values => Object.fromEntries(Object.entries(values).map(([name, value]) => [name, transform(value)]));
-  const root = `:root:where([data-skin="${skin}"])`;
+  // The default skin also answers a page with no data-skin (PLAN 7.4): the OAuth page, and the first frame before applySkin runs.
+  const root = skin === "v3" ? DEFAULT_ROOT : `:root:where([data-skin="${skin}"])`;
   const dark = `${root}[data-theme="dark"]`;
   const both = `${root},\n  ${dark}`;
   const out = [

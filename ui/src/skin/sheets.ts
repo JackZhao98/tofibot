@@ -1,19 +1,16 @@
-// The lazy skin sheets (V3 PLAN 7.4). legacy is eager (every entry imports it), so only the other skins are here. A skin
-// is one <link> to its generated sheet; applySkin flips data-skin after loadSkin resolves, so the restyle is one frame.
-// Only the catalog and the dev ?skin switch (skin.ts) import this file, so a production entry never reaches these sheets.
-import v3 from "./v3.css?url";
-import roles from "./roles.css?url";
+// The lazy skin sheets (V3 PLAN 7.4). The default skin and legacy are eager (skin/default.css, every entry), so only the probe
+// skins are here. A skin is one <link> to its generated sheet; applySkin flips data-skin after loadSkin resolves, so the
+// restyle is one frame. Only the catalog imports this file, so a production entry never reaches these sheets.
 import probeA from "./probe-a.css?url";
 import probeB from "./probe-b.css?url";
 import type { ProbeSkinId, SkinId } from "./skin";
 
-// Component roles (roles.css) load with every skin: a role defaults to L1 roles, so a probe skin moves them too.
-const SHEETS: Record<Exclude<SkinId, "legacy"> | ProbeSkinId, string[]> = { v3: [v3, roles], "probe-a": [probeA, roles], "probe-b": [probeB, roles] };
+const SHEETS: Record<ProbeSkinId, string[]> = { "probe-a": [probeA], "probe-b": [probeB] };
 const loading = new Map<string, Promise<void>>();
 
-/** Resolves when the skin's stylesheet is in the document. The legacy skin is already there. */
+/** Resolves when the skin's stylesheet is in the document. The default skin and legacy are already there. */
 export function loadSkin(skin: SkinId | ProbeSkinId): Promise<void> {
-  if (skin === "legacy") return Promise.resolve();
+  if (skin === "legacy" || skin === "v3") return Promise.resolve();
   const known = loading.get(skin);
   if (known) return known;
   const links = SHEETS[skin].map(href => {

@@ -14,8 +14,16 @@ test("overlapping surfaces share tinted glass and paired backdrop filters", () =
   }
   assert.match(material[2], /-webkit-backdrop-filter:var\(--blur\)/);
   assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--blur\)/);
-  const tokens = read("skin/legacy.css");
-  assert.equal([...tokens.matchAll(/--legacy-glass:rgba\([^;]+,\.96\)/g)].length, 2, "both themes obscure content beneath the glass");
+  // The material is a skin role now (V3 PLAN 7.6): the bridge points the V2 glass names at --glass-strong, and the blur at --glass-blur.
+  const bridge = read("skin/v2-bridge.css");
+  assert.match(bridge, /--legacy-glass:\s*var\(--glass-strong\)/, "the V2 glass is the skin's strong glass");
+  assert.match(bridge, /--blur:\s*var\(--glass-blur\)/, "the V2 blur is the skin's glass blur");
+  // Both themes obscure the content beneath the glass: the strong glass is at least 84% opaque, the blur is a real blur.
+  const skin = read("skin/v3.css");
+  const alphas = [...skin.matchAll(/--glass-strong:\s*rgba\([^)]*,\s*(\.?\d+(?:\.\d+)?)\)/g)].map(match => Number(match[1]));
+  assert.equal(alphas.length, 2, "both themes define the strong glass");
+  for (const alpha of alphas) assert.ok(alpha >= .84, `the strong glass hides what is behind it (alpha ${alpha})`);
+  assert.match(skin, /--glass-blur:\s*blur\(\d+px\)/, "the skin's glass blurs");
   assert.doesNotMatch(read("desktop-system.css"), /background:color-mix\([^;]+88%,transparent\)/, "desktop does not weaken the menu material");
 });
 
@@ -37,7 +45,8 @@ test("native title row controls clear traffic lights and use no-drag hit targets
   const css = read("desktop-system.css");
   // Option C (owner 2026-11-14): the toggle sits at 78 px inside the card (86 px in the window), after the lights at 22 px.
   assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor\) \{[^}]*left:78px/);
-  assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor>\.icon-button\) \{[^}]*-webkit-app-region:no-drag/);
+  // Every app-region declaration lives in forced.css since PR 0.3, so the no-drag hole is read there.
+  assert.match(read("forced.css"), /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor>\.icon-button\)\{-webkit-app-region:no-drag\}/);
   // Collapsed or narrow: the header drag layer starts after the capsule.
   assert.match(css, /:is\(\.sidebar-collapsed,\.mac-narrow\) \.chat-header > \.chat-header-drag \{ left:200px/);
 });

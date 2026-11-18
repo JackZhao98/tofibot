@@ -131,6 +131,22 @@ for (const file of ["skin/v3.css", "skin/roles.css"]) {
   }
 }
 
+// ---- 8. the V2 bridge covers every V2 name still in use. A name that skin/legacy.css defines and that a product sheet or
+// component still reads must resolve under the default skin: it is a V3 role or structure token, or skin/v2-bridge.css defines it.
+// Without this, a V2 sheet would read an undefined name and silently lose its colour once legacy.css no longer answers.
+{
+  const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, "");
+  const names = text => new Set([...strip(text).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
+  const legacyNames = names(readFileSync(join(src, "skin/legacy.css"), "utf8"));
+  const bridgeNames = names(readFileSync(join(src, "skin/v2-bridge.css"), "utf8"));
+  const resolves = name => known.has(name) || bridgeNames.has(name);
+  const used = new Map();
+  for (const file of files.filter(file => /\.(css|tsx?)$/.test(file) && !relative(src, file).startsWith("skin/") && !relative(src, file).startsWith("catalog/"))) {
+    for (const [, name] of readFileSync(file, "utf8").matchAll(/var\(\s*(--[\w-]+)/g)) if (legacyNames.has(name) && !resolves(name)) used.set(name, [...(used.get(name) ?? []), relative(src, file)]);
+  }
+  for (const [name, where] of used) fail(`${name} is defined by skin/legacy.css and used in ${[...new Set(where)].slice(0, 3).join(", ")}, but nothing defines it under the default skin; map it in skin/v2-bridge.css`);
+}
+
 if (failures.length) {
   console.error(`skin sync: FAIL\n  ${failures.join("\n  ")}`);
   process.exit(1);

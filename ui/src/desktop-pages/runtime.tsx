@@ -1,7 +1,7 @@
 import { StrictMode, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { i18nReady, useLanguage } from "../i18n";
-import "../fonts.css";
+import "../skin/fonts.css";
 import "../styles.css";
 import "../interaction-system.css";
 import "../settings-system.css";
@@ -9,7 +9,6 @@ import "../desktop-system.css";
 import "../v2-foundations.css";
 import "../settings/settings-components.css";
 import "../settings/settings-polish.css";
-import "../focus-ring.css";
 import "../forced.css";
 import "./pages.css";
 import { applySkin } from "../skin/skin";

@@ -9,7 +9,7 @@
 //   font      a literal font-family (CSS, or fontFamily in script), or a font shorthand with a literal family
 //   blur      a backdrop-filter whose blur() takes a literal length instead of var()
 //   svgPaint  an SVG fill or stroke other than currentColor, none or var()
-// Exempt: src/skin/, lib/tofi-avatar/ (artwork), locales, fonts.css (the @font-face rules), mask-image values and anything
+// Exempt: src/skin/, lib/tofi-avatar/ (artwork), locales, mask-image values and anything
 // inside url().
 // Usage: node scripts/test-skin-palette.mjs [--update]   (--update only lowers counts; --init writes today's counts)
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -72,8 +72,7 @@ function scriptOffences(code) {
 }
 
 const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]);
-// fonts.css declares the font faces, so its font-family lines are definitions, not uses.
-const skipped = name => name.startsWith("skin/") || name.startsWith("lib/tofi-avatar/") || name.startsWith("locales/") || name === "fonts.css";
+const skipped = name => name.startsWith("skin/") || name.startsWith("lib/tofi-avatar/") || name.startsWith("locales/");
 const counts = {}, where = {};
 for (const file of walk(src)) {
   const name = relative(src, file);

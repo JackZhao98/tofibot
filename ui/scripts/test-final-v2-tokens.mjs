@@ -6,7 +6,7 @@ import { join, relative } from "node:path";
 const reference = readFileSync(new URL("../test-fixtures/design/tokens/colors.css", import.meta.url), "utf8");
 const exported = JSON.parse(readFileSync(new URL("../test-fixtures/design/tokens/tokens.json", import.meta.url), "utf8"));
 const css = readFileSync(new URL("../src/skin/legacy.css", import.meta.url), "utf8");
-const SKIN = ':root:where([data-skin="legacy"], :not([data-skin]))';
+const SKIN = ':root:where([data-skin="legacy"])';
 function declarations(source, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const body = source.match(new RegExp(`^${escaped}\\s*\\{([\\s\\S]*?)^\\}`, "m"))?.[1];

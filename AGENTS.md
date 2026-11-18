@@ -218,7 +218,7 @@ Where things live:
 - `ui/src/skin/`: the skin. `v3.tokens.json` is the one source. `build:skin` writes `v3.css`, `structure.css`, `tokens.ts` and
   the two probe skins (`probe-a.css`, `probe-b.css`). Do not edit generated files. `roles.css` (hand-written) holds the
   component roles `--c-*`; add a role only with its first use. `skin.ts` `applySkin` is the only writer of `data-skin` and
-  `data-theme`. `DEFAULT_SKIN` is still `legacy`; `v3` loads lazily (`sheets.ts`, the catalog Skin switch, `?skin=v3` in dev).
+  `data-theme`. `DEFAULT_SKIN` is `v3` (PR 1.1). Every entry loads `skin/default.css`: structure, `v3.css`, `roles.css`, `legacy.css` (answers only `data-skin="legacy"`; the rollback until PR 2.1: set `DEFAULT_SKIN` back to `"legacy"`), `v2-bridge.css` (V2 names resolve to V3 roles; `test:skin-sync` fails on a V2 name with no mapping) and `base.css` (body, selection, scrollbars, caret, focus ring, text fields). Fonts: `skin/fonts.css`. `?skin=legacy` in dev shows V2.
 - `ui/src/ds/`: the V3 kit. One folder per component (`.tsx` and `.css`), class names `tb-*`. Kit CSS is not in a layer, so it
   wins over `legacy` and `vendor`. Kit code reads skin roles only (`var(--ink)`, `var(--c-...)`), never a literal.
 - `ui/src/forced.css` and `forced-focus.css`: rules that must force a result (reduced motion, forced colours, drag

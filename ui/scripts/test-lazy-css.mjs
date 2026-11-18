@@ -18,9 +18,9 @@ for (const page of readdirSync(dist).filter(name => name.endsWith(".html"))) {
 }
 const lazy = readdirSync(join(dist, "assets")).filter(name => name.endsWith(".css") && !eager.has(name));
 // A non-default skin is a lazy sheet on purpose (V3 PLAN 7.4): its whole point is to restyle the page once, on the person's
-// action (skin/sheets.ts loads it, then data-skin flips in one frame). Only these named, generated sheets (skin/v3.css, skin/roles.css and the
+// action (skin/sheets.ts loads it, then data-skin flips in one frame). Only these named, generated sheets (the
 // two probe skins; Vite hashes the file name) may carry :root custom properties. The layer order below still applies to them.
-const SKIN_SHEETS = /^(?:v3|roles|probe-a|probe-b)-[\w-]+\.css$/;
+const SKIN_SHEETS = /^(?:probe-a|probe-b)-[\w-]+\.css$/;
 
 /** Style rules as [selector, body] at any depth (inside @media, @supports, @layer), plus the at-rule preludes. */
 function rules(css) {
