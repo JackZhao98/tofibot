@@ -324,7 +324,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .member-avatar-stack .avatar:nth-child(n+4){display:none}
 .chat-title p{max-width:42vw}
 .header-actions .secondary-button{display:none}
-.header-actions .ghost-button{display:grid;width:36px;height:36px;min-height:0;padding:0;place-items:center;border-radius:50%}
+.header-actions .ghost-button{display:grid;width:36px;height:36px;padding:0;place-items:center;border-radius:50%}
 .header-actions .ghost-button span{display:none}
 .message-scroll{padding:25px 14px 16px}
 .message-user .message-content{max-width:88%}
@@ -395,7 +395,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 @media (pointer:coarse),(any-pointer:coarse){
   .archive-card-actions .secondary-button,.extension-actions button{min-height:44px}
   .computer-detail .secondary-button,.computer-detail .primary-button{min-height:44px;padding:10px 12px}
-  .text-button,.load-older,.history-error button,.card-actions button,.work-recovery button,.message-notice button,.memory-footer button{min-height:44px;padding:10px 12px}
+  .load-older,.history-error button,.card-actions button,.work-recovery button,.message-notice button,.memory-footer button{min-height:44px;padding:10px 12px}
   .composer-attachments button{width:44px;height:44px;min-height:44px}
   /* iOS Safari zooms the page when a focused field computes below 16px; the zoom also disables the keyboard handler. */
 }

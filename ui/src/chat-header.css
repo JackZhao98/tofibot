@@ -31,7 +31,7 @@
   background:var(--legacy-glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
 }
 :root .workspace .header-actions :is(.computer-button,.ghost-button) {
-  width:36px; height:36px; min-width:36px; padding:0; border:0; border-radius:50%;
+  width:36px; height:36px; min-height:0; min-width:36px; padding:0; border:0; border-radius:50%;
   background:transparent; color:var(--ink-soft); transition:background-color var(--m-quick) var(--ease-out),color var(--m-quick) var(--ease-out);
 }
 :root .workspace .header-actions :is(.computer-button,.ghost-button):hover { background:var(--surface-2); color:var(--ink); border:0; }

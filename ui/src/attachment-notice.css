@@ -6,7 +6,9 @@
 .attachment-notice { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; padding: 2px 12px 10px; color: var(--muted); font: var(--type-meta); text-align: left; }
 .attachment-notice > svg { flex: none; margin-top: 2px; }
 .attachment-notice p { flex: 1 1 200px; margin: 0; }
-.attachment-notice .text-button { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; }
+.attachment-notice .text-button { display: inline-block; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; }
+/* An inline link: no 32px floor with a fine pointer. The coarse-pointer target stays the V2 one (ds/legacy-aliases.css). */
+@media not ((pointer: coarse) or (any-pointer: coarse)) { .attachment-notice .text-button { min-height: 0; } }
 .attachment-notice .text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
 .fp-status .attachment-notice { flex-direction: column; align-items: center; max-width: 360px; padding: 0; gap: 10px; text-align: center; }
 .fp-status .attachment-notice > svg { margin-top: 0; }
