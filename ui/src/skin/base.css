@@ -6,7 +6,7 @@
 @layer reset, tokens, skin, base, vendor, legacy, platform, utilities;
 @layer base {
   :root { color: var(--ink); background: var(--bg); scrollbar-color: var(--line) transparent; }
-  body { color: var(--ink); background: var(--bg); font-family: var(--font-body); }
+  body { color: var(--ink); background: var(--bg); font-family: var(--font-body); font-variant-ligatures: no-common-ligatures; }
   ::selection { background: color-mix(in srgb, var(--cobalt) 30%, transparent); }
   :is(input, textarea, [contenteditable="true"]) { caret-color: var(--ink); }
 
