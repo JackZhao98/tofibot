@@ -104,5 +104,23 @@
     "invalid_policy": "이 정책은 올바르지 않습니다.",
     "group_exists": "같은 이름의 그룹이 이미 있습니다.",
     "group_limit": "그룹 수 한도에 도달했습니다."
+  },
+  "ds": {
+    "remove": "제거",
+    "removeNamed": "{{name}} 제거",
+    "dismiss": "닫기",
+    "loading": "불러오는 중",
+    "presence": {
+      "online": "온라인",
+      "away": "자리 비움",
+      "offline": "오프라인"
+    },
+    "botState": {
+      "thinking": "생각 중",
+      "working": "작업 중",
+      "waiting": "확인 필요",
+      "error": "오류",
+      "asleep": "잠자는 중"
+    }
   }
 }

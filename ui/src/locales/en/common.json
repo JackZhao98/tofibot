@@ -104,5 +104,23 @@
     "invalid_policy": "That policy is not valid.",
     "group_exists": "A group with that name already exists.",
     "group_limit": "The group limit is reached."
+  },
+  "ds": {
+    "remove": "Remove",
+    "removeNamed": "Remove {{name}}",
+    "dismiss": "Dismiss",
+    "loading": "Loading",
+    "presence": {
+      "online": "Online",
+      "away": "Away",
+      "offline": "Offline"
+    },
+    "botState": {
+      "thinking": "Thinking",
+      "working": "Working",
+      "waiting": "Needs you",
+      "error": "Error",
+      "asleep": "Asleep"
+    }
   }
 }

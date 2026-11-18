@@ -104,5 +104,23 @@
     "invalid_policy": "Diese Richtlinie ist ungültig.",
     "group_exists": "Eine Gruppe mit diesem Namen existiert bereits.",
     "group_limit": "Das Gruppenlimit ist erreicht."
+  },
+  "ds": {
+    "remove": "Entfernen",
+    "removeNamed": "{{name}} entfernen",
+    "dismiss": "Schließen",
+    "loading": "Wird geladen",
+    "presence": {
+      "online": "Online",
+      "away": "Abwesend",
+      "offline": "Offline"
+    },
+    "botState": {
+      "thinking": "Denkt nach",
+      "working": "Arbeitet",
+      "waiting": "Braucht dich",
+      "error": "Fehler",
+      "asleep": "Schläft"
+    }
   }
 }

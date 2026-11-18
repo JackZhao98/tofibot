@@ -104,5 +104,23 @@
     "invalid_policy": "這個政策無效。",
     "group_exists": "已有同名群組。",
     "group_limit": "已達到群組數量上限。"
+  },
+  "ds": {
+    "remove": "移除",
+    "removeNamed": "移除 {{name}}",
+    "dismiss": "關閉",
+    "loading": "載入中",
+    "presence": {
+      "online": "線上",
+      "away": "離開",
+      "offline": "離線"
+    },
+    "botState": {
+      "thinking": "思考中",
+      "working": "工作中",
+      "waiting": "待確認",
+      "error": "出錯",
+      "asleep": "休眠"
+    }
   }
 }

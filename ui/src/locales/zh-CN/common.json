@@ -104,5 +104,23 @@
     "invalid_policy": "这个策略无效。",
     "group_exists": "已有同名用户组。",
     "group_limit": "已达到用户组数量上限。"
+  },
+  "ds": {
+    "remove": "移除",
+    "removeNamed": "移除 {{name}}",
+    "dismiss": "关闭",
+    "loading": "加载中",
+    "presence": {
+      "online": "在线",
+      "away": "离开",
+      "offline": "离线"
+    },
+    "botState": {
+      "thinking": "思考中",
+      "working": "工作中",
+      "waiting": "待确认",
+      "error": "出错",
+      "asleep": "休眠"
+    }
   }
 }

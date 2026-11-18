@@ -1,0 +1,14 @@
+.tb-badge {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; box-sizing: border-box; white-space: nowrap;
+  font: 600 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+  border-radius: var(--radius-xs); border: var(--border-1) solid transparent; color: var(--ink); background: var(--surface-2);
+}
+.tb-badge:empty, .tb-badge > span:empty { display: none; }
+.tb-badge--working { background: color-mix(in srgb, var(--teal) 18%, var(--surface)); color: var(--teal-text); }
+.tb-badge--done { background: color-mix(in srgb, var(--lime) 22%, var(--surface)); color: var(--lime-text); }
+.tb-badge--unread { background: color-mix(in srgb, var(--mustard) 24%, var(--surface)); color: var(--mustard-text); }
+.tb-badge--needs { background: color-mix(in srgb, var(--grape) 20%, var(--surface)); color: var(--grape-text); }
+.tb-badge--info { background: color-mix(in srgb, var(--cobalt) 18%, var(--surface)); color: var(--cobalt-text); }
+.tb-badge--error { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger-text); }
+.tb-badge--paused { background: var(--sunk); color: var(--ink-soft); }
+.tb-badge .tb-breath { background: currentColor; }

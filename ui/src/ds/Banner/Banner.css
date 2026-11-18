@@ -1,0 +1,8 @@
+.tb-banner { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: 400 14px/1.5 var(--font-body); }
+.tb-banner-mark { flex: none; width: 28px; height: 28px; box-sizing: border-box; display: grid; place-items: center; border: var(--border-1) solid transparent; border-radius: var(--radius-xs); color: var(--on-block); }
+.tb-banner-text { flex: 1; min-width: 0; display: grid; gap: 2px; padding-top: 3px; }
+.tb-banner-action { flex: none; align-self: center; }
+.tb-banner--info .tb-banner-mark { background: color-mix(in srgb, var(--cobalt) 20%, var(--surface)); color: var(--cobalt-text); }
+.tb-banner--warning .tb-banner-mark { background: color-mix(in srgb, var(--mustard) 26%, var(--surface)); color: var(--mustard-text); }
+.tb-banner--error .tb-banner-mark { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger-text); }
+.tb-banner--done .tb-banner-mark { background: color-mix(in srgb, var(--lime) 24%, var(--surface)); color: var(--lime-text); }
