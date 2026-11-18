@@ -1,0 +1,18 @@
+.tb-pblur { position: absolute; left: 0; right: 0; height: 72px; z-index: var(--z-edge-blur); pointer-events: none; }
+.tb-pblur--top { top: 0; }
+.tb-pblur--bottom { bottom: 0; }
+.tb-pblur::before, .tb-pblur::after { content: ""; position: absolute; inset: 0; }
+.tb-pblur--top::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) var(--pbt-tint), transparent), transparent); -webkit-backdrop-filter: blur(var(--pbt-blur-1)); backdrop-filter: blur(var(--pbt-blur-1)); -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent); mask-image: linear-gradient(to bottom, #000 45%, transparent); }
+.tb-pblur--top::after { -webkit-backdrop-filter: blur(var(--pbt-blur-2)); backdrop-filter: blur(var(--pbt-blur-2)); -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 78%); mask-image: linear-gradient(to bottom, #000 20%, transparent 78%); }
+.tb-pblur--bottom::before { background: linear-gradient(to top, color-mix(in srgb, var(--bg) var(--pbt-tint), transparent), transparent); -webkit-backdrop-filter: blur(var(--pbt-blur-1)); backdrop-filter: blur(var(--pbt-blur-1)); -webkit-mask-image: linear-gradient(to top, #000 45%, transparent); mask-image: linear-gradient(to top, #000 45%, transparent); }
+.tb-pblur--bottom::after { -webkit-backdrop-filter: blur(var(--pbt-blur-2)); backdrop-filter: blur(var(--pbt-blur-2)); -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 78%); mask-image: linear-gradient(to top, #000 20%, transparent 78%); }
+@media (prefers-reduced-transparency: reduce) {
+  .tb-pblur::after { display: none; }
+  .tb-pblur--top::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(to bottom, var(--bg) 60%, transparent); }
+  .tb-pblur--bottom::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(to top, var(--bg) 60%, transparent); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tb-pblur::after { display: none; }
+  .tb-pblur--top::before { background: linear-gradient(to bottom, var(--bg) 60%, transparent); }
+  .tb-pblur--bottom::before { background: linear-gradient(to top, var(--bg) 60%, transparent); }
+}

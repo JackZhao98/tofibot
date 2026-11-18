@@ -106,6 +106,20 @@
     "group_limit": "已达到用户组数量上限。"
   },
   "ds": {
+    "reactionsLabel": "回应",
+    "approve": "批准",
+    "decline": "拒绝",
+    "needsYou": "需要你",
+    "retry": "重试",
+    "details": "详情",
+    "toolSteps": "工具步骤",
+    "step": {
+      "done": "完成",
+      "failed": "没完成",
+      "active": "进行中",
+      "pending": "待办",
+      "waiting": "待确认"
+    },
     "remove": "移除",
     "removeNamed": "移除 {{name}}",
     "dismiss": "关闭",

@@ -1,0 +1,23 @@
+.tb-tools { list-style: none; margin: 0; padding: 0; font: 400 13px/var(--pitch) var(--font-body); color: var(--ink-soft); }
+.tb-tool { margin: 0; padding: 0; }
+.tb-tool-row { --lv: 1; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; height: var(--pitch); box-sizing: border-box; padding-left: calc(var(--base) + var(--lv) * var(--step));
+  background-image: repeating-linear-gradient(to right, transparent 0 7px, var(--guide) 7px 8.5px, transparent 8.5px var(--step)); background-repeat: no-repeat; background-position: var(--base) 0; background-size: calc(var(--lv) * var(--step)) 100%; }
+.tb-tool-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
+.tb-tool-name { font: 400 12.5px/1 var(--font-mono); color: var(--ink); margin-right: 6px; }
+.tb-tool-av { display: inline-grid; margin-right: 5px; vertical-align: -3px; }
+.tb-tool-dur { font: 400 11px/1 var(--font-mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tb-tool-row.is-run .tb-tool-dur { color: var(--teal-text); }
+.tb-tool-row.is-result .tb-tool-text { font: 400 11.5px/1 var(--font-mono); color: var(--ink-soft); }
+.tb-tool-row.is-note .tb-tool-text { color: var(--danger-text); font-size: 12px; }
+/* The one mark: a failed call hangs the B stamp on its parent's indent guide, so the text does not move (S18, S19). */
+.tb-tool-row.is-bad::before { content: ""; position: absolute; top: calc(50% - 10px); left: calc(var(--base) + (var(--lv) - 1) * var(--step) + 7.75px - 10px); width: 20px; height: 20px; border-radius: 50%; background: var(--surface); }
+.tb-tool-row.is-bad::after { content: ""; position: absolute; top: calc(50% - 8px); left: calc(var(--base) + (var(--lv) - 1) * var(--step) + 7.75px - 8px); width: 16px; height: 16px; background: var(--danger-text); -webkit-mask: var(--mark-b-cross) center / 100% 100% no-repeat; mask: var(--mark-b-cross) center / 100% 100% no-repeat; }
+.tb-tool-row.is-bad .tb-tool-name { color: var(--danger-text); }
+/* A call that ran other calls folds them; the chevron shows on hover, on focus and while folded. */
+.tb-tool-fold { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0; margin: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.tb-tool-fold:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); border-radius: 2px; }
+.tb-tool-chev { display: inline-block; margin-left: 6px; vertical-align: -2px; color: var(--muted); opacity: 0; transition: opacity var(--m-quick) var(--ease-out), transform var(--m-quick) var(--ease-out); }
+.tb-tool-fold:hover .tb-tool-chev, .tb-tool-fold:focus-visible .tb-tool-chev, .tb-tool-fold[data-state="closed"] .tb-tool-chev { opacity: 1; }
+.tb-tool-fold[data-state="closed"] .tb-tool-chev { transform: rotate(-90deg); }
+.tb-tool-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .tb-tool-chev { transition: none; } }

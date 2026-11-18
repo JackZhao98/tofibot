@@ -1,0 +1,38 @@
+/* The bullet-journal plan (S20). Paper card, washi tape in the Bot colour, a tilted date stamp, one signifier column of 22px. */
+.tb-plan { --plan-bot: var(--bot, var(--teal)); --plan-bot-text: var(--bot-text, var(--teal-text)); position: relative; box-sizing: border-box; max-width: 760px; padding: 24px 22px 14px; background-color: var(--surface); border-radius: 3px; box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent), 0 16px 30px -20px color-mix(in srgb, var(--ink) 55%, transparent); color: var(--ink); font: 400 14px/1.45 var(--font-body); }
+/* What waits for you takes the ink edge and the hard shadow (S2, S3). */
+.tb-plan.is-waiting { box-shadow: inset 0 0 0 var(--edge-bold) var(--ink), var(--hard); }
+.tb-plan.is-folded { padding-bottom: 14px; }
+.tb-plan-tape { position: absolute; left: 26px; top: -11px; width: 112px; height: 22px; transform: rotate(-4deg); background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--plan-bot) 50%, transparent) 0 7px, color-mix(in srgb, var(--plan-bot) 32%, transparent) 7px 14px); clip-path: polygon(0 0, 100% 0, 96% 25%, 100% 50%, 96% 75%, 100% 100%, 0 100%, 4% 75%, 0 50%, 4% 25%); }
+.tb-plan-head { display: flex; align-items: center; gap: 12px; }
+.tb-plan:not(.is-folded) .tb-plan-head { margin-bottom: 10px; }
+.tb-plan-stamp { display: inline-flex; align-items: center; padding: 3px 7px; border: 1.5px solid var(--plan-bot-text); border-radius: 5px; color: var(--plan-bot-text); font: 600 11px/1 var(--font-mono); letter-spacing: .06em; transform: rotate(var(--stamp-tilt)); white-space: nowrap; }
+.tb-plan-title { flex: 1; min-width: 0; font: 500 16px/1.3 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-plan-count { font: 400 12px/1 var(--font-mono); color: var(--muted); }
+.tb-plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.tb-plan-step { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 10px; align-items: start; padding: 4px 0; }
+.tb-plan-sig { height: 20px; display: grid; place-items: center; }
+.tb-plan-sig i { display: block; }
+/* Marks: B, the stamp (S19). */
+.tb-plan-step.is-done .tb-plan-sig i, .tb-plan-step.is-failed .tb-plan-sig i { width: 18px; height: 18px; background: var(--lime-text); -webkit-mask: var(--mark-b-tick) center / 100% 100% no-repeat; mask: var(--mark-b-tick) center / 100% 100% no-repeat; }
+.tb-plan-step.is-failed .tb-plan-sig i { background: var(--danger-text); -webkit-mask-image: var(--mark-b-cross); mask-image: var(--mark-b-cross); }
+.tb-plan-step.is-active .tb-plan-sig i { width: 8px; height: 8px; border-radius: 50%; background: var(--plan-bot-text); animation: tb-plan-pulse 1.4s var(--ease-inout) infinite; }
+.tb-plan-step.is-waiting .tb-plan-sig i { width: 8px; height: 8px; box-sizing: border-box; border-radius: 50%; border: var(--border-2) solid var(--plan-bot-text); }
+.tb-plan-step.is-pending .tb-plan-sig i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+.tb-plan-step.is-done .tb-plan-text { color: var(--ink-soft); }
+.tb-plan-step.is-failed .tb-plan-text { color: var(--danger-text); }
+.tb-plan-step.is-active .tb-plan-text, .tb-plan-step.is-waiting .tb-plan-text { background: linear-gradient(transparent 52%, color-mix(in srgb, var(--plan-bot) 42%, transparent) 52% 90%, transparent 90%); padding: 0 3px; margin: 0 -3px; }
+.tb-plan-body { min-width: 0; display: grid; justify-items: start; }
+.tb-plan-err { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin-top: 2px; font-size: 12.5px; color: var(--danger-text); }
+.tb-plan-retry { padding: 0; margin: 0; border: 0; background: none; font: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.tb-plan-retry:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-plan-details { width: 100%; }
+.tb-plan-details > summary { width: max-content; cursor: pointer; color: var(--muted); font: 400 11.5px/1.45 var(--font-mono); }
+.tb-plan-details > pre { margin: 6px 0 0; padding: 8px 10px; border-radius: var(--radius-xs); background: var(--code-bg); color: var(--code-ink); font: 400 11.5px/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tb-plan-thumbs { display: inline-flex; }
+.tb-plan-thumbs img { width: 28px; height: 20px; object-fit: cover; border-radius: 3px; border: var(--border-1) solid var(--line); margin-left: -8px; background: var(--surface-2); }
+.tb-plan-thumbs img:first-child { margin-left: 0; }
+@keyframes tb-plan-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes tb-mark-tick { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.tb-plan-step.is-done.is-fresh .tb-plan-sig i { animation: tb-mark-tick var(--m-mark-tick) var(--ease-pen) both; }
+@media (prefers-reduced-motion: reduce) { .tb-plan-step.is-active .tb-plan-sig i, .tb-plan-step.is-fresh .tb-plan-sig i { animation: none; } }

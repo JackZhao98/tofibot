@@ -1,0 +1,7 @@
+/* V3 kit: the ruled scratch pad of the work log (S18, owner 2026-11-17). Shared by ProcessLine and ToolSteps. Unlayered on purpose.
+   Paper is --surface with 28px ruled lines and a tomato margin rule at 32px; hierarchy is indent only (20px per level, faint guides). */
+.tb-pad, .tb-process, .tb-tools { --pitch: 28px; --margin: 32px; --base: 44px; --step: 20px; --guide: color-mix(in srgb, var(--ink) 16%, transparent); --rule: color-mix(in srgb, var(--ink) 9%, transparent); }
+.tb-pad { position: relative; box-sizing: border-box; width: 100%; background-color: var(--surface); color: var(--ink); font: 400 13px/var(--pitch) var(--font-body); border-radius: 2px; box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent), 0 14px 28px -18px color-mix(in srgb, var(--ink) 55%, transparent); }
+/* The head is whatever the view puts there (a Widget head, a cover head); the perforation under it is the pad's. */
+.tb-pad-top { position: relative; border-bottom: var(--border-2) dotted color-mix(in srgb, var(--ink) 20%, transparent); }
+.tb-pad-body { padding: 0 14px 14px 0; background-image: linear-gradient(to right, transparent calc(var(--margin) - 1px), color-mix(in srgb, var(--tomato) 40%, transparent) calc(var(--margin) - 1px) var(--margin), transparent var(--margin)), repeating-linear-gradient(to bottom, transparent 0 calc(var(--pitch) - 1px), var(--rule) calc(var(--pitch) - 1px) var(--pitch)); }

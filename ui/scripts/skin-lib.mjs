@@ -62,6 +62,10 @@ export function validate(source) {
   for (const path of flatten(source.primitives)) if (!used.has(path)) problems.push(`primitive ${path} is not used`);
   for (const [group, values] of Object.entries(source.fallbacks ?? {})) for (const name of Object.keys(values)) if (!roles.has(name)) problems.push(`fallbacks.${group}: --${name} is not a role`);
   for (const [scope, { values }] of Object.entries(source.scopes)) for (const name of Object.keys(values)) if (!roles.has(name)) problems.push(`scopes.${scope}: --${name} is not a role`);
+  for (const [platform, { selector, values }] of Object.entries(source.platforms ?? {}).filter(([, v]) => typeof v === "object")) {
+    if (!selector.includes(`[data-desktop="${platform}"]`)) problems.push(`platforms.${platform}: the selector must name [data-desktop="${platform}"]`);
+    for (const name of Object.keys(values)) if (!name.startsWith("c-")) problems.push(`platforms.${platform}: --${name} is not a component role (--c-*)`);
+  }
   for (const change of source.changes) for (const name of change.names) if (!roles.has(name) && !structure.includes(name)) problems.push(`changes[]: --${name} is not a token`);
   return problems;
 }
@@ -137,6 +141,9 @@ export function emitSkin(source, skin, transform = value => value) {
   if (skin === "v3") {
     const fallbacks = source.fallbacks;
     const block = values => declare(Object.fromEntries(Object.entries(values).map(([name, value]) => [name, resolveRefs(source, value)])), "    ");
+    for (const [platform, { selector, values }] of Object.entries(source.platforms ?? {}).filter(([, v]) => typeof v === "object")) {
+      out.push(comment(`Platform material, ${platform} (PLAN 7.4): component roles only.`), `${selector} {`, declare(values), "}");
+    }
     out.push(
       comment("Without backdrop blur, glass is the strong glass. Both theme selectors, or the dark block would win."),
       "@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {", `  ${both} {`, block(fallbacks.noBackdropFilter), "  }", "}",

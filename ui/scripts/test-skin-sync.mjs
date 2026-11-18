@@ -64,7 +64,12 @@ for (const [name, value] of Object.entries(legacy)) {
   else if (!same(structure[name], value)) fail(`structure: --${name} is ${structure[name]}, today it is ${value}; the legacy skin must not move`);
 }
 for (const change of source.changes) {
-  for (const name of change.names) if (!(name in v3.light) && !(name in v3.common)) fail(`changes[]: --${name} is not a V3.0 token, so it needs no entry`);
+  // A token V3.0 lacks is a new one and does need its entry (compare() above asks for it); a V3.0 token needs one only when it moved.
+  for (const name of change.names) {
+    const was = v3.light[name] ?? v3.common[name];
+    const now = resolved.light[name] ?? resolved.common[name] ?? structure[name];
+    if (was !== undefined && now !== undefined && same(now, was)) fail(`changes[]: --${name} still has its V3.0 value, so it needs no entry`);
+  }
 }
 
 // ---- 5. probes

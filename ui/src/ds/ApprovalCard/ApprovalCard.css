@@ -1,0 +1,16 @@
+.tb-approval { --note: var(--note-ask); display: grid; gap: 12px; max-width: 560px; padding: 14px 16px; border: 0; border-radius: var(--radius-xs); background: var(--note-glue), var(--note); box-shadow: inset 0 0 0 var(--edge-bold) var(--ink), var(--hard); color: var(--ink); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.tb-approval.is-resolved { box-shadow: var(--note-lift); }
+.tb-approval-head { display: flex; gap: 12px; align-items: flex-start; }
+.tb-approval-mark { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--grape) 22%, var(--surface)); color: var(--grape-text); }
+.tb-approval-title { margin: 2px 0 0; font: 700 16px/1.3 var(--font-display); }
+.tb-approval-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tb-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; padding: 10px 12px; background: var(--sunk); border-radius: var(--radius-sm); border: var(--border-1) solid var(--line); font: 400 13px/1.45 var(--font-body); }
+.tb-facts dt { color: var(--muted); }
+.tb-facts dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.tb-approval-note { font: 400 14px/1.55 var(--font-body); color: var(--ink-soft); }
+.tb-approval-done { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 400 13px/1.4 var(--font-body); color: var(--ink-soft); }
+.tb-approval-done .tb-stamp { display: inline-block; padding: 2px 9px; border: 1.5px solid currentColor; border-radius: 4px; color: var(--lime-text); font: 600 12px/1.45 var(--font-mono); letter-spacing: .08em; transform: rotate(var(--stamp-tilt)); }
+.tb-approval-done.is-declined .tb-stamp { color: var(--danger-text); }
+@keyframes tb-mark-stamp { 0% { opacity: 0; transform: scale(1.28) rotate(-7deg); } 65% { opacity: 1; transform: scale(.97) rotate(-1.6deg); } 100% { opacity: 1; transform: scale(1) rotate(var(--stamp-tilt)); } }
+.tb-approval-done.is-fresh .tb-stamp { animation: tb-mark-stamp var(--m-mark-stamp) var(--ease-stamp) both; }
+@media (prefers-reduced-motion: reduce) { .tb-approval-done.is-fresh .tb-stamp { animation: none; } }

@@ -75,6 +75,45 @@ const ALLOWED = [
   [/^Checkbox/, "margin-top"], [/^Checkbox/, "margin-bottom"],  // the kit zeroes the hidden input's margin (V2 base gives inputs one)
 ];
 
+// ---- Kit II: conversation and work (PR 0.7)
+const kitII = (name, c, p, k) => [name, D(c, p, k)];
+CASES.push(
+  kitII("SidebarRow", "SidebarRow", { icon: "chat", label: "All conversations" }),
+  kitII("SidebarRow active", "SidebarRow", { icon: "chat", label: "Tasks", active: true }),
+  kitII("SidebarRow meta count", "SidebarRow", { avatar: D("Avatar", { name: "Mia Chen", size: 34, tone: "teal" }), label: "Mia", meta: "Sent the report", unread: true, count: 3 }),
+  kitII("SidebarRow status", "SidebarRow", { avatar: D("Avatar", { name: "Mia Chen", size: 34, tone: "teal" }), label: "Mia", meta: "Working", status: "needs" }),
+  kitII("Divider date", "Divider", {}, "Today · 14:20"),
+  kitII("Divider unread", "Divider", { tone: "unread" }, "3 new"),
+  kitII("ProgressiveBlur bottom", "ProgressiveBlur", {}),
+  kitII("ProgressiveBlur top", "ProgressiveBlur", { edge: "top", height: 48 }),
+  kitII("JumpButton", "JumpButton", { label: "Back to latest", onClick: noop }),
+  kitII("LiveLine", "LiveLine", { elapsed: "0:14" }, "Thinking"),
+  kitII("LiveLine avatar", "LiveLine", { avatar: D("Avatar", { name: "Mia Chen", size: 20 }) }, "Finishing"),
+  ...["mustard", "tomato", "teal", "grape", "lime"].map(tone => kitII(`Mention ${tone}`, "Mention", { name: "Mochi", tone })),
+  kitII("Mention fresh", "Mention", { name: "Mochi", fresh: true }),
+  kitII("Reactions", "Reactions", { items: [{ emoji: "👍", count: 3, who: "Mia and 2 more", onToggle: noop }, { emoji: "🎉", count: 1, mine: true, onToggle: noop }] }),
+  kitII("TaskCard", "TaskCard", { eyebrow: "Needs you", title: "Send the report", status: { tone: "needs", label: "Waiting" }, items: [{ text: "Notes", state: "done" }, { text: "Screenshot", state: "failed" }, { text: "Layout", state: "done" }, { text: "Recipient", state: "waiting" }, { text: "Send", state: "open" }], meta: "Started 14:02", actions: D("Button", { size: "sm" }, "Confirm") }),
+  kitII("TaskCard paused", "TaskCard", { paused: true, title: "Back up the photos", status: { tone: "paused", label: "Paused" }, items: [{ text: "Copy 2019", state: "done" }] }),
+  kitII("ApprovalCard", "ApprovalCard", { title: "Delete 14 files?", facts: [["Folder", "/Users/mia/Downloads", true], ["Files", "14"]], rememberLabel: "Always", onApprove: noop, onDecline: noop }, "I already filed these."),
+  kitII("ApprovalCard resolved", "ApprovalCard", { title: "Delete 14 files?", resolved: { label: "APPROVED", reason: "Moved to Trash" } }, "I already filed these."),
+  kitII("ApprovalCard declined", "ApprovalCard", { title: "Delete 14 files?", resolved: { label: "DECLINED", reason: "You said no", declined: true, fresh: true } }),
+  // S18 to S20 drawings replace these three: only checked that the kit renders them (see DEPARTURES).
+  kitII("ProcessLine", "ProcessLine", { label: "This round", meta: "1:12", defaultOpen: true }, D("ToolSteps", { steps: [{ tool: "read_file", arg: "notes.md", dur: "0.4s" }, { tool: "shell", arg: "ls", state: "bad", note: "failed" }] })),
+  kitII("ToolSteps", "ToolSteps", { steps: [{ tool: "browser", arg: "page", steps: [{ tool: "navigate", arg: "x" }] }] }),
+  kitII("StepList", "StepList", { botColor: "grape", title: "Weekly report", stamp: "11.17", steps: [{ text: "a", state: "done" }, { text: "b", state: "failed", error: { reason: "no", onRetry: noop } }, { text: "c", state: "active" }, { text: "d" }] }),
+);
+// The live mark spins: its rotated box is sampled at different moments on the two sides.
+for (const property of ["width", "height", "transform"]) ALLOWED.push([/^LiveLine/, property]);
+// Components whose design was changed after the freeze: the DOM and the look differ on purpose, so the case is rendered by the kit
+// (it must not throw) and listed, not compared. Each names its decision in docs/design/v3-refactor/PLAN.md section 2.
+const DEPARTURES = [
+  [/^ProcessLine$|^ToolSteps$/, "S18", "the work log is an indented ruled scratch pad: no pills, no status marks, only a failed row gets a cross"],
+  [/^StepList$/, "S20", "the plan is a bullet-journal page: washi tape, date stamp, signifier column, no boxes and no strike-through"],
+];
+const departure = name => DEPARTURES.find(([pattern]) => pattern.test(name));
+// TaskCard checklist marks are the A set (S19): the artwork is a mask image, which this test does not compare; the rest must match.
+console.log("departure S19: TaskCard: the checklist tick and cross are the A marker set (mask artwork, not compared); every other property is compared");
+
 // ---- render both sides
 const { createServer } = await import("vite");
 const { default: react } = await import("@vitejs/plugin-react");
@@ -112,7 +151,7 @@ try {
   for (const theme of ["light", "dark"]) {
     const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
     await page.route("**/*", route => route.request().url().startsWith(origin) ? route.continue() : route.abort());
-    const html = side => `<!doctype html><html data-theme="${theme}" ${side === "kit" ? 'data-skin="v3"' : ""} style="color-scheme:${theme}"><head><meta charset="utf-8">${side === "spec" ? `<style>${specCss}</style>` : ["/src/skin/structure.css", "/src/skin/v3.css", ...kitSheets].map(href => `<link rel="stylesheet" href="${href}">`).join("")}</head>
+    const html = side => `<!doctype html><html data-theme="${theme}" ${side === "kit" ? 'data-skin="v3"' : ""} style="color-scheme:${theme}"><head><meta charset="utf-8">${side === "spec" ? `<style>${specCss}</style>` : ["/src/skin/structure.css", "/src/skin/v3.css", "/src/skin/roles.css", ...kitSheets].map(href => `<link rel="stylesheet" href="${href}">`).join("")}</head>
       ${side === "kit" ? "<style>*,*::before,*::after{box-sizing:border-box}body{font:400 15px/1.6 var(--font-body);color:var(--ink)}</style>" : ""}
       <body style="margin:0;background:var(--bg)">${(side === "spec" ? specHtml : kitHtml).map((markup, i) => `<div class="case" data-i="${i}" style="padding:10px;width:520px">${markup}</div>`).join("")}</body></html>`;
     const measure = async side => {
@@ -128,6 +167,7 @@ try {
     };
     const [a, b] = [await measure("spec"), await measure("kit")];
     CASES.forEach(([name], i) => {
+      if (departure(name)) return;
       const left = a[i], right = b[i];
       if (left.length !== right.length || left.some((el, j) => el.tag !== right[j].tag)) { failures.push(`${theme} ${name}: element trees differ (${left.map(e => e.tag).join(" ")} vs ${right.map(e => e.tag).join(" ")})`); return; }
       left.forEach((el, j) => {
@@ -143,4 +183,5 @@ try {
 } finally { await browser.close(); await server.close(); }
 for (const failure of failures.slice(0, 80)) console.log(`FAIL ${failure}`);
 if (failures.length) { console.log(`ds-parity: ${failures.length} difference(s) over ${CASES.length} cases`); process.exit(1); }
-console.log(`ds-parity: PASS (${CASES.length} cases, light and dark)`);
+for (const [pattern, id, why] of DEPARTURES) console.log(`departure ${id}: ${CASES.filter(([name]) => pattern.test(name)).map(([name]) => name).join(", ")}: ${why}`);
+console.log(`ds-parity: PASS (${CASES.length} cases, light and dark; ${CASES.filter(([name]) => departure(name)).length} listed departures, not compared)`);

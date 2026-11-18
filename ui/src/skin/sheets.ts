@@ -2,11 +2,13 @@
 // is one <link> to its generated sheet; applySkin flips data-skin after loadSkin resolves, so the restyle is one frame.
 // Only the catalog and the dev ?skin switch (skin.ts) import this file, so a production entry never reaches these sheets.
 import v3 from "./v3.css?url";
+import roles from "./roles.css?url";
 import probeA from "./probe-a.css?url";
 import probeB from "./probe-b.css?url";
 import type { ProbeSkinId, SkinId } from "./skin";
 
-const SHEETS: Record<Exclude<SkinId, "legacy"> | ProbeSkinId, string> = { v3, "probe-a": probeA, "probe-b": probeB };
+// Component roles (roles.css) load with every skin: a role defaults to L1 roles, so a probe skin moves them too.
+const SHEETS: Record<Exclude<SkinId, "legacy"> | ProbeSkinId, string[]> = { v3: [v3, roles], "probe-a": [probeA, roles], "probe-b": [probeB, roles] };
 const loading = new Map<string, Promise<void>>();
 
 /** Resolves when the skin's stylesheet is in the document. The legacy skin is already there. */
@@ -14,15 +16,18 @@ export function loadSkin(skin: SkinId | ProbeSkinId): Promise<void> {
   if (skin === "legacy") return Promise.resolve();
   const known = loading.get(skin);
   if (known) return known;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = SHEETS[skin];
-  link.dataset.skinSheet = skin;
-  const done = new Promise<void>((resolve, reject) => {
-    link.addEventListener("load", () => resolve(), { once: true });
-    link.addEventListener("error", () => { link.remove(); loading.delete(skin); reject(new Error(`skin ${skin}: its stylesheet did not load`)); }, { once: true });
+  const links = SHEETS[skin].map(href => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.dataset.skinSheet = skin;
+    return link;
   });
-  document.head.append(link);
+  const done = Promise.all(links.map(link => new Promise<void>((resolve, reject) => {
+    link.addEventListener("load", () => resolve(), { once: true });
+    link.addEventListener("error", () => reject(new Error(`skin ${skin}: its stylesheet did not load`)), { once: true });
+  }))).then(() => undefined, error => { links.forEach(link => link.remove()); loading.delete(skin); throw error; });
+  document.head.append(...links);
   loading.set(skin, done);
   return done;
 }

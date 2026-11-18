@@ -22,3 +22,18 @@ import { TextInput } from "../src/ds/TextInput/TextInput";
 import { Toast } from "../src/ds/Toast/Toast";
 
 export const registry = { Avatar, Badge, Banner, BotAvatar, BrandMark, Button, Card, Checkbox, EmptyState, Field, Icon, IconButton, Kbd, MemberChip, Notice, Progress, Skeleton, Tag, TextArea, TextInput, Toast };
+
+// Kit II: conversation and work (PR 0.7).
+import { ApprovalCard } from "../src/ds/ApprovalCard/ApprovalCard";
+import { Divider } from "../src/ds/Divider/Divider";
+import { JumpButton } from "../src/ds/JumpButton/JumpButton";
+import { LiveLine } from "../src/ds/LiveLine/LiveLine";
+import { Mention } from "../src/ds/Mention/Mention";
+import { ProcessLine } from "../src/ds/ProcessLine/ProcessLine";
+import { ProgressiveBlur } from "../src/ds/ProgressiveBlur/ProgressiveBlur";
+import { Reactions } from "../src/ds/Reactions/Reactions";
+import { SidebarRow } from "../src/ds/SidebarRow/SidebarRow";
+import { StepList } from "../src/ds/StepList/StepList";
+import { TaskCard } from "../src/ds/TaskCard/TaskCard";
+import { ToolSteps } from "../src/ds/ToolSteps/ToolSteps";
+Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, ProcessLine, ProgressiveBlur, Reactions, SidebarRow, StepList, TaskCard, ToolSteps });

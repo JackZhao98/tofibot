@@ -1,0 +1,10 @@
+.tb-process { display: block; }
+.tb-process[data-state="open"] { margin-bottom: var(--pitch); }
+.tb-process-head { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; width: 100%; height: var(--pitch); box-sizing: border-box; margin: 0; padding: 0 0 0 var(--base); border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: 600 13px/var(--pitch) var(--font-body); }
+.tb-process-head:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: calc(var(--focus-offset) * -1); }
+.tb-process-chev { position: absolute; left: calc(var(--margin) / 2 - 7px); top: 7px; color: color-mix(in srgb, var(--ink) 50%, var(--surface)); transition: transform var(--m-quick) var(--ease-out); }
+.tb-process-head[data-state="closed"] .tb-process-chev { transform: rotate(-90deg); }
+.tb-process-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-process-meta { font: 400 11px/1 var(--font-mono); color: var(--muted); white-space: nowrap; }
+.tb-process.is-live .tb-process-meta { color: var(--teal-text); }
+@media (prefers-reduced-motion: reduce) { .tb-process-chev { transition: none; } }
