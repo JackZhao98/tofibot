@@ -111,8 +111,12 @@ func init() {
 		if err != nil {
 			return err
 		}
+		if isExactRevert(ctx) {
+			return sr.s.store.setBotAvatar(t.BotID, look, false)
+		}
 		return sr.s.store.SetBotAvatar(t.BotID, look)
 	})
+	bindSettingStored("bot.avatar", keepGround)
 	bindSettingWrite("account.appearance", func(ctx context.Context, sr settingRun, _ Target, v any) error {
 		return sr.s.store.putUserAppearance(v.(string))
 	})

@@ -1,7 +1,10 @@
 import type { Bot } from "./types";
-import { normalizeConfig, type AvatarConfig } from "./lib/tofi-avatar/index.js";
-import { getBotAvatarConfig } from "./avatarStore";
+import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
+import { exportBotLook, parseLook, type Ground } from "./avatarStore";
 import { i18n } from "./i18n";
+
+/** A look in a package: schemaVersion 1, or 2 with a ground (an older package has none). */
+export type PackageAvatar = Omit<AvatarConfig, "schemaVersion"> & { schemaVersion: 1 | 2; ground?: Ground };
 
 export const BOT_PACKAGE_FORMAT = "tofi.bot" as const;
 export const BOT_PACKAGE_VERSION = 1 as const;
@@ -15,7 +18,7 @@ export interface PortableBotPackage {
     instructions: string;
     model: string;
     reasoning_effort?: string;
-    avatar?: AvatarConfig;
+    avatar?: PackageAvatar;
     /** Names of the library Skills this Bot had on: names only, never files. An import does not turn them on. */
     skills?: string[];
   };
@@ -30,7 +33,7 @@ export function buildBotPackage(bot: Bot, skills: string[] = []): PortableBotPac
       name: bot.name,
       instructions: bot.instructions,
       model: bot.model,
-      avatar: getBotAvatarConfig(bot.id),
+      avatar: exportBotLook(bot.id) as PackageAvatar,
       ...(bot.reasoning_effort ? { reasoning_effort: bot.reasoning_effort } : {}),
       ...(skills.length ? { skills: [...skills].sort() } : {}),
     },
@@ -59,7 +62,7 @@ export function parseBotPackage(source: string): PortableBotPackage {
   if (bot.reasoning_effort !== undefined && typeof bot.reasoning_effort !== "string") throw new Error(i18n.t("bots:package.invalid_reasoning"));
   // Only well-formed names survive; anything else is dropped, never an error.
   const skills = Array.isArray(bot.skills) ? bot.skills.filter((name): name is string => typeof name === "string" && name.length <= 64 && SKILL_NAME.test(name)).slice(0, 200) : [];
-  let avatar: AvatarConfig | undefined;
+  let avatar: PackageAvatar | undefined;
   if (bot.avatar !== undefined) {
     try { avatar = normalizeAvatar(bot.avatar); } catch { throw new Error(i18n.t("bots:package.invalid_avatar")); }
   }
@@ -78,9 +81,9 @@ export function parseBotPackage(source: string): PortableBotPackage {
   };
 }
 
-function normalizeAvatar(value: unknown): AvatarConfig {
-  if (!value || typeof value !== "object") throw new Error("invalid avatar");
-  return normalizeConfig(value as Partial<AvatarConfig>);
+function normalizeAvatar(value: unknown): PackageAvatar {
+  const { config, ground } = parseLook(value);
+  return ground ? { ...config, schemaVersion: 2, ground } : config;
 }
 
 export function downloadBotPackage(botPackage: PortableBotPackage) {

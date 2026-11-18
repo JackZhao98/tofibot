@@ -30,6 +30,110 @@ assert.equal(constant((await readFile(join(ui, "src/appearanceSync.ts"), "utf8")
 assert.ok(!/from "\.\/api"/.test(sync) && !/from "\.\/api"/.test(await readFile(join(ui, "src/appearanceSync.ts"), "utf8")), "the sync modules take `request` as an argument (a lazy chunk that imports api.ts reshuffles the entry bundle)");
 console.log("PASS avatarSync and avatarStore share the key and the event");
 
+// ---- 2b. The ground (schemaVersion 2): one list on both sides, one key and event, and every boundary in the UI keeps it.
+{
+  const goAvatar = await readFile(join(ui, "..", "internal/app/avatar.go"), "utf8");
+  const goGrounds = /var avatarGrounds = \[\]string\{([^}]*)\}/.exec(goAvatar)?.[1].split(",").map(item => item.trim().replace(/"/g, ""));
+  const mem = new Map();
+  const events = [];
+  globalThis.localStorage = {getItem: key => mem.has(key) ? mem.get(key) : null, setItem: (key, value) => void mem.set(key, String(value)), removeItem: key => void mem.delete(key)};
+  globalThis.window = Object.assign(new EventTarget(), {dispatchEvent(event) { events.push(event.type); return EventTarget.prototype.dispatchEvent.call(this, event); }});
+  globalThis.CustomEvent = class extends Event { constructor(type, init) { super(type); this.detail = init?.detail; } };
+  const {openUiModules} = await import("./ui-modules.mjs");
+  const modules = await openUiModules({language: "en"});
+  try {
+    const gs = await modules.load("/src/avatarStore.ts");
+    assert.deepEqual([...gs.GROUNDS], goGrounds, "the ground list equals internal/app/avatar.go");
+    assert.equal(constant(sync, "GROUND_PREFIX"), constant(store, "GROUND_PREFIX"), "ground storage key");
+    assert.equal(constant(sync, "GROUND_EVENT"), constant(store, "GROUND_CHANGE_EVENT"), "ground change event");
+    // The default: stable, spread over the list, never stored.
+    const ids = Array.from({length: 60}, (_, i) => `bot_${i}`);
+    for (const id of ids) assert.equal(gs.defaultBotGround(id), gs.defaultBotGround(id), "same id, same ground");
+    assert.ok(new Set(ids.map(gs.defaultBotGround)).size >= 4, "the default spreads over the list");
+    assert.equal(gs.getBotGround("bot_a"), gs.defaultBotGround("bot_a"));
+    assert.equal(gs.getStoredBotGround("bot_a"), undefined);
+    assert.equal(mem.size, 0, "reading the default stores nothing");
+    gs.saveBotGround("bot_a", "lime");
+    assert.equal(gs.getBotGround("bot_a"), "lime");
+    mem.set("tofi:bot-ground:bot_b", "pink");
+    assert.equal(gs.getStoredBotGround("bot_b"), undefined, "a damaged copy falls back to the default");
+    // Looks: version 1 and 2 read, an invalid ground and an unknown version refused.
+    assert.deepEqual(gs.parseLook({schemaVersion: 1, shape: "loaf", pattern: "solid", palette: "ivory"}), {config: {schemaVersion: 1, shape: "loaf", pattern: "solid", palette: "ivory"}});
+    assert.equal(gs.parseLook({schemaVersion: 2, shape: "loaf", pattern: "solid", palette: "ivory", ground: "teal"}).ground, "teal");
+    assert.throws(() => gs.parseLook({schemaVersion: 2, shape: "loaf", pattern: "solid", palette: "ivory", ground: "pink"}), /ground/);
+    assert.throws(() => gs.parseLook({schemaVersion: 3, shape: "loaf", pattern: "solid", palette: "ivory"}), /schemaVersion/);
+    // Export: the stored ground rides along as version 2; none stays version 1.
+    mem.clear();
+    gs.saveBotAvatarConfig("bot_c", {shape: "loaf", pattern: "solid", palette: "ivory"});
+    assert.equal(gs.exportBotLook("bot_c").schemaVersion, 1);
+    assert.equal("ground" in gs.exportBotLook("bot_c"), false, "an unset ground is not exported");
+    gs.saveBotGround("bot_c", "grape");
+    assert.deepEqual(gs.exportBotLook("bot_c"), {schemaVersion: 2, shape: "loaf", pattern: "solid", palette: "ivory", ground: "grape"});
+    // The Bot package: build then parse keeps the ground; an old package without one still parses; a bad ground is refused.
+    const pkg = await modules.load("/src/botPackage.ts");
+    const built = pkg.buildBotPackage({id: "bot_c", name: "Synthetic", instructions: "x", model: "m", dm_conversation_id: "d", created_at: "2026-01-01T00:00:00Z"});
+    assert.equal(built.bot.avatar.ground, "grape");
+    assert.equal(pkg.parseBotPackage(JSON.stringify(built)).bot.avatar.ground, "grape", "a package round-trips the ground");
+    const old = {...built, bot: {...built.bot, avatar: {schemaVersion: 1, shape: "loaf", pattern: "solid", palette: "ivory"}}};
+    assert.equal(pkg.parseBotPackage(JSON.stringify(old)).bot.avatar.ground, undefined, "a package from before the ground still imports");
+    const bad = {...built, bot: {...built.bot, avatar: {...built.bot.avatar, ground: "pink"}}};
+    assert.throws(() => pkg.parseBotPackage(JSON.stringify(bad)));
+    // Sync: the server's ground reaches the copy and the event; none removes a stale copy; the held v1 look is handed up without touching it.
+    mem.clear(); events.length = 0;
+    const sent = [];
+    const send = async (path, init) => { sent.push(`${init.method} ${path} ${init.body}`); return {}; };
+    const sy = await modules.load("/src/avatarSync.ts");
+    const served = {schemaVersion: 2, shape: "loaf", pattern: "solid", palette: "ivory", ground: "mustard"};
+    sy.hydrateBotAvatars(send, [{id: "bot_d", avatar: served}]);
+    assert.equal(gs.getStoredBotGround("bot_d"), "mustard", "the server's ground reaches this browser");
+    assert.ok(events.includes("tofi:ground-change"), "and is announced");
+    events.length = 0;
+    sy.hydrateBotAvatars(send, [{id: "bot_d", avatar: served}]);
+    assert.ok(!events.includes("tofi:ground-change"), "an equal ground does not flap");
+    sy.hydrateBotAvatars(send, [{id: "bot_d", avatar: {...served, schemaVersion: 1, ground: undefined}}]);
+    assert.equal(gs.getStoredBotGround("bot_d"), undefined, "a Bot with a look and no ground drops a stale copy");
+    assert.equal(mem.get("tofi:bot-avatar:bot_d") !== undefined, true, "the look copy is kept");
+    assert.deepEqual(sent, [], "hydrating a stored look sends nothing");
+    // A removed ground is announced, and a subscriber falls back to the default (event and storage event alike).
+    sy.hydrateBotAvatars(send, [{id: "bot_f", avatar: served}]);
+    const heard = [];
+    const off = gs.subscribeBotGround("bot_f", ground => heard.push(ground));
+    sy.hydrateBotAvatars(send, [{id: "bot_f", avatar: {...served, schemaVersion: 1, ground: undefined}}]);
+    assert.deepEqual(heard, [gs.defaultBotGround("bot_f")], "removal reaches subscribers as the default");
+    const storageEvent = new Event("storage"); storageEvent.key = "tofi:bot-ground:bot_f"; storageEvent.newValue = null;
+    globalThis.window.dispatchEvent(storageEvent);
+    assert.deepEqual(heard, [gs.defaultBotGround("bot_f"), gs.defaultBotGround("bot_f")], "a storage removal falls back to the default");
+    off();
+    // A cleared look (the server has none) drops the ground copy and announces it; a held look is still handed up.
+    sy.hydrateBotAvatars(send, [{id: "bot_g", avatar: served}]);
+    assert.equal(gs.getStoredBotGround("bot_g"), "mustard");
+    events.length = 0; sent.length = 0;
+    sy.hydrateBotAvatars(send, [{id: "bot_g", avatar: null}]);
+    assert.equal(gs.getStoredBotGround("bot_g"), undefined, "no look on the server, no ground copy");
+    assert.ok(events.includes("tofi:ground-change"), "the clear is announced");
+    assert.equal(gs.exportBotLook("bot_g").ground, undefined, "an export no longer carries the cleared ground");
+    // A v1 look pushed from here carries no ground key (the server keeps the stored one).
+    sent.length = 0;
+    mem.set("tofi:bot-avatar:bot_e", JSON.stringify({schemaVersion: 1, shape: "curl", pattern: "solid", palette: "ivory"}));
+    sy.hydrateBotAvatars(send, [{id: "bot_e", avatar: null}]);
+    assert.ok(sent.length === 1 && !sent[0].includes("ground"), "the held look goes up as version 1");
+    // Two picker changes in a row both reach the server, the last with the last look; a later load with no server look sends no third.
+    sent.length = 0;
+    const lookA = {schemaVersion: 1, shape: "loaf", pattern: "solid", palette: "ivory"};
+    const lookB = {schemaVersion: 1, shape: "tall", pattern: "solid", palette: "honey"};
+    for (const next of [lookA, lookB]) { const saved = gs.saveBotAvatarConfig("bot_h", next); sy.pushBotAvatar(send, "bot_h", saved); }
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(sent.length, 2, "every picker change is sent");
+    assert.equal(sent[1], `PATCH /api/bots/bot_h ${JSON.stringify({avatar: lookB})}`, "the last send holds the last look");
+    sy.hydrateBotAvatars(send, [{id: "bot_h", avatar: null}]);
+    assert.equal(sent.length, 2, "a following load with no server look does not hand it up again");
+  } finally {
+    await modules.close();
+    delete globalThis.localStorage; delete globalThis.window; delete globalThis.CustomEvent;
+  }
+  console.log("PASS the ground: one list, one key, a stable default, and every UI boundary keeps it");
+}
+
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP browser part: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
 const {chromium} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
 const {createServer} = await import("vite");

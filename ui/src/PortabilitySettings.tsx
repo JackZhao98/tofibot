@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { request } from "./api";
 import type { Bot } from "./types";
-import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
-import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
+import { exportBotLook, isGround, parseLook, saveBotAvatarConfig, saveBotGround } from "./avatarStore";
 import { decryptPortable, encryptPortable, isEncryptedPortable, MAX_PORTABLE_FILE_BYTES } from "./portabilityCrypto";
 import { ENVIRONMENT_CATEGORY, portabilityLabel as label, exportDefaultCategories, importDefaultCategories, checkPortableInput } from "./portabilitySelection";
 import "./portability.css";
@@ -14,8 +13,8 @@ import { i18n, useTranslation } from "./i18n";
 import { Select } from "./Select";
 
 const categories = ["bot_config", "chats", "memories", "schedules", "attachments", "settings", "vault_environment"] as const;
-type PortableBot = { id: string; name: string; avatar?: AvatarConfig };
-type Bundle = { format: string; version: number; kind?: string; included: string[]; bots?: PortableBot[]; bot?: { name: string; avatar?: AvatarConfig }; counts?: Record<string, number>; vault_environment?: EnvironmentRecord[] };
+type PortableBot = { id: string; name: string; avatar?: Record<string, unknown> };
+type Bundle = { format: string; version: number; kind?: string; included: string[]; bots?: PortableBot[]; bot?: { name: string; avatar?: Record<string, unknown> }; counts?: Record<string, number>; vault_environment?: EnvironmentRecord[] };
 type EnvironmentRecord = { id: string; name: string; target: string; source_category: "active_vault" | "inactive_recovery"; status?: string; bytes?: number };
 type Preview = { preview_id: string; counts: Record<string, number>; bots: PortableBot[]; conflicts: string[]; warnings: string[]; excluded: string[]; expires_at: string; estimated_bytes: number; attachment_bytes: number; can_apply: boolean; dependencies: string[]; vault_environment?: EnvironmentRecord[]; vault_environment_bytes?: number };
 
@@ -121,7 +120,12 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
       if (exportPassword !== confirmPassword) throw new Error(t("portability.error.password_mismatch"));
       if (exportPassword.length < 12) throw new Error(t("portability.error.password_short"));
       const exported = await request<Bundle>("/api/portability/export", { method: "POST", body: JSON.stringify({ kind, selection: { categories: included, bot_ids: botIDs, vault_environment_ids: included.includes(ENVIRONMENT_CATEGORY) ? environmentRecords.filter(x => x.source_category === "active_vault" && exportEnvironmentIDs.includes(x.id)).map(x => x.id) : [], recovered_environment_ids: included.includes(ENVIRONMENT_CATEGORY) ? environmentRecords.filter(x => x.source_category === "inactive_recovery" && exportEnvironmentIDs.includes(x.id)).map(x => x.id) : [] } }) });
-      exported.bots?.forEach(bot => { bot.avatar = getBotAvatarConfig(bot.id); });
+      exported.bots?.forEach(bot => {
+        // The browser's look, but the ground the server exported is never lost when this browser has not cached it yet.
+        const served = bot.avatar;
+        bot.avatar = exportBotLook(bot.id);
+        if (!bot.avatar.ground && isGround(served?.ground)) bot.avatar = { ...bot.avatar, schemaVersion: 2, ground: served.ground };
+      });
       const encrypted = await encryptPortable(JSON.stringify(exported), exportPassword);
       const filename = `tofi-${kind}-${new Date().toISOString().replace(/[:.]/g, "-")}.tofi.json`;
       download(encrypted, filename);
@@ -143,7 +147,14 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
     if (!bundle || !preview || busy) return; setBusy(true); setError("");
     try {
       const result = await request<{ id_map: Record<string, string>; counts: Record<string, number> }>("/api/portability/apply", { method: "POST", body: importBody(preview.preview_id) });
-      preview.bots.forEach(bot => { if (bot.avatar && result.id_map[bot.id]) saveBotAvatarConfig(result.id_map[bot.id], bot.avatar); });
+      preview.bots.forEach(bot => {
+        if (!bot.avatar || !result.id_map[bot.id]) return;
+        try {
+          const { config, ground } = parseLook(bot.avatar);
+          saveBotAvatarConfig(result.id_map[bot.id], config);
+          if (ground) saveBotGround(result.id_map[bot.id], ground);
+        } catch { /* a look the server dropped stays dropped */ }
+      });
       setPreview(undefined); setBundle(undefined); setBundleSource(""); setFileSource(""); setImportEnvironmentIDs([]); setDone(t("portability.imported", { count: result.counts.bot_config, environments: result.counts.vault_environment ?? 0 })); if (environmentLoaded) void loadEnvironment();
       window.dispatchEvent(new Event("tofi:portability-imported"));
       if (importCategories.includes("settings")) void timezone.refresh();

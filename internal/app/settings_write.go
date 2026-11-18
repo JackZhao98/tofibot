@@ -21,6 +21,24 @@ import (
 // settingWriter applies one validated value.
 type settingWriter func(ctx context.Context, sr settingRun, t Target, value any) error
 
+type exactRevertKey struct{}
+
+// exactRevertContext marks a write that restores an old value: a writer that adds to what is stored (the Bot's ground) must not.
+func exactRevertContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, exactRevertKey{}, true)
+}
+
+func isExactRevert(ctx context.Context) bool { v, _ := ctx.Value(exactRevertKey{}).(bool); return v }
+
+func bindSettingStored(key string, stored func(oldText, newText string) string) {
+	b := settingBindings[key]
+	if b == nil {
+		b = &settingBinding{}
+		settingBindings[key] = b
+	}
+	b.stored = stored
+}
+
 func bindSettingWrite(key string, write settingWriter) {
 	b := settingBindings[key]
 	if b == nil {
@@ -259,6 +277,9 @@ func (sr settingRun) set(ctx context.Context, in settingsToolInput) (string, err
 	if item, isAuto := automationItemFor(strings.TrimPrefix(d.Key, "automation.")); isAuto && value == nil {
 		newText = sr.s.autoDefault(item) // back to the default: the audit shows the value that applies
 	}
+	if b.stored != nil && value != nil {
+		newText = b.stored(oldText, newText)
+	}
 	if d.Kind != KindAction && oldText == newText {
 		return settingsOutput(map[string]any{"applied": false, "unchanged": true, "key": d.Key, "value": oldText, "link": settingLinkPath(d, t), "link_label": settingLinkLabel(d, lang)})
 	}
@@ -297,6 +318,9 @@ func (sr settingRun) applyChange(ctx context.Context, d SettingDef, t Target, va
 		if row, err = sr.s.store.beginSettingsChange(row); err != nil {
 			return row, err
 		}
+	}
+	if actor == changeActorRevert {
+		ctx = exactRevertContext(ctx)
 	}
 	if err := b.write(ctx, sr, t, value); err != nil {
 		if d.Audit {

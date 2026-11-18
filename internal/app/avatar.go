@@ -56,7 +56,10 @@ func (a *BotAvatar) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-var errAvatarInvalid = errors.New("avatar must be a JSON object with schemaVersion 1 and a shape, pattern and palette from the avatar picker")
+// avatarGrounds are the colours a Bot's ground may take (schemaVersion 2). The UI list is GROUNDS in ui/src/avatarStore.ts.
+var avatarGrounds = []string{"tomato", "mustard", "teal", "grape", "lime"}
+
+var errAvatarInvalid = errors.New("avatar must be a JSON object with schemaVersion 1 (shape, pattern, palette) or 2 (the same plus ground: tomato, mustard, teal, grape or lime), from the avatar picker")
 
 // normalizeAvatar checks a look and returns it in one canonical form. Empty text clears the stored look. Anything the picker cannot draw is
 // refused.
@@ -75,6 +78,7 @@ func normalizeAvatar(raw string) (string, error) {
 		Shape         string `json:"shape"`
 		Pattern       string `json:"pattern"`
 		Palette       string `json:"palette"`
+		Ground        string `json:"ground"`
 	}
 	if err := dec.Decode(&in); err != nil {
 		return "", errAvatarInvalid
@@ -84,10 +88,25 @@ func normalizeAvatar(raw string) (string, error) {
 	}
 	cat := avatarOptions()
 	palettes, ok := cat.Patterns[in.Pattern]
-	if in.SchemaVersion != 1 || !ok || !inStrings(cat.Shapes, in.Shape) || !inStrings(palettes, in.Palette) {
+	if !ok || !inStrings(cat.Shapes, in.Shape) || !inStrings(palettes, in.Palette) {
 		return "", errAvatarInvalid
 	}
-	out, _ := json.Marshal(map[string]any{"schemaVersion": 1, "shape": in.Shape, "pattern": in.Pattern, "palette": in.Palette})
+	look := map[string]any{"schemaVersion": in.SchemaVersion, "shape": in.Shape, "pattern": in.Pattern, "palette": in.Palette}
+	switch in.SchemaVersion {
+	case 1:
+		// A version 1 look has no ground; a ground key on it is refused.
+		if in.Ground != "" {
+			return "", errAvatarInvalid
+		}
+	case 2:
+		if !inStrings(avatarGrounds, in.Ground) {
+			return "", errAvatarInvalid
+		}
+		look["ground"] = in.Ground
+	default:
+		return "", errAvatarInvalid
+	}
+	out, _ := json.Marshal(look)
 	return string(out), nil
 }
 
@@ -100,7 +119,7 @@ func avatarHelp() string {
 	}
 	sort.Strings(patterns)
 	var b strings.Builder
-	fmt.Fprintf(&b, "A JSON object {\"schemaVersion\":1,\"shape\":...,\"pattern\":...,\"palette\":...}. Shapes: %s. Patterns and their palettes:", strings.Join(cat.Shapes, ", "))
+	fmt.Fprintf(&b, "A JSON object {\"schemaVersion\":1,\"shape\":...,\"pattern\":...,\"palette\":...}, or with schemaVersion 2 also \"ground\" (%s). A version 1 write keeps the ground already stored. Shapes: %s. Patterns and their palettes:", strings.Join(avatarGrounds, ", "), strings.Join(cat.Shapes, ", "))
 	for _, p := range patterns {
 		fmt.Fprintf(&b, " %s (%s);", p, strings.Join(cat.Patterns[p], ", "))
 	}
@@ -136,7 +155,10 @@ func (s *Store) botAvatar(id string) (string, error) {
 }
 
 // SetBotAvatar stores a look (already normalized) or clears it with "".
-func (s *Store) SetBotAvatar(id, avatar string) error {
+func (s *Store) SetBotAvatar(id, avatar string) error { return s.setBotAvatar(id, avatar, true) }
+
+// setBotAvatar stores a look; keep carries a stored ground into a version 1 look (false: store exactly what is given, for a revert).
+func (s *Store) setBotAvatar(id, avatar string, keep bool) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -145,6 +167,9 @@ func (s *Store) SetBotAvatar(id, avatar string) error {
 	var current string
 	if err := tx.QueryRow(`SELECT avatar FROM bots WHERE id=?`, id).Scan(&current); err != nil {
 		return err
+	}
+	if keep {
+		avatar = keepGround(current, avatar)
 	}
 	if current == avatar {
 		return nil
@@ -156,6 +181,35 @@ func (s *Store) SetBotAvatar(id, avatar string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// keepGround carries a stored ground into a version 1 look, which cannot name one: an older client that writes a look must not wipe the
+// colour. The result is then a version 2 look. Clearing ("") and a look with its own ground pass through.
+func keepGround(current, next string) string {
+	if next == "" || current == "" {
+		return next
+	}
+	var held, incoming struct {
+		SchemaVersion int    `json:"schemaVersion"`
+		Ground        string `json:"ground"`
+	}
+	if json.Unmarshal([]byte(current), &held) != nil || json.Unmarshal([]byte(next), &incoming) != nil {
+		return next
+	}
+	if held.Ground == "" || incoming.SchemaVersion != 1 {
+		return next
+	}
+	var look map[string]any
+	if json.Unmarshal([]byte(next), &look) != nil {
+		return next
+	}
+	look["schemaVersion"] = 2
+	look["ground"] = held.Ground
+	out, err := json.Marshal(look)
+	if err != nil {
+		return next
+	}
+	return string(out)
 }
 
 func inStrings(list []string, v string) bool {
