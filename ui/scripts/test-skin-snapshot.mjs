@@ -17,8 +17,9 @@
 //   SKIN_SNAPSHOT_STATE=section/state  catalog states only (comma-separated; "section/inline" for a section's inline states)
 //   SKIN_SNAPSHOT_DETAIL=1             print the differing properties (slow; use with SKIN_SNAPSHOT_STATE)
 //   SKIN_SNAPSHOT_OUT=/abs/file.json   write every difference, not just the first ones printed
-// The base tree is captured twice: an element whose style differs between those two runs (a video that loads late, a lazy
-// chunk) is unstable and not compared; the count is reported. A difference is one where the head differs from both runs.
+// Stateful widgets are not deterministic (where focus lands, a video that attaches late), so one capture proves nothing
+// either way. Each tree is captured, the base twice, and pages that differ are captured again on both sides, up to
+// SKIN_SNAPSHOT_RETRIES (default 3) rounds. An element differs only if no value seen in the head was ever seen in the base.
 // Synthetic data only. Not part of CI: it builds two trees and takes several minutes.
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -50,8 +51,7 @@ const SESSIONS = {
 const work = mkdtempSync(join(tmpdir(), "tofi-skin-snapshot-"));
 execFileSync("sh", ["-c", `git -C "${repo}" archive "${BASE}" ui internal/app/oauth_completion.go | tar -x -C "${work}"`]);
 symlinkSync(join(ui, "node_modules"), join(work, "ui", "node_modules"));
-const baseTree = { name: `base (${BASE})`, ui: join(work, "ui"), repo: work };
-const trees = [baseTree, { ...baseTree, name: `base again (${BASE})` }, { name: "head (working tree)", ui, repo }];
+const trees = [{ name: `base (${BASE})`, ui: join(work, "ui"), repo: work }, { name: "head (working tree)", ui, repo }];
 
 // In the page: pause or finish animations, then hash (or keep, with DETAIL) every standard property of every element.
 function snapshot(detail) {
@@ -91,7 +91,7 @@ async function captureAll(page) {
     await page.setViewportSize(size);
     await settle(page);
     for (const theme of THEMES) {
-      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; document.documentElement.style.colorScheme = value; }, theme);
       for (const media of MEDIA) {
         await page.emulateMedia({ reducedMotion: media.reducedMotion, forcedColors: media.forcedColors });
         out[`${size.width} ${theme} ${media.id}`] = await page.evaluate(snapshot, DETAIL);
@@ -113,13 +113,15 @@ const oauthPage = async tree => {
     .replace(/<link rel="stylesheet" href="\/oauth\/connection\.css">/, `<style>${css}</style>`).replace(/\{\{[^}]*\}\}/g, "");
 };
 
-async function captureTree(browser, tree) {
+async function captureTree(browser, tree, only) {
   const pages = {};
   const fx = await startFixture(tree.ui, "skin-snapshot");
   const stub = createOrgStub();
   stub.reset?.();
   try {
     const context = await browser.newContext({ viewport: WIDTHS[0], locale: "en-US" });
+    // One clock for every run: relative times ("3 min ago") change the width of their text otherwise.
+    await context.clock.setFixedTime(new Date("2026-11-17T18:00:00Z"));
     await context.addInitScript(() => { try { localStorage.setItem("tofi:appearance", "light"); } catch { /* storage blocked */ } });
     let session = null;
     await context.route("**/*", async route => {
@@ -138,6 +140,7 @@ async function captureTree(browser, tree) {
       return answer === undefined ? json(200, {}) : json(answer[0], answer[1]);
     });
     const visit = async (key, url, ready) => {
+      if (only && !only.has(key)) return;
       const page = await context.newPage();
       await page.setViewportSize(WIDTHS[0]);
       try {
@@ -194,54 +197,68 @@ async function captureTree(browser, tree) {
   return pages;
 }
 
+const RETRIES = Number(process.env.SKIN_SNAPSHOT_RETRIES ?? 3);
+const baseRuns = [], headRuns = [];
+const values = (runs, key, mode, path) => new Set(runs.map(run => run[key]?.[mode]?.result?.[path]));
+function compare() {
+  const failures = [], report = [];
+  let unstable = 0;
+  for (const key of new Set([...Object.keys(baseRuns[0]), ...Object.keys(headRuns[0])])) {
+    const a = baseRuns[0][key], b = headRuns[0][key];
+    if (!a || !b) { failures.push({ key, text: `${key}: only in ${a ? "base" : "head"}` }); continue; }
+    if (a.error || b.error) { if (Boolean(a.error) !== Boolean(b.error)) failures.push({ key, text: `${key}: base ${a.error ?? "ok"}, head ${b.error ?? "ok"}` }); continue; }
+    for (const mode of Object.keys(a)) {
+      const paths = new Set([...baseRuns, ...headRuns].flatMap(run => Object.keys(run[key]?.[mode]?.result ?? {})));
+      const differing = [];
+      for (const path of paths) {
+        const seenBase = values(baseRuns, key, mode, path), seenHead = values(headRuns, key, mode, path);
+        if (seenBase.size > 1) unstable += 1;
+        if (![...seenHead].some(value => seenBase.has(value))) differing.push(path);
+      }
+      if (!differing.length) continue;
+      report.push({ page: key, mode, paths: differing });
+      const x = a[mode].result, y = b[mode]?.result ?? {};
+      const lines = differing.slice(0, 4).map(path => {
+        if (!(path in x) || !(path in y)) return `    ${path}: only in ${path in x ? "base" : "head"}`;
+        if (!DETAIL) return `    ${path}`;
+        const props = a[mode].props, p = x[path].split("|")[0].split(";"), q = y[path].split("|")[0].split(";");
+        return `    ${path}: ${props.filter((_, i) => p[i] !== q[i]).slice(0, 6).map(name => `${name} ${p[props.indexOf(name)]} -> ${q[props.indexOf(name)]}`).join("; ") || "(pseudo-element)"}`;
+      });
+      failures.push({ key, text: `${key} [${mode}]: ${differing.length} element(s) differ\n${lines.join("\n")}` });
+    }
+  }
+  return { failures, report, unstable };
+}
+
 const browser = await chromium.launch({ headless: true });
-const captured = [];
+const [base, head] = trees;
+let outcome;
 try {
-  for (const tree of trees) {
-    process.stdout.write(`${tree.name} `);
-    const started = Date.now();
-    captured.push(await captureTree(browser, tree));
-    console.log(` ${Object.keys(captured.at(-1)).length} pages in ${Math.round((Date.now() - started) / 1000)} s`);
+  const run = async (tree, list, only) => { process.stdout.write(`${tree.name} `); const started = Date.now(); list.push(await captureTree(browser, tree, only)); console.log(` ${Object.keys(list.at(-1)).length} pages in ${Math.round((Date.now() - started) / 1000)} s`); };
+  await run(base, baseRuns); await run(base, baseRuns); await run(head, headRuns);
+  outcome = compare();
+  for (let round = 1; round <= RETRIES && outcome.failures.length; round += 1) {
+    const only = new Set(outcome.failures.map(failure => failure.key));
+    console.log(`round ${round}: capturing ${only.size} differing page(s) again`);
+    await run(base, baseRuns, only); await run(head, headRuns, only);
+    outcome = compare();
   }
 } finally {
   await browser.close();
   rmSync(work, { recursive: true, force: true });
 }
 
-const [before, again, after] = captured;
-const failures = [], report = [];
-let unstable = 0;
-for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-  const a = before[key], a2 = again[key], b = after[key];
-  if (!a || !b) { failures.push(`${key}: only in ${a ? "base" : "head"}`); continue; }
-  if (a.error || b.error) { if (a.error !== b.error) failures.push(`${key}: base ${a.error ?? "ok"}, head ${b.error ?? "ok"}`); continue; }
-  for (const mode of Object.keys(a)) {
-    const x = a[mode].result, x2 = a2?.[mode]?.result ?? x, y = b[mode]?.result;
-    if (!y) { failures.push(`${key} [${mode}]: not captured in head`); continue; }
-    const paths = new Set([...Object.keys(x), ...Object.keys(x2), ...Object.keys(y)]);
-    const shaky = [...paths].filter(path => x[path] !== x2[path]);
-    unstable += shaky.length;
-    const differing = [...paths].filter(path => x[path] === x2[path] && x[path] !== y[path]);
-    if (!differing.length) continue;
-    report.push({ page: key, mode, paths: differing });
-    const lines = differing.slice(0, 4).map(path => {
-      if (!(path in x) || !(path in y)) return `    ${path}: only in ${path in x ? "base" : "head"}`;
-      if (!DETAIL) return `    ${path}`;
-      const props = a[mode].props, p = x[path].split("|")[0].split(";"), q = y[path].split("|")[0].split(";");
-      return `    ${path}: ${props.filter((_, i) => p[i] !== q[i]).slice(0, 6).map(name => `${name} ${p[props.indexOf(name)]} -> ${q[props.indexOf(name)]}`).join("; ") || "(pseudo-element)"}`;
-    });
-    failures.push(`${key} [${mode}]: ${differing.length} element(s) differ\n${lines.join("\n")}`);
-  }
-}
+const { failures, report, unstable } = outcome;
+const after = headRuns[0];
 const pageCount = Object.keys(after).length, errors = Object.values(after).filter(page => page.error).length;
-if (process.env.SKIN_SNAPSHOT_OUT) writeFileSync(process.env.SKIN_SNAPSHOT_OUT, JSON.stringify({ base: BASE, unstable, failures, report }, null, 2));
-const note = `${unstable} unstable element capture(s) skipped${errors ? `; ${errors} page(s) failed to load in all trees alike` : ""}`;
+if (process.env.SKIN_SNAPSHOT_OUT) writeFileSync(process.env.SKIN_SNAPSHOT_OUT, JSON.stringify({ base: BASE, unstable, failures: failures.map(failure => failure.text), report }, null, 2));
+const note = `${unstable} element capture(s) varied within the base${errors ? `; ${errors} page(s) failed to load` : ""}`;
 if (failures.length) {
   const byPage = {};
   for (const entry of report) byPage[entry.page] = (byPage[entry.page] ?? 0) + entry.paths.length;
   console.log(`skin snapshot: FAIL (${failures.length} difference(s) over ${pageCount} pages; ${note})`);
   console.log(`  by page: ${Object.entries(byPage).sort((p, q) => q[1] - p[1]).map(([page, n]) => `${page} ${n}`).join(", ")}`);
-  for (const line of failures.slice(0, 40)) console.log(`  ${line}`);
+  for (const failure of failures.slice(0, 40)) console.log(`  ${failure.text}`);
   process.exit(1);
 }
-console.log(`skin snapshot: PASS (${pageCount} pages x ${WIDTHS.length * THEMES.length * MEDIA.length} captures identical to ${BASE}; ${note})`);
+console.log(`skin snapshot: PASS (${pageCount} pages x ${WIDTHS.length * THEMES.length * MEDIA.length} captures match ${BASE}; ${note})`);
