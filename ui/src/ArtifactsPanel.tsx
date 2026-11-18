@@ -14,6 +14,7 @@ import { errorText } from "./i18n/errors";
 import { TofiIcon } from "./icons";
 import type { Bot, Conversation } from "./types";
 import "./artifacts-panel.css";
+import { Switch } from "./ds/Switch/Switch";
 
 /** One file a Bot produced (or, with the toggle, one the person uploaded); the shape of GET /api/artifacts. */
 export type ArtifactItem = {
@@ -110,7 +111,7 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
     <div className="artifacts-toolbar">
       <Tabs.List className="artifacts-tabs artifacts-kinds" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <Tabs.Trigger key={value} value={value}>{label}</Tabs.Trigger>)}</Tabs.List>
       <label className="artifacts-search"><TofiIcon name="search" size={16} /><input type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} /></label>
-      <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><input type="checkbox" role="switch" checked={uploads} onChange={event => setUploads(event.target.checked)} /></label>
+      <div className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><Switch label={t("artifacts.include_uploads")} checked={uploads} onChange={setUploads} /></div>
     </div>
     {kinds.filter(([value]) => value !== kind).map(([value]) => <Tabs.Content key={value} value={value} forceMount hidden />)}
     <Tabs.Content value={kind} className="artifacts-result-panel">

@@ -3,7 +3,7 @@ import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
 import { Segmented as KitSegmented } from "../ds/Segmented/Segmented";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
-import * as Switch from "@radix-ui/react-switch";
+import { Switch } from "../ds/Switch/Switch";
 import {TofiIcon} from "../icons";
 import {useTranslation} from "../i18n";
 import { Disclosure } from "../InteractionPrimitives";
@@ -71,7 +71,7 @@ export function SavedNote({show}: {show: boolean}) {
 }
 
 /**
- * Switch (Radix): 36x22, off = 20% ink, on = lagoon. Only for "on / off and it takes effect now". `onChange` may return a promise:
+ * Switch: the kit's (Radix, 46x26, teal when on). Only for "on / off and it takes effect now". `onChange` may return a promise:
  * "Saved" shows for 1.5 s once it resolves; a rejection shows nothing (the caller reports the failure).
  */
 export function SettingsSwitch({checked, onChange, label, labelledBy, disabled = false, busy = false, id, className = "", showSaved = true}: {checked: boolean; onChange: (next: boolean) => void | Promise<unknown>; /** The accessible name when no visible label points at the switch. */ label?: string; labelledBy?: string; disabled?: boolean; busy?: boolean; id?: string; className?: string; showSaved?: boolean}) {
@@ -84,7 +84,7 @@ export function SettingsSwitch({checked, onChange, label, labelledBy, disabled =
   };
   return <span className={`st-switch-wrap ${className}`.trim()}>
     {showSaved && <SavedNote show={saved}/>}
-    <Switch.Root id={id} className="st-switch" checked={checked} disabled={disabled} aria-label={label} aria-labelledby={labelledBy} aria-busy={busy || undefined} onCheckedChange={change}><Switch.Thumb className="st-switch-thumb"/></Switch.Root>
+    <Switch id={id} checked={checked} disabled={disabled} label={label} labelledBy={labelledBy} busy={busy} onChange={change} />
   </span>;
 }
 
