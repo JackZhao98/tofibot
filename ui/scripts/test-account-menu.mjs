@@ -32,7 +32,10 @@ test("footer omits client wording; menu fades without translation or corner scal
   assert.match(footer, /address && <small>\{address\}<\/small>/);
   assert.match(footer, /<AppUpdateButton\/>/);
   const css = source("ui/src/account-menu.css");
-  assert.match(css, /@keyframes account-menu-fade \{ from \{ opacity:0; \} to \{ opacity:1; \} \}/);
+  // One popup motion since #46: the menu has no animation of its own and gets .tofi-pop from OverlayMenu.
+  assert.doesNotMatch(css, /sidebar-account-menu[^{]*\{[^}]*animation/);
+  assert.match(source("ui/src/AccountMenu.tsx"), /<OverlayMenu\b[^>]*className="sidebar-account-menu"/);
+  assert.match(source("ui/src/overlays/RadixOverlays.tsx"), /<DropdownMenu\.Content className=\{`tofi-pop /);
   assert.doesNotMatch(css, /translate|scale\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);
   assert.match(css, /-webkit-backdrop-filter:blur\(32px\)/);

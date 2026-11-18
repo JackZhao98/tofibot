@@ -60,7 +60,7 @@ for (const engine of [chromium, webkit]) {
       assert.equal(await menu.locator(".sidebar-account-menu-heading strong").innerText(), "Example");
       assert.deepEqual(await menu.locator(":scope > [role=menuitem]").allTextContents(), ["Settings", "Usage", "Artifacts", "Language"]);
       const animation = await menu.evaluate(element => getComputedStyle(element).animationName);
-      assert.equal(animation, "account-menu-fade");
+      assert.equal(animation, "pop-in", "the account menu uses the shared popup motion");
       const theme = menu.locator(".sidebar-account-theme");
       for (const label of ["Light", "Dark", "System"]) {
         await theme.click();
