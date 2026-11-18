@@ -118,13 +118,6 @@
     "important": 3,
     "tokenDef": 0
   },
-  "focus-ring.css": {
-    "global": 1,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "forced-focus.css": {
     "global": 2,
     "rootBump": 0,
@@ -253,14 +246,14 @@
   },
   "v2-app.css": {
     "global": 0,
-    "rootBump": 15,
+    "rootBump": 14,
     "webFork": 26,
     "important": 0,
     "tokenDef": 0
   },
   "v2-foundations.css": {
     "global": 3,
-    "rootBump": 3,
+    "rootBump": 2,
     "webFork": 0,
     "important": 0,
     "tokenDef": 0

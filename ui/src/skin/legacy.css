@@ -1,9 +1,10 @@
 /* The V2 skin (V3 PR 0.2): the colours, shadows, glass, radii, edge widths and fonts of V2, moved verbatim from the
-   retired design-tokens.css (V2-only names that collide with V3 meanings are renamed, PLAN 7.6). data-skin="legacy", or no
-   data-skin, selects it. The V3 skin arrives in 0.4 and becomes the default in 1.1. Structure (space, motion, layers,
+   retired design-tokens.css (V2-only names that collide with V3 meanings are renamed, PLAN 7.6). data-skin="legacy" selects it. The V3 skin is the
+   default since 1.1 (DEFAULT_SKIN in skin.ts); this sheet stays loaded as the fast rollback until PR 2.1 deletes it. Its
+   display face is Bricolage Grotesque because the Fredoka files went in 1.1. Structure (space, motion, layers,
    layout, type scale) is in structure.css, in @layer tokens below this layer. */
 @layer skin {
-:root:where([data-skin="legacy"], :not([data-skin])) {
+:root:where([data-skin="legacy"]) {
   color-scheme:light;
   /* Final V2 system: semantic palette is authoritative; historical names below
      are aliases, not a second colour source. */
@@ -190,7 +191,7 @@
   --lightbox-ink:#f3eadb;
   --menu-shadow:0 12px 32px rgb(0 0 0 / .18);
   --field-inset-shadow:inset 0 1px 2px rgba(0,0,0,.08);
-  --display:"Fredoka","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif;
+  --display:"Bricolage Grotesque","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif;
   --body:"PingFang SC","Inter",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,monospace;
   --font-display:var(--display);
@@ -230,7 +231,7 @@
   /* Settings: the quiet lift of a selected rail item, a select, a quiet button, a selected segment (docs/design/settings-simplify.md 5). Here, not in a lazy sheet, for the same reason as the card tokens. */
   --st-lift:0 1px 2px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 6px 16px -10px color-mix(in srgb,var(--shade-ink) 32%,transparent);
 }
-:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] {
+:root:where([data-skin="legacy"])[data-theme="dark"] {
   color-scheme:dark;
   --bg:#14120f;
   --surface:#1f1c18;
@@ -301,19 +302,19 @@
 }
 
 /* Widget column and sidebar panels (context-card.css). */
-:root:where([data-skin="legacy"], :not([data-skin])) { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-radius:16px; }
-:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
+:root:where([data-skin="legacy"]) { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-radius:16px; }
+:root:where([data-skin="legacy"])[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
 
 /* File tiles (file-tile.css). */
-:root:where([data-skin="legacy"], :not([data-skin])) { --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%; }
-:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%; }
+:root:where([data-skin="legacy"]) { --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%; }
+:root:where([data-skin="legacy"])[data-theme="dark"] { --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%; }
 
 /* High contrast: author colours give way to system colours. Both theme selectors, or the dark block would win. */
 @media (forced-colors:active){
-  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"]{--bg:Canvas;--surface:Canvas;--surface-soft:Canvas;--sidebar-bg:Canvas;--selected-bg:Highlight;--line:ButtonText;--line-strong:ButtonText;--text:CanvasText;--text-soft:CanvasText;--muted:CanvasText;--accent:Highlight;--success:Highlight;--danger:LinkText;--focus-ring:Highlight}
+  :root:where([data-skin="legacy"]),:root:where([data-skin="legacy"])[data-theme="dark"]{--bg:Canvas;--surface:Canvas;--surface-soft:Canvas;--sidebar-bg:Canvas;--selected-bg:Highlight;--line:ButtonText;--line-strong:ButtonText;--text:CanvasText;--text-soft:CanvasText;--muted:CanvasText;--accent:Highlight;--success:Highlight;--danger:LinkText;--focus-ring:Highlight}
 }
 /* Without backdrop blur, glass is the plain surface. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
-  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --legacy-glass:var(--surface); }
+  :root:where([data-skin="legacy"]),:root:where([data-skin="legacy"])[data-theme="dark"] { --legacy-glass:var(--surface); }
 }
 }

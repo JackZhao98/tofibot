@@ -50,7 +50,7 @@
 .scheduled-run-status time { font-family:var(--mono); }
 .scheduled-run-dot { display:inline-grid; place-items:center; width:9px; height:9px; flex:none; border-radius:50%; background:var(--muted); font-style:normal; }
 .scheduled-run.is-running .scheduled-run-dot { background:var(--lagoon); animation:scheduled-run-breathe 2.4s var(--ease-inout) infinite; }
-.scheduled-run.is-done .scheduled-run-dot { width:16px; height:16px; color:var(--surface); background:var(--green); font:700 11px/1 var(--body); }
+.scheduled-run.is-done .scheduled-run-dot { width:16px; height:16px; color:var(--on-block); background:var(--green); font:700 11px/1 var(--body); }
 .scheduled-run.is-done .scheduled-run-stub { background:color-mix(in srgb,var(--green) 16%,var(--surface)); }
 /* Quiet: finished with a conclusion and nothing posted. A hollow ring, never the red of a failure. */
 .scheduled-run.is-quiet .scheduled-run-dot { width:12px; height:12px; background:transparent; box-shadow:inset 0 0 0 2px var(--green); }

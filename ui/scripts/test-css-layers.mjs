@@ -89,7 +89,7 @@ if (process.argv.includes("--update")) {
 }
 // ---- 3. legacy and vendor
 const UNLAYERED = new Set(["cascade.css", "forced.css", "forced-focus.css", "oauth/connection.css"]);
-const LONG_LIVED = new Set(["styles.css", "settings/settings-polish.css", "settings-system.css", "interaction-system.css", "v2-app.css", "onboarding.css", "context-card.css", "focus-ring.css", "bot-settings.css"]);
+const LONG_LIVED = new Set(["styles.css", "settings/settings-polish.css", "settings-system.css", "interaction-system.css", "v2-app.css", "onboarding.css", "context-card.css", "bot-settings.css"]);
 const GLOBAL_LAYERS = new Set([...DEFAULT_LAYERS, "legacy"]);
 const splitList = text => { const out = []; let depth = 0, start = 0; for (let i = 0; i < text.length; i += 1) { const c = text[i]; if (c === "(" || c === "[") depth += 1; else if (c === ")" || c === "]") depth -= 1; else if (c === "," && !depth) { out.push(text.slice(start, i)); start = i + 1; } } out.push(text.slice(start)); return out.map(part => part.trim()).filter(Boolean); };
 // Does the selector end in a bare element or *? Such a rule could land on a kit element.

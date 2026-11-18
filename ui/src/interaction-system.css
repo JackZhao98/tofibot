@@ -1,13 +1,11 @@
-@import "./skin/structure.css";
-@import "./skin/legacy.css";
+@import "./skin/default.css";
 @layer base {
 body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 form[aria-busy=true]{cursor:progress}
 }
 @layer legacy {
-.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
-.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
+.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
 .workspace .contact-row:focus-visible{outline-offset:-3px}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
 .search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}
@@ -184,7 +182,7 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
   .conversation-row>.avatar{width:46px;height:46px;flex-basis:46px}
 }
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
-.back-button{color:var(--text);background:transparent}.back-button:hover{background:var(--surface-hover)}
+.back-button{color:var(--text);background:transparent;border-radius:50%}.back-button:hover{background:var(--surface-hover)}
 html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
 html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
 @keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}
@@ -221,7 +219,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .disclosure-inner>.model-fields{margin:8px 0}
 
 :root[data-theme="dark"] .member-option{background:var(--surface);border-color:var(--line)}
-:root[data-theme="dark"] .member-option.selected{background:var(--selected-bg);border-color:var(--line-strong)}
+:root[data-theme="dark"] .member-option.selected{background:var(--selected-bg);border-color:var(--edge)}
 .archive-open{display:block;max-width:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;font-weight:600;overflow-wrap:anywhere}
 .archive-open:hover{text-decoration:underline;text-underline-offset:3px}
 .bot-identity-card button{margin-top:7px}

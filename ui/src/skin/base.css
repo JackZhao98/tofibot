@@ -1,0 +1,38 @@
+/* The page and its browser affordances in the V3 skin (V3 PLAN 9.3, PR 1.1): body, selection, scrollbars, caret, the keyboard
+   focus ring and the default look of a bare text field. Hand-written; every value is a skin role or a structure token. It is in
+   @layer base, so any component rule (V2 in legacy, the kit unlayered) wins over it. The pointer-modality rule that hides the
+   ring after a click is in forced-focus.css, outside the layers on purpose.
+   Loaded with skin/default.css, so every entry has it, the Mac pages and the Bot browser included. */
+@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;
+@layer base {
+  :root { color: var(--ink); background: var(--bg); scrollbar-color: var(--line) transparent; }
+  body { color: var(--ink); background: var(--bg); font-family: var(--font-body); font-variant-ligatures: no-common-ligatures; }
+  ::selection { background: color-mix(in srgb, var(--cobalt) 30%, transparent); }
+  :is(input, textarea, [contenteditable="true"]) { caret-color: var(--ink); }
+
+  /* One focus indication for the product: a 2px ring at a 2px offset, for the keyboard only. A component may change the offset
+     (tight rows use a negative one) but never the width or the colour. */
+  :where(a[href], button, summary, select, input, textarea, iframe, [tabindex]:not([tabindex="-1"], .fp-body)):focus-visible {
+    outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset);
+  }
+  /* Containers that only receive script focus (dialogs, panes, anchored records) are never ringed. */
+  :is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus,
+  :is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus-visible { outline: none; }
+
+  /* A bare text field: pressed in (`sunk` and the inset) at rest, raised to `surface` with the soft shadow on focus. The kit's
+     TextInput and TextArea set the same look on their own wrapper. Checkboxes and radios are not text fields. */
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    min-height: 42px; padding: var(--field-pad-y, 10px) 12px; border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
+    background: var(--sunk); color: var(--ink); font: 400 14px/1.5 var(--font-body); box-shadow: var(--field-inset);
+    transition: border-color var(--m-press), box-shadow var(--m-press), background-color var(--m-press);
+  }
+  :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):not(:disabled):not([aria-invalid="true"]):hover { border-color: var(--ink-soft); }
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus-visible {
+    background: var(--surface); box-shadow: var(--shadow-sm); outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset);
+  }
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select)[aria-invalid="true"] {
+    border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--sunk));
+  }
+  :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):disabled { opacity: .45; box-shadow: none; }
+}

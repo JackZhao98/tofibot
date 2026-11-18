@@ -289,7 +289,7 @@
       },
       {
         "id": "focus",
-        "note": "Focus ring. --focus-ring-* are the V2 names, --focus-* the V3.0 names; both exist until the flip.",
+        "note": "Focus ring. --focus-ring-* are the V2 names, --focus-* the V3.0 names; both exist until the V2 sheets that use the first are rebuilt.",
         "tokens": {
           "focus-ring-width": "2px",
           "focus-ring-offset": "3px",
@@ -349,7 +349,7 @@
       },
       {
         "id": "layout",
-        "note": "Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until the flip; see changes.",
+        "note": "Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until PR 6.1; see changes.",
         "tokens": {
           "chat-max": "760px",
           "sidebar-width": "272px",
@@ -422,8 +422,8 @@
   },
   "scopes": {
     "letter": {
-      "selector": ":is(.tb-letter, .tb-env.is-lifted)",
-      "note": "The Letter and the lifted envelope stay light paper in dark mode (bundle.css:816).",
+      "selector": ":is(.tb-letter, .tb-env.is-lifted, .mail-draft-letter)",
+      "note": "The Letter and the lifted envelope stay light paper in dark mode (bundle.css:816). 1.1 adds the V2 mail draft letter (.mail-draft-letter), the same paper object, so its ink stays dark on it.",
       "values": {
         "ink": "#151310",
         "ink-soft": "#403932",
@@ -448,7 +448,7 @@
         "bricolage-grotesque-latin.woff2",
         "bricolage-grotesque-latin-ext.woff2"
       ],
-      "status": "Self-hosted in fonts.css: optical size and weight axes, as V3.0 loads them."
+      "status": "Self-hosted in skin/fonts.css: optical size and weight axes, as V3.0 loads them."
     },
     "mono": {
       "family": "JetBrains Mono",
@@ -457,7 +457,7 @@
         "jetbrains-mono-400.woff2",
         "jetbrains-mono-600.woff2"
       ],
-      "status": "Already self-hosted in fonts.css."
+      "status": "Self-hosted in skin/fonts.css."
     }
   },
   "fallbacks": {
@@ -499,7 +499,7 @@
       "names": [
         "settings-rail"
       ],
-      "note": "Kept at 216px, the V2 width. V3.0 draws 232px. Decide at the flip (PLAN 9.3, PR 1.1); until then the legacy skin must not move."
+      "note": "Kept at 216px, the V2 width. V3.0 draws 232px. Decided at the flip (PR 1.1): the rail does not move until PR 6.1 rebuilds the settings page and takes 232."
     },
     {
       "names": [
@@ -514,7 +514,7 @@
   "platforms": {
     "note": "Platform material (PLAN 7.4). Emitted as token assignments under the platform's root attribute, with the V3 skin only. A platform sets component roles (--c-*), never a text role.",
     "darwin": {
-      "selector": ":root:where([data-skin=\"v3\"])[data-desktop=\"darwin\"]",
+      "selector": ":root:where([data-skin=\"v3\"], :not([data-skin]))[data-desktop=\"darwin\"]",
       "values": {
         "c-sidebar-bg": "color-mix(in srgb, var(--surface-2) 34%, transparent)",
         "c-app-bg": "transparent",

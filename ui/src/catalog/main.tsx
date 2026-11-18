@@ -5,7 +5,7 @@ import { CATALOG_MARKER, frameParams, skinReady } from "./sandbox";
 import { mountFrame } from "./Frame";
 // The product's global stylesheets, in the order src/main.tsx imports them (scripts/test-catalog.mjs keeps the two
 // lists equal), so the cascade in a frame is the cascade in the app.
-import "../fonts.css";
+import "../skin/fonts.css";
 import "../styles.css";
 import "../interaction-system.css";
 import "../settings-system.css";
@@ -25,7 +25,6 @@ import "../sidebar-rail.css";
 import "../chat-header.css";
 import "../progressive-blur.css";
 import "../context-card.css";
-import "../focus-ring.css";
 import "../forced.css";
 import "./catalog.css";
 import { createRoot } from "react-dom/client";

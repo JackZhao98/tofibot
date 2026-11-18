@@ -73,7 +73,7 @@ const results = [];
 const pass = name => { results.push(name); console.log("PASS", name); };
 
 try {
-  // 1. First run through the real App: no Bot, Fredoka hero, a troupe of live cats.
+  // 1. First run through the real App: no Bot, display-face hero, a troupe of live cats.
   {
     const { page, context, errors, external } = await open("/", { api: {} });
     await page.locator("[data-first-run='pane'] h1").waitFor();
@@ -81,11 +81,11 @@ try {
     for (const name of ["miso", "nori", "yuzu", "azuki"]) await mountedCat(page, `first-run-${name}`);
     assert.equal(await page.locator("[data-first-run='pane'] [data-empty-cat][data-live='true'] svg").count(), 4, "four live cats in the hero");
     const title = await page.locator("[data-first-run='pane'] h1").evaluate(node => { const style = getComputedStyle(node); return { family: style.fontFamily, size: style.fontSize, weight: style.fontWeight }; });
-    assert.match(title.family, /^"?Fredoka/);
+    assert.match(title.family, /^"?Bricolage Grotesque/);
     assert.equal(title.size, "40px");
-    assert.equal(await page.evaluate(() => document.fonts.check("700 40px Fredoka")), true, "Fredoka 700 is loaded, not a system fallback");
-    const faces = await page.evaluate(() => [...document.fonts].filter(face => face.family.replace(/"/g, "") === "Fredoka").map(face => face.status));
-    assert.ok(faces.includes("loaded"), `a Fredoka face loaded: ${faces}`);
+    assert.equal(await page.evaluate(() => document.fonts.check("700 40px 'Bricolage Grotesque'")), true, "Bricolage Grotesque 700 is loaded, not a system fallback");
+    const faces = await page.evaluate(() => [...document.fonts].filter(face => face.family.replace(/"/g, "") === "Bricolage Grotesque").map(face => face.status));
+    assert.ok(faces.includes("loaded"), `a Bricolage Grotesque face loaded: ${faces}`);
     assert.equal(await page.evaluate(() => document.fonts.check("600 14px 'JetBrains Mono'")) !== undefined, true);
     assert.deepEqual(external, [], "no request leaves the origin (fonts are self-hosted)");
     assert.equal(await page.locator("link[rel=preload][as=font]").count(), 1, "display font is preloaded");
@@ -98,7 +98,7 @@ try {
     assert.equal(await page.locator("[data-first-run='pane'] [data-empty-cat][data-live='true'] svg").count(), 4);
     assert.deepEqual(errors, []);
     await context.close();
-    pass("first run: Fredoka hero 40px, 4 live cats, sidebar cat, self-hosted fonts, no external requests");
+    pass("first run: display-face hero 40px, 4 live cats, sidebar cat, self-hosted fonts, no external requests");
   }
 
   // 1b. On a phone the sidebar is the first screen: the hero is there, with its own live cats.
@@ -107,7 +107,7 @@ try {
     await page.locator("[data-first-run='side'] h1").waitFor({ state: "visible" });
     for (const name of ["miso", "nori", "yuzu", "azuki"]) await mountedCat(page, `first-run-side-${name}`);
     const title = await page.locator("[data-first-run='side'] h1").evaluate(node => ({ family: getComputedStyle(node).fontFamily, size: getComputedStyle(node).fontSize }));
-    assert.match(title.family, /^"?Fredoka/);
+    assert.match(title.family, /^"?Bricolage Grotesque/);
     assert.equal(title.size, "30px");
     assert.equal(await page.locator("[data-first-run='pane'] [data-live='true']").count(), 0, "the hidden pane hero runs no cats");
     assert.ok((await overflow(page)) <= 0);

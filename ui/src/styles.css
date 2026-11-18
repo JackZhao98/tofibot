@@ -157,7 +157,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .composer{position:relative;z-index:var(--z-chrome);display:block;flex:0 0 auto;padding:10px clamp(14px,4vw,32px) max(13px,env(safe-area-inset-bottom))}
 .composer-tools{justify-content:space-between;max-width:var(--chat-max);min-height:25px;margin:0 auto 5px;font-size:12px}
 .composer-tools label{display:flex;align-items:center;gap:7px;color:var(--muted)}
-.composer-tools select{width:auto;min-width:145px;margin:0;padding:5px 8px;border-color:var(--line);background:var(--sunk);font-size:11px}
+.composer-tools select{width:auto;min-width:145px;margin:0;padding:5px 8px;border-color:var(--edge);background:var(--sunk);font-size:11px}
 .config-warning{color:var(--orange-text)}
 .composer-row{align-items:flex-end;gap:8px;max-width:var(--chat-max);min-height:52px;margin:0 auto;padding:6px 0}
 .composer-row textarea{min-width:0;min-height:40px;max-height:120px;flex:1 1 auto;margin:0;resize:none}

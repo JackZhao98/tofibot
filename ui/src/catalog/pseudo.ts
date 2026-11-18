@@ -60,7 +60,7 @@ export type ForcedState = "hover" | "active" | "focus" | "focus-within";
 export function force(root: HTMLElement, selector: string, state: ForcedState) {
   const targets = [...(root.matches(selector) ? [root] : []), ...root.querySelectorAll<HTMLElement>(selector)];
   for (const target of targets) target.classList.add(`catalog-${state}`);
-  // focus-ring.css hides every ring until a navigation key is pressed; a forced focus state is a keyboard focus.
+  // forced-focus.css hides every ring until a navigation key is pressed; a forced focus state is a keyboard focus.
   if (state === "focus") document.documentElement.dataset.input = "keyboard";
   return targets.length;
 }

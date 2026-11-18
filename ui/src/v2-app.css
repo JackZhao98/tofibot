@@ -214,8 +214,8 @@ html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot
 .workspace .composer .composer-row {
   position:relative; z-index:3; min-height:104px; grid-template-rows:minmax(52px,auto) 40px;
   grid-template-columns:40px minmax(0,1fr) 40px 42px; column-gap:8px;
-  padding:10px 16px 12px; border:var(--legacy-edge-bold-w) solid var(--line);
-  border-radius:var(--r-lg); background:var(--legacy-glass); box-shadow:var(--shadow);
+  padding:11px 17px 13px; border:var(--c-composer-border);
+  border-radius:var(--r-lg); background:var(--legacy-glass); box-shadow:var(--c-composer-shadow);
   -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
 .workspace .composer .composer-input-wrap { display:block; padding:0; border:0; border-radius:0; background:transparent; }
@@ -418,7 +418,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu)>button:disabled { color:var(--muted); background:transparent; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-context-menu .delete-menu-action { color:var(--danger-text); }
-:is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:var(--surface-2); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:var(--selected-bg); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout:hover { color:var(--danger-text); }
 :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
 @supports not (backdrop-filter:blur(1px)) { :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
@@ -531,7 +531,6 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
   animation:menu-leave var(--m-pop-out) var(--ease-in) both; pointer-events:none;
 }
 :root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line-soft); }
-:root[data-theme="dark"] .workspace .composer .composer-row { border-color:var(--line-soft); }
 @media (prefers-reduced-motion:reduce) {
   .tofi-pop[data-state], :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }

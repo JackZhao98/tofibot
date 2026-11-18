@@ -1,7 +1,7 @@
 /**
  * Input modality for focus rings. A ring is drawn only after keyboard navigation.
  * `<html data-input>` is "pointer" until a navigation key is pressed and returns to "pointer" on any mouse, pen or
- * touch press. focus-ring.css hides every ring while it reads "pointer", so a click, a tap, a dialog opened by one,
+ * touch press. forced-focus.css hides every ring while it reads "pointer", so a click, a tap, a dialog opened by one,
  * or script focus that follows one never frames the control, whatever the browser's own :focus-visible heuristic says.
  * Escape and modifier shortcuts do not flip it, so closing a pointer-opened dialog returns focus quietly.
  */

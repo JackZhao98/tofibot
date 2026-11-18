@@ -13,5 +13,8 @@
     --c-srow-hover: var(--hover);
     --c-srow-active-bg: var(--surface);
     --c-srow-active-outline: var(--edge-bold) solid var(--ink);
+    /* Composer (1.1, on the V2 composer row): the bold ink edge and the hard shadow. */
+    --c-composer-border: var(--edge-bold) solid var(--ink);
+    --c-composer-shadow: var(--hard);
   }
 }

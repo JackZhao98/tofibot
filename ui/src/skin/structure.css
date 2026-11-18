@@ -20,7 +20,7 @@
   --border-3:3px;
 }
 
-/* Focus ring. --focus-ring-* are the V2 names, --focus-* the V3.0 names; both exist until the flip. */
+/* Focus ring. --focus-ring-* are the V2 names, --focus-* the V3.0 names; both exist until the V2 sheets that use the first are rebuilt. */
 :root {
   --focus-ring-width:2px;
   --focus-ring-offset:3px;
@@ -77,7 +77,7 @@
   --m-mark-stamp:240ms;
 }
 
-/* Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until the flip; see changes. */
+/* Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until PR 6.1; see changes. */
 :root {
   --chat-max:760px;
   --sidebar-width:272px;
