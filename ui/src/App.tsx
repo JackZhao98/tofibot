@@ -1,5 +1,4 @@
 import { MessageHoverActions } from "./MessageHoverActions";
-import * as Collapsible from "@radix-ui/react-collapsible";
 import { FocusScope } from "@radix-ui/react-focus-scope";
 import { keepFocus } from "./focusModality";
 import { useNativeSidePanel } from "./useNativeSidePanel";
@@ -9,7 +8,7 @@ import { useGraceFlag } from "./useGraceFlag";
 import { readReplyMarker } from "./replyMarker";
 import { thinkingHeadline } from "./thinkingHeadline";
 import { TaskRunBlock, taskBlockVisible } from "./TaskRunBlock";
-import { LiveMark } from "./LiveMark";
+import "./LiveMark";
 import { markSenderGroups } from "./senderGroups";
 import { sameData } from "./sameData";
 import { buildTaskOwners, presentTaskIssue, taskPhaseLabel, type TaskOwner } from "./taskIssuePresentation";
@@ -21,35 +20,33 @@ import { DelayedFeedback } from "./DelayedFeedback";
 import { BootScreen } from "./BootScreen";
 import { SidebarAccount, useOwnerSession } from "./OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "./desktop";
-import {TimezoneProvider, useUserTimezone} from "./UserTimezone";
+import { TimezoneProvider, useUserTimezone } from "./UserTimezone";
 import { browserNotifier, type DeliveryItem } from "./attentionNotifier";
-import {dateInTimezone, dateTimeFormat, formatExactTime, formatZonedTime} from "./timezone";
-import {AttachmentList} from "./MessageAttachment";
-import {FilePreviewHost} from "./FileViewer";
-import {MessageReactions} from "./MessageReactions";
+import { dateInTimezone, dateTimeFormat, formatExactTime } from "./timezone";
+import { AttachmentList } from "./MessageAttachment";
+import { FilePreviewHost } from "./FileViewer";
+import { MessageReactions } from "./MessageReactions";
 import { applyUserReaction } from "./reactionState";
 import { applyMessageTask } from "./messageLink";
-import { clearMessageActions, setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
+import { setMessageActions, tappedMessageActionsId, useMessageActionsOpen } from "./messageActionsStore";
 import { attachmentUrl, fileKind } from "./filePreviewModel";
 import { DisplayCard } from "./DisplayCard";
 import { useQuestions } from "./useQuestions";
-import { toolDisplayState, toolDisplayLabel, toolActivityKey } from "./toolTimeline";
-import { requestFullToolResult, setToolResultLoader } from "./toolResultLoader";
+import { toolActivityKey } from "./toolTimeline";
+import { setToolResultLoader } from "./toolResultLoader";
 import { taskStateLabel } from "./ConversationTaskStatus";
-import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 import { rowIndicator } from "./rowIndicator";
 import { useMailDrafts } from "./mailDrafts";
-import { buildQuestionTimeline, compareQuestionTime } from "./questionTimeline";
-import { useDebugMode } from "./debugMode";
+import { buildQuestionTimeline } from "./questionTimeline";
 import type { SettingsEntry, SettingsTab, SettingsView } from "./SettingsShell";
-import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, RunContextView, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, WebToolSteps, whenPanelLoaded, PlanDock } from "./lazyPanels";
+import { AfterPaint, CoverShell, CoverView, SidebarShell, SidebarView, WidgetColumn, WidgetView, GreetingSetup, UpdateBanner, PermissionCoach, BotDesktopPanel, DeleteConversationDialog, ReassignPrimaryDialog, SearchPalette, RememberedApprovalsSheet, DesktopSkeleton, ViewOnlyChat, Onboarding, QuestionCard, TaskCard, ComposerStopMenu, FloatingDesktop, panelLoaded, preloadPanel, usePanelLoaded, SettingsPanel, SettingsSkeleton, warmPanelsWhenIdle, PlanDock } from "./lazyPanels";
 import { applyRunPlan } from "./planMerge";
 import { setPendingSection } from "./settings/pendingSection";
 import { linkRuntime, provideLinkDeps, subscribeSettingsDeepLinks, subscribeSidebarDeepLinks } from "./settings/deepLinks";
 import type { OpenLinkDeps } from "./settings/linkRuntime";
 import { BotIdentityCard } from "./BotIdentityCard";
 import { arrowOpens, OverlayPopover, OverlayMenu, OverlaySlot, pressToggle, SlotView } from "./overlays/OverlayHost";
-import { ActionHints, ConfirmAction, useAppearance, useSurfacePresence } from "./InteractionSystem";
+import { ActionHints, useAppearance, useSurfacePresence } from "./InteractionSystem";
 import { useConversationScroll } from "./useConversationScroll";
 import { sidebarAvailable } from "./featureFlags";
 import { conversationPath, readConversationRoute, readSideParam, withSideParam } from "./conversationRoute";
@@ -70,11 +67,11 @@ import { ComposerGlyph } from "./ComposerGlyph";
 import { intlLocale } from "./i18n/format";
 import { BrandLogo } from "./BrandLogo";
 import { PinDock, PinDropZone, PinTile } from "./PinnedDock";
-import { applyLayout, fillSlots, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
+import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "./sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "./useSidebarDnd";
 import { usePhoneSwipeBack } from "./usePhoneSwipeBack";
-import { createContext, lazy, memo, startTransition, Suspense, useCallback, useContext, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal, flushSync } from "react-dom";
+import { lazy, memo, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { errorText } from "./errorText";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } from "./api";
 import { codeText } from "./i18n/codeText";
@@ -94,7 +91,7 @@ import { DeliveryNote, SendReceipt, preloadSendFailure } from "./SendReceipt";
 import { applyInbox } from "./messageDelivery";
 import { receiptFor, runsByTrigger } from "./sendReceipts";
 import { activeBotRuns, botRecentlyActive, latestBotWorkTime, latestHumanMessageTime } from "./botActivity";
-import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, compareToolActivities, elapsedToolSeconds,  isComputerAction, orderToolActivities, toolActionLabel, toolArgumentPreview, toolAttemptIssues, toolSourceLabel } from "./toolTimeline";
+import { reconcileToolActivity, activeToolForRun, buildToolRunAnchors, buildToolSummaryAnchors, buildToolTimeline, compareActivityTime, toolActionLabel } from "./toolTimeline";
 import { foldCompletedProgress, isMidRunKind } from "./runProgress";
 import { mergeRunUpdates } from "./runMerge";
 import { draftDeltaApplies } from "./draftDelta";
@@ -105,7 +102,7 @@ import { layerRoot } from "./layers";
 import { useProxyChallenge } from "./ProxyChallengeSlot";
 import { shouldShowReplyQuote } from "./replyQuote";
 import { buildRetryFamilies, indexMessages, isTerminalRun, retryFamilyAnchor } from "./runFamily";
-import { clearSentDraft, composerClientMessageId, composerDraftMatchesMessage, composerMessageContent, composerMessageSignature, parseStoredDrafts, storableDrafts, type ComposerReply } from "./composerDraft";
+import { clearSentDraft, composerClientMessageId, composerMessageContent, composerMessageSignature, parseStoredDrafts, storableDrafts, type ComposerReply } from "./composerDraft";
 import { outboxStorageKey, writeOutbox, type OutboxEntry, type SendPayload } from "./outbox";
 import type { OutboxContext, OutboxController } from "./outboxController";
 import { adoptPreview, dropPreview, registerPreview } from "./attachmentImages";
@@ -116,28 +113,28 @@ import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "./types";
 import { MOTION, EASE } from "./motion";
 import { useWidgetAutomation } from "./useWidgetAutomation";
-import { ComputerLookButton, ComputerLookContext } from "./ComputerLookButton";
-import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterConversation, foldWidget, forgetWidgets, isEmpty, moveWidget, normalizeWidgetOrder, openCover, openSidebar, openWidget, stashWidgets, suppressedRunsOf, toggleSidebar, WIDGET_ORDER, toggleSidebarExpanded, toggleWidget, type CoverId, type SidebarId, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
+import { ComputerLookContext } from "./ComputerLookButton";
+import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterConversation, foldWidget, forgetWidgets, isEmpty, moveWidget, normalizeWidgetOrder, openCover, openSidebar, openWidget, stashWidgets, toggleSidebar, WIDGET_ORDER, toggleSidebarExpanded, toggleWidget, type CoverId, type SidebarId, type Surfaces, type WidgetId, type WidgetsByConversation } from "./surfaces";
 import { useSurfaceEscape } from "./useSurfaceEscape";
 import type { SurfaceCtx } from "./SurfaceViews";
+import { traceUnderReply } from "./workTraceLayout";
+import { Avatar, SenderHead, blockKey, formatTime, jumpToMessage, messageId, previewText } from "./chat/shared";
+import { ActivityViewContext, CompactLiveLine, ExpiryFinishingContext, LiveRunStatus, RunStartContext, RunStatusAnnouncement, ToolActivityList, WorkingMembers, setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "./chat/RunActivity";
 
 // The page-wide file drop target loads right after first paint; it is not needed to draw the shell.
 const BotBrowserPanel = lazy(() => import("./BotBrowserPanel").then(m => ({default: m.BotBrowserPanel})));
-
 const WebFileDropOverlay = lazy(() => import("./WebFileDropOverlay").then(module => ({ default: module.WebFileDropOverlay })));
 // Shown only before the first Bot exists.
 /** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
 const WorkTrace = lazy(() => import("./WorkTrace"));
 /** The Mac app's narrow window (it is never under 820 px): the sidebar is a capsule that opens over the chat. */
 const MAC_NARROW = "(min-width:768px) and (max-width:1023px)";
-import { traceUnderReply } from "./workTraceLayout";
 const DayOneTemplates = lazy(() => import("./DayOneTemplates"));
 const HandoverChips = lazy(() => import("./HandoverChips"));
 const FirstRunHero = lazy(() => import("./FirstRunHero").then(module => ({ default: module.FirstRunHero })));
 const WorkspaceToast = lazy(() => import("./WorkspaceToast").then(module => ({ default: module.WorkspaceToast })));
 const SettingsChangeNotice = lazy(() => import("./SettingsChangeNotice"));
 const MailDraftCard = lazy(() => import("./MailDraftCard").then(module => ({ default: module.MailDraftCard })));
-
 /** The sidebar a `?side=` address names opens with the page; widgets and covers never come from the address. */
 /** Where the person's widget order is kept: this browser, this account (a per-viewer preference, the same in every conversation). */
 const widgetOrderKey = (accountId?: string) => `tofi:widget-order:${accountId ?? "local"}`;
@@ -150,16 +147,13 @@ const initialSurfaces = (accountId?: string): Surfaces => {
 };
 type SidebarLayout = { pinned: string[]; sections: Record<string, string> };
 type SidebarContextMenu = { x: number; y: number; conversation: Conversation };
-type ToolDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 type ToolSummaryState = { loading: boolean; error?: string };
-
 function loadedToolRunIDs(messages: Message[], runs: Run[] = []) {
   const messageIDs = new Set(messages.map(message => message.id));
   const runIDs = new Set(messages.map(message => message.run_id).filter((id): id is string => Boolean(id)));
   for (const run of runs) if (run.trigger_message_id && messageIDs.has(run.trigger_message_id)) runIDs.add(run.id);
   return [...runIDs];
 }
-
 function terminalToolRunIDs(messages: Message[], runs: Run[]) {
   const runByID = new Map(runs.map(run => [run.id, run]));
   return loadedToolRunIDs(messages, runs).filter(id => {
@@ -167,7 +161,6 @@ function terminalToolRunIDs(messages: Message[], runs: Run[]) {
     return status !== undefined && status !== "queued" && status !== "running" && status !== "waiting";
   });
 }
-
 function readSidebarLayout(): SidebarLayout {
   try {
     const value = JSON.parse(localStorage.getItem("tofi:sidebar-layout") ?? "null") as Partial<SidebarLayout> | null;
@@ -176,7 +169,6 @@ function readSidebarLayout(): SidebarLayout {
     return { pinned: [], sections: {} };
   }
 }
-
 function relatedChatTarget(message: Message, source: Conversation, conversations: Conversation[], bots: Bot[]): ViewOnlyChatTarget | null {
   const targetID = message.notice?.target_conversation_id;
   if (!targetID || targetID === source.id || (message.kind !== "notice" && message.kind !== "forward_result" && message.kind !== "message_ref")) return null;
@@ -200,8 +192,7 @@ function relatedChatTarget(message: Message, source: Conversation, conversations
   const sentBySource = Boolean(fromBotID && (source.bot_id === fromBotID || source.bot_ids.includes(fromBotID)));
   return { source, target, sourceBotIds: fromBotID ? [fromBotID] : undefined, targetBotIds: targetBotIDs, sourceName, targetName, runId: message.notice?.target_run_id || undefined, label: sentBySource ? "Messaged" : "Message from" };
 }
-
-type ComposerAttachment = {
+export type ComposerAttachment = {
   key: string;
   id?: string;
   name: string;
@@ -210,7 +201,7 @@ type ComposerAttachment = {
   type: string;
   file?: File;
 };
-type ComposerDraft = {
+export type ComposerDraft = {
   content: string;
   attachments: ComposerAttachment[];
   reply?: ComposerReply;
@@ -218,14 +209,11 @@ type ComposerDraft = {
 };
 type StoredComposerDraft = Omit<ComposerDraft, "attachments"> & { attachments: Omit<ComposerAttachment, "file">[] };
 type ComposerDrafts = Record<string, ComposerDraft>;
-
 const emptyComposerDraft = (): ComposerDraft => ({ content: "", attachments: [] });
-
 /** Per server instance and per owner: a shared browser never shows one person's unsent text to the next. */
 function composerDraftStorageKey(instanceId: string, ownerId?: string) {
   return `tofi:composer-drafts:${window.location.origin}:${instanceId}${ownerId ? `:${ownerId}` : ""}`;
 }
-
 function readComposerDrafts(key: string): ComposerDrafts {
   try {
     const nativeDrafts = isDesktop ? desktopState().drafts : undefined;
@@ -235,7 +223,6 @@ function readComposerDrafts(key: string): ComposerDrafts {
     return {};
   }
 }
-
 function writeComposerDrafts(key: string, drafts: ComposerDrafts) {
   try {
     const { stored, kept } = storableDrafts(drafts);
@@ -247,57 +234,29 @@ function writeComposerDrafts(key: string, drafts: ComposerDrafts) {
     // The in-memory draft remains authoritative when storage is unavailable.
   }
 }
-
-function Avatar({ id, group = false, mini = false, motion, members }: { label: string; id: string; group?: boolean; mini?: boolean; motion?: AvatarMotion; members?: string[] }) {
-  if (group) return <span className={`avatar group-avatar ${mini ? "mini" : ""}`} aria-hidden="true"><GroupAvatar ids={members ?? []} iconSize={mini ? 14 : 19} /></span>;
-  return <BotAvatar id={id} mini={mini} motion={motion} />;
-}
-
-const runStatusKeys = {
-  queued: "run_status.queued",
-  running: "run_status.running",
-  waiting: "run_status.waiting",
-  done: "run_status.done",
-  failed: "run_status.failed",
-  cancelled: "run_status.cancelled",
-  interrupted: "run_status.interrupted",
-} as const satisfies Record<Run["status"], string>;
 /** The watchdog restarts an unresponsive computer; only these states need the person's attention. */
 const computerHealthAlert = (health?: ComputerHealth) => health?.state === "restarting" || health?.state === "unresponsive";
 const computerPhaseKeys: Record<string, "computer_phase.checking" | "computer_phase.storage" | "computer_phase.network" | "computer_phase.booting" | "computer_phase.restoring" | "computer_phase.verifying" | "computer_phase.ready"> = { checking: "computer_phase.checking", storage: "computer_phase.storage", network: "computer_phase.network", booting: "computer_phase.booting", restoring: "computer_phase.restoring", verifying: "computer_phase.verifying", ready: "computer_phase.ready" };
-
-/**
- * One stable identity for a person's message from the moment it is typed until it is history. The optimistic copy and
- * the server's copy carry the same client_message_id, so React keeps one DOM node across the swap and nothing replays.
- */
-function blockKey(message: Message) {
-  return message.role === "user" && message.client_message_id ? `cm:${message.client_message_id}` : message.id;
-}
-
 function asMessage(data: EventEnvelope): Message | null {
   const value = data.message ?? data;
   return typeof value === "object" && value !== null && "id" in value ? (value as Message) : null;
 }
-
 function asRun(data: EventEnvelope): (Partial<Run> & { id: string }) | null {
   const value = data.run ?? data;
   if (typeof value !== "object" || value === null) return null;
   const id = "id" in value && typeof value.id === "string" ? value.id : typeof data.run_id === "string" ? data.run_id : "";
   return id ? ({ ...value, id } as Partial<Run> & { id: string }) : null;
 }
-
 function asMemory(data: EventEnvelope): Memory | null {
   const value = data.memory ?? data;
   return typeof value === "object" && value !== null && "id" in value ? (value as Memory) : null;
 }
-
 function asToolActivity(data: EventEnvelope): ToolActivity | null {
   const value = data.activity ?? data.tool_activity ?? data;
   if (typeof value !== "object" || value === null) return null;
   const candidate = value as Partial<ToolActivity>;
   return typeof candidate.run_id === "string" && typeof candidate.call_id === "string" && typeof candidate.name === "string" && typeof candidate.status === "string" ? candidate as ToolActivity : null;
 }
-
 function asBot(data: EventEnvelope): Bot | null {
   const value = data.bot ?? data;
   if (typeof value !== "object" || value === null) return null;
@@ -305,42 +264,15 @@ function asBot(data: EventEnvelope): Bot | null {
   return typeof candidate.id === "string" && typeof candidate.name === "string" &&
     typeof candidate.dm_conversation_id === "string" ? value as Bot : null;
 }
-
-function messageId() {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  // LAN HTTP does not expose randomUUID, but still supports getRandomValues.
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 /** What Copy puts on the clipboard: the message as the reader sees it, without the sender context label or reply marker. */
 function copyableMessageText(message: Message) {
   const body = readReplyMarker(message.content.replace(/^\[sender [^\]\n]*? id=[^\]\n]+\]\s*/, "")).body.trim();
   return body.replace(/\]\(attachment:([^)\s]+)\)/g, (_, id) => `](${location.origin}${attachmentUrl(id)})`);
 }
-
-
 /** Holds a message's action bar and mounts it only while that message is the active one. */
 function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
   return useMessageActionsOpen(id) ? <>{children}</> : null;
 }
-
-/** Scrolls to a message and flashes it once without leaving a persistent frame. */
-function jumpToMessage(target: HTMLElement | null | undefined) {
-  if (!target) return;
-  target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
-  target.focus({ preventScroll: true });
-  const block = target.closest<HTMLElement>(".message-block") ?? target;
-  // A data attribute, not a class: the block's className is rewritten by React whenever its arrival flags change, which wiped the flash.
-  block.removeAttribute("data-jump-target");
-  void block.offsetWidth;
-  block.setAttribute("data-jump-target", "");
-  window.setTimeout(() => block.removeAttribute("data-jump-target"), 1700);
-}
-
 /** Holds a jump to message `id` for its first moments. Just after a conversation opens the list can remount its rows (the
  * flash then sits on a node that is gone) and the scroll hook can still land on the newest message (a phone, once the
  * list pane has slid away). Within the settle window the flash goes back on the node that stayed, and the message is
@@ -360,109 +292,32 @@ function keepJump(id: string, root: () => HTMLElement | null) {
   };
   window.setTimeout(tick, 100);
 }
-
-/** Live rows in the conversation time the whole run, not just its first tool. */
-const ExpiryFinishingContext = createContext<ReadonlySet<string>>(new Set());
-const RunStartContext = createContext<ReadonlyMap<string, number>>(new Map());
-/** Whether chat shows Activity rows, and which runs were opened one by one from a message's action menu. */
-const ActivityViewContext = createContext<{ show: boolean; revealed: ReadonlySet<string>; /** Opens one run's steps from its live line (adds it to `revealed`, never removes). */ reveal: (runId: string) => void }>({ show: false, revealed: new Set(), reveal: () => {} });
-/** The run whose steps a live line just opened: its toggle takes focus where the line was. */
-let focusToggleOfRun = "";
-
-function useNow(active: boolean, interval = 1000) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), interval);
-    return () => window.clearInterval(timer);
-  }, [active, interval]);
-  return now;
-}
-
-/** Shown in the conversation while a run has neither tool steps nor reply text yet. */
-/** Avatar + name that opens a sender group in a group chat (hidden by CSS when the unit continues the previous one). */
-function SenderHead({ id, name }: { id: string; name: string }) {
-  return <div className="sender-head"><div className="sender-avatar"><Avatar label={name} id={id} mini /></div><span className="sender-name">{name}</span></div>;
-}
-
-/** The one compact process line of a working run: loading mark, "Browsing the web · 10s". Part of the Bot's sender group; a button when the run's steps can be opened from it. */
-function CompactLiveLine({ label, botId, botName, at, showName, ariaLabel, onOpen }: { label: string; botId: string; botName: string; at: string; showName: boolean; ariaLabel: string; onOpen?: () => void }) {
-  const line = <><LiveMark /><span className="process-line-text web-tool-live-label">{label}</span>{onOpen && <Icon className="web-tool-chevron process-line-chevron" name="chevron-right" size={14} aria-hidden="true" />}</>;
-  return <section className={`tool-message web-tool-run is-live live-run-status${showName ? " is-group" : ""}`} aria-label={ariaLabel} data-sender={showName ? botId : undefined} data-at={showName ? at : undefined}>
-    {showName && <SenderHead id={botId} name={botName} />}
-    <div className="web-tool-disclosure"><div className="web-tool-summary">{onOpen ? <button type="button" className="web-tool-toggle" aria-expanded="false" onClick={onOpen}>{line}</button> : <span className="web-tool-toggle is-static">{line}</span>}</div></div>
-  </section>;
-}
-
-function LiveRunStatus({ run, botName, showName }: { run: Run; botName: string; showName: boolean }) {
-  const { t } = useTranslation("chat");
-  const now = useNow(true);
-  const started = Date.parse(run.created_at);
-  const seconds = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : 0;
-  const label = run.finishing_reason === "approval_expired" ? t("live.finishing") : run.status === "queued" ? t("live.waiting_start") : run.kind === "triage" ? t("live.triaging") : t("live.thinking");
-  return <CompactLiveLine label={`${label}${run.finishing_reason === "approval_expired" ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}`} botId={run.bot_id} botName={botName} at={run.created_at} showName={showName} ariaLabel={t("live.status_label", { name: botName })} />;
-}
-
-/** A working run outside a task block while Activity is hidden: its current step as one line, no step list. */
-function LiveToolLine({ runId, items, now, botName, senderId }: { runId: string; items: ToolActivity[]; now: number; botName: string; senderId?: string }) {
-  const { t } = useTranslation("chat");
-  const finishing = useContext(ExpiryFinishingContext).has(runId);
-  const runStart = useContext(RunStartContext).get(runId);
-  const { reveal } = useContext(ActivityViewContext);
-  const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
-  const seconds = runStart !== undefined ? Math.max(0, Math.floor((now - runStart) / 1000)) : undefined;
-  const label = finishing ? t("live.finishing") : `${current ? toolActionLabel(current) : t("live.thinking")}${seconds === undefined ? "" : ` · ${formatRunDuration(seconds * 1000, false)}`}`;
-  return <CompactLiveLine label={label} botId={senderId ?? items[0]?.bot_id ?? ""} botName={botName} at={new Date(runStart ?? now).toISOString()} showName={Boolean(senderId)} ariaLabel={t("live.status_label", { name: botName })} onOpen={() => reveal(runId)} />;
-}
-
-/** Short run durations keep their tenths; longer runs read as minutes and hours. */
-function formatRunDuration(ms: number, precise = true) {
-  const total = ms / 1000;
-  if (total < 60) return precise ? `${total.toFixed(1)}s` : `${Math.floor(total)}s`;
-  const rounded = Math.round(total), hours = Math.floor(rounded / 3600), minutes = Math.floor(rounded % 3600 / 60), secs = rounded % 60;
-  return hours ? i18n.t("chat:duration.hours_minutes", { hours, minutes }) : i18n.t("chat:duration.minutes_seconds", { minutes, seconds: secs });
-}
-function formatTime(value: string, timeZone: string) {
-  return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(value));
-}
-
 function formatListTime(value: string, timeZone: string) {
   const date = new Date(value);
   const now = new Date();
   if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
   return dateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
 }
-
 function formatDay(value: string, timeZone: string) {
   return dateTimeFormat(intlLocale(), { month: "long", day: "numeric", weekday: "short", timeZone }).format(new Date(value));
 }
-
-function previewText(value: string, max = 160) {
-  const normalized = readReplyMarker(value).body.replace(/\[(.*?)]\([^)]*\)?|[*_`#>]/g, "$1").replace(/\s+/g, " ").trim();
-  return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
-}
-
 function formatDateDivider(value: string, timeZone: string) {
   return `${formatDay(value, timeZone)} ${formatTime(value, timeZone)}`;
 }
-
 /** The server pings every 15s; this much silence on a stream means the link died without closing. */
 const STREAM_STALE_MS = 30_000;
 const LINK_LOSS_GRACE_MS = 4000;
 const STREAM_WAKE_STALE_MS = 20_000;
-
 function App() {
   return <TimezoneProvider><Workspace /></TimezoneProvider>;
 }
-
-function Workspace() {
+export function Workspace() {
   const nativePanel = useNativeSidePanel();
   const { bridge: panelBridge, request: requestPanel } = nativePanel;
   const { t } = useTranslation(["chat", "common"]);
   const {timezone, showActivity} = useUserTimezone();
   const [revealedRuns, setRevealedRuns] = useState<ReadonlySet<string>>(() => new Set());
-  const revealRun = useCallback((runId: string) => { focusToggleOfRun = runId; setRevealedRuns(current => current.has(runId) ? current : new Set(current).add(runId)); }, []);
+  const revealRun = useCallback((runId: string) => { setFocusToggleOfRun(runId); setRevealedRuns(current => current.has(runId) ? current : new Set(current).add(runId)); }, []);
   const activityView = useMemo(() => ({ show: showActivity, revealed: revealedRuns, reveal: revealRun }), [showActivity, revealedRuns, revealRun]);
   const appearance = useAppearance();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(Boolean(desktopState().sidebarCollapsed));
@@ -2862,15 +2717,13 @@ function Workspace() {
     </div>
   );
 }
-
 /** Cross-conversation capsules are stored with English labels; show them in the UI language. */
-function localizeMessageRef(content: string) {
+export function localizeMessageRef(content: string) {
   const text = content.trim();
   if (text.startsWith("Message from ")) return i18n.t("chat:related.message_from", { name: text.slice(13) });
   if (text.startsWith("Messaged ")) return i18n.t("chat:related.messaged", { name: text.slice(9) });
   return text;
 }
-
 function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; onOpen: (target: ViewOnlyChatTarget) => void }) {
   const { t } = useTranslation("chat");
   const targetIDs = target.targetBotIds?.length ? target.targetBotIds : target.target.kind === "group" ? target.target.bot_ids : [target.target.bot_id ?? target.target.id];
@@ -2880,18 +2733,15 @@ function RelatedMessageLink({ target, onOpen }: { target: ViewOnlyChatTarget; on
   const visibleDisplayIDs = displayIDs.slice(0, 3);
   return <button type="button" className="related-message-link" aria-label={label === "Message from" ? t("related.from_aria", { name: displayName }) : t("related.to_aria", { name: displayName })} onClick={() => onOpen(target)}><span>{label === "Message from" ? t("related.from") : t("related.to")}</span><span className="related-message-avatars">{visibleDisplayIDs.map((id) => <BotAvatar key={id} id={id} mini />)}{displayIDs.length > visibleDisplayIDs.length && <em>+{displayIDs.length - visibleDisplayIDs.length}</em>}</span><span className="related-message-name">{displayName}</span><Icon name="chevron-right" size={14} /></button>;
 }
-
 function SmoothStreamMarkdown({ content, mention, active, streaming = false }: { content: string; mention?: React.ReactNode; active: boolean; streaming?: boolean }) {
   const visible = useSmoothStreamText(content, active);
   return <MessageMarkdown content={visible} mention={mention} cursor={active} reuse={!streaming} />;
 }
-
 const SNAPSHOT_CACHE_LIMIT = 50;
 /** Blocks drawn before the first paint of a conversation that opens at its newest message. */
 const FIRST_PAINT_BLOCKS = 12;
 const SNAPSHOT_CACHE_MESSAGES = 60;
 interface ConversationSnapshot { messages: Message[]; drafts: Record<string, StreamDraft>; runs: Run[]; toolActivities: ToolActivity[]; toolSummaries: ToolActivityRunSummary[]; memories: Memory[]; hasMore: boolean }
-
 export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const hasComputer = useHasComputer();
   const { t } = useTranslation("chat");
@@ -2995,9 +2845,8 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const userAttachments = isUser && hasAttachments ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
   return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" || message.local?.state === "retrying" ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}{userAttachments}{!mediaOnly && <div className="message-content" ref={answerRef}>{avatar}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>}{!isUser && hasAttachments && <div className="message-attachments bot-attachments">{mediaOnly && avatar}<AttachmentList attachments={message.attachments} /></div>}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
-
 /** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
-interface RowModel {
+export interface RowModel {
   message: Message; isLast: boolean; arrival: boolean; streamed: boolean; dividerLabel?: string; unread: boolean; timezone: string;
   canReact: boolean; isGroup: boolean; archived: boolean;
   /** The draft whose live text this row follows, and whether the bubble shows it as still being written. */
@@ -3017,9 +2866,8 @@ interface RowModel {
   /** Task cards under this message: plain models whose identity holds until the task changes. */
   taskCards?: TaskCardModel[];
 }
-
 /** Stable entry points a row calls; each forwards to the workspace's newest closure, so they never change identity. */
-interface RowHandlers {
+export interface RowHandlers {
   openMenu: (messageId: string, x: number, y: number) => void;
   closeMenu: () => void;
   hostPointerDown: () => void;
@@ -3039,12 +2887,11 @@ interface RowHandlers {
   mention: (bot: Bot) => void;
   setReaction: (message: Message, emoji: string, present: boolean) => Promise<void>;
 }
-
 /**
  * One message in the timeline. It is skipped unless its own model changed, and the text of a message still
  * being written reaches it directly from the draft stream: a streamed chunk redraws this row and nothing else.
  */
-const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: RowModel; h: RowHandlers; stream: DraftStream }) {
+export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: RowModel; h: RowHandlers; stream: DraftStream }) {
   const { t } = useTranslation("chat");
   const live = useLiveDraft(stream, m.liveId);
   const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
@@ -3075,288 +2922,7 @@ const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: Ro
     {m.afterTools ? <ToolActivityList activities={m.afterTools} summaries={m.afterSummaries} summaryErrors={m.afterSummaryErrors} summaryLoading={m.afterSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} group={m.isGroup} /> : null}
   </div>;
 }, (previous, next) => previous.h === next.h && previous.stream === next.stream && rowModelEqual(previous.model, next.model));
-
-export function RunStatusAnnouncement({ conversationId, runs, botById, ready, taskAnnouncements }: { conversationId: string; runs: Run[]; botById: Map<string, Bot>; ready: boolean; taskAnnouncements?: Map<string, string> }) {
-  const previous = useRef<Map<string, string> | null>(null);
-  const silentHistory = useRef(new Set<string>());
-  const [announcement, setAnnouncement] = useState("");
-  useEffect(() => {
-    if (!ready) { previous.current = null; silentHistory.current.clear(); setAnnouncement(""); return; }
-    const current = buildRetryFamilies(runs.filter(run => run.conversation_id === conversationId && run.kind !== "triage")).map(family => family.latest);
-    const before = previous.current;
-    const labels = new Map(current.map(run => [run.id, taskAnnouncements?.get(run.id) ?? taskPhaseLabel({run})]));
-    previous.current = labels;
-    // Initial and replacement snapshots are silent; duplicate SSE is semantic no-op.
-    if (!before) { silentHistory.current = new Set(current.filter(run => isTerminalRun(run)).map(run => run.id)); return; }
-    const changed = current.filter(run => !silentHistory.current.has(run.id) && before.get(run.id) !== labels.get(run.id));
-    if (changed.length) setAnnouncement(changed.slice(0, 3).map(run => `${botById.get(run.bot_id)?.name ?? "Bot"}: ${labels.get(run.id)}`).join("; "));
-  }, [conversationId, runs, botById, ready, taskAnnouncements]);
-  useEffect(() => {
-    if (!ready) return;
-    const feedback = (event: Event) => { const detail = (event as CustomEvent<{conversationId:string;text:string}>).detail; if (detail?.conversationId === conversationId && typeof detail.text === "string") setAnnouncement(detail.text); };
-    window.addEventListener("tofi:task-feedback", feedback);
-    return () => window.removeEventListener("tofi:task-feedback", feedback);
-  }, [conversationId, ready]);
-  return <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>;
-}
-
-type RunSignal = { thinking?: string; retryUntil?: number };
-
-function WorkingMembers({ isGroup, companionBotId, companionMotion, workingBotIds, runs, drafts, botById, toolActivities, signals = {}, connected }: { isGroup: boolean; companionBotId?: string; companionMotion?: AvatarMotion; workingBotIds: string[]; drafts: StreamDraft[]; runs: Run[]; botById: Map<string, Bot>; toolActivities: ToolActivity[]; signals?: Record<string, RunSignal>; connected: boolean }) {
-  const { t } = useTranslation("chat");
-  const [now, setNow] = useState(() => Date.now());
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const priorPositions = useRef(new Map<string, DOMRect>());
-  useLayoutEffect(() => {
-    const row = rowRef.current;
-    if (!row) { priorPositions.current.clear(); return; }
-    const next = new Map<string, DOMRect>();
-    for (const element of row.querySelectorAll<HTMLElement>("[data-working-key]")) {
-      const key = element.dataset.workingKey;
-      if (!key) continue;
-      const bounds = element.getBoundingClientRect();
-      const before = priorPositions.current.get(key);
-      if (before && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        const dx = before.left - bounds.left;
-        const dy = before.top - bounds.top;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }], { duration: MOTION.base, easing: EASE.settle });
-      }
-      next.set(key, bounds);
-    }
-    priorPositions.current = next;
-  });
-  const hasLiveRun = runs.some(run => run.status === "running" || run.status === "queued");
-  useEffect(() => {
-    if (!hasLiveRun) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, [hasLiveRun]);
-  // Member presence stays separate from the task's outcome presentation.
-  const liveRuns = new Map([...activeBotRuns(runs, drafts, toolActivities), ...runs.filter(run => run.status === "waiting")].map(run => [run.id, run]));
-  const visible = [...liveRuns.values()];
-  const external = workingBotIds.filter(botId => {
-    if ([...liveRuns.values()].some(run => run.bot_id === botId)) return false;
-    const latest = runs.filter(run => run.bot_id === botId).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    return !latest || !isTerminalRun(latest);
-  });
-  const companionRun = companionBotId ? visible.find(run => run.bot_id === companionBotId && ["queued", "running", "waiting"].includes(run.status)) : undefined;
-  const companionExternal = Boolean(companionBotId && external.includes(companionBotId));
-  if (!visible.length && !external.length && !companionBotId) return null;
-  const labelForRun = (run: Run) => {
-    if (run.finishing_reason === "approval_expired") return t("live.finishing");
-    if (!connected && ["queued", "running", "waiting"].includes(run.status)) return t("working.disconnected");
-    if (run.status === "waiting") return t(runStatusKeys.waiting);
-    if (run.kind === "triage" && (run.status === "queued" || run.status === "running")) return t("working.triaging");
-    if (run.status === "queued") return t("live.waiting_start");
-    if (run.status !== "running") return t(runStatusKeys[run.status]);
-    const currentTool = activeToolForRun(toolActivities, run.id);
-    const elapsed = currentTool ? elapsedToolSeconds(currentTool, now) : undefined;
-    const writing = drafts.some(d => d.run_id === run.id && d.status === "active" && d.content.trim());
-    const runSeconds = Math.max(0, Math.floor((now - Date.parse(run.created_at)) / 1000));
-    const signal = signals[run.id];
-    const retryIn = signal?.retryUntil ? Math.ceil((signal.retryUntil - now) / 1000) : 0;
-    const thinking = retryIn > 0 ? t("working.busy_retry_in", { count: retryIn }) : signal?.thinking ? t("live.thinking_about", { headline: signal.thinking }) : t("live.thinking");
-    if (isDesktop) return currentTool ? `${toolActionLabel(currentTool)}${elapsed === undefined ? "" : ` · ${elapsed}s`}` : writing ? `${t("working.composing")}…` : `${thinking}…`;
-    const seconds = Number.isFinite(runSeconds) ? runSeconds : 0;
-    return currentTool ? `${toolActionLabel(currentTool)} · ${seconds}s` : writing ? `${t("working.composing")} · ${seconds}s` : `${thinking} · ${seconds}s`;
-  };
-  if (isGroup) {
-    const groupRuns = visible.filter(run => ["running", "waiting", "queued"].includes(run.status)).sort((a, b) => {
-      const rank = (run: Run) => run.status === "running" ? 0 : run.status === "waiting" ? 1 : 2;
-      return rank(a) - rank(b);
-    });
-    const activeIds = new Set(groupRuns.map(run => run.bot_id));
-    const groupExternal = external.filter(botId => !activeIds.has(botId));
-    if (!groupRuns.length && !groupExternal.length) return null;
-    let queuePosition = 0;
-    return <div className="working-members group-working-members" ref={rowRef} aria-label={t("working.group_queue")}>
-      {groupExternal.map(botId => <div className="working-member group-working-cat is-running" data-working-key={`external-${botId}`} key={`external-${botId}`} role="group" aria-label={t("working.aria", { name: botById.get(botId)?.name ?? "Bot", status: t("working.working") })}><BotAvatar id={botId} motion="working" /></div>)}
-      {groupRuns.map(run => {
-        const queued = run.status !== "running";
-        const position = queued ? ++queuePosition : 0;
-        const name = run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot";
-        return <div className={`working-member group-working-cat${queued ? " is-queued" : " is-running"}`} data-working-key={run.id} key={run.id} role="group" aria-label={t("working.aria", { name, status: queued ? t("working.queue_position", { position }) : labelForRun(run) })}>
-          <BotAvatar id={run.bot_id} motion={!connected || queued ? "awake" : "working"} />
-          {queued && <span className="group-queue-index" aria-hidden="true">{position}</span>}
-        </div>;
-      })}
-    </div>;
-  }
-  return <div className="working-members" ref={rowRef} aria-label={t("working.status_label")}>
-    {companionBotId && <div className="working-member work-active work-companion" key={`companion-${companionBotId}`} role="group" aria-label={t("working.aria", { name: botById.get(companionBotId)?.name ?? "Bot", status: companionRun ? labelForRun(companionRun) : companionExternal ? t("working.working") : companionMotion === "sleeping" ? t("working.resting") : t("working.awake") })}>
-      <BotAvatar id={companionBotId} motion={companionRun ? companionRun.status === "running" ? "working" : "awake" : companionExternal ? "working" : companionMotion ?? "sleeping"} />
-      {companionRun && isDesktop && <span className="working-label">{connected ? labelForRun(companionRun) : t("working.uncertain")}</span>}
-      {!companionRun && companionExternal && <span className="working-label">{t("working.working")}</span>}
-    </div>}
-    {visible.filter(run => run !== companionRun).map(run => {
-    const waiting = run.status === "waiting";
-    const active = run.status === "queued" || run.status === "running" || waiting;
-    const uncertain = !connected && active;
-    const label = labelForRun(run);
-    const name = run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot";
-    const visibleLabel = isGroup && run.kind !== "triage" ? t("live.named", { name, status: label }) : label;
-    if (active) return <div className={`working-member work-active${uncertain ? " work-uncertain" : ""}`} key={run.id} role="group" title={`${name} · ${label}`} aria-label={t("working.aria", { name, status: label })}>
-      <BotAvatar id={run.bot_id} motion={!uncertain && run.status === "running" ? "working" : "awake"} />
-      {isDesktop && <span className="working-label">{uncertain ? t("working.uncertain") : visibleLabel}</span>}
-    </div>;
-    return null;
-  })}{external.filter(botId => botId !== companionBotId).map(botId => {
-    const name = botById.get(botId)?.name ?? "Bot";
-    return <div className="working-member work-active" key={`external-${botId}`} role="group" title={`${name} · ${t("working.working")}`} aria-label={t("working.aria", { name, status: t("working.working") })}>
-      <BotAvatar id={botId} motion="working" />
-      <span className="working-label">{isGroup ? t("working.named_working", { name }) : t("working.working")}</span>
-    </div>;
-  })}</div>;
-}
-
-export function RetryFamilyAudit({ latest, previous, botName, children }: { latest: Run; previous: Run[]; botName: string; children?: React.ReactNode }) {
-  const { t } = useTranslation("chat");
-  const issue = presentTaskIssue({ run:latest });
-  if (!issue && !previous.length) return null;
-  return <section className="run-attempt-family" data-latest-run-id={latest.id} aria-label={t("retry.status_label", { name: botName })}>
-    {issue && <p>{issue.title}</p>}
-    {previous.length > 0 && <details className="run-attempt-history"><summary>{t("retry.previous", { count: previous.length })}</summary>{children}</details>}
-  </section>;
-}
-
-
-function ToolActivityList({ activities, progress = [], summaries = [], summaryErrors = {}, summaryLoading = {}, details = {}, onLoadDetails, onRetrySummary, botById, activeRunIds, group = false }: { group?: boolean; activities: ToolActivity[]; progress?: Message[]; summaries?: ToolActivityRunSummary[]; summaryErrors?: Record<string, string>; summaryLoading?: Record<string, boolean>; details?: Record<string, ToolDetailState>; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; botById: Map<string, Bot>; activeRunIds: Set<string> }) {
-  const { t } = useTranslation("chat");
-  const { timezone } = useUserTimezone();
-  const [now, setNow] = useState(() => Date.now());
-  const hasLiveTool = activities.some(activity => activeRunIds.has(activity.run_id));
-  useEffect(() => {
-    if (!hasLiveTool) return;
-    const interval = window.setInterval(() => setNow(Date.now()), isDesktop ? 1000 : 100);
-    return () => window.clearInterval(interval);
-  }, [hasLiveTool]);
-  const view = useContext(ActivityViewContext);
-  if (!activities.length && !progress.length && !summaries.length && !Object.keys(summaryErrors).length && !Object.keys(summaryLoading).length) return null;
-  const summariesByRunID = new Map(summaries.map(summary => [summary.run_id, summary]));
-  const grouped = [...new Set([...activities.map((a) => a.run_id), ...progress.map(message => message.run_id).filter((id): id is string => Boolean(id)), ...summaries.map(summary => summary.run_id), ...Object.keys(summaryErrors), ...Object.keys(summaryLoading)])].map((runId) => {
-    const allItems = orderToolActivities(activities.filter((a) => a.run_id === runId));
-    const notes = progress.filter(message => message.run_id === runId).sort((a, b) => a.seq - b.seq);
-    return { runId, items: allItems, notes, summary: summariesByRunID.get(runId), summaryError: summaryErrors[runId], summaryLoading: summaryLoading[runId] };
-  }).sort((a, b) => compareQuestionTime(a.notes[0]?.created_at ?? a.items[0]?.started_at ?? a.summary?.started_at ?? "", b.notes[0]?.created_at ?? b.items[0]?.started_at ?? b.summary?.started_at ?? "") || a.runId.localeCompare(b.runId));
-  const shown = grouped.filter(group => view.show || view.revealed.has(group.runId) || activeRunIds.has(group.runId));
-  if (!shown.length) return null;
-  return <div className="work-details" aria-label={t("tools.details")}>{shown.map(({ runId, items, notes, summary, summaryError, summaryLoading: loadingSummary }) => !view.show && !view.revealed.has(runId) ? <LiveToolLine key={runId} runId={runId} items={items} now={now} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} /> : <ToolActivityRun key={runId} runId={runId} items={items} notes={notes} summary={summary} summaryError={summaryError} summaryLoading={loadingSummary} detail={details[runId]} onLoadDetails={onLoadDetails} onRetrySummary={onRetrySummary} live={activeRunIds.has(runId)} now={now} timezone={timezone} botName={botById.get(items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "")?.name ?? "Bot"} senderId={group ? items[0]?.bot_id ?? notes[0]?.sender_bot_id ?? summary?.bot_id ?? "" : undefined} />)}</div>;
-}
-
-type ToolRunProps = { senderId?: string; runId: string; items: ToolActivity[]; notes: Message[]; summary?: ToolActivityRunSummary; summaryError?: string; summaryLoading?: boolean; detail?: ToolDetailState; onLoadDetails?: (runId: string, offset: number) => Promise<void>; onRetrySummary?: (runId: string) => void; live: boolean; now: number; timezone: string; botName: string };
-
-function toolSummaryIssues(summary?: ToolActivityRunSummary): string {
-  if (!summary) return "";
-  return [summary.failed_count ? i18n.t("chat:tools.failed_count", { count: summary.failed_count }) : "", summary.interrupted_count ? i18n.t("chat:tools.interrupted_count", { count: summary.interrupted_count }) : "", summary.pending_count ? i18n.t("chat:tools.pending_count", { count: summary.pending_count }) : "", summary.expired_count ? i18n.t("chat:tools.expired") : "", summary.skipped_count ? i18n.t("chat:tools.skipped_count", { count: summary.skipped_count }) : ""].filter(Boolean).join(" · ");
-}
-
-function toolRunTimes(items: ToolActivity[], notes: Message[], summary?: ToolActivityRunSummary) {
-  const starts = [...items.map(item => Date.parse(item.started_at)), ...notes.map(note => Date.parse(note.created_at)), Date.parse(summary?.started_at ?? "")].filter(Number.isFinite);
-  const ends = [...items.map(item => Date.parse(item.updated_at)), ...notes.map(note => Date.parse(note.created_at)), Date.parse(summary?.updated_at ?? "")].filter(Number.isFinite);
-  return { first: starts.length ? Math.min(...starts) : Number.NaN, last: ends.length ? Math.max(...ends) : Number.NaN };
-}
-
-/** The "Context" row at the foot of a reply's activity: what the model received (D53). The view is its own chunk, fetched on first open. */
-function RunContextEntry({ runId, timezone }: { runId: string; timezone: string }) {
-  const { t } = useTranslation("chat");
-  const [open, setOpen] = useState(false);
-  return <Collapsible.Root className="run-context-entry" open={open} onOpenChange={setOpen}>
-    <Collapsible.Trigger className="run-context-toggle"><Icon className="web-tool-chevron" name="chevron-right" size={14} /><span>{t("runContext.toggle")}</span></Collapsible.Trigger>
-    <Collapsible.Content className="collapsible-content"><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></Collapsible.Content>
-  </Collapsible.Root>;
-}
-
-function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
-  const { t } = useTranslation(["chat", "common"]);
-  const finishing = useContext(ExpiryFinishingContext).has(runId);
-  const revealedHere = useContext(ActivityViewContext).revealed.has(runId);
-  const [expanded, setExpanded] = useState(revealedHere);
-  const stepsRef = useRef<HTMLOListElement>(null);
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const labelRef = useRef<HTMLSpanElement>(null);
-  // Set when the one-line label was cut at the moment the steps opened: the drawer then carries it whole.
-  const [clipped, setClipped] = useState(false);
-  const priorStepKeys = useRef("");
-  const priorStepsHeight = useRef(0);
-  const growthAnimation = useRef<Animation | null>(null);
-  const times = toolRunTimes(items, notes, summary);
-  const lastTime = live && !finishing ? now : times.last;
-  const firstTime = times.first;
-  const duration = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime ? formatRunDuration(lastTime - firstTime) : undefined;
-  const current = activeToolForRun(items, runId) ?? items.find(item => item.status === "queued");
-  const count = summary?.tool_count ?? (summaryError || summaryLoading ? undefined : items.length);
-  const issues = live
-    ? [summary?.failed_count ?? items.filter(item => item.status === "failed" && toolDisplayState(item) === "failed").length, summary?.interrupted_count ?? items.filter(item => item.status === "interrupted").length]
-        .map((value, index) => value ? t(index ? "tools.interrupted_count" : "tools.failed_count", { count: value }) : "").filter(Boolean).join(" · ")
-    : summary ? toolSummaryIssues(summary) : toolAttemptIssues(items);
-  const runStart = useContext(RunStartContext).get(runId);
-  const liveSeconds = live && runStart !== undefined ? Math.max(0, Math.floor((now - runStart) / 1000)) : undefined;
-  const liveTimer = liveSeconds === undefined ? "…" : ` · ${formatRunDuration(liveSeconds * 1000, false)}`;
-  const activityLabel = finishing ? t("live.finishing") : live ? current?.status === "queued" ? `${t("tools.preparing")}${liveTimer}` : current ? `${t("tools.busy")}${liveTimer}` : `${t("live.thinking")}${liveTimer}` : summaryError ? t("tools.details_unavailable") : issues ? t("tools.incomplete") : t("tools.process");
-  const entries = [...items.map(activity => ({ type: "tool" as const, at: activity.started_at, activity })), ...notes.map(note => ({ type: "note" as const, at: note.created_at, note }))].sort((a, b) => compareQuestionTime(a.at, b.at));
-  const hasMoreDetails = Boolean(detail?.hasMore && (count === undefined || items.length < count));
-  const loadDetails = () => {
-    if (!onLoadDetails || detail?.loading || (count !== undefined && items.length >= count) || (detail?.hasMore === false && detail !== undefined)) return;
-    void onLoadDetails(runId, detail?.loaded ?? 0);
-  };
-  const stepKeys = entries.map(entry => entry.type === "tool" ? toolActivityKey(entry.activity) : entry.note.id).join("\u001f");
-  useLayoutEffect(() => {
-    const steps = stepsRef.current;
-    if (!steps) return;
-    const nextHeight = steps.scrollHeight;
-    const added = stepKeys && stepKeys !== priorStepKeys.current && entries.length > (priorStepKeys.current ? priorStepKeys.current.split("\u001f").length : 0);
-    const fromHeight = priorStepsHeight.current;
-    priorStepKeys.current = stepKeys;
-    priorStepsHeight.current = nextHeight;
-    if (!live || !expanded || !added || window.matchMedia("(prefers-reduced-motion: reduce)").matches || nextHeight <= fromHeight) return;
-    growthAnimation.current?.cancel();
-    steps.style.overflow = "hidden";
-    const animation = steps.animate([{ height: `${fromHeight}px` }, { height: `${nextHeight}px` }], { duration: MOTION.panelIn, easing: EASE.out });
-    growthAnimation.current = animation;
-    void animation.finished.finally(() => { if (growthAnimation.current === animation) { growthAnimation.current = null; steps.style.overflow = ""; } }).catch(() => undefined);
-  }, [entries.length, expanded, live, stepKeys]);
-  useEffect(() => () => { growthAnimation.current?.cancel(); }, []);
-  // Opened from a message's "View activity": the steps are wanted at once.
-  useEffect(() => { if (revealedHere) loadDetails(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Opened from this run's live line: focus stays where the line was.
-  useLayoutEffect(() => { if (focusToggleOfRun === runId) { focusToggleOfRun = ""; toggleRef.current?.focus({ preventScroll: true }); } }, [runId]);
-  const issueCount = summary ? summary.failed_count + summary.interrupted_count + summary.pending_count : items.filter(item => ["failed", "not_executed", "interrupted"].includes(toolDisplayState(item))).length;
-  const fullLabel = `${activityLabel}${!live && count !== undefined ? ` · ${t("tools.call_count", { count })}` : ""}${issues ? ` · ${issues}` : ""}${notes.length ? ` · ${t("tools.report_count", { count: notes.length })}` : ""}${!live && duration !== undefined ? ` · ${duration}` : ""}`;
-  return <section data-activity-run={runId} className={`tool-message web-tool-run${live ? " is-live" : ` is-complete${issues ? " has-tool-issues" : ""}`}`} aria-label={t("tools.steps_label", { name: botName })} data-sender={senderId || undefined} data-at={senderId && Number.isFinite(lastTime) ? new Date(lastTime).toISOString() : undefined}>
-    {senderId && <SenderHead id={senderId} name={botName} />}
-    <Collapsible.Root className="web-tool-disclosure" open={expanded} onOpenChange={next => {
-      const label = labelRef.current;
-      if (next) { if (label && label.scrollWidth > label.clientWidth) setClipped(true); loadDetails(); }
-      // The drawer opens on its steps, never empty: a cold chunk is waited for (it is warmed on hover) before the open starts.
-      if (next && !panelLoaded("toolSteps")) void whenPanelLoaded("toolSteps").then(() => setExpanded(true));
-      else setExpanded(next);
-    }}>
-      <div className="web-tool-summary">
-        {!live && Number.isFinite(lastTime) && <time>{formatTime(new Date(lastTime).toISOString(), timezone)}</time>}
-        <Collapsible.Trigger asChild><button type="button" ref={toggleRef} className="web-tool-toggle" aria-label={live ? undefined : fullLabel}>
-          {live && <LiveMark />}
-          {!live && <Icon className="web-tool-chevron" name="chevron-right" size={14} />}
-          {live ? <span ref={labelRef} className="process-line-text web-tool-live-label">{fullLabel}</span>
-            : <><Icon className="web-tool-glyph" name="terminal" size={14} aria-hidden="true" /><span ref={labelRef} className="process-line-text web-tool-compact" aria-hidden="true">{count !== undefined && <span>{count}</span>}{duration !== undefined && <span className="web-tool-quiet">{duration}</span>}{issueCount > 0 && <span className="web-tool-issues"><Icon name="alert" size={13} aria-hidden="true" />{issueCount}</span>}{notes.length > 0 && <span className="web-tool-quiet"><Icon name="file-text" size={13} aria-hidden="true" />{notes.length}</span>}</span></>}
-          {live && <Icon className="web-tool-chevron" name="chevron-right" size={14} aria-hidden="true" />}
-        </button></Collapsible.Trigger>
-        {live && current && isComputerAction(current) && <ComputerLookButton activity={current} />}
-      </div>
-      <Collapsible.Content forceMount className={`web-tool-drawer collapsible-content${expanded ? " is-open" : ""}`} inert={!expanded}><div className="web-tool-drawer-inner">
-      {clipped && <p className="web-tool-full">{fullLabel}</p>}
-      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
-      <RunContextEntry runId={runId} timezone={timezone} />
-      </div></Collapsible.Content>
-    </Collapsible.Root>
-  </section>;
-}
-
-/** One tool run, the same in the browser and the desktop app. */
-function ToolActivityRun(props: ToolRunProps) {
-  return <WebToolActivityRun {...props} />;
-}
-
-function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+export function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { elapsed: number; levels: number[]; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
   const { t } = useTranslation("chat");
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
   return <div className={`dictation-controls${busy ? " is-busy" : ""}`} aria-label={busy ? t("dictation.transcribing_label") : t("dictation.recording")}>
@@ -3367,7 +2933,6 @@ function DictationControls({ elapsed, levels, busy, onCancel, onConfirm }: { ela
     <button type="button" className="dictation-confirm" aria-label={t("dictation.finish")} disabled={busy} onClick={onConfirm}><Icon name="check" size={24} variant="filled" /></button>
   </div>;
 }
-
 function composerMentionParts(content: string, names: string[]) {
   const ordered = [...names].sort((a, b) => b.length - a.length);
   const parts: React.ReactNode[] = [];
@@ -3384,7 +2949,6 @@ function composerMentionParts(content: string, names: string[]) {
   if (plainStart < content.length) parts.push(content.slice(plainStart));
   return parts.length > 0 && parts.some((part) => typeof part !== "string") ? parts : null;
 }
-
 function ComposerPerch({ botId, sending, working, latestReplyId }: { botId: string; sending: boolean; working: boolean; latestReplyId?: string }) {
   const [config, setConfig] = useState(() => getBotAvatarConfig(botId));
   const cat = useRef<CatHandle>(null);
@@ -3402,7 +2966,6 @@ function ComposerPerch({ botId, sending, working, latestReplyId }: { botId: stri
   }, [latestReplyId]);
   return <span className="composer-perch" aria-hidden="true"><CatStage config={config} ref={cat} autoplay /></span>;
 }
-
 /** True when `next` is `previous` with text inserted somewhere and nothing removed or replaced. */
 function isPureInsertion(previous: string, next: string) {
   if (next.length < previous.length) return false;
@@ -3412,7 +2975,6 @@ function isPureInsertion(previous: string, next: string) {
   while (end < previous.length - start && previous[previous.length - 1 - end] === next[next.length - 1 - end]) end++;
   return start + end >= previous.length;
 }
-
 /** The chip's leading tile: a picture's own thumbnail when the file is still here, the family tile otherwise. */
 function ComposerChipTile({ attachment }: { attachment: { name: string; type: string; file?: File } }) {
   const kind = fileKind(attachment.name, attachment.type);
@@ -3425,8 +2987,7 @@ function ComposerChipTile({ attachment }: { attachment: { name: string; type: st
   }, [kind, attachment.file]);
   return <span className="composer-attachment-type" aria-hidden="true"><FileTile name={attachment.name} kind={kind} thumb={thumb} size={28} /></span>;
 }
-
-function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, onRunsStopped, onStopError, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, dictationReady, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; /** Every run still working in this conversation (several Bots can work in a group). */ allRuns: Run[]; stepRunIds: string[]; latestReplyId?: string; onRunsStopped: (runs: Run[]) => void; onStopError: (message: string) => void; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, files?: ComposerAttachment[], draftSignature?: string, flightOrigin?: DOMRect, plain?: string, reply?: ComposerReply) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; dictationReady: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
+export function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, onRunsStopped, onStopError, avatarMention, conversation, bots, draft, onDraftChange: updateDraftFor, onSend, onSendStart, onSent, modelConfigured, dictationReady, onConnectModel, draftReady, readOnly = false }: { workStatus: React.ReactNode; activeRun?: Run; /** Every run still working in this conversation (several Bots can work in a group). */ allRuns: Run[]; stepRunIds: string[]; latestReplyId?: string; onRunsStopped: (runs: Run[]) => void; onStopError: (message: string) => void; avatarMention: { name: string; conversationId: string; nonce: number } | null; conversation: Conversation; bots: Bot[]; draft: ComposerDraft; onDraftChange: (conversationId: string, update: (draft: ComposerDraft) => ComposerDraft) => void; onSend: (content: string, clientMessageId: string, files?: ComposerAttachment[], draftSignature?: string, flightOrigin?: DOMRect, plain?: string, reply?: ComposerReply) => Promise<boolean>; onSendStart?: () => void; onSent: () => void; modelConfigured: boolean; dictationReady: boolean; onConnectModel: () => void; draftReady: boolean; readOnly?: boolean }) {
   const { t } = useTranslation("chat");
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState("");
@@ -3753,6 +3314,5 @@ function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestReplyId, o
   });
   return <form className={`composer${dragging ? " is-dragging" : ""}${!modelConfigured ? " is-no-model" : ""}${!content.trim() && !attachments.length && !sending ? " is-send-empty" : ""}`} onSubmit={(event) => void submit(event)}>{readOnly ? <div className="composer-tools"><span className="config-warning">{t("composer.archived")}</span></div> : !draftReady ? <DelayedFeedback><div className="composer-tools"><span className="config-warning">{t("composer.restoring_draft")}</span></div></DelayedFeedback> : !modelConfigured && <ModelBanner botId={conversation.kind === "dm" ? conversation.bot_id || conversation.bot_ids[0] : undefined} name={conversation.name} onConnect={onConnectModel} />}{dictation.permissionNeeded && <Suspense fallback={null}><PermissionCoach permissions={["microphone"]} force onDismiss={dictation.clearPermission} /></Suspense>}{!isDesktop && dictation.starting && <div className="dictation-status is-starting" role="status">{t("composer.mic_connecting")}</div>}{dictation.error && !dictation.permissionNeeded && <div className="dictation-status" role="status">{dictation.error}</div>}<input ref={imageRef} type="file" accept="image/*" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /><input ref={fileRef} type="file" hidden multiple onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} />{workStatus}<div className="composer-row">{!isDesktop && <Suspense fallback={null}><WebFileDropOverlay key={`drop-${conversation.id}`} inputRef={textareaRef} enabled={canCompose && !sending && !dictation.listening && !dictation.busy} onDrop={(files, origin) => { dropOrigin.current = { ...origin, name:files[0].name }; addFiles(files); }} /></Suspense>}{!isDesktop && !readOnly && conversation.kind === "dm" && (conversation.bot_id || conversation.bot_ids[0]) && <ComposerPerch key={conversation.id} botId={conversation.bot_id || conversation.bot_ids[0]} sending={sending} working={activeRun?.status === "running"} latestReplyId={latestReplyId} />}{!(dictation.listening || dictation.busy) && <div className="composer-add-wrap" ref={addMenuRef}><button ref={addMenuTriggerRef} type="button" className="secondary-button" aria-label={t("composer.add_attachment")} aria-expanded={addMenuOpen} aria-haspopup="menu" disabled={sending || !canCompose} {...pressToggle(() => setAddMenuOpen(open => !open))} onKeyDown={arrowOpens(setAddMenuOpen)}><Icon name="plus" size={22} /></button>{addMenuOpen && <OverlayMenu open onOpenChange={setAddMenuOpen} className="composer-add-menu" label={t("composer.add_attachment")} trigger={addMenuTriggerRef} anchor={addMenuRef} side="top" sideOffset={12}><button type="button" onClick={() => { setAddMenuOpen(false); imageRef.current?.click(); }}><Icon className="composer-add-icon" name="image" size={20} />{t("composer.image")}<kbd>⌘⇧I</kbd></button><button type="button" onClick={() => { setAddMenuOpen(false); fileRef.current?.click(); }}><Icon className="composer-add-icon" name="file" size={20} />{t("composer.file")}<kbd>⌘⇧F</kbd></button><button type="button" onClick={() => void captureScreen()}><span className="composer-add-icon"><ComposerGlyph name="screenshot" size={20} /></span>{t("composer.screenshot")}</button><p>{t("composer.drop_hint")}</p></OverlayMenu>}</div>}<div ref={mentionWrapRef} className={`composer-input-wrap${mentionParts ? " has-mentions" : ""}`}>{reply && !readOnly && <div className="composer-reply" role="status"><Icon name="reply" size={15} /><span className="composer-reply-copy"><strong>{t("composer.replying_to", { name: reply.name })}</strong><span>{reply.excerpt}</span></span><button type="button" aria-label={t("composer.cancel_reply")} data-hint={t("composer.cancel_reply")} onClick={() => { onDraftChange(current => ({ ...current, reply: undefined })); textareaRef.current?.focus(); }}><Icon name="close" size={14} /></button></div>}{attachments.length > 0 && <div className="composer-attachments">{attachments.map((attachment) => <span key={attachment.key} className="composer-attachment-pill" data-name={attachment.name}><ComposerChipTile attachment={attachment} /><span className="composer-attachment-name">{attachment.name}</span>{!attachment.file && !attachment.id && ` · ${t("composer.reselect")}`}<button type="button" aria-label={t("composer.remove_attachment", { name: attachment.name })} disabled={sending || !canCompose || dictation.listening || dictation.busy} onClick={() => onDraftChange((current) => ({ ...current, attachments: current.attachments.filter((item) => item.key !== attachment.key) }))}><Icon name="close" size={18} /></button></span>)}</div>}{mentionParts && <div className="composer-rich-text" aria-hidden="true"><div style={{ transform:`translateY(-${composerScrollTop}px)` }}>{mentionParts}</div></div>}<textarea ref={textareaRef} aria-controls={mentionQuery !== null && mentionMatches.length ? `mention-${conversation.id}` : undefined} aria-activedescendant={mentionQuery !== null && mentionMatches[mentionIndex] ? `mention-${conversation.id}-${mentionMatches[mentionIndex].id}` : undefined} aria-label={t("composer.input_label", { name: conversation.name })} value={content} onPaste={event => { const files = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => file !== null); if (files.length) { event.preventDefault(); addFiles(files); } }} onKeyDown={handleKeyDown} onScroll={(event) => setComposerScrollTop(event.currentTarget.scrollTop)} onBlur={() => flushContent()} onChange={(event) => updateContent(event.target.value, event.target.selectionStart)} placeholder={dictation.listening ? t("composer.placeholder_recording") : dictation.busy ? t("composer.placeholder_transcribing") : readOnly ? t("composer.placeholder_archived") : !draftReady ? t("composer.placeholder", { name: conversation.name }) : canCompose ? t("composer.placeholder", { name: conversation.name }) : t("composer.placeholder_no_model")} disabled={!canCompose || sending || dictation.listening || dictation.busy} rows={1} />{mentionQuery !== null && mentionMatches.length > 0 && <OverlayPopover open onOpenChange={open => { if (!open) setMentionQuery(null); }} anchor={mentionAnchor} side="top" align="start" sideOffset={8} takeFocus={false} id={`mention-${conversation.id}`} className="mention-menu" role="listbox" aria-label={t("composer.mention_label", { name: conversation.name })}><div className="mention-menu-heading" role="presentation">{t("composer.mention_heading", { name: conversation.name })}</div>{mentionPill && <span className="web-mention-pill" aria-hidden="true" style={{ top:mentionPill.top, height:mentionPill.height }} />}{mentionMatches.map((bot, index) => <button ref={index === mentionIndex ? selectedMention : undefined} id={`mention-${conversation.id}-${bot.id}`} type="button" role="option" aria-selected={index === mentionIndex} className={index === mentionIndex ? "selected" : ""} key={bot.id} onMouseEnter={() => setMentionIndex(index)} onMouseDown={(event) => { event.preventDefault(); chooseMention(bot); }}><BotAvatar id={bot.id} mini /><span className="mention-name">{mentionQuery && bot.name.toLocaleLowerCase().startsWith(mentionQuery.toLocaleLowerCase()) ? <><mark>{bot.name.slice(0, mentionQuery.length)}</mark>{bot.name.slice(mentionQuery.length)}</> : bot.name}</span></button>)}<div className="mention-menu-hint" role="presentation">{t("composer.mention_hint")}</div></OverlayPopover>}</div>{dictation.listening || dictation.busy ? <DictationControls elapsed={dictation.elapsed} levels={dictation.levels} busy={dictation.busy} onCancel={dictation.cancel} onConfirm={dictation.confirm} /> : <>{dictation.supported && dictationReady && <button type="button" className={`dictation-button${!isDesktop && dictation.starting ? " is-starting" : ""}`} aria-label={!isDesktop && dictation.starting ? t("composer.cancel_mic") : t("composer.dictate")} title={!isDesktop && dictation.starting ? t("composer.cancel_mic") : dictation.notice || t("composer.dictate")} disabled={!dictation.starting && (sending || !canCompose)} onClick={!isDesktop && dictation.starting ? dictation.cancel : dictation.start}><ComposerGlyph name="mic" size={20} /></button>}{activeRun && !readOnly && !content.trim() && !attachments.length && <><button ref={stopTriggerRef} type="button" className="composer-stop" aria-label={t("composer.stop_label", { name: bots.find(bot => bot.id === activeRun.bot_id)?.name ?? "Bot" })} aria-haspopup="menu" aria-expanded={stopMenuOpen} disabled={!canCompose} onClick={() => { if (panelLoaded("stopMenu")) setStopMenuOpen(open => !open); else { preloadPanel("stopMenu"); void stopWorkingRuns(); } }} onKeyDown={arrowOpens(setStopMenuOpen)}><Icon name="stop" size={16} variant="filled" />{t("composer.stop")}</button>{stopMenuOpen && <Suspense fallback={null}><ComposerStopMenu runs={working()} stepRunIds={stepRunIds} bots={bots} trigger={stopTriggerRef} onClose={() => setStopMenuOpen(false)} onStopped={onRunsStopped} onError={onStopError} /></Suspense>}</>}{(Boolean(content.trim()) || attachments.length > 0 || sending) && <button className="send-button" aria-label={t("composer.send")} disabled={(!content.trim() && !attachments.length) || !canCompose || sending || dictation.listening || dictation.busy}>{sending ? "…" : <Icon name="arrow-up" size={26} variant="filled" />}</button>}</>}</div>{fileError && <div className="error-text" role="alert">{fileError}</div>}</form>;
 }
-
 export default App;
-export { WorkingMembers, Composer, DictationControls, WebToolActivityRun, CompactLiveLine, RunStartContext };
+export { RunStatusAnnouncement, RetryFamilyAudit, WorkingMembers, WebToolActivityRun, CompactLiveLine, RunStartContext } from "./chat/RunActivity";
