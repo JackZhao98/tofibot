@@ -1,0 +1,8 @@
+.tb-input input {
+  flex: 1; min-width: 0; width: auto; min-height: 0; margin: 0; padding: 9px 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; transform: none; transition: none;
+  color: inherit; font: 400 14px/1.4 var(--font-body);
+}
+.tb-input--mono input { font-family: var(--font-mono); font-size: 13px; }
+.tb-input > .tb-icon { color: var(--muted); }
+.tb-input-suffix { font: 400 12px/1 var(--font-mono); color: var(--muted); }

@@ -1,0 +1,3 @@
+.tb-brandmark { flex: none; display: inline-grid; place-items: center; box-sizing: border-box; border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--logo-tile); }
+.tb-brandmark img { display: block; object-fit: contain; }
+.tb-brandmark--dark { background: var(--code-bg); }

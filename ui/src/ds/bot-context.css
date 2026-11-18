@@ -1,0 +1,9 @@
+/* Each Bot has its own colour (owner 2026-11-17): the ground of its avatar, picked in Bot settings. `tb-bot--<hue>` on a chat,
+   a bubble, a plan, a widget or an avatar maps the Bot's palette slot to two kit variables: --bot (the fill) and --bot-text
+   (the text shade). Five hues only (V3 PLAN S5): blue is the person's, and no Bot takes it. Slot names are stable across
+   skins; a skin may change a slot's value, never drop it. */
+.tb-bot--tomato { --bot: var(--tomato); --bot-text: var(--tomato-text); }
+.tb-bot--mustard { --bot: var(--mustard); --bot-text: var(--mustard-text); }
+.tb-bot--teal { --bot: var(--teal); --bot-text: var(--teal-text); }
+.tb-bot--grape { --bot: var(--grape); --bot-text: var(--grape-text); }
+.tb-bot--lime { --bot: var(--lime); --bot-text: var(--lime-text); }
