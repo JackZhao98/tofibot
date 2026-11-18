@@ -123,8 +123,12 @@ const ALLOWED = [
   [/^Checkbox/, "margin-top"], [/^Checkbox/, "margin-bottom"],  // the kit zeroes the hidden input's margin (V2 base gives inputs one)
   // Kit III: the Letter note title was a literal brown (#6d5a2a); the kit reads --mustard-text (no raw colours outside the skin).
   ...["color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"].map(property => [/^Letter in$/, property]),
-  [/^DraftCard form/, "width"],  // the kit's label column is 96px (spec 76px): "Category" plus the "Edited" mark does not fit in 76px
+  [/^DraftCard form/, "width"],
+  // DraftCard pending: the footer stops inside the bold edge (margin 2px, padding 10px), so it is 4px narrower.
+  ...["width", "padding-left", "padding-right"].map(property => [/^DraftCard (message|form)$/, property]),  // the kit's label column is 96px (spec 76px): "Category" plus the "Edited" mark does not fit in 76px
   [/^ScheduleCard run/, "opacity"], [/^ScheduleCard run/, "transform"],  // the running dot breathes: sampled at different times
+  // Letter in: the sender's round mark is centred on the name's line (vertical-align middle, 1px up); the spec drops it 5px below.
+  [/^Letter in/, "position"], [/^Letter in/, "height"],  // the FROM row is 4px shorter (22px, not 26px)
   [/^CodeBlock copied/, "animation-name"],  // the kit's copy glyph spins into the tick (owner exception, PLAN 8.3); the spec swaps at once
 ];
 

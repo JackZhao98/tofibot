@@ -13,6 +13,8 @@
 .tb-draft-fields dd { margin: 0; font: 600 14px/1.45 var(--font-body); color: var(--ink); }
 .tb-draft-fields .is-changed dd span { padding: 0 2px; background: linear-gradient(transparent 55%, color-mix(in oklab, var(--mustard) var(--hl-mix), transparent) 55% 95%, transparent 95%); }
 .tb-draft-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 12px; padding: 9px 12px 10px; border-top: var(--border-1) dashed var(--line); }
+/* The bold edge is an inset shadow; the dashed rule stops inside it, and the content stays where it was. */
+.tb-draft.is-pending .tb-draft-foot { margin-inline: var(--edge-bold); padding-inline: calc(12px - var(--edge-bold)); }
 .tb-draft-hint { font: 400 11px/1.3 var(--font-mono); color: var(--muted); }
 .tb-draft-end { margin-left: auto; }
 .tb-draft:not(.is-pending) .tb-draft-body { margin-top: 12px; font-size: 14px; line-height: 1.7; color: var(--ink-soft); border-left-color: var(--line); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
