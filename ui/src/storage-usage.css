@@ -1,3 +1,4 @@
+@layer legacy {
 .storage-main{display:grid;gap:10px;padding:14px 16px}
 .storage-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .storage-line strong{color:var(--ink);font:500 14px/1.4 var(--body)}
@@ -28,3 +29,4 @@
 .storage-table li span{min-width:0;overflow-wrap:anywhere}
 .storage-table li b{flex:none;color:var(--ink);font:12.5px/1.4 var(--body);font-variant-numeric:tabular-nums}
 @media(max-width:700px){.storage-tables{grid-template-columns:1fr}}
+}

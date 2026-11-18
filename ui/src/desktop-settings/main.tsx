@@ -1,8 +1,8 @@
+import "../cascade.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { i18nReady, useLanguage } from "../i18n";
 import { MacSettingsPage } from "./MacSettingsPage";
-import "../cascade.css";
 import "../fonts.css";
 import "../styles.css";
 import "../interaction-system.css";
@@ -25,6 +25,7 @@ import "../chat-header.css";
 import "../progressive-blur.css";
 import "../context-card.css";
 import "../focus-ring.css";
+import "../forced.css";
 import "./mac-settings.css";
 import { applySkin } from "../skin/skin";
 

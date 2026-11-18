@@ -1,4 +1,5 @@
 /* Usage widget (UsageWidget.tsx), inside a context card. Loads with the lazy chunk `usageWidget`. Filled surfaces, no outlines. */
+@layer legacy {
 .workspace .usage-widget { display: grid; gap: 14px; padding: 0 14px 8px; }
 .usage-widget-section { display: grid; gap: 8px; min-width: 0; }
 .workspace .usage-widget-section h3 { margin: 0; padding: 0; border: 0; color: var(--muted); font: 600 11px/1.3 var(--display); letter-spacing: .02em; }
@@ -65,3 +66,4 @@
 .context-card[data-card="usage"] .context-card-header{flex:none}
 .context-card[data-card="usage"]:not(.is-collapsed) .context-card-body{min-height:0;overflow:auto;overscroll-behavior:contain}
 .context-card[data-card="usage"]:not(.is-collapsed) .context-card-inner{overflow:visible}
+}

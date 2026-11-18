@@ -1,3 +1,4 @@
+@layer legacy {
 .workspace .display-card {
   box-sizing: border-box;
   width: min(520px, 100%);
@@ -131,5 +132,6 @@
   .workspace .display-card-mailhead { grid-template-columns: 36px minmax(0, 1fr); gap: 5px 8px; padding-right: 12px; }
   .workspace .display-card-mailhead > strong { padding-right: 70px; }
   .workspace .display-card-mailhead > .display-card-postmark { right: 8px; width: 62px; }
+}
 }
 

@@ -1,4 +1,5 @@
 /* Automatic behavior page: one row per behavior, a one-sentence description, then a quiet meta line. */
+@layer legacy {
 .auto-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:6px;color:var(--muted);font:12px/1.5 var(--body)}
 .auto-chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;font:600 12px/1.5 var(--body);color:var(--text-soft);background:color-mix(in srgb,var(--muted) 14%,transparent)}
 .auto-chip.is-env{color:var(--honey-text);background:color-mix(in srgb,var(--honey) 18%,transparent)}
@@ -20,3 +21,4 @@
 .standing-revoke{flex:none}
 .standing-empty,.standing-error,.standing-loading{margin:0;padding:14px 16px}
 @media(max-width:560px){.standing-item{flex-wrap:wrap}.standing-revoke{width:100%}}
+}

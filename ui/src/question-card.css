@@ -1,3 +1,4 @@
+@layer legacy {
 .workspace .question-message {
   display: flex;
   align-items: flex-end;
@@ -243,3 +244,4 @@
 .workspace .question-message .question-form-save-toggle { display: flex; align-items: flex-start; gap: 10px; font: 13px/1.5 var(--body); color: var(--ink); }
 .workspace .question-message .question-form-save-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
 .workspace .question-message .question-form-save-toggle small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+}

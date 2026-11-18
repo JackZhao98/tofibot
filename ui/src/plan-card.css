@@ -1,5 +1,6 @@
 /* Pinned step list (PlanCard.tsx): one quiet card per working Bot in the composer's top slot, the width of the message
    box. Frosted like the composer field so the two read as one dock; steps are meta type with state marks. */
+@layer legacy {
 .plan-dock{position:relative;z-index:2;box-sizing:border-box;width:100%;max-width:var(--chat-max);margin:0 auto var(--space-2);display:grid;gap:6px}
 .plan-dock-cards{display:grid;gap:6px;min-width:0}
 .plan-card-frame{min-width:0}
@@ -68,3 +69,4 @@
 
 @media(pointer:coarse){.plan-card-trigger{min-height:44px}.plan-step-pictures{margin:-10px -8px -10px 0;padding:10px 8px}}
 @media(prefers-reduced-motion:reduce){.plan-card-body[data-state=open]{animation:none}.plan-card-chevron{transition:none}}
+}

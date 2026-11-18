@@ -1,4 +1,5 @@
 /* What an account sees while the organization provides or restricts a resource: managed notes, the lock mark, the Settings banner. Tokens only. */
+@layer legacy {
 .provided-list{display:grid;gap:0;margin:10px 0 0;padding:0;list-style:none}
 .provided-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line-soft)}
 .provided-list li strong{color:var(--ink);font:600 14px/1.4 var(--body)}
@@ -15,3 +16,4 @@
 .workspace .settings-page-body .settings-sec.provided-own{margin-top:18px}
 .provided-own .field-note[data-own="note"]{margin:0 0 10px}
 .workspace .settings-page-body .provided-own-off{margin:16px 0 0;color:var(--muted)}
+}

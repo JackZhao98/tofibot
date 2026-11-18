@@ -1,4 +1,5 @@
 /* Settings > Environments: the list, its row controls and the add/configure dialogs. Tokens only; the card, row and badge are settings-components.css's. */
+@layer legacy {
 .env-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 12px}
 .workspace .settings-page-body .env-head p{margin:0;color:var(--muted);font:13px/1.6 var(--body)}
 .env-head .env-add{flex:none}
@@ -48,3 +49,4 @@
 html:not([data-desktop]) .settings-section>.field-note{margin:8px 0 0}
 /* An environment's features, one status badge per group (connected, disconnected, off). */
 .env-features{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-3)}
+}

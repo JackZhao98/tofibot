@@ -1,6 +1,6 @@
 // CSS layer guard (docs/design/interaction-libraries.md, Batch 1). Global defaults live in cascade layers, so they can
 // never override a component; component styles stay outside layers and always win over them.
-//  1. src/cascade.css declares the layer order, and every entry imports it before any other stylesheet.
+//  1. src/cascade.css declares the layer order, and every entry imports it before anything else.
 //  2. A ratchet over every stylesheet in src/: per file, these counts may go down, never up (baseline in
 //     scripts/css-layers-baseline.json; a new file starts at zero):
 //       global      a rule whose selector names no class or id (element, :root, html, body, attribute, pseudo) outside
@@ -9,6 +9,9 @@
 //       webFork     html:not([data-desktop]): the Mac app is not a fork of the web
 //       important   !important
 //       tokenDef    a custom property defined on :root or html outside the skin files (src/skin/)
+//  3. V3 PLAN 7.5: every product rule is in legacy or a global layer (only UNLAYERED sheets may sit outside), layers do
+//     not nest, third-party CSS reaches the page only through src/vendor/ in @layer vendor, entry HTML has no <style>,
+//     the long-lived sheets have no !important in legacy, and no legacy !important can reach a kit element.
 // Usage: node scripts/test-css-layers.mjs [--update]   (--update writes the current counts as the new baseline)
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -19,7 +22,7 @@ const src = join(ui, "src");
 const baselineFile = join(ui, "scripts", "css-layers-baseline.json");
 const failures = [];
 const fail = message => { failures.push(message); console.log(`FAIL ${message}`); };
-const ORDER = "@layer reset, tokens, skin, base, components, platform, utilities;";
+const ORDER = "@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;";
 const DEFAULT_LAYERS = new Set(["reset", "tokens", "skin", "base"]);
 
 // ---- 1. the order line comes first everywhere
@@ -28,8 +31,9 @@ if (!existsSync(cascade) || !readFileSync(cascade, "utf8").replace(/\/\*[\s\S]*?
 const walk = dir => readdirSync(dir).flatMap(name => { const path = join(dir, name); return statSync(path).isDirectory() ? walk(path) : [path]; });
 const entries = walk(src).filter(file => /(^|\/)main\.tsx$/.test(file));
 for (const entry of entries) {
-  const imports = [...readFileSync(entry, "utf8").matchAll(/^import "([^"]+\.css)";$/gm)].map(m => m[1]);
-  if (imports.length && !/(^|\/)cascade\.css$/.test(imports[0])) fail(`${relative(ui, entry)}: the first stylesheet must be cascade.css (found ${imports[0]})`);
+  // First of all imports, not only of the stylesheets: a component imported earlier would bring its CSS, and its layers, first.
+  const first = readFileSync(entry, "utf8").match(/^import\s+(?:[^"']+from\s+)?["']([^"']+)["']/m)?.[1] ?? "";
+  if (!/(^|\/)cascade\.css$/.test(first)) fail(`${relative(ui, entry)}: the first import must be cascade.css (found ${first})`);
 }
 
 // ---- 2. counts per stylesheet
@@ -83,6 +87,51 @@ if (process.argv.includes("--update")) {
   writeFileSync(baselineFile, `${JSON.stringify(current, null, 2)}\n`);
   console.log(`wrote ${relative(ui, baselineFile)}`);
 }
+// ---- 3. legacy and vendor
+const UNLAYERED = new Set(["cascade.css", "forced.css", "forced-focus.css", "oauth/connection.css"]);
+const LONG_LIVED = new Set(["styles.css", "settings/settings-polish.css", "settings-system.css", "interaction-system.css", "v2-app.css", "onboarding.css", "context-card.css", "focus-ring.css", "bot-settings.css"]);
+const GLOBAL_LAYERS = new Set([...DEFAULT_LAYERS, "legacy"]);
+const splitList = text => { const out = []; let depth = 0, start = 0; for (let i = 0; i < text.length; i += 1) { const c = text[i]; if (c === "(" || c === "[") depth += 1; else if (c === ")" || c === "]") depth -= 1; else if (c === "," && !depth) { out.push(text.slice(start, i)); start = i + 1; } } out.push(text.slice(start)); return out.map(part => part.trim()).filter(Boolean); };
+// Does the selector end in a bare element or *? Such a rule could land on a kit element.
+function endsBare(selector) {
+  let depth = 0, start = 0;
+  for (let i = 0; i < selector.length; i += 1) { const c = selector[i]; if (c === "(" || c === "[") depth += 1; else if (c === ")" || c === "]") depth -= 1; else if (!depth && /[\s>+~]/.test(c)) start = i + 1; }
+  const compound = selector.slice(start).replace(/::[a-z-]+(\([^)]*\))?/g, ""), inner = [];
+  let rest = "";
+  for (let i = 0; i < compound.length;) {
+    const open = compound.slice(i).match(/^:([a-z-]+)\(/);
+    if (!open) { rest += compound[i]; i += 1; continue; }
+    let level = 1, j = i + open[0].length; const from = j;
+    while (j < compound.length && level) { if (compound[j] === "(") level += 1; else if (compound[j] === ")") level -= 1; j += 1; }
+    if (open[1] === "is" || open[1] === "where") inner.push(compound.slice(from, j - 1));
+    i = j;
+  }
+  if (/[.#[]/.test(rest)) return false;
+  return inner.length ? inner.some(list => splitList(list).some(endsBare)) : true;
+}
+let legacyImportant = 0;
+for (const file of sheets) {
+  const name = relative(src, file);
+  for (const rule of rules(readFileSync(file, "utf8"))) {
+    if (skipped(rule.at)) continue;
+    const layers = layersOf(rule.at);
+    if (layers.length > 1) fail(`src/${name}: "${rule.selector}" is in nested layers (${layers.join(" > ")})`);
+    if (!UNLAYERED.has(name) && !layers.some(layer => GLOBAL_LAYERS.has(layer))) fail(`src/${name}: "${rule.selector}" must be in @layer legacy or a global layer`);
+    if (!layers.includes("legacy") || !/!\s*important/.test(rule.body)) continue;
+    legacyImportant += (rule.body.match(/!\s*important/g) || []).length;
+    if (LONG_LIVED.has(name)) fail(`src/${name}: "${rule.selector}" uses !important in a long-lived sheet; use :is(#_, ...) or forced.css`);
+    const parts = splitList(rule.selector);
+    if (/\.tb-/.test(rule.selector) || parts.some(endsBare)) fail(`src/${name}: "${rule.selector}" has a legacy !important that can reach a kit element`);
+  }
+}
+const code = walk(src).filter(file => /\.(ts|tsx|js|jsx)$/.test(file));
+for (const file of code) for (const [, spec] of readFileSync(file, "utf8").matchAll(/^import\s+(?:[^"']+from\s+)?["']([^"'.][^"']*\.css)["']/gm)) fail(`${relative(ui, file)}: import ${spec} through src/vendor/, in @layer vendor`);
+for (const file of sheets.filter(file => relative(src, file).startsWith("vendor/"))) {
+  const body = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").trim();
+  if (!/^(@import "[^"]+" layer\(vendor\);\s*)+$/.test(body)) fail(`${relative(ui, file)}: may only import third-party CSS with layer(vendor)`);
+}
+for (const name of readdirSync(ui).filter(entry => entry.endsWith(".html"))) if (/<style[\s>]/i.test(readFileSync(join(ui, name), "utf8"))) fail(`${name}: no inline <style> in entry HTML; unlayered CSS would beat legacy`);
+
 const baseline = existsSync(baselineFile) ? JSON.parse(readFileSync(baselineFile, "utf8")) : {};
 const totals = { global: 0, rootBump: 0, webFork: 0, important: 0, tokenDef: 0 };
 const lower = [];
@@ -96,6 +145,6 @@ for (const [file, tally] of Object.entries(current)) {
 }
 for (const [file, tally] of Object.entries(baseline)) if (!current[file]) for (const [key, value] of Object.entries(tally)) if (value) lower.push(`src/${file} ${key} ${value} -> 0`);
 if (lower.length && !process.argv.includes("--update")) fail(`counts went down; lock the progress in with --update:\n  ${lower.join("\n  ")}`);
-console.log(`totals: ${Object.entries(totals).map(([key, value]) => `${key} ${value}`).join(", ")} across ${Object.keys(current).length} of ${sheets.length} stylesheets`);
+console.log(`totals: ${Object.entries(totals).map(([key, value]) => `${key} ${value}`).join(", ")} across ${Object.keys(current).length} of ${sheets.length} stylesheets; legacyImportant ${legacyImportant}`);
 if (failures.length) { console.log(`css-layers: ${failures.length} failure(s)`); process.exit(1); }
 console.log("css-layers: PASS");

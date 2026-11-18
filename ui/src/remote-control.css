@@ -1,4 +1,5 @@
 /* Remote control this Mac: one filled block (settings-simplify.md 5). Tokens only; no borders around the group, a soft line between rows. */
+@layer legacy {
 .rc-block{display:block;margin:0 0 20px;padding:0 16px;border-radius:14px;background:var(--surface-2);min-width:0}
 .rc-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 0;min-width:0}
 .rc-row+.rc-row,.rc-note+.rc-row{border-top:1px solid var(--line-soft)}
@@ -37,3 +38,4 @@
   .rc-side{max-width:none;flex-basis:100%;justify-content:flex-start;padding-left:30px}
 }
 @media(max-width:700px){.rc-more{width:44px;height:44px}}
+}

@@ -2,6 +2,7 @@
    intentionally not imported: its demo class names and static cats are not app UI. */
 
 /* Shell and navigation: the web sidebar is solid, never decorative glass. */
+@layer legacy {
 .workspace,.workspace .chat-pane,.workspace .chat-body,.workspace .message-scroll {
   background:var(--bg); color:var(--ink);
 }
@@ -129,7 +130,7 @@
 .workspace .date-divider,.workspace .unread-divider { margin:24px auto; color:var(--muted); font:11px/1.3 var(--mono); }
 .workspace .date-divider::before,.workspace .date-divider::after { background:var(--line-soft); }
 .workspace .unread-divider { color:var(--orange-text); }
-.workspace .unread-divider::before,.workspace .unread-divider::after { background:var(--orange)!important; }
+:is(#_,.workspace .unread-divider)::before,:is(#_,.workspace .unread-divider)::after{background:var(--orange)}
 /* Sender-neutral spacing; grouping, metadata and reactions keep their own gaps. */
 .workspace .message { margin-bottom:10px; }
 .workspace .message.message-compact { margin-bottom:6px; }
@@ -295,7 +296,8 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .composer-rich-text { position:absolute; inset:0; z-index:0; padding:4px 4px 8px; overflow:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; color:var(--ink); font:15px/1.55 var(--body); }
 .workspace .composer-rich-text>div { position:relative; }
 .workspace .composer-at-chip { padding:0; border-radius:4px; background:var(--pink); color:var(--on-block); box-shadow:3px 0 0 var(--pink),-3px 0 0 var(--pink); font-weight:inherit; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
-.workspace .composer-input-wrap.has-mentions textarea { position:relative; z-index:1; color:transparent !important; -webkit-text-fill-color:transparent; caret-color:var(--yellow); }
+.workspace .composer-input-wrap.has-mentions textarea { position:relative; z-index:1; -webkit-text-fill-color:transparent; caret-color:var(--yellow); }
+:is(#_,.workspace .composer-input-wrap.has-mentions textarea){color:transparent}
 .workspace .composer-input-wrap.has-mentions textarea::selection { background:color-mix(in srgb,var(--pink) 35%,transparent); }
 .workspace .composer > .working-members {
   position:relative; z-index:2; display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 14px;
@@ -495,7 +497,6 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 .workspace .message-list.is-positioning{visibility:hidden}
 /* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each
    layout change (a speaker-change margin, say) by a frame. The message list changes layout as it renders; it must not. */
-@media (prefers-reduced-motion: reduce) { .workspace .message-list, .workspace .message-list * { transition: none !important; } }
 /* Account menu: project links open in a new tab and end with an external-link mark; the browser language carries a grey tag. */
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:8px 10px; border-radius:9px; color:var(--ink-soft); font:14px/1.3 var(--body); text-decoration:none; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>span { flex:1; }
@@ -536,5 +537,6 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 }
 @media (prefers-reduced-transparency:reduce) {
   :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+}
 }
 

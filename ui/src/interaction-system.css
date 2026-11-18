@@ -5,6 +5,7 @@ body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 form[aria-busy=true]{cursor:progress}
 }
+@layer legacy {
 .workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
 .workspace .contact-row:focus-visible{outline-offset:-3px}
@@ -138,7 +139,8 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-detail:not(.is-expanded) .remote-desktop-surface{aspect-ratio:8/5;display:grid;place-items:center;border-radius:16px}
 .computer-detail:not(.is-expanded) .computer-screen{width:100%;height:100%;max-height:none;object-fit:contain}
 .remote-preview-hint{display:none}
-.desktop-launch-preview{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:var(--desktop-screen)!important;border:1px solid var(--desktop-controls-edge);border-radius:16px;margin:16px 0 0;color:var(--desktop-controls-ink)!important}
+.desktop-launch-preview{width:100%;aspect-ratio:16/9;display:grid;place-items:center;border:1px solid var(--desktop-controls-edge);border-radius:16px;margin:16px 0 0}
+:is(#_,.desktop-launch-preview){background:var(--desktop-screen);color:var(--desktop-controls-ink)}
 .desktop-launch-action{display:grid;justify-items:center;gap:10px;font-size:12px;opacity:.6;transition:opacity var(--m-base),transform var(--m-panel-in) var(--ease-out)}
 .desktop-launch-preview:hover .desktop-launch-action{opacity:1;transform:translateY(-2px)}
 .computer-viewer-status{font-size:12px}.computer-viewer-actions .secondary-button{font-size:12px;padding:6px 8px;min-height:30px;background:transparent;border:0}
@@ -229,7 +231,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .extension-card>.disclosure .disclosure-inner>button{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--text);font-size:12px}
 .extension-card>strong{display:block;overflow-wrap:anywhere}
 .confirm-action{display:inline-flex;max-width:100%;align-items:center}
-.confirm-action>[hidden]{display:none!important}
+:is(#_,.confirm-action>[hidden]){display:none}
 .inline-confirmation{display:flex;align-items:center;flex-wrap:wrap;gap:6px;animation:hint-enter var(--m-quick) var(--ease-out) both}
 .inline-confirmation>span{font-size:12px;color:var(--text-soft)}
 .inline-confirmation button{white-space:nowrap}
@@ -270,3 +272,4 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 @keyframes collapsible-open{from{grid-template-rows:0fr;opacity:0}to{grid-template-rows:1fr;opacity:1}}
 @keyframes collapsible-close{from{grid-template-rows:1fr;opacity:1;visibility:visible}to{grid-template-rows:0fr;opacity:0;visibility:hidden}}
 @media(prefers-reduced-motion:reduce){.collapsible-content{animation:none}}
+}

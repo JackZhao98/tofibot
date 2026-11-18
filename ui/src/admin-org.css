@@ -1,6 +1,7 @@
 /* Administration: groups, organization resources, the Group column and the bulk bar. Tokens only (src/skin/). */
 
 /* Accounts list: a checkbox, the open-account row, and the Group menu. The row stays one button; the menu sits beside it. */
+@layer legacy {
 .admin-row-wrap{display:grid;grid-template-columns:32px minmax(0,1fr) 168px;align-items:center;min-width:0;padding-left:12px}
 .admin-row-wrap[data-selected]{background:color-mix(in srgb,var(--iris) 8%,var(--surface))}
 .admin-row-wrap .admin-row{grid-template-columns:40px minmax(0,1.1fr) 200px minmax(0,1fr)}
@@ -120,3 +121,4 @@
 .org-resource .file-store-destination { display: grid; gap: 6px; margin-top: 12px; }
 .org-resource .file-store-destination > label { margin: 0; }
 .org-resource .file-store-destination > select { width: 100%; min-width: 0; }
+}

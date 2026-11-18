@@ -1,0 +1,2 @@
+/* Third-party CSS sits below legacy, so terminal.css keeps winning over it, and below the kit. */
+@import "@xterm/xterm/css/xterm.css" layer(vendor);

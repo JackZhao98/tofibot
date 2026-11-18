@@ -1,6 +1,7 @@
 /* Bot settings > Tools (BotTools.tsx, docs/design/tools-and-connections.md section 3.4). Loads with the lazy chunk `botSettings`.
    Filled surfaces, no outlined rows. Motion tokens only: a list fades in over --m-quick; a revoked row folds away over --m-panel-out
    (leaving is shorter than entering); an off connection dims over --m-quick. Reduced motion: no animation, no transition. */
+@layer legacy {
 .bot-tools { display:grid; gap:26px; min-width:0; }
 .bt-group { display:grid; gap:10px; min-width:0; }
 .bt-group-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
@@ -44,3 +45,4 @@
 @media (max-width:560px) { .bt-group-head { align-items:flex-start; flex-direction:column; gap:4px; } .bt-facts > div { grid-template-columns:1fr; gap:2px; } .bt-row { padding:12px; } }
 @media (prefers-reduced-motion:reduce) { .bt-list { animation:none; } .bt-row, .bt-conn .bt-row-copy, .bt-conn .service-mark, .bt-allow, .bt-link, .bt-link > svg, .bt-open { transition:none; } }
 .bt-env > svg { flex:none; color:var(--muted); }
+}

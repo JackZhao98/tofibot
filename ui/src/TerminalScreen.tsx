@@ -1,7 +1,7 @@
 import {useEffect,useRef} from "react";
 import {Terminal} from "@xterm/xterm";
 import {FitAddon} from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
+import "./vendor/xterm.css";
 import {i18n,useTranslation} from "./i18n";
 
 export type TerminalChunk={data_base64:string;next_cursor:number;gap?:boolean;closed?:boolean;drained?:boolean};

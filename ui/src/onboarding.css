@@ -2,6 +2,7 @@
    Colours, edge and shadow come from the skin (src/skin/); nothing here sets a fixed width on a button or label,
    so long German and French copy wraps instead of being cut. */
 
+@layer legacy {
 .onb-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px 16px; box-sizing:border-box;
   background:color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:onb-fade var(--m-base) var(--ease-out, ease-out); }
 .onb-sheet { position:relative; display:flex; flex-direction:column; width:min(680px,100%); max-height:calc(100dvh - 48px); box-sizing:border-box; min-width:0;
@@ -82,7 +83,8 @@
 .onb-connected strong { display:flex; align-items:center; gap:6px; font:700 17px/1.3 var(--display); }
 .onb-connected p { margin:3px 0 0; color:var(--ink-soft); font-size:13px; line-height:1.5; }
 .onb-connected-cat { --cat:72px; }
-.onb-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px !important; }
+.onb-chips { display:flex; flex-wrap:wrap; gap:6px; }
+:is(#_,.onb-chips){margin-top:8px}
 .onb-chips code, .onb-tile code { padding:2px 8px; border-radius:6px; border:1px solid var(--line-soft); background:var(--surface); color:var(--ink-soft); font:500 12px/1.5 var(--mono); }
 .onb-advanced { margin-top:14px; }
 .onb-advanced .model-fields { margin-top:8px; }
@@ -185,12 +187,10 @@
 @keyframes onb-pop { from { opacity:0; transform:translateX(-50%) translateY(6px) scale(.6); } }
 @keyframes onb-rise { from { opacity:0; transform:translateY(8px); } }
 @keyframes onb-breathe { 0%, 100% { opacity:1; transform:scale(1); } 50% { opacity:.55; transform:scale(.8); } }
-@media (prefers-reduced-motion:reduce) {
-  .onb-scrim, .onb-step, .onb-bubble, .onb-connected, .onb-waiting i, .onb-sheet, .onb-progress i::after { animation:none !important; transition:none !important; }
-}
 .onb-presets { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; }
 .onb-server { display:grid; gap:8px; }
 .onb-server label { display:grid; gap:6px; font-size:13px; color:var(--ink-soft); }
 .onb-server input { width:100%; min-width:0; box-sizing:border-box; }
 .onb-server-test { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
 .onb-choices { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+}

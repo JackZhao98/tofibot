@@ -1,3 +1,4 @@
+@layer legacy {
 .workspace .delivered-attachment {
   width: min(300px, 100%);
   max-width: 100%;
@@ -146,3 +147,4 @@
 
 /* A file-only Bot message is still the closing sender unit and needs its avatar. */
 .workspace .message-bot.is-media-only .bot-attachments { position:relative; }
+}

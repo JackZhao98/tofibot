@@ -1,10 +1,11 @@
 /* The Mac settings page of the desktop app. Tokens only; the rows, cards and badges come from settings-components.css. */
+@layer legacy {
 .mac-settings .settings-page-body{padding:28px 30px 48px}
 .mac-settings-inner{display:grid;gap:26px;align-content:start;width:min(760px,100%);margin-inline:auto;min-width:0}
 .mac-settings-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
 /* The window has no title bar (hiddenInset): this strip, over the page's top padding, is where it can be dragged. */
 .mac-settings-titlebar{display:none}
-html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;inset:0 0 auto 0;height:28px;z-index:var(--z-panel);-webkit-app-region:drag}
+html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;inset:0 0 auto 0;height:28px;z-index:var(--z-panel)}
 .mac-settings-head h1{margin:0;color:var(--ink);font:600 22px/1.3 var(--display)}
 .mac-settings-back{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
 .mac-settings .settings-row-control{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
@@ -20,3 +21,4 @@ html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;
   .mac-settings .st-button,.mac-settings .primary-button,.mac-settings .settings-row-control .st-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
 }
 .mac-dev-tag{margin-left:10px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);font:500 12px/1.4 var(--body);vertical-align:middle}
+}

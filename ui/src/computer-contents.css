@@ -1,4 +1,5 @@
 /* Settings > Computer: what lives only on the computer, and the list a wipe shows. Tokens only. */
+@layer legacy {
 .computer-kept{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 9px;border-radius:999px;background:var(--sunk);color:var(--muted);font:600 12px/1.4 var(--mono);white-space:nowrap}
 .computer-kept>svg{flex:none}
 .computer-row-note{display:block;margin-top:4px;color:var(--ink);font:var(--type-meta)}
@@ -20,3 +21,4 @@
 @keyframes computer-loss-row{from{opacity:0;transform:translateY(4px)}}
 @keyframes computer-loss-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.computer-loss,.computer-loss li{animation:none}.computer-loss-note>svg{animation:none}}
+}

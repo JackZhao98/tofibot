@@ -1,4 +1,5 @@
 /* Conversation placement only. The ticket itself is shared with Motion Lab. */
+@layer legacy {
 :root .workspace .scheduled-run {
   width:100%;
   max-width:var(--chat-max);
@@ -10,5 +11,6 @@
 .scheduled-task-label > small { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--text-soft); font-size:11px; }
 /* Blank ticket while the occurrence read is in flight: same box, no text, no icons, no hit targets. */
 :root .workspace .scheduled-run-pending { opacity:.55; pointer-events:none; }
-.scheduled-run-pending * { color:transparent !important; }
+:is(#_,.scheduled-run-pending *){color:transparent}
 .scheduled-run-pending svg, .scheduled-run-pending .scheduled-run-dot, .scheduled-run-pending .scheduled-run-chevron { visibility:hidden; }
+}

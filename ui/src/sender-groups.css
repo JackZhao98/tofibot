@@ -6,6 +6,7 @@
    facing the avatar. Direct chat: the same bubble with no tail (there is no avatar to face), a little wider so long answers read well.
    Activity, process and live-status lines are never bubbles: they stay quiet lines in the column, in groups and in direct chat.
    Grouping is computed in senderGroups.ts as [data-continues] and [data-last]. */
+@layer legacy {
 html[data-desktop] { --sender-avatar:38px; }
 
 /* Avatar + caption: only on the closing unit of a group. */
@@ -92,4 +93,5 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .chat-pane:has(.compo
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-gutter] { padding-left:calc(var(--sender-gutter) + 8px); }
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row .message-hover-actions { pointer-events:auto; padding:0 4px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); }
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-side="bot"] .message-hover-actions button:first-child { margin-left:0; }
+}
 }

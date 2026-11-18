@@ -1,3 +1,4 @@
+@layer legacy {
 .mail-flight-layer { position:fixed; inset:0; z-index:var(--z-drag); pointer-events:none; overflow:hidden; }
 .mail-flight-packet { position:absolute; transform-style:preserve-3d; perspective:1400px; filter:drop-shadow(3px 4px 0 var(--hard-ink)); }
 .mail-flight-panel { position:absolute; left:0; width:100%; overflow:hidden; backface-visibility:hidden; transform-style:preserve-3d; }
@@ -21,3 +22,4 @@
 .mail-flight-envelope-postmark svg { display:block; width:100%; }
 .mail-flight-envelope-address { position:absolute; z-index:5; left:16px; bottom:18px; color:var(--mail-ink); font:var(--type-status); }
 @media(prefers-reduced-motion:reduce) { .mail-flight-layer { display:none; } }
+}

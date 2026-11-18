@@ -1,12 +1,13 @@
+import "../cascade.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { i18nReady } from "../i18n";
 import { BotBrowserChrome } from "./BotBrowserChrome";
-import "../cascade.css";
 import "../skin/structure.css";
 import "../skin/legacy.css";
 import "../fonts.css";
 import "../focus-ring.css";
+import "../forced-focus.css";
 import "./bot-browser-chrome.css";
 import { applySkin } from "../skin/skin";
 

@@ -1,3 +1,4 @@
+@layer legacy {
 .workspace .usage-page { max-width:900px; margin:auto; color:var(--ink); }
 .workspace .usage-explanation { max-width:65ch; margin:0 0 22px; color:var(--ink-soft); font:13px/1.65 var(--body); }
 .workspace .usage-layout { display:grid; grid-template-columns:minmax(170px,220px) minmax(0,1fr); gap:26px; }
@@ -67,3 +68,4 @@
 .workspace .usage-review strong { font:600 15px/1.2 var(--mono); font-variant-numeric:tabular-nums; }
 .workspace .usage-review p { margin:12px 0 0; color:var(--muted); font:12px/1.5 var(--body); }
 .workspace .usage-call-kind { margin-right:6px; padding:1px 6px; border:0; background:var(--surface-2); border-radius:6px; color:var(--ink-soft); font-style:normal; font-size:12px; }
+}

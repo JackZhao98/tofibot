@@ -1,3 +1,4 @@
+@layer legacy {
 .task-run-block{width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-3);color:var(--text-body);font:var(--type-body);overflow-wrap:anywhere}
 .task-run-phase,.task-run-identity{margin:0 0 var(--space-2);font:var(--type-row-title);color:var(--text-secondary)}
 .task-issue-card{position:relative;min-width:0;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);padding:var(--space-4)}
@@ -101,3 +102,4 @@
 .task-silent-note-body{padding:0 0 var(--space-2);color:var(--text-secondary)}
 
 .task-step-trigger{width:100%;text-align:start;border:0;border-radius:0;background:none;color:inherit}
+}

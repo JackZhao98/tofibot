@@ -1,3 +1,4 @@
+@layer legacy {
 .remembered-sheet{width:min(560px,100%)}
 .remembered-empty{margin:0;padding:14px 12px;border:0;border-radius:14px;background:var(--surface-2);color:var(--muted);font:13.5px/1.6 var(--body);text-align:center}
 .remembered-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
@@ -10,3 +11,4 @@
 .remembered-meta{color:var(--muted);font:12px/1.5 var(--body)}
 .remembered-revoke{flex:none}
 @media(max-width:560px){.remembered-item{flex-direction:column;align-items:stretch}.remembered-revoke{width:100%}}
+}

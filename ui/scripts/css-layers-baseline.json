@@ -13,13 +13,6 @@
     "important": 2,
     "tokenDef": 0
   },
-  "approval-card.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 2,
-    "tokenDef": 0
-  },
   "artifacts-panel.css": {
     "global": 0,
     "rootBump": 0,
@@ -45,7 +38,7 @@
     "global": 0,
     "rootBump": 2,
     "webFork": 0,
-    "important": 2,
+    "important": 0,
     "tokenDef": 0
   },
   "bot-tools.css": {
@@ -65,13 +58,6 @@
   "connections/connections.css": {
     "global": 0,
     "rootBump": 2,
-    "webFork": 0,
-    "important": 2,
-    "tokenDef": 0
-  },
-  "context-card.css": {
-    "global": 0,
-    "rootBump": 0,
     "webFork": 0,
     "important": 2,
     "tokenDef": 0
@@ -101,7 +87,7 @@
     "global": 1,
     "rootBump": 0,
     "webFork": 0,
-    "important": 17,
+    "important": 16,
     "tokenDef": 0
   },
   "desktop-system.css": {
@@ -122,7 +108,7 @@
     "global": 0,
     "rootBump": 0,
     "webFork": 0,
-    "important": 5,
+    "important": 4,
     "tokenDef": 0
   },
   "file-preview.css": {
@@ -133,10 +119,24 @@
     "tokenDef": 0
   },
   "focus-ring.css": {
-    "global": 3,
+    "global": 1,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
+  "forced-focus.css": {
+    "global": 2,
     "rootBump": 0,
     "webFork": 0,
     "important": 2,
+    "tokenDef": 0
+  },
+  "forced.css": {
+    "global": 2,
+    "rootBump": 0,
+    "webFork": 0,
+    "important": 19,
     "tokenDef": 0
   },
   "greeting-setup.css": {
@@ -157,7 +157,7 @@
     "global": 0,
     "rootBump": 16,
     "webFork": 0,
-    "important": 3,
+    "important": 0,
     "tokenDef": 0
   },
   "message-attachment.css": {
@@ -172,20 +172,6 @@
     "rootBump": 1,
     "webFork": 0,
     "important": 1,
-    "tokenDef": 0
-  },
-  "onboarding.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 3,
-    "tokenDef": 0
-  },
-  "owner-setup.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 3,
     "tokenDef": 0
   },
   "progressive-blur.css": {
@@ -213,7 +199,7 @@
     "global": 0,
     "rootBump": 3,
     "webFork": 0,
-    "important": 1,
+    "important": 0,
     "tokenDef": 0
   },
   "search-palette.css": {
@@ -230,13 +216,6 @@
     "important": 0,
     "tokenDef": 1
   },
-  "settings-system.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 4,
-    "tokenDef": 0
-  },
   "settings/section-jump.css": {
     "global": 2,
     "rootBump": 0,
@@ -248,14 +227,14 @@
     "global": 2,
     "rootBump": 0,
     "webFork": 0,
-    "important": 5,
+    "important": 0,
     "tokenDef": 0
   },
   "styles.css": {
-    "global": 7,
+    "global": 5,
     "rootBump": 0,
     "webFork": 0,
-    "important": 9,
+    "important": 0,
     "tokenDef": 0
   },
   "task-issue-card.css": {
@@ -276,7 +255,7 @@
     "global": 0,
     "rootBump": 15,
     "webFork": 26,
-    "important": 3,
+    "important": 0,
     "tokenDef": 0
   },
   "v2-foundations.css": {

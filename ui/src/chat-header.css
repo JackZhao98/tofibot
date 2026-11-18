@@ -2,6 +2,7 @@
    reading plane, over frosted glass the messages scroll up under (progressive-blur.css). The action pill
    is also where the top-right context card hangs from. */
 /* The macOS window-drag strip (desktop-system.css); nothing on the web. It never takes the pointer (wheel scrolls the list under the header). */
+@layer legacy {
 :root .workspace .chat-header > .chat-header-drag { display:none; pointer-events:none; }
 :root .workspace .chat-header {
   min-height:64px; padding:10px 16px 10px 14px; gap:12px;
@@ -56,4 +57,5 @@
 :root .workspace .header-actions .computer-button.is-on[aria-pressed="true"] { background:color-mix(in srgb,var(--green) 34%,transparent); color:var(--green-text); }
 .computer-driven-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--green-text); box-shadow:0 0 0 2px var(--surface); }
 @media (forced-colors:active) { .computer-button.is-on { border:1px solid Highlight; } .computer-driven-dot { background:Highlight; } }
+}
 

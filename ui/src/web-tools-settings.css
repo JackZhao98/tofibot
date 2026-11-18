@@ -1,3 +1,4 @@
+@layer legacy {
 .web-tools{min-width:0;margin:0 0 30px}
 .web-tools .banner,.web-tools .settings-banner{margin:0 0 12px}
 .web-tools>.error-text{margin:0 0 12px}
@@ -45,3 +46,4 @@
 .web-limits{margin:0 0 14px}
 .web-limit-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-top:1px solid var(--line-soft)}
 .web-limit-row label{color:var(--text-soft);font-size:13px}
+}

@@ -1,3 +1,4 @@
+@layer legacy {
 .handover-overlay{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;place-items:center;padding:24px;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .handover-dialog{display:flex;flex-direction:column;box-sizing:border-box;width:min(1120px,100%,calc((100dvh - 260px) * 1.6 + 40px));max-height:calc(100dvh - 48px);overflow:auto;background:var(--surface);color:var(--ink);border:var(--legacy-edge-bold-w) solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow);outline:none}
 .handover-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
@@ -26,3 +27,4 @@
 .workspace .question-message .handover-hint{margin:10px 0 0;color:var(--muted);font-size:12px}
 .workspace .question-message .handover-actions button{min-height:44px}
 @media(min-width:768px){.workspace .question-message .handover-actions button{min-height:36px}}
+}

@@ -41,7 +41,7 @@ export function SecretField({label, value, note}: {label: string; value: string;
   return <div className="admin-secret">
     <label htmlFor={id}>{label}</label>
     <div className="admin-secret-line">
-      <input id={id} readOnly value={value} onFocus={event => event.currentTarget.select()} spellCheck={false} autoComplete="off"/>
+      <input id={id} className="admin-secret-input" readOnly value={value} onFocus={event => event.currentTarget.select()} spellCheck={false} autoComplete="off"/>
       <CopyButton value={value}/>
     </div>
     {note && <p>{note}</p>}
