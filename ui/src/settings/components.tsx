@@ -1,5 +1,6 @@
 import { useDropzone } from "react-dropzone";
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
 import { Segmented as KitSegmented } from "../ds/Segmented/Segmented";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
 import * as Switch from "@radix-ui/react-switch";
@@ -109,7 +110,7 @@ export function Banner({tone, title, children, action, details}: {tone: "error" 
   return <div className={`settings-banner is-${tone}`} role={tone === "error" ? "alert" : undefined}>
     <TofiIcon name={bannerIcon[tone]} size={18} aria-hidden="true"/>
     <div className="settings-banner-copy"><strong>{title}</strong>{children && <p>{children}</p>}
-      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><Collapsible.Content className="collapsible-content"><pre id={detailsId} className="settings-banner-details">{details}</pre></Collapsible.Content></Collapsible.Root>}
+      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><CollapsibleContent><pre id={detailsId} className="settings-banner-details">{details}</pre></CollapsibleContent></Collapsible.Root>}
     </div>
     {action && <button type="button" className="st-button settings-banner-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}
   </div>;

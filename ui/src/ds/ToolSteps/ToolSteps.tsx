@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "../Collapsible/Collapsible";
 import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "../../i18n";
 import { Icon } from "../Icon/Icon";
@@ -62,7 +63,7 @@ function Step({ step, level }: { step: ToolStepData; level: number }) {
         <span className="tb-tool-dur">{dur}</span>
       </div>
       {extra}
-      <Collapsible.Content forceMount className="collapsible-content"><ToolSteps steps={kids} level={level + 1} /></Collapsible.Content>
+      <CollapsibleContent forceMount><ToolSteps steps={kids} level={level + 1} /></CollapsibleContent>
     </Collapsible.Root>
   </li>;
 }

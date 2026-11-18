@@ -1,5 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -151,11 +152,11 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
     </div>
     {item.version_count > 1 && <Collapsible.Root open={open} onOpenChange={next => void toggleVersions(next)}>
       <Collapsible.Trigger className="text-button artifact-versions-toggle">{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</Collapsible.Trigger>
-      <Collapsible.Content className="collapsible-content"><ul className="artifact-versions">
+      <CollapsibleContent><ul className="artifact-versions">
         {state === "loading" && <li className="artifact-versions-note" role="status">{t("artifacts.versions_loading")}</li>}
         {state === "error" && <li className="artifact-versions-note" role="alert">{t("artifacts.versions_error")}</li>}
         {versions?.map(version => <li key={version.id}><button type="button" onClick={() => openItem(version)} aria-label={t("artifacts.open", { name: version.name })}><span>{formatRelativeTime(version.created_at)}</span><small>{fileSize(version.size)}</small></button><button type="button" className="ghost-button" aria-label={t("artifacts.go_aria", { name: version.name })} onClick={() => onOpenMessage(version.conversation_id, version.message_id)}><TofiIcon name="arrow-right" size={14} /></button></li>)}
-      </ul></Collapsible.Content>
+      </ul></CollapsibleContent>
     </Collapsible.Root>}
   </li>;
 }

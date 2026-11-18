@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
 import {useCallback, useEffect, useState, type ReactNode} from "react";
 import {TofiIcon} from "../icons";
 
@@ -42,6 +43,6 @@ export function FoldGroup({tab, id, title, summary, children}: {tab: string; id:
       {summary && <span className="settings-row-value">{summary}</span>}
       <TofiIcon name={open ? "chevron-down" : "chevron-right"} size={14} aria-hidden="true"/>
     </Collapsible.Trigger>
-    <Collapsible.Content className="collapsible-content"><div>{children}</div></Collapsible.Content>
+    <CollapsibleContent><div>{children}</div></CollapsibleContent>
   </Collapsible.Root>;
 }

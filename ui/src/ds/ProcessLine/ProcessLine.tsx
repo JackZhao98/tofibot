@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "../Collapsible/Collapsible";
 import { useState, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
 import { cx } from "../cx";
@@ -32,7 +33,7 @@ export function ProcessLine({ label, meta, live, open, defaultOpen = false, onTo
       <span className="tb-process-label">{label}</span>
       {meta ? <span className="tb-process-meta">{meta}</span> : null}
     </Collapsible.Trigger>
-    <Collapsible.Content forceMount className="collapsible-content" inert={!shown || undefined} aria-hidden={!shown}><div className="tb-process-body">{children}</div></Collapsible.Content>
+    <CollapsibleContent forceMount inert={!shown || undefined} aria-hidden={!shown}><div className="tb-process-body">{children}</div></CollapsibleContent>
   </Collapsible.Root>;
 }
 

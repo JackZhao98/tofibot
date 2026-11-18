@@ -1,6 +1,7 @@
 // Controls on Radix for lazy chunks (Settings, onboarding, panels). The entry must not import this file (D31, test:dialogs).
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import { Segmented } from "./ds/Segmented/Segmented";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
@@ -20,6 +21,6 @@ export function Disclosure({ title, children, defaultOpen = false }: { title: Re
   const [open, setOpen] = useState(defaultOpen);
   return <Collapsible.Root className="disclosure" open={open} onOpenChange={setOpen}>
     <Collapsible.Trigger className="disclosure-toggle"><span>{title}</span><TofiIcon className="disclosure-chevron" name="chevron-down" size={16} /></Collapsible.Trigger>
-    <Collapsible.Content forceMount inert={!open || undefined} aria-hidden={!open} className="disclosure-region collapsible-content"><div className="disclosure-inner">{children}</div></Collapsible.Content>
+    <CollapsibleContent forceMount inert={!open || undefined} aria-hidden={!open} className="disclosure-region"><div className="disclosure-inner">{children}</div></CollapsibleContent>
   </Collapsible.Root>;
 }

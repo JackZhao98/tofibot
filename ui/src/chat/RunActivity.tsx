@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
 import { LiveMark } from "../LiveMark";
 import { presentTaskIssue, taskPhaseLabel } from "../taskIssuePresentation";
 import { i18n, useTranslation } from "../i18n";
@@ -257,7 +258,7 @@ function RunContextEntry({ runId, timezone }: { runId: string; timezone: string 
   const [open, setOpen] = useState(false);
   return <Collapsible.Root className="run-context-entry" open={open} onOpenChange={setOpen}>
     <Collapsible.Trigger className="run-context-toggle"><Icon className="web-tool-chevron" name="chevron-right" size={14} /><span>{t("runContext.toggle")}</span></Collapsible.Trigger>
-    <Collapsible.Content className="collapsible-content"><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></Collapsible.Content>
+    <CollapsibleContent><Suspense fallback={null}><RunContextView runId={runId} timezone={timezone} /></Suspense></CollapsibleContent>
   </Collapsible.Root>;
 }
 export function WebToolActivityRun({ runId, items, notes, summary, summaryError, summaryLoading, detail, onLoadDetails, onRetrySummary, live, now, timezone, botName, senderId }: ToolRunProps) {
@@ -336,11 +337,11 @@ export function WebToolActivityRun({ runId, items, notes, summary, summaryError,
         </button></Collapsible.Trigger>
         {live && current && isComputerAction(current) && <ComputerLookButton activity={current} />}
       </div>
-      <Collapsible.Content forceMount className={`web-tool-drawer collapsible-content${expanded ? " is-open" : ""}`} inert={!expanded}><div className="web-tool-drawer-inner">
+      <CollapsibleContent forceMount className={`web-tool-drawer${expanded ? " is-open" : ""}`} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}
       <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
       <RunContextEntry runId={runId} timezone={timezone} />
-      </div></Collapsible.Content>
+      </div></CollapsibleContent>
     </Collapsible.Root>
   </section>;
 }
