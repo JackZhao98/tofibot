@@ -113,7 +113,7 @@ try {
   await ui.setLanguage("en");
   const english = renderToStaticMarkup(createElement(ProxyChallengeBanner));
   assert.ok(english.includes("Your site&#x27;s protection (Cloudflare) needs a quick re-check.") && english.includes("Verify again"), english);
-  const app = readFileSync(`${uiRoot}/src/workspace/Workspace.tsx`, "utf8");
+  const app = ["workspace/Workspace.tsx", "chat/ChatPane.tsx"].map(file => readFileSync(`${uiRoot}/src/${file}`, "utf8")).join("\n");
   assert.ok(app.includes('{error && !proxyChallenged && <div className="error-banner system-notice"'), "App hides the per-request error box while the notice is up");
   assert.ok(app.includes("workspaceErrorShown && indexInitialized.current && !proxyChallenged"), "App hides the refresh-failed toast while the notice is up");
   console.log("proxy challenge: classification, shared recovery, retry-once, notice, suppression ok");

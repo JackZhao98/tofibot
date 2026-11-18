@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const app = ["src/workspace/Workspace.tsx", "src/chat/MessageBubble.tsx"].map(file => readFileSync(join(root, file), "utf8")).join("\n");
+const app = ["src/workspace/Workspace.tsx", "src/chat/ChatPane.tsx", "src/chat/MessageBubble.tsx"].map(file => readFileSync(join(root, file), "utf8")).join("\n");
 
 const start = app.indexOf("const connectEvents = useCallback(");
 assert.ok(start > 0, "connectEvents is a useCallback");
