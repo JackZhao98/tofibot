@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build:skin": "node scripts/build-skin.mjs",
     "dev:remote": "TOFI_DEV_API_INSECURE=1 vite",
     "build": "tsc -b && vite build && vite build --config vite.design-system.config.ts && vite build --config vite.desktop-pages.config.ts",
     "typecheck": "tsc -b --pretty false",
@@ -40,7 +41,9 @@
     "test:credential-messages": "node scripts/test-credential-messages.mjs",
     "test:secret-env-name": "node scripts/test-secret-env-name.mjs",
     "test:message-markdown": "node scripts/test-message-markdown.mjs",
-    "test:v2-palette": "node scripts/test-v2-palette.mjs",
+    "test:skin-palette": "node scripts/test-skin-palette.mjs",
+    "test:skin-sync": "node scripts/test-skin-sync.mjs",
+    "test:skin-contrast": "node scripts/test-skin-contrast.mjs",
     "test:final-v2-tokens": "node scripts/test-final-v2-tokens.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",
     "test:catalog": "node scripts/test-catalog.mjs",

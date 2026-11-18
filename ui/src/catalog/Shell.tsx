@@ -6,8 +6,10 @@ import { SECTIONS } from "./sections/index";
 import { WIDTHS, type CatalogSection, type CatalogState, type Width } from "./types";
 import type { Theme } from "./sandbox";
 import { Select } from "../Select";
+import { DEFAULT_SKIN, type ProbeSkinId, type SkinId } from "../skin/skin";
+import { skinFromParam } from "../skin/sheets";
 
-type View = { section: string; themes: Theme[]; widths: Width[]; language: Language };
+type View = { section: string; themes: Theme[]; widths: Width[]; language: Language; skin: SkinId | ProbeSkinId };
 const THEME_CHOICES: Record<string, Theme[]> = { light: ["light"], dark: ["dark"], both: ["light", "dark"] };
 const WIDTH_CHOICES: Record<string, Width[]> = { desktop: ["desktop"], phone: ["phone"], both: ["desktop", "phone"] };
 
@@ -19,20 +21,23 @@ function readView(): View {
     themes: THEME_CHOICES[hash.get("t") ?? "both"] ?? THEME_CHOICES.light,
     widths: WIDTH_CHOICES[hash.get("w") ?? "desktop"] ?? WIDTH_CHOICES.both,
     language: LANGUAGES.includes(language) ? language : "en",
+    skin: skinFromParam(hash.get("k")) ?? DEFAULT_SKIN,
   };
 }
+// The skin joins the address only when it is not the default, so a default catalog link stays what it was.
+const withSkin = (query: URLSearchParams, skin: string, key: string) => { if (skin !== DEFAULT_SKIN) query.set(key, skin); return query; };
 function writeView(view: View) {
   const key = <T,>(choices: Record<string, T[]>, value: T[]) => Object.entries(choices).find(([, list]) => list.join() === value.join())![0];
-  location.hash = new URLSearchParams({ s: view.section, t: key(THEME_CHOICES, view.themes), w: key(WIDTH_CHOICES, view.widths), l: view.language }).toString();
+  location.hash = withSkin(new URLSearchParams({ s: view.section, t: key(THEME_CHOICES, view.themes), w: key(WIDTH_CHOICES, view.widths), l: view.language }), view.skin, "k").toString();
 }
 
-export function frameSrc(section: string, state: string, theme: Theme, language: Language) {
-  const query = new URLSearchParams({ frame: section, theme, lng: language });
+export function frameSrc(section: string, state: string, theme: Theme, language: Language, skin: string = DEFAULT_SKIN) {
+  const query = withSkin(new URLSearchParams({ frame: section, theme, lng: language }), skin, "skin");
   if (state) query.set("state", state);
   return `${import.meta.env.DEV ? "/catalog.html" : "/design-system.html"}?${query}`;
 }
 
-function Frame({ section, state, theme, width, language, fixedHeight }: { section: string; state: string; theme: Theme; width: Width; language: Language; fixedHeight?: number }) {
+function Frame({ section, state, theme, width, language, skin, fixedHeight }: { section: string; state: string; theme: Theme; width: Width; language: Language; skin: string; fixedHeight?: number }) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const size = WIDTHS[width];
@@ -56,7 +61,7 @@ function Frame({ section, state, theme, width, language, fixedHeight }: { sectio
     window.addEventListener("message", listen);
     return () => window.removeEventListener("message", listen);
   }, [fixedHeight]);
-  const src = frameSrc(section, state, theme, language);
+  const src = frameSrc(section, state, theme, language, skin);
   return <figure className="catalog-frame-box" ref={box} data-theme-label={theme}>
     <figcaption>{theme === "dark" ? "Dark" : "Light"} · {size.label}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ""} · <a href={src} target="_blank" rel="noreferrer">open alone</a></figcaption>
     {error && <pre className="catalog-frame-error" role="alert">{error}</pre>}
@@ -71,7 +76,7 @@ function Frames({ section, state, view }: { section: CatalogSection; state?: Cat
   const widths = view.widths.filter(width => !state?.widths || state.widths.includes(width));
   if (!widths.length) return <p className="catalog-muted">Only at {state!.widths!.map(width => WIDTHS[width].label).join(" and ")}.</p>;
   return <div className="catalog-frames">{view.themes.flatMap(theme => widths.map(width =>
-    <Frame key={`${theme}-${width}`} section={section.id} state={state?.id ?? ""} theme={theme} width={width} language={view.language}
+    <Frame key={`${theme}-${width}`} section={section.id} state={state?.id ?? ""} theme={theme} width={width} language={view.language} skin={view.skin}
       fixedHeight={state ? state.height ?? WIDTHS[width].height : undefined} />))}</div>;
 }
 
@@ -94,13 +99,14 @@ export function Shell() {
   return <div className="catalog-shell">
     <nav className="catalog-nav" aria-label="Sections">
       <header><strong>Tofi component catalog</strong><small>Design system · synthetic data · {count} states</small></header>
-      <ol>{SECTIONS.map(item => <li key={item.id}><a href={`#${new URLSearchParams({ s: item.id, t: themeKey, w: widthKey, l: view.language })}`} aria-current={item.id === section.id ? "page" : undefined}>
+      <ol>{SECTIONS.map(item => <li key={item.id}><a href={`#${withSkin(new URLSearchParams({ s: item.id, t: themeKey, w: widthKey, l: view.language }), view.skin, "k")}`} aria-current={item.id === section.id ? "page" : undefined}>
         <span>{item.number}</span>{item.title}</a></li>)}</ol>
     </nav>
     <main className="catalog-main" data-catalog-section={section.id}>
       <div className="catalog-toolbar">
         <Segmented label="Theme" value={themeKey} options={[["light", "Light"], ["dark", "Dark"], ["both", "Both"]]} onChange={key => update({ themes: THEME_CHOICES[key] })} />
         <Segmented label="Width" value={widthKey} options={[["desktop", "1280"], ["phone", "390"], ["both", "Both"]]} onChange={key => update({ widths: WIDTH_CHOICES[key] })} />
+        <Segmented label="Skin" value={view.skin} options={[["legacy", "Legacy"], ["v3", "V3"], ["probe-a", "Probe A"], ["probe-b", "Probe B"]]} onChange={skin => update({ skin })} />
         <label className="catalog-switch"><span>Language</span><Select value={view.language} onValueChange={value => update({ language: value as Language })}>
           {LANGUAGES.map(language => <option key={language} value={language}>{LANGUAGE_ENDONYMS[language]}</option>)}</Select></label>
       </div>

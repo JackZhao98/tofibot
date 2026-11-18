@@ -848,7 +848,6 @@
     "ui/scripts/test-status-announcements.mjs": "71d9dd8e9db85428824a1b56eb2950839efbef85259736cbc44f66ab37021d8d",
     "ui/scripts/test-tool-timeline.mjs": "4fc61161e7a6f1584a9dc914ca8edc91b4a389823d015cc2c4629ec36c491340",
     "ui/scripts/test-user-form.mjs": "9d2fcf38cfcf9f6407119e7a897fe25c1388a7dfc69efd87d59fbcbfde6e5f80",
-    "ui/scripts/test-v2-palette.mjs": "19f66c573f6ee2ab0b236992d57f9724ee3cbe3e7dc35e382895c0723d70da33",
     "ui/scripts/test-visual-viewport.mjs": "f99b6df070c0824510cf44a513d5956941566e16b1c1269c8c37f0929fc44f4d",
     "ui/src/AdminAccounts.tsx": "04da9da8e15bb24d054852356e6045056e748ffd8d6207a351300217b15f58db",
     "ui/src/App.tsx": "743037c78c94a3bed09f388c629f80293b8b77dc9077207f0e79c6598ec5c9b3",

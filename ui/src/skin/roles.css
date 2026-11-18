@@ -1,0 +1,6 @@
+/* L2 component roles (V3 PLAN 7.1): hand-written, in @layer skin. A role is one component's own hook into the skin
+   (--c-composer-border, --c-btn-primary-shadow, --c-srow-active-outline and so on). Its default is written in L1 roles, and
+   a second skin overrides it in its own file.
+   A role is added only with its first real use. There is none yet: the V3 kit components arrive in later PRs, and each adds
+   the roles it reads here. Until then nothing loads this file; skin/sheets.ts adds it to the v3 sheet set with the first role. */
+@layer skin {}
