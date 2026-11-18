@@ -117,6 +117,16 @@ console.log("PASS avatarSync and avatarStore share the key and the event");
     mem.set("tofi:bot-avatar:bot_e", JSON.stringify({schemaVersion: 1, shape: "curl", pattern: "solid", palette: "ivory"}));
     sy.hydrateBotAvatars(send, [{id: "bot_e", avatar: null}]);
     assert.ok(sent.length === 1 && !sent[0].includes("ground"), "the held look goes up as version 1");
+    // Two picker changes in a row both reach the server, the last with the last look; a later load with no server look sends no third.
+    sent.length = 0;
+    const lookA = {schemaVersion: 1, shape: "loaf", pattern: "solid", palette: "ivory"};
+    const lookB = {schemaVersion: 1, shape: "tall", pattern: "solid", palette: "honey"};
+    for (const next of [lookA, lookB]) { const saved = gs.saveBotAvatarConfig("bot_h", next); sy.pushBotAvatar(send, "bot_h", saved); }
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(sent.length, 2, "every picker change is sent");
+    assert.equal(sent[1], `PATCH /api/bots/bot_h ${JSON.stringify({avatar: lookB})}`, "the last send holds the last look");
+    sy.hydrateBotAvatars(send, [{id: "bot_h", avatar: null}]);
+    assert.equal(sent.length, 2, "a following load with no server look does not hand it up again");
   } finally {
     await modules.close();
     delete globalThis.localStorage; delete globalThis.window; delete globalThis.CustomEvent;

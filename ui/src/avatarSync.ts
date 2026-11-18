@@ -20,9 +20,14 @@ type ServerBot = { id: string; avatar?: Look | null };
 
 /** A look is saved on the server. A refusal or no connection leaves the copy; the next load hands it up again. */
 export function pushBotAvatar(send: Send, botId: string, look: Look): void {
+  pushed.add(botId); // the server has (or will have) this Bot's look: no hand-up of the held copy is needed
+  send(`/api/bots/${encodeURIComponent(botId)}`, { method: "PATCH", body: JSON.stringify({ avatar: look }) }).catch(() => pushed.delete(botId));
+}
+
+/** The hand-up of a held look (hydrate only): once per Bot, retried on the next load after a refusal. Picker changes always send. */
+function handUpBotAvatar(send: Send, botId: string, look: Look): void {
   if (pushed.has(botId)) return;
-  pushed.add(botId);
-  void send(`/api/bots/${encodeURIComponent(botId)}`, { method: "PATCH", body: JSON.stringify({ avatar: look }) }).catch(() => pushed.delete(botId));
+  pushBotAvatar(send, botId, look);
 }
 
 /** The server's ground goes to this browser's copy (key and event as avatarStore); a Bot with a look but no ground drops a stale copy. */
@@ -61,7 +66,7 @@ export function hydrateBotAvatars(send: Send, bots: readonly ServerBot[]): void 
       try { localStorage.setItem(`${LOCAL_PREFIX}${bot.id}`, next); } catch { /* optional */ }
       window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { botId: bot.id, config } }));
     } else if (held) {
-      try { pushBotAvatar(send, bot.id, JSON.parse(held) as Look); } catch { /* damaged copy: the generated look stays */ }
+      try { handUpBotAvatar(send, bot.id, JSON.parse(held) as Look); } catch { /* damaged copy: the generated look stays */ }
     }
   }
 }
