@@ -186,9 +186,6 @@
   "search-palette.css": {
     "bridgeUse": 6
   },
-  "select.css": {
-    "bridgeUse": 3
-  },
   "sender-groups.css": {
     "bridgeUse": 2,
     "rootToken": 1,

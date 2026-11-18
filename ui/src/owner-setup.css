@@ -32,3 +32,7 @@
 }
 @media (prefers-reduced-motion:reduce){.pw-rules li{transition:none}}
 }
+/* The language switch on the sign-in screens is a Select; it takes the width of its label (the pill look left with select.css, PR 2.2; sign-in is rebuilt in 7.1). */
+@layer legacy {
+.owner-gate .auth-language button.ui-select-trigger{width:auto;max-width:calc(100vw - 32px)}
+}

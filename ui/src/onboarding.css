@@ -194,3 +194,8 @@
 .onb-server-test { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
 .onb-choices { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
 }
+/* Select fit (it was in select.css, PR 2.2). Onboarding never hides part of a name: the field takes the width it needs (up to the full row) and wraps rather than truncating. */
+@layer legacy {
+.onb-adv-row button.ui-select-trigger{flex:1 1 220px;width:auto;min-width:min(220px,100%);max-width:100%}
+.onb-adv-row .ui-select-value,.onb-adv-row .ui-select-value>span{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
+}

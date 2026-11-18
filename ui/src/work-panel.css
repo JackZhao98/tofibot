@@ -294,3 +294,7 @@
 .workspace .work-icon-button:disabled { cursor: not-allowed; opacity: .5; }
 @media (pointer: coarse) { .workspace .work-icon-button { width: 44px; height: 44px; } }
 }
+/* Select fit (it was in select.css; the field look itself is the kit's now, PR 2.2). */
+@layer legacy {
+.workspace .work-item-details button.ui-select-trigger{width:auto;max-width:70%}
+}
