@@ -16,6 +16,9 @@
 //   SKIN_SNAPSHOT_ONLY=catalog,settings,entry,mac,oauth   some groups only
 //   SKIN_SNAPSHOT_STATE=section/state  catalog states only (comma-separated; "section/inline" for a section's inline states)
 //   SKIN_SNAPSHOT_DETAIL=1             print the differing properties (slow; use with SKIN_SNAPSHOT_STATE)
+//   SKIN_SNAPSHOT_OUT=/abs/file.json   write every difference, not just the first ones printed
+// The base tree is captured twice: an element whose style differs between those two runs (a video that loads late, a lazy
+// chunk) is unstable and not compared; the count is reported. A difference is one where the head differs from both runs.
 // Synthetic data only. Not part of CI: it builds two trees and takes several minutes.
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -47,7 +50,8 @@ const SESSIONS = {
 const work = mkdtempSync(join(tmpdir(), "tofi-skin-snapshot-"));
 execFileSync("sh", ["-c", `git -C "${repo}" archive "${BASE}" ui internal/app/oauth_completion.go | tar -x -C "${work}"`]);
 symlinkSync(join(ui, "node_modules"), join(work, "ui", "node_modules"));
-const trees = [{ name: `base (${BASE})`, ui: join(work, "ui"), repo: work }, { name: "head (working tree)", ui, repo }];
+const baseTree = { name: `base (${BASE})`, ui: join(work, "ui"), repo: work };
+const trees = [baseTree, { ...baseTree, name: `base again (${BASE})` }, { name: "head (working tree)", ui, repo }];
 
 // In the page: pause or finish animations, then hash (or keep, with DETAIL) every standard property of every element.
 function snapshot(detail) {
@@ -65,7 +69,12 @@ function snapshot(detail) {
     // The cat (lib/tofi-avatar) is artwork drawn frame by frame from JS; its root svg is compared, its insides are not.
     if (element.hasAttribute("data-tofi-avatar")) return;
     const counts = {};
-    for (const child of element.children) { const tag = child.tagName.toLowerCase(); counts[tag] = (counts[tag] ?? 0) + 1; walk(child, `${path}>${tag}${counts[tag]}`); }
+    for (const child of element.children) {
+      const tag = child.tagName.toLowerCase();
+      // Nothing that never paints: the head (the dev server adds <style> tags as lazy CSS lands), scripts, templates.
+      if (["head", "script", "style", "link", "meta", "template", "noscript"].includes(tag)) continue;
+      counts[tag] = (counts[tag] ?? 0) + 1; walk(child, `${path}>${tag}${counts[tag]}`);
+    }
   };
   walk(document.documentElement, "html");
   return detail ? { props, result } : { result };
@@ -199,18 +208,22 @@ try {
   rmSync(work, { recursive: true, force: true });
 }
 
-const [before, after] = captured;
-const failures = [];
+const [before, again, after] = captured;
+const failures = [], report = [];
+let unstable = 0;
 for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-  const a = before[key], b = after[key];
+  const a = before[key], a2 = again[key], b = after[key];
   if (!a || !b) { failures.push(`${key}: only in ${a ? "base" : "head"}`); continue; }
   if (a.error || b.error) { if (a.error !== b.error) failures.push(`${key}: base ${a.error ?? "ok"}, head ${b.error ?? "ok"}`); continue; }
   for (const mode of Object.keys(a)) {
-    const x = a[mode].result, y = b[mode]?.result;
+    const x = a[mode].result, x2 = a2?.[mode]?.result ?? x, y = b[mode]?.result;
     if (!y) { failures.push(`${key} [${mode}]: not captured in head`); continue; }
-    const paths = new Set([...Object.keys(x), ...Object.keys(y)]);
-    const differing = [...paths].filter(path => x[path] !== y[path]);
+    const paths = new Set([...Object.keys(x), ...Object.keys(x2), ...Object.keys(y)]);
+    const shaky = [...paths].filter(path => x[path] !== x2[path]);
+    unstable += shaky.length;
+    const differing = [...paths].filter(path => x[path] === x2[path] && x[path] !== y[path]);
     if (!differing.length) continue;
+    report.push({ page: key, mode, paths: differing });
     const lines = differing.slice(0, 4).map(path => {
       if (!(path in x) || !(path in y)) return `    ${path}: only in ${path in x ? "base" : "head"}`;
       if (!DETAIL) return `    ${path}`;
@@ -221,9 +234,14 @@ for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
   }
 }
 const pageCount = Object.keys(after).length, errors = Object.values(after).filter(page => page.error).length;
+if (process.env.SKIN_SNAPSHOT_OUT) writeFileSync(process.env.SKIN_SNAPSHOT_OUT, JSON.stringify({ base: BASE, unstable, failures, report }, null, 2));
+const note = `${unstable} unstable element capture(s) skipped${errors ? `; ${errors} page(s) failed to load in all trees alike` : ""}`;
 if (failures.length) {
-  console.log(`skin snapshot: FAIL (${failures.length} difference(s) over ${pageCount} pages)`);
-  for (const line of failures.slice(0, 60)) console.log(`  ${line}`);
+  const byPage = {};
+  for (const entry of report) byPage[entry.page] = (byPage[entry.page] ?? 0) + entry.paths.length;
+  console.log(`skin snapshot: FAIL (${failures.length} difference(s) over ${pageCount} pages; ${note})`);
+  console.log(`  by page: ${Object.entries(byPage).sort((p, q) => q[1] - p[1]).map(([page, n]) => `${page} ${n}`).join(", ")}`);
+  for (const line of failures.slice(0, 40)) console.log(`  ${line}`);
   process.exit(1);
 }
-console.log(`skin snapshot: PASS (${pageCount} pages x ${WIDTHS.length * THEMES.length * MEDIA.length} captures identical to ${BASE}${errors ? `; ${errors} page(s) failed to load in both trees alike` : ""})`);
+console.log(`skin snapshot: PASS (${pageCount} pages x ${WIDTHS.length * THEMES.length * MEDIA.length} captures identical to ${BASE}; ${note})`);
