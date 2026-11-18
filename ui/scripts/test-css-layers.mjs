@@ -4,11 +4,11 @@
 //  2. A ratchet over every stylesheet in src/: per file, these counts may go down, never up (baseline in
 //     scripts/css-layers-baseline.json; a new file starts at zero):
 //       global      a rule whose selector names no class or id (element, :root, html, body, attribute, pseudo) outside
-//                   the reset, tokens and base layers
+//                   the reset, tokens, skin and base layers
 //       rootBump    a component selector raised with :root (":root .x", ":root :is(", ":root[data-theme] .x")
 //       webFork     html:not([data-desktop]): the Mac app is not a fork of the web
 //       important   !important
-//       tokenDef    a custom property defined on :root or html outside design-tokens.css
+//       tokenDef    a custom property defined on :root or html outside the skin files (src/skin/)
 // Usage: node scripts/test-css-layers.mjs [--update]   (--update writes the current counts as the new baseline)
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -19,8 +19,8 @@ const src = join(ui, "src");
 const baselineFile = join(ui, "scripts", "css-layers-baseline.json");
 const failures = [];
 const fail = message => { failures.push(message); console.log(`FAIL ${message}`); };
-const ORDER = "@layer reset, tokens, base, components, platform, utilities;";
-const DEFAULT_LAYERS = new Set(["reset", "tokens", "base"]);
+const ORDER = "@layer reset, tokens, skin, base, components, platform, utilities;";
+const DEFAULT_LAYERS = new Set(["reset", "tokens", "skin", "base"]);
 
 // ---- 1. the order line comes first everywhere
 const cascade = join(src, "cascade.css");
@@ -72,7 +72,7 @@ function count(file) {
     const inDefaults = layersOf(rule.at).some(name => DEFAULT_LAYERS.has(name));
     if (!inDefaults && parts.some(part => !/[.#]/.test(strip(part)))) tally.global++;
     tally.rootBump += parts.filter(part => /^:root(\[[^\]]*\])*\s+(\.|:is\(|:where\()/.test(part)).length;
-    if (!file.endsWith("design-tokens.css") && parts.some(part => /^(:root|html)(\[[^\]]*\])*$/.test(part)) && /--[\w-]+\s*:/.test(rule.body)) tally.tokenDef++;
+    if (!file.includes("/skin/") && parts.some(part => /^(:root|html)(\[[^\]]*\])*$/.test(part)) && /--[\w-]+\s*:/.test(rule.body)) tally.tokenDef++;
   }
   return tally;
 }

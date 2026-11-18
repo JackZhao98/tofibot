@@ -72,7 +72,7 @@
 /* A connection waiting on the person: the status text is meta, the one primary button breathes (decision 0055 follow-up, D51). */
 .mcp-settings .mcp-service[data-kind=waiting] .mcp-service-status{font:var(--type-meta);font-size:12px}
 .mcp-settings .mcp-button[data-pending]{position:relative;overflow:visible}
-.mcp-settings .mcp-button[data-pending]::after{content:"";position:absolute;inset:-4px;border:var(--edge) solid var(--lagoon-text);border-radius:inherit;opacity:.35;pointer-events:none;animation:mcp-pending-breathe 2.8s var(--ease-inout) infinite}
+.mcp-settings .mcp-button[data-pending]::after{content:"";position:absolute;inset:-4px;border:var(--legacy-edge-w) solid var(--lagoon-text);border-radius:inherit;opacity:.35;pointer-events:none;animation:mcp-pending-breathe 2.8s var(--ease-inout) infinite}
 @keyframes mcp-pending-breathe{0%,100%{opacity:.12;transform:scale(.985)}50%{opacity:.5;transform:scale(1.025)}}
 @media(prefers-reduced-motion:reduce){.mcp-settings .mcp-button[data-pending]::after{animation:none;opacity:.35}}
 /* Paste-back sign-in. */
@@ -181,9 +181,9 @@
    (a box-shadow transition over --m-quick); reduced motion drops it. */
 .connect-scope{border:0;padding:0;min-width:0}.connect-scope legend{padding:0;margin-bottom:6px}
 .connect-scope-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.connect-scope-card{border:0;text-align:left;color:var(--ink);position:relative;display:grid;gap:3px;align-content:start;padding:12px 14px;border-radius:14px;background:var(--surface-2);box-shadow:inset 0 0 0 var(--edge) transparent;transition:box-shadow var(--m-quick) var(--ease-out),background var(--m-quick) var(--ease-out)}
+.connect-scope-card{border:0;text-align:left;color:var(--ink);position:relative;display:grid;gap:3px;align-content:start;padding:12px 14px;border-radius:14px;background:var(--surface-2);box-shadow:inset 0 0 0 var(--legacy-edge-w) transparent;transition:box-shadow var(--m-quick) var(--ease-out),background var(--m-quick) var(--ease-out)}
 .connect-scope-card:hover{background:var(--sunk)}
-.connect-scope-card[data-state="checked"]{background:var(--surface);box-shadow:inset 0 0 0 var(--edge) var(--ink)}
+.connect-scope-card[data-state="checked"]{background:var(--surface);box-shadow:inset 0 0 0 var(--legacy-edge-w) var(--ink)}
 .connect-scope-card:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .connect-scope-card strong{font:600 13px/1.35 var(--body);color:var(--ink)}
 .connect-scope-card small{font:12px/1.5 var(--body);color:var(--muted)}

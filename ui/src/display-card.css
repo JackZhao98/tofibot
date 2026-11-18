@@ -6,7 +6,7 @@
   border: 3px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
-  box-shadow: var(--hard);
+  box-shadow: var(--shadow);
   color: var(--ink);
 }
 .workspace .message-ui-card.is-dm .display-card { width:100%; }

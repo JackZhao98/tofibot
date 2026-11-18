@@ -1,5 +1,5 @@
 /* Empty and first-use states: a small live cat, one heading, the next action.
-   Colours, edge and shadow come from design-tokens.css. */
+   Colours, edge and shadow come from the skin (src/skin/). */
 
 .empty-cat { --cat:64px; position:relative; display:inline-grid; place-items:center; flex:none; width:var(--cat); height:var(--cat); }
 .empty-cat .lab-cat { display:block; width:100%; height:100%; }
@@ -31,9 +31,9 @@
 .first-run-card {
   position:relative; width:min(560px,100%); box-sizing:border-box; display:grid; justify-items:center; gap:14px;
   padding:34px clamp(20px,5vw,44px) 38px; text-align:center;
-  background:var(--surface) var(--dots); border:var(--edge-bold) solid var(--line); border-radius:var(--r-lg); box-shadow:var(--hard);
+  background:var(--surface) var(--dots); border:var(--legacy-edge-bold-w) solid var(--line); border-radius:var(--r-lg); box-shadow:var(--shadow);
 }
-.first-run-cats { display:flex; align-items:flex-end; justify-content:center; gap:clamp(2px,1.6vw,12px); width:100%; margin-bottom:6px; padding-bottom:6px; border-bottom:var(--edge) dashed var(--line-soft); }
+.first-run-cats { display:flex; align-items:flex-end; justify-content:center; gap:clamp(2px,1.6vw,12px); width:100%; margin-bottom:6px; padding-bottom:6px; border-bottom:var(--legacy-edge-w) dashed var(--line-soft); }
 .first-run-cat { --cat:clamp(66px,17vw,112px); }
 .first-run-cat:nth-child(even) { --cat:clamp(58px,15vw,98px); }
 .first-run h1 { margin:6px 0 0; color:var(--ink); font:700 40px/1.08 var(--display); letter-spacing:-.01em; text-wrap:balance; }

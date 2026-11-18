@@ -1396,7 +1396,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const visible = node => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; };
       const all = [...body.querySelectorAll("*")].filter(visible);
       const bordered = all.filter(node => { const style = getComputedStyle(node); return parseFloat(style.borderTopWidth) >= 1 && style.borderTopStyle !== "none" && parseFloat(style.borderLeftWidth) >= 1 && node.getBoundingClientRect().width > 60; }).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
-      // A hard shadow is an outset layer with an offset and no blur (--hard, --hard-sm); the soft lift (--st-lift) blurs.
+      // A hard shadow is an outset layer with an offset and no blur (--shadow, --shadow-sm); the soft lift (--st-lift) blurs.
       const isHard = node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\)/g, "").split(",").some(layer => { if (/inset/.test(layer)) return false; const [x, y, blur] = layer.trim().split(/\s+/).map(parseFloat); return blur === 0 && (x !== 0 || y !== 0); });
       const hard = all.filter(isHard).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
       const column = Math.max(0, ...[...body.children].filter(visible).filter(node => !node.classList.contains("st-wide") && !node.classList.contains("settings-stack")).map(node => node.getBoundingClientRect().width));

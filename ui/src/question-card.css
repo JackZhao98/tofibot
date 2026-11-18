@@ -20,7 +20,7 @@
   border: 2px solid var(--line);
   border-radius: 16px;
   background: var(--surface) var(--dots);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--ink);
 }
 :root .workspace .question-message .question-card { transition: padding var(--m-base) var(--ease-out), border-width var(--m-base) var(--ease-out), border-color var(--m-base) var(--ease-out), background-color var(--m-base) var(--ease-out), box-shadow var(--m-base) var(--ease-out); }
@@ -65,7 +65,7 @@
   border-color: var(--line);
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 3px;
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
 }
 .workspace .question-message .question-card > textarea::placeholder { color: var(--muted); }
 
@@ -93,7 +93,7 @@
 .workspace .question-message .question-options label.selected {
   border-color: var(--line);
   background: var(--clay);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--on-block);
 }
 .workspace .question-message .question-options label:has(input:disabled) { cursor: default; opacity: .68; }
@@ -109,7 +109,7 @@
 .workspace .question-message .question-other-answer { margin-top:12px; }
 .workspace .question-message .question-other-answer > label { display:block; margin-bottom:6px; color:var(--ink-soft); font:600 13px/1.5 var(--body); }
 .workspace .question-message .question-other-answer textarea { box-sizing:border-box; display:block; width:100%; min-height:88px; padding:10px 12px; border:1px solid var(--line-soft); border-radius:12px; background:var(--sunk); color:var(--ink); font:15px/1.6 var(--body); resize:vertical; caret-color:var(--lagoon-text); }
-.workspace .question-message .question-other-answer textarea:focus-visible { border-color:var(--line); box-shadow:var(--hard-sm); }
+.workspace .question-message .question-other-answer textarea:focus-visible { border-color:var(--line); box-shadow:var(--shadow-sm); }
 .workspace .question-message .field-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
 .workspace .question-message .question-actions {
   display: flex;
@@ -123,7 +123,7 @@
   border: 2px solid var(--line);
   border-radius: 12px;
   background: var(--clay);
-  box-shadow: var(--hard-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--on-block);
   font: 600 13px/1 var(--display);
   transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out);
@@ -213,7 +213,7 @@
 }
 .workspace .question-message .question-form-field textarea { min-height: 96px; resize: vertical; }
 .workspace .question-message .question-form-field :is(input, textarea):not(:disabled):hover { border-color: var(--line); }
-.workspace .question-message .question-form-field :is(input, textarea):focus-visible { border-color: var(--line); box-shadow: var(--hard-sm); }
+.workspace .question-message .question-form-field :is(input, textarea):focus-visible { border-color: var(--line); box-shadow: var(--shadow-sm); }
 .workspace .question-message .question-form-field [aria-invalid="true"] { border-color: var(--danger); }
 .workspace .question-message .question-form-field :is(input, textarea):disabled { opacity: .65; cursor: not-allowed; }
 .workspace .question-message .question-form-field .error-text { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; }

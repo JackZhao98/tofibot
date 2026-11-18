@@ -27,7 +27,7 @@
   transition: background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out);
 }
 .workspace .artifacts-tabs button:hover { color: var(--ink); }
-.workspace .artifacts-tabs button[aria-selected="true"] { border: 2px solid var(--line); background: var(--clay); box-shadow: var(--hard-sm); color: var(--on-block); }
+.workspace .artifacts-tabs button[aria-selected="true"] { border: 2px solid var(--line); background: var(--clay); box-shadow: var(--shadow-sm); color: var(--on-block); }
 .workspace .artifacts-uploads { margin: 0; }
 /* In a cover or a widget the heading is the frame's own (title and close live there). */
 .workspace :is(.cover-body,.context-card) .detail-content.artifacts-panel > .detail-heading { display: none; }

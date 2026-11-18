@@ -1,5 +1,5 @@
 /* "Context" in View activity (D53): quiet L1 paper rows, a margin rule on the left, mono only for the original text. */
-.run-context-body{display:grid;gap:8px;margin:6px 0 0 12px;padding:2px 0 2px 12px;border-left:var(--edge) solid var(--line-soft);color:var(--ink-soft);font:var(--type-meta);min-width:0}
+.run-context-body{display:grid;gap:8px;margin:6px 0 0 12px;padding:2px 0 2px 12px;border-left:var(--legacy-edge-w) solid var(--line-soft);color:var(--ink-soft);font:var(--type-meta);min-width:0}
 .run-context-total{margin:0;color:var(--text-process)}
 .run-context-total strong{font-weight:inherit;color:var(--ink-soft)}
 .run-context-note{margin:0;color:var(--text-process);font:var(--type-meta);overflow-wrap:anywhere}

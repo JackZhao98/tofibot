@@ -5,7 +5,8 @@ import { join, relative } from "node:path";
 // Keep the machine-readable export, design CSS and runtime in agreement.
 const reference = readFileSync(new URL("../test-fixtures/design/tokens/colors.css", import.meta.url), "utf8");
 const exported = JSON.parse(readFileSync(new URL("../test-fixtures/design/tokens/tokens.json", import.meta.url), "utf8"));
-const css = readFileSync(new URL("../src/design-tokens.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../src/skin/legacy.css", import.meta.url), "utf8");
+const SKIN = ':root:where([data-skin="legacy"], :not([data-skin]))';
 function declarations(source, selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const body = source.match(new RegExp(`^${escaped}\\s*\\{([\\s\\S]*?)^\\}`, "m"))?.[1];
@@ -13,11 +14,14 @@ function declarations(source, selector) {
   return Object.fromEntries([...body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [name, value.trim()]));
 }
 
-const base = declarations(css, ":root");
+// PLAN 7.6 renamed the V2 names that collide with V3 meanings; the reference export keeps the V2 names.
+const RENAMED = { glass: "legacy-glass", "glass-strong": "legacy-glass-strong", hard: "shadow", "hard-sm": "shadow-sm", edge: "legacy-edge-w", "edge-bold": "legacy-edge-bold-w" };
+const withV2Names = values => ({ ...values, ...Object.fromEntries(Object.entries(RENAMED).filter(([, now]) => now in values).map(([was, now]) => [was, values[now]])) });
+const base = withV2Names(declarations(css, SKIN));
 const referenceBase = declarations(reference, ":root");
 const modes = {
   light: { actual: base, expected: { ...referenceBase, ...declarations(reference, ".light") } },
-  dark: { actual: { ...base, ...declarations(css, ':root[data-theme="dark"]') }, expected: referenceBase },
+  dark: { actual: withV2Names({ ...base, ...declarations(css, `${SKIN}[data-theme="dark"]`) }), expected: referenceBase },
 };
 assert.deepEqual(exported.color.themes.map(theme => theme.id).sort(), Object.keys(modes).sort(), "JSON themes must match CSS modes");
 const exportedColors = Object.fromEntries(exported.color.tokens.map(token => [token.name, token.value]));
@@ -70,7 +74,7 @@ function inspect(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) { if (entry.name !== "lib") inspect(path); continue; }
-    if (!entry.name.endsWith(".css") || entry.name === "design-tokens.css") continue;
+    if (!entry.name.endsWith(".css") || relative(sourceRoot, path).startsWith("skin/")) continue;
     assert.doesNotMatch(readFileSync(path, "utf8"), /(?<![\w-])color\s*:\s*var\(--(?:clay|iris|lagoon|honey|yellow|pink|blue|orange|green|danger|status-error|status-working|status-done|status-unread)\)/, `Fill token used as foreground in ${relative(sourceRoot, path)}`);
   }
 }

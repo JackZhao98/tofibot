@@ -2,7 +2,7 @@
 // match, so a class-scoped rule costs almost nothing while its panel is closed; but an @property registration or a custom
 // property defined on :root/html restyles every element (2026-11-04: 6610 elements, 23-26 ms on a Mac, about 85 ms at 4x
 // CPU, measured in the sidebar with 61 rows). The warm-up in lazyPanels.tsx loads these chunks while the person works, so
-// such a rule there is a dropped frame mid-drag or mid-scroll. Put it in design-tokens.css or another eager sheet instead.
+// such a rule there is a dropped frame mid-drag or mid-scroll. Put it in the skin (src/skin/) or another eager sheet instead.
 // Reads ui/dist: run `npm run build` first. Run: npm run test:lazy-css
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -53,7 +53,7 @@ for (const file of lazy) {
 }
 if (eager.size === 0) problems.push("no eager stylesheet found in the entry pages; the scan cannot tell lazy CSS apart");
 if (problems.length) {
-  console.error(`lazy css: FAIL. These rules restyle the whole page when their chunk loads; move them to design-tokens.css:\n  ${problems.join("\n  ")}`);
+  console.error(`lazy css: FAIL. These rules restyle the whole page when their chunk loads; move them to the skin (src/skin/) or another eager sheet:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
 console.log(`lazy css: ${lazy.length} lazy stylesheets, ${eager.size} eager; no @property or :root custom properties in lazy CSS PASS`);

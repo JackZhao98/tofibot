@@ -11,6 +11,7 @@ import "../settings/settings-components.css";
 import "../settings/settings-polish.css";
 import "../focus-ring.css";
 import "./pages.css";
+import { applySkin } from "../skin/skin";
 
 export function mountPage(Page: ComponentType) {
   const preference = window.tofiDesktop?.themePreference;
@@ -18,8 +19,7 @@ export function mountPage(Page: ComponentType) {
   const apply = () => {
     if (document.documentElement.dataset.permissionGuide) return;
     const theme = preference === "light" || preference === "dark" ? preference : media.matches ? "dark" : "light";
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
+    applySkin(theme);
   };
   apply();
   if (preference !== "light" && preference !== "dark") media.addEventListener("change", apply);

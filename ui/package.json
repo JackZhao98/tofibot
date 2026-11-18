@@ -114,6 +114,7 @@
     "test:overlays": "node scripts/test-overlays.mjs",
     "test:dialogs": "node scripts/test-dialogs.mjs",
     "test:swipe-back": "node scripts/test-swipe-back.mjs",
+    "test:skin-snapshot": "node scripts/test-skin-snapshot.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:settings-polish": "node scripts/test-settings-polish.mjs",
     "test:connections": "node scripts/test-connections.mjs",

@@ -1,6 +1,6 @@
 /* One layout for Bot messages in a conversation type.
    Every Bot message (final or segment) is a filled bubble in both conversation types: tone against the page paper, no outline
-   (--bubble-bot in design-tokens.css). Group chat: units from the
+   (--bubble-bot in skin/legacy.css). Group chat: units from the
    same Bot (messages, Activity rows, live status) form a sender group: the name is a light caption above the
    first unit, the avatar sits level with the last unit's bottom edge. A speaker change gets more room above. The bubble's pointed corner is the last bubble's bottom-left,
    facing the avatar. Direct chat: the same bubble with no tail (there is no avatar to face), a little wider so long answers read well.

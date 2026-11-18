@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { currentLanguage, isLanguage, setLanguage } from "../i18n";
+import { applySkin } from "../skin/skin";
 
 export type HostData = {
   active: string | null;
@@ -34,7 +35,7 @@ window.renderHost = data => {
   snapshot = data;
   const { lang, theme } = data.look ?? {};
   if (isLanguage(lang) && lang !== currentLanguage()) void setLanguage(lang);
-  if (theme === "light" || theme === "dark") document.documentElement.dataset.themeFixed = document.documentElement.dataset.theme = theme;
+  if (theme === "light" || theme === "dark") { document.documentElement.dataset.themeFixed = theme; applySkin(theme); }
   listeners.forEach(listener => listener());
 };
 

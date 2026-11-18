@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "./i18n";
 import { layerRoot, topLayerDialog } from "./layers";
+import { applySkin } from "./skin/skin";
 
 export type ThemePreference = "system" | "light" | "dark";
 export function useAppearance() {
@@ -20,8 +21,7 @@ export function useAppearance() {
   }, []);
   const theme = preference === "system" ? (systemDark ? "dark" : "light") : preference;
   useLayoutEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
+    applySkin(theme);
     const pageColor = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
     // index.html ships a light/dark pair keyed on the OS setting; the in-app choice wins once it runs, so drop the media query.
     if (pageColor) document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta => { meta.removeAttribute("media"); meta.setAttribute("content", pageColor); });

@@ -11,7 +11,7 @@
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:8/5;max-height:none;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out)}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap .remote-preview-hint{display:none}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent!important}
-.desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:var(--z-dialog);top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--hard),var(--float-shadow);overflow:auto;pointer-events:auto}
+.desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:var(--z-dialog);top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--shadow),var(--float-shadow);overflow:auto;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button{border:0;background:transparent;color:var(--ink)}
 .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap{display:flex;min-height:0;flex:1;flex-direction:column;margin:8px 0 0;padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--desktop-screen)}
 .desktop-floating-shell .computer-detail.is-expanded .remote-desktop,.desktop-floating-shell .computer-detail.is-expanded .remote-desktop-surface{min-height:120px;flex:1}
@@ -181,7 +181,7 @@
 @keyframes desktop-scrim-in{from{opacity:0}to{opacity:1}}
 
 /* Glass control group, 8px inside the screen's top-right corner: enlarge or shrink, and close. */
-.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity var(--m-quick) var(--ease-out)}
+.desktop-window-controls{position:absolute;z-index:12;top:14px;right:14px;display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:10px;background:var(--legacy-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);opacity:0;transition:opacity var(--m-quick) var(--ease-out)}
 .computer-detail:is(:hover,:focus-within) .desktop-window-controls,.desktop-floating-shell.is-expanded .desktop-window-controls{opacity:1}
 @media(hover:none){.desktop-window-controls{opacity:1}}
 .desktop-window-controls .desktop-control-button{color:var(--desktop-controls-ink)}

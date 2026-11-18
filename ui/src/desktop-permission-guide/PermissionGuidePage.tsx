@@ -1,9 +1,9 @@
 import { useTranslation } from "../i18n";
+import { applySkin } from "../skin/skin";
 
 // Native theme updates can arrive while the catalogs are loading, before React mounts.
 window.setPermissionGuideTheme = dark => {
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
-  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  applySkin(dark ? "dark" : "light");
 };
 document.documentElement.dataset.permissionGuide = "true";
 const params = new URLSearchParams(location.search);

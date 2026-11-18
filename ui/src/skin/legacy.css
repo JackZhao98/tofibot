@@ -1,0 +1,319 @@
+/* The V2 skin (V3 PR 0.2): the colours, shadows, glass, radii, edge widths and fonts of V2, moved verbatim from the
+   retired design-tokens.css (V2-only names that collide with V3 meanings are renamed, PLAN 7.6). data-skin="legacy", or no
+   data-skin, selects it. The V3 skin arrives in 0.4 and becomes the default in 1.1. Structure (space, motion, layers,
+   layout, type scale) is in structure.css, in @layer tokens below this layer. */
+@layer skin {
+:root:where([data-skin="legacy"], :not([data-skin])) {
+  color-scheme:light;
+  /* Final V2 system: semantic palette is authoritative; historical names below
+     are aliases, not a second colour source. */
+  --bg:#f1efeb;
+  --surface:#fcfbf9;
+  --surface-2:#f5f3ef;
+  --sunk:#e9e6e1;
+  --line:rgba(36,27,20,.14);
+  --line-soft:#dcd8d1;
+  --ink:#241b14;
+  --ink-soft:#54473a;
+  --muted:#6f6252;
+  /* Sep 25 system: fills and readable foregrounds are distinct in each mode. */
+  --clay:#e07f55;
+  --clay-text:#a8502a;
+  --iris:#a58ee6;
+  --iris-text:#6a4fbf;
+  --lagoon:#4fb3a0;
+  --lagoon-text:#1d7466;
+  --honey:#e0a82a;
+  --honey-text:#8a6106;
+  --yellow:var(--clay);
+  --pink:var(--iris);
+  --blue:var(--lagoon);
+  --orange:var(--honey);
+  --yellow-text:var(--clay-text);
+  --pink-text:var(--iris-text);
+  --blue-text:var(--lagoon-text);
+  --orange-text:var(--honey-text);
+  --green:#6fae7f;
+  --green-text:#37744a;
+  --wait:#6f6252;
+  --work-status-ink:var(--lagoon-text);
+  --danger:#d9573f;
+  --danger-text:#b0381f;
+  --on-danger:var(--on-block);
+  --on-block:#1a140f;
+  --focus:#2f6db0;
+  --inverse:var(--ink);
+  --on-inverse:var(--bg);
+  --lagoon-text-light:#1d7466;
+  --paper:#fffdf7;
+  --paper-ink:#2a2019;
+  --paper-rule:#e3d6bf;
+  --paper-muted:#8a7a66;
+  --sticky:#f7e3a8;
+  --airmail-red:#d9562a;
+  --airmail-blue:#4f789d;
+  --file-xlsx:#4d8a5d;
+  --file-pdf:#b8432f;
+  --code-inline-bg:#eae3d7;
+  --code-inline-ink:#56432e;
+  --code-inline-edge:#d8cbb9;
+  --code-block-bg:#e6ded0;
+  --code-block-ink:#352b22;
+  --code-block-edge:#d3c5b2;
+  --surface-page:var(--bg);
+  --surface-card:var(--surface);
+  --surface-raised:var(--surface-2);
+  --surface-sunk:var(--sunk);
+  --text-body:var(--ink);
+  --text-secondary:var(--ink-soft);
+  --text-meta:var(--muted);
+  --text-process:var(--muted);
+  --text-on-block:var(--on-block);
+  --border-edge:var(--line);
+  --border-soft:var(--line-soft);
+  --accent-primary:var(--clay);
+  --accent-decide:var(--iris);
+  --accent-primary-text:var(--clay-text);
+  --accent-decide-text:var(--iris-text);
+  --surface-inverse:var(--inverse);
+  --text-on-inverse:var(--on-inverse);
+  --status-working:var(--lagoon);
+  --status-unread:var(--honey);
+  --status-done:var(--green);
+  --status-error:var(--danger);
+  --status-wait:var(--wait);
+  --status-working-text:var(--lagoon-text);
+  --status-unread-text:var(--honey-text);
+  --status-done-text:var(--green-text);
+  --status-error-text:var(--danger-text);
+  --radius-sm:9px;
+  --radius-md:12px;
+  --radius-lg:16px;
+  --radius-xl:20px;
+  --radius-2xl:22px;
+  --radius-pill:999px;
+  --edge-soft:1px;
+  --legacy-edge-w:2px;
+  --legacy-edge-bold-w:3px;
+  --r:14px;
+  --r-lg:20px;
+  --shadow:0 1px 2px rgba(36,27,20,.06), 0 10px 28px rgba(36,27,20,.10);
+  --shadow-sm:0 1px 2px rgba(36,27,20,.08), 0 3px 8px rgba(36,27,20,.06);
+  --dots:radial-gradient(#2a201914 1px,transparent 1.2px) 0 0/16px 16px;
+  --legacy-glass:rgba(252,251,249,.96);
+  --legacy-glass-strong:var(--legacy-glass);
+  --scrim:rgba(12,14,18,.45);
+  --glass-edge:rgba(42,32,25,.14);
+  --blur:blur(40px) saturate(1.8);
+  --sheen:inset 0 1px 0 rgba(255,255,255,.7);
+  /* FloatingDesktop preview keeps dark glass legible over any desktop frame. */
+  --desktop-controls-glass:var(--legacy-glass);
+  --desktop-controls-solid:#0c0e12;
+  --desktop-controls-edge:rgba(255,255,255,.14);
+  --desktop-controls-ink:#f3eadb;
+  --desktop-controls-hover:rgba(255,255,255,.14);
+  --desktop-controls-grip:rgba(255,255,255,.5);
+  --desktop-screen:var(--desktop-controls-solid);
+  --desktop-actor-glass:var(--desktop-controls-glass);
+  --desktop-pointer-ink:var(--on-block);
+  /* Shared-computer bezel: a dark frame and chin around the remote screen in both themes. */
+  --desktop-bezel:#2a2f38;
+  --desktop-bezel-fill:#15181e;
+  --desktop-bezel-shadow:0 12px 32px rgba(0,0,0,.2);
+  --desktop-switch-track:rgba(255,255,255,.06);
+  --desktop-switch-idle:rgba(255,255,255,.16);
+  --desktop-switch-badge-shadow:0 1px 0 rgba(0,0,0,.3);
+  --desktop-pointer-surface:var(--blue);
+  --swatch-light-bg:#f1efeb;
+  --swatch-light-edge:#dcd8d1;
+  --swatch-light-ink:#54473a;
+  --swatch-dark-bg:#14120f;
+  --swatch-dark-edge:#3a352e;
+  --swatch-dark-ink:#c9bca8;
+  /* Letter and stationery colors are fixed artwork from the v2 MailRead preview. */
+  /* D51 (docs/decisions/0051): the hard-shadow ink, always ink, decoupled from --line (dark: black, below). Shadows elsewhere mix it with transparent. */
+  --hard-ink:#2a2019;
+  --white:#fff;
+  /* Shadow inks kept at the exact values the shadows always had (mixed with transparent at each shadow's own alpha); --amber was never defined before and rendered this fallback. */
+  --shade:#000;
+  --shade-warm:#140e08;
+  --shade-ink:#2a2019;
+  --amber:#c98a1b;
+  /* File type tile (FileTile.tsx, file-tile.css): one family colour per format; --ft-on is the label ink on a family colour. */
+  --ft-pdf:#c8402f;
+  --ft-image:#b83d70;
+  --ft-sheet:#2f7d52;
+  --ft-doc:#2f63b5;
+  --ft-md:#6d51c4;
+  --ft-slides:#c0601f;
+  --ft-code:#1f7a6b;
+  --ft-json:#9a6a00;
+  --ft-archive:#9a5530;
+  --ft-media:#4a52c0;
+  --ft-text:#6b6558;
+  --ft-other:#6b6558;
+  --ft-on:#fff;
+  /* Brand-logo plates (extensions-system.css): a white plate for most marks, a near-black one for logos that vanish on white. Same in both themes. */
+  --mark-plate:#fff;
+  --mark-plate-dark:#111;
+  /* Motion Lab's fake computer screen: fixed artwork. */
+  --fd-dot:#6f6252;
+  --fd-frame:#2a2f38;
+  --fd-screen:#12161c;
+  --fd-screen-dot:#ffffff12;
+  --fd-off-ink:#8f8778;
+  --fd-icon-ink:#e8eef5;
+  --fd-window:#fbf8f3;
+  --fd-window-ink:#2a2019;
+  --fd-window-bar:#ece6dc;
+  --fd-window-muted:#6f6252;
+  --fd-window-light:#d8cfc2;
+  --fd-field-line:#d8d0c4;
+  --fd-placeholder:#9a8f80;
+  --fd-line:#e6dfd4;
+  --fd-pointer-edge:#0c0e12;
+  --mail-paper:#fffdf7;
+  --mail-stripe-paper:#fbf4e6;
+  --mail-ink:#2a2019;
+  --mail-muted:#766751;
+  --mail-post-blue:#4f789d;
+  --mail-post-red:#d9562a;
+  --mail-rule:#e3d6bf;
+  --mail-note:#f7e3a8;
+  --mail-note-ink:#3a2e1c;
+  --mail-note-muted:#6d5a2a;
+  --mail-line:#eadfca;
+  --mail-footer:#f6ecd9;
+  --mail-note-shadow:2px 3px 0 rgba(0,0,0,.18);
+  /* Image lightbox scrim and its caption, the same in both themes. */
+  --lightbox-scrim:rgba(8,8,10,.96);
+  --lightbox-ink:#f3eadb;
+  --menu-shadow:0 12px 32px rgb(0 0 0 / .18);
+  --field-inset-shadow:inset 0 1px 2px rgba(0,0,0,.08);
+  --display:"Fredoka","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif;
+  --body:"PingFang SC","Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --font-display:var(--display);
+  --font-body:var(--body);
+  --font-mono:var(--mono);
+  /* Compatibility selectors resolve to V2 values while component CSS is retired. */
+  --surface-soft:var(--surface-2);
+  --surface-hover:var(--surface);
+  --sidebar-bg:var(--sunk);
+  --selected-bg:var(--surface-2);
+  --line-strong:var(--line-soft);
+  --text:var(--ink);
+  --text-soft:var(--ink-soft);
+  --accent:var(--yellow);
+  --focus-ring:var(--focus);
+  --success:var(--green);
+  --on-accent:var(--on-block);
+  /* Message bubbles are filled, never stroked: depth comes from the tone against the page paper (--bg). Bot = a warm
+     stone tone; user = a calm clay tint. --bubble-inset is the well code blocks and tables sit in inside a bubble. */
+  --bubble-bot:#e8e4dd;
+  --bubble-bot-ink:var(--ink);
+  --bubble-user:#f1d9c8;
+  --bubble-user-ink:var(--ink);
+  --bubble-inset:#f6f3ee;
+  --bubble-inset-ink:#352b22;
+  --bubble-radius:18px;
+  --bubble-tail:5px;
+  --bubble-joined:6px;
+  /* Hover hints: a neutral black chip, never the accent colour. Dark theme inverts (a near-black chip would vanish on the near-black page). */
+  --tooltip-bg:#171411;
+  --tooltip-ink:#ffffff;
+  --float-shadow:var(--shadow);
+  /* Widget cards (docs/design/widgets-and-sidebar.md): a soft elevation, no outline. Here and not in the lazy
+     widget CSS: a :root rule arriving with a chunk restyles every element on the page. */
+  --card-elevation:0 1px 2px color-mix(in srgb,var(--shade-ink) 6%,transparent), 0 10px 28px -14px color-mix(in srgb,var(--shade-ink) 28%,transparent);
+  --card-lift:0 2px 4px color-mix(in srgb,var(--shade-ink) 10%,transparent), 0 18px 38px -12px color-mix(in srgb,var(--shade-ink) 42%,transparent);
+  /* Settings: the quiet lift of a selected rail item, a select, a quiet button, a selected segment (docs/design/settings-simplify.md 5). Here, not in a lazy sheet, for the same reason as the card tokens. */
+  --st-lift:0 1px 2px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 6px 16px -10px color-mix(in srgb,var(--shade-ink) 32%,transparent);
+}
+:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] {
+  color-scheme:dark;
+  --bg:#14120f;
+  --surface:#1f1c18;
+  --surface-2:#2a2621;
+  --sunk:#181613;
+  --line:rgba(243,234,219,.14);
+  --line-soft:#3a352e;
+  --ink:#f3eadb;
+  --ink-soft:#c9bca8;
+  --muted:#a3957f;
+  --clay:#ec9a74;
+  --clay-text:#f2a887;
+  --iris:#c0acf0;
+  --iris-text:#c9b8f4;
+  --lagoon:#72cdbc;
+  --lagoon-text:#7fd6c6;
+  --honey:#f3c75a;
+  --honey-text:#f5cf6e;
+  --green:#93cfa1;
+  --green-text:#9dd6ab;
+  --wait:#c9bca8;
+  --danger:#f4917f;
+  --danger-text:#f79d8c;
+  --focus:#8cc3f0;
+  --paper:#fbf4e6;
+  --code-inline-bg:#332b23;
+  --code-inline-ink:#ead8bf;
+  --code-inline-edge:#4b3d30;
+  --code-block-bg:#25201b;
+  --code-block-ink:#f0e2cf;
+  --code-block-edge:#493d32;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35), 0 3px 8px rgba(0,0,0,.3);
+  --hard-ink:#000;
+  --shade:#000;
+  --shade-warm:#140e08;
+  --shade-ink:#2a2019;
+  --amber:#c98a1b;
+  --ft-pdf:#d8604f;
+  --ft-image:#cc5c8a;
+  --ft-sheet:#3f9467;
+  --ft-doc:#4a7fd0;
+  --ft-md:#8267d8;
+  --ft-slides:#d27a3a;
+  --ft-code:#2f9484;
+  --ft-json:#b8861a;
+  --ft-archive:#b8704a;
+  --ft-media:#6870d4;
+  --ft-text:#857d6e;
+  --ft-other:#857d6e;
+  --dots:radial-gradient(#ffffff14 1px,transparent 1.2px) 0 0/16px 16px;
+  --legacy-glass:rgba(31,28,24,.96);
+  --legacy-glass-strong:var(--legacy-glass);
+  --sidebar-bg:var(--sunk);
+  --glass-edge:rgba(241,230,214,.2);
+  --sheen:inset 0 1px 0 rgba(255,255,255,.08);
+  --float-shadow:var(--shadow);
+  --card-elevation:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent), 0 12px 30px -14px color-mix(in srgb,var(--shade) 70%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent);
+  --card-lift:0 2px 4px color-mix(in srgb,var(--shade) 50%,transparent), 0 20px 40px -12px color-mix(in srgb,var(--shade) 85%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 6%,transparent);
+  --st-lift:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent);
+  --tooltip-bg:#f2efe9;
+  --tooltip-ink:#171411;
+  --bubble-bot:#2b2722;
+  --bubble-user:#4a3125;
+  --bubble-inset:#1c1915;
+  --bubble-inset-ink:#f0e2cf;
+  --mail-paper:#fbf4e6;
+}
+
+/* Widget column and sidebar panels (context-card.css). */
+:root:where([data-skin="legacy"], :not([data-skin])) { --panel-elevation-edge:-14px 0 32px -22px color-mix(in srgb,var(--shade-ink) 32%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade-ink) 22%,transparent); --panel-radius:16px; }
+:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --panel-elevation-edge:-14px 0 32px -20px color-mix(in srgb,var(--shade) 75%,transparent); --panel-float-elevation:0 1px 3px color-mix(in srgb,var(--shade) 50%,transparent), 0 3px 12px -3px color-mix(in srgb,var(--shade) 65%,transparent), inset 0 1px 0 color-mix(in srgb,var(--white) 4%,transparent); }
+
+/* File tiles (file-tile.css). */
+:root:where([data-skin="legacy"], :not([data-skin])) { --ft-page-mix:9%; --ft-fold-mix:26%; --ft-edge-mix:24%; }
+:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --ft-page-mix:16%; --ft-fold-mix:34%; --ft-edge-mix:34%; }
+
+/* High contrast: author colours give way to system colours. Both theme selectors, or the dark block would win. */
+@media (forced-colors:active){
+  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"]{--bg:Canvas;--surface:Canvas;--surface-soft:Canvas;--sidebar-bg:Canvas;--selected-bg:Highlight;--line:ButtonText;--line-strong:ButtonText;--text:CanvasText;--text-soft:CanvasText;--muted:CanvasText;--accent:Highlight;--success:Highlight;--danger:LinkText;--focus-ring:Highlight}
+}
+/* Without backdrop blur, glass is the plain surface. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  :root:where([data-skin="legacy"], :not([data-skin])),:root:where([data-skin="legacy"], :not([data-skin]))[data-theme="dark"] { --legacy-glass:var(--surface); }
+}
+}
