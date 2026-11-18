@@ -206,9 +206,6 @@
   "settings/settings-components.css": {
     "bridgeUse": 18
   },
-  "settings/settings-polish.css": {
-    "bridgeUse": 1
-  },
   "settings/spend-cap.css": {
     "bridgeUse": 1
   },

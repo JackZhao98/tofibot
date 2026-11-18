@@ -13,7 +13,6 @@ import "../src/v2-foundations.css";
 import "../src/ds/legacy-aliases.css";
 import "../src/v2-app.css";
 import "../src/settings/settings-components.css";
-import "../src/settings/settings-polish.css";
 import "../src/web-tool-steps.css";
 import "../src/web-mention.css";
 import "../src/web-file-drop.css";
