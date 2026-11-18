@@ -20,6 +20,11 @@ import { Tag } from "../src/ds/Tag/Tag";
 import { TextArea } from "../src/ds/TextArea/TextArea";
 import { TextInput } from "../src/ds/TextInput/TextInput";
 import { Toast } from "../src/ds/Toast/Toast";
+import { DataTable } from "../src/ds/DataTable/DataTable";
+import { KeyRow } from "../src/ds/KeyRow/KeyRow";
+import { SettingsRow } from "../src/ds/SettingsRow/SettingsRow";
+import { SettingsSection } from "../src/ds/SettingsSection/SettingsSection";
+import { Stat } from "../src/ds/Stat/Stat";
 
 export const registry = { Avatar, Badge, Banner, BotAvatar, BrandMark, Button, Card, Checkbox, EmptyState, Field, Icon, IconButton, Kbd, MemberChip, Notice, Progress, Skeleton, Tag, TextArea, TextInput, Toast };
 
@@ -37,3 +42,6 @@ import { StepList } from "../src/ds/StepList/StepList";
 import { TaskCard } from "../src/ds/TaskCard/TaskCard";
 import { ToolSteps } from "../src/ds/ToolSteps/ToolSteps";
 Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, ProcessLine, ProgressiveBlur, Reactions, SidebarRow, StepList, TaskCard, ToolSteps });
+
+// Kit IV: settings and data (PR 0.9).
+Object.assign(registry, { DataTable, KeyRow, SettingsRow, SettingsSection, Stat });

@@ -1,0 +1,8 @@
+.tb-stat { border: var(--border-1) solid var(--line); border-radius: var(--radius-md); background: var(--surface); padding: 14px 16px; display: grid; align-content: start; gap: 6px; }
+.tb-stat-value { font: 700 30px/1 var(--font-display); letter-spacing: -.02em; display: flex; align-items: baseline; gap: 4px; }
+.tb-stat-unit { font: 600 13px/1 var(--font-mono); color: var(--muted); }
+.tb-stat-delta { font: 500 12px/1.3 var(--font-mono); color: var(--muted); }
+.tb-stat-delta.is-up { color: var(--lime-text); }
+.tb-stat-delta.is-down { color: var(--danger-text); }
+.tb-stat-spark { display: flex; align-items: flex-end; gap: 3px; height: 34px; }
+.tb-stat-spark span { flex: 1; background: var(--teal); border: var(--border-1) solid var(--line); border-radius: 2px 2px 0 0; }

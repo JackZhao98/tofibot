@@ -1,0 +1,16 @@
+.tb-table-wrap { border: var(--border-1) solid var(--line); border-radius: var(--radius-md); overflow: auto; background: var(--surface); }
+.tb-table-wrap:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-table { width: 100%; border-collapse: collapse; font: 400 13.5px/1.45 var(--font-body); }
+.tb-table th { text-align: left; padding: 10px 14px; background: var(--surface-2); border-bottom: var(--border-1) solid var(--line); font: 600 10px/1.2 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.tb-table td { padding: 11px 14px; border-top: var(--border-1) solid var(--line); color: var(--ink); vertical-align: middle; }
+.tb-table tbody tr:first-child td { border-top: 0; }
+.tb-table tbody tr:hover td { background: var(--hover); }
+.tb-cell-brand { display: inline-flex; align-items: center; gap: 8px; }
+.tb-cell-brand .tb-brandmark { border-width: var(--border-1); border-radius: var(--radius-xs); }
+.tb-table-empty { padding: 24px; text-align: center; color: var(--muted); font: 400 14px/1.5 var(--font-body); }
+/* Inside a SettingsSection the table is the section card's own body: no second frame. */
+.tb-ssec-body .tb-table-wrap { border: 0; border-radius: 0; border-top: var(--border-1) solid var(--line); }
+.tb-ssec-body > .tb-table-wrap:first-child { border-top: 0; }
+@media (max-width: 700px) {
+  .tb-table th, .tb-table td { white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+}

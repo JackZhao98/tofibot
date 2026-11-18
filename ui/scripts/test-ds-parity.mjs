@@ -63,6 +63,20 @@ const CASES = [
   ["BrandMark", D("BrandMark", { src: "/brand/services/notion.svg", name: "Notion" })],
   ["BrandMark dark", D("BrandMark", { src: "/brand/services/github-inverse.svg", tile: "dark", size: 48 })],
   ["MemberChip", D("MemberChip", { name: "Mia Chen", role: "Owner", onRemove: noop, removeLabel: "Remove Mia", avatar: D("Avatar", { name: "Mia Chen", size: 28, tone: "cobalt" }) })],
+  // Kit IV (PR 0.9): settings and data.
+  ["SettingsSection", D("SettingsSection", { title: "Appearance", description: "How Tofi looks on this device.", actions: D("Button", { size: "sm" }, "Reset") }, [D("SettingsRow", { label: "Theme", hint: "Follows the system by default." }, D("Button", { variant: "secondary", size: "sm" }, "Change")), D("SettingsRow", { label: "Language" }, D("Tag", {}, "English"))])],
+  ["SettingsSection danger", D("SettingsSection", { title: "Danger zone", danger: true }, D("SettingsRow", { label: "Start over", hint: "Deletes every Bot, conversation and file on this server." }, D("Button", { variant: "danger", size: "sm" }, "Start over")))],
+  ["KeyRow icon", D("KeyRow", { name: "production-bot", scope: "read", masked: "sk-tofi-…9Fq2", meta: "Used 2 hours ago", actions: D("IconButton", { icon: "more", label: "Key actions", size: "sm" }) })],
+  ["KeyRow logo status", D("KeyRow", { name: "OpenAI", logo: "/brand/services/notion.svg", masked: "sk-proj-…Tt0a", meta: "Added Oct 21", status: { tone: "error", label: "Refused" }, actions: D("IconButton", { icon: "more", label: "Key actions", size: "sm" }) })],
+  ["KeyRow logo dark", D("KeyRow", { name: "GitHub", logo: "/brand/services/github-inverse.svg", logoTile: "dark", masked: "ghp_…4xYz", meta: "Added Nov 2" })],
+  ["KeyRow revoked", D("KeyRow", { name: "old-ci", masked: "sk-tofi-…aa01", meta: "Revoked Oct 3", revoked: true })],
+  ["KeyRow revoked logo", D("KeyRow", { name: "Notion", logo: "/brand/services/notion.svg", masked: "secret_…a1b2", meta: "Revoked Oct 3", revoked: true })],
+  ["DataTable", D("DataTable", { columns: [{ key: "name", label: "Member" }, { key: "role", label: "Role" }, { key: "spend", label: "Spend", align: "right", mono: true }, { key: "state", label: "State", render: v => v === "Active" ? null : React.createElement("span", null, String(v)) }], rows: [{ id: 1, name: "Lin Park", role: "Admin", spend: "$42.18", state: "Active" }, { id: 2, name: "Lee Park", role: "Member", spend: "$0.00", state: "Paused" }] })],
+  ["DataTable logoKey", D("DataTable", { columns: [{ key: "vendor", label: "Provider", logoKey: "logo" }, { key: "calls", label: "Calls", align: "right", mono: true, width: 90 }], rows: [{ id: "a", vendor: "Notion", logo: "/brand/services/notion.svg", calls: "1,284" }, { id: "b", vendor: "GitHub", logo: "/brand/services/github-monochrome.svg", calls: "97" }] })],
+  ["DataTable empty", D("DataTable", { columns: [{ key: "name", label: "Member" }, { key: "role", label: "Role" }], rows: [], empty: "No members yet." })],
+  ["Stat", D("Stat", { label: "Spend this month", value: "$42.18", delta: "21% of limit", spark: [20, 35, 30, 50, 45, 70, 60] })],
+  ["Stat up", D("Stat", { label: "Runs", value: "1,284", delta: "+12% vs last month", deltaTone: "up", spark: [40, 42, 55, 48, 62, 58, 80] })],
+  ["Stat down unit", D("Stat", { label: "Failed", value: "7", unit: "runs", delta: "+3", deltaTone: "down" })],
 ];
 
 // Known departures, as [case name pattern, property]. Each is explained in the PR 0.6 report.

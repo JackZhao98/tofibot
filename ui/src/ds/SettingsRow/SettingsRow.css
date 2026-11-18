@@ -1,0 +1,11 @@
+.tb-srow2 { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border-top: var(--border-1) solid var(--line); }
+.tb-srow2:first-child { border-top: 0; }
+.tb-srow2-text { min-width: 0; }
+.tb-srow2-label { font: 600 14px/1.4 var(--font-body); }
+label.tb-srow2-label { display: block; }
+.tb-srow2-hint { font: 400 12.5px/1.45 var(--font-body); color: var(--muted); margin-top: 2px; }
+.tb-srow2-control { flex: none; display: flex; gap: 8px; align-items: center; }
+@media (max-width: 700px) {
+  .tb-srow2 { flex-wrap: wrap; gap: 10px 14px; padding: 12px 14px; }
+  .tb-srow2-text { flex: 1 1 160px; }
+}

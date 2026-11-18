@@ -1,0 +1,7 @@
+.tb-ssec { display: grid; gap: 12px; }
+.tb-ssec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.tb-ssec-title { margin: 0; font: 700 17px/1.2 var(--font-display); }
+.tb-ssec-desc { margin: 4px 0 0; font: 400 13px/1.5 var(--font-body); color: var(--muted); max-width: 60ch; }
+.tb-ssec-body { border: var(--border-1) solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+.tb-ssec--danger .tb-ssec-body { border-color: var(--danger); }
+.tb-ssec--danger .tb-ssec-title { color: var(--danger-text); }
