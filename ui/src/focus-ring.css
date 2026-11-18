@@ -12,14 +12,7 @@
 :is(dialog, [role="dialog"], [role="alertdialog"], [tabindex="-1"]):focus-visible { outline: none; }
 }
 
-/* Pointer modality (see focusModality.ts): clicks, taps and script focus that follows them draw nothing.
-   Text-entry fields keep their frame: it marks where typing lands, and the caret alone is not enough. */
-html[data-input="pointer"] :focus-visible:not(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="file"]), textarea, select),
-html[data-input="pointer"] .message-block:focus-visible .message-content,
-html[data-input="pointer"] :is(.sheet-radio, .sheet-check, .check-row):has(:focus-visible) {
-  outline-color: transparent !important;
-}
+/* Pointer modality (see focusModality.ts): no focus shadow either. The ring itself is removed in forced-focus.css. */
+@layer legacy {
 html[data-input="pointer"] :is(button, a, summary, [role="button"], [tabindex]):focus-visible { box-shadow: none; }
-@media (forced-colors: active) {
-  html[data-input="pointer"] :focus-visible:not(input, textarea, select) { outline-color: transparent !important; }
 }

@@ -1,3 +1,4 @@
+@layer legacy {
 html .workspace .conversation-row .contact-copy { max-width:220px; opacity:1; overflow:hidden; transition:max-width var(--m-panel-in) var(--ease-out),opacity var(--m-quick) var(--ease-out); }
 html .workspace .sidebar-collapsed .conversation-row .contact-copy { max-width:0; opacity:0; pointer-events:none; }
 html .workspace .conversation-row .conversation-time { opacity:1; transition:opacity var(--m-quick) var(--ease-out); }
@@ -13,3 +14,4 @@ html .workspace .sidebar-collapsed .conversation-row .conversation-time { opacit
 .workspace .empty-copy>p { margin:0; }
 .workspace .sidebar-empty-create { display:none; }
 @media (max-width:767px) { .workspace .sidebar-empty-create { display:inline-flex; margin-top:14px; } }
+}

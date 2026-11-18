@@ -5,6 +5,7 @@
    (the grid track in interaction-system.css and the copy fade in web-sidebar-list.css); reduced motion is instant.
    Components: docs/design/components.md, "Sidebar conversation rows". Rows are not draggable here (App.tsx); the pinned
    tiles keep their drag engine, untouched. */
+@layer legacy {
 @media (min-width:768px) {
   .workspace .workspace-grid.sidebar-collapsed { --sidebar-width:var(--sidebar-collapsed); }
   .workspace .sidebar-collapsed {
@@ -101,4 +102,5 @@
   .workspace .sidebar-collapsed :is(.contact-row,.pin-tile),
   .workspace .sidebar-collapsed :is(.contact-row,.pin-tile)::before,
   .workspace .sidebar-collapsed :is(.sidebar-logo-art,.sidebar-logo-arrow) { transition:none; }
+}
 }

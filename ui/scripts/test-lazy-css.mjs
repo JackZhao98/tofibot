@@ -51,9 +51,16 @@ for (const file of lazy) {
     if (/(^|[;{\s])--[\w-]+\s*:/.test(body) && splitSelectors(selector).every(s => ROOT_ONLY.test(s))) problems.push(`${file}: ${selector} { ${body.slice(0, 60)}... }`);
   }
 }
+// Every built sheet must name the layers in cascade.css order: the first sheet to reach the page fixes their ranks.
+const order = readFileSync(join(dirname(dist), "src", "cascade.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").match(/@layer ([^;]+);/)[1].split(",").map(name => name.trim());
+for (const file of readdirSync(join(dist, "assets")).filter(name => name.endsWith(".css"))) {
+  const seen = [];
+  for (const [, names] of readFileSync(join(dist, "assets", file), "utf8").matchAll(/@layer\s+([\w\s,.-]+?)\s*[;{]/g)) for (const name of names.split(",").map(item => item.trim())) if (!seen.includes(name)) seen.push(name);
+  if (seen.length && seen.join() !== order.join()) problems.push(`${file}: layers appear as ${seen.join(", ")}`);
+}
 if (eager.size === 0) problems.push("no eager stylesheet found in the entry pages; the scan cannot tell lazy CSS apart");
 if (problems.length) {
-  console.error(`lazy css: FAIL. These rules restyle the whole page when their chunk loads; move them to the skin (src/skin/) or another eager sheet:\n  ${problems.join("\n  ")}`);
+  console.error(`lazy css: FAIL. A lazy rule that restyles the whole page belongs in the skin (src/skin/) or another eager sheet, and every built sheet must keep the cascade.css layer order:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
-console.log(`lazy css: ${lazy.length} lazy stylesheets, ${eager.size} eager; no @property or :root custom properties in lazy CSS PASS`);
+console.log(`lazy css: ${lazy.length} lazy stylesheets, ${eager.size} eager; no @property or :root custom properties in lazy CSS; layer order kept PASS`);

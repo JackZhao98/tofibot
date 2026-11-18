@@ -1,6 +1,7 @@
 /* Empty and first-use states: a small live cat, one heading, the next action.
    Colours, edge and shadow come from the skin (src/skin/). */
 
+@layer legacy {
 .empty-cat { --cat:64px; position:relative; display:inline-grid; place-items:center; flex:none; width:var(--cat); height:var(--cat); }
 .empty-cat .lab-cat { display:block; width:100%; height:100%; }
 .empty-cat .lab-cat > svg { display:block; width:100%; height:100%; overflow:visible; }
@@ -52,4 +53,5 @@
   .first-run h1 { font-size:30px; }
   .first-run p { font-size:14px; }
   .first-run .first-run-create { width:100%; }
+}
 }

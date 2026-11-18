@@ -1,10 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { cssLayerOrderPlugin } from "./cssLayerOrderPlugin.ts";
 
 // A separate build keeps the workspace graph and its CSS unchanged.
 export default defineConfig({
-  plugins: [react(), {
+  plugins: [react(), cssLayerOrderPlugin(), {
     name: "design-system-html",
     enforce: "post",
     generateBundle: { order: "post", handler(_, bundle) {

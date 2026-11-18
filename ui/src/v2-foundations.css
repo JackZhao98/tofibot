@@ -10,6 +10,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 }
 
 /* Buttons — only primary actions have the chunky outline and offset shadow. */
+@layer legacy {
 :is(.primary-button,.secondary-button) {
   display:inline-flex; align-items:center; justify-content:center; gap:6px;
   min-height:42px; padding:10px 16px; border:var(--legacy-edge-w) solid var(--line);
@@ -68,6 +69,7 @@ body { color:var(--ink); background:var(--bg); font-family:var(--body); }
 .close-button { border-radius:50%; }
 
 /* FormControls: the default look of every field. In the base layer, so a component's own field style always wins. */
+}
 @layer base {
 :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
   min-height:42px; padding:var(--field-pad-y,10px) 12px var(--field-pad-y,10px) 12px; border:2px solid transparent;
@@ -113,6 +115,7 @@ input[type="radio"]:checked { background:var(--surface); box-shadow:none; }
 input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-radius:50%; background:var(--yellow); }
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):disabled { opacity:.45; cursor:not-allowed; }
 }
+@layer legacy {
 .field-note { color:var(--muted); font-size:11px; }
 .error-text,.settings-feedback.error { color:var(--danger-text); font-size:11px; }
 .search-box { min-height:42px; border:1.5px solid var(--line-soft); background:var(--surface-2); }
@@ -192,4 +195,5 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
   :is(.primary-button,.secondary-button) { transition:none; }
   :is(.primary-button,.secondary-button):not(:disabled):hover,
   :is(.primary-button,.secondary-button):not(:disabled):active { transform:none; }
+}
 }

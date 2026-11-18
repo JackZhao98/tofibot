@@ -1,3 +1,4 @@
+@layer legacy {
 .memory-title, .memory-description { display:block; overflow-wrap:anywhere; }
 .memory-title { margin-bottom:5px; }
 .memory-description { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
@@ -9,3 +10,4 @@
 .memory-add{margin-bottom:12px}
 .memory-create{margin-bottom:16px}
 .memory-create :is(input,textarea),.memory-edit :is(input,textarea){min-width:0;max-width:100%;box-sizing:border-box}
+}

@@ -1,3 +1,4 @@
+import "./cascade.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
@@ -7,7 +8,6 @@ import { ProxyChallengeSlot } from "./ProxyChallengeSlot";
 import { i18nReady, useLanguage } from "./i18n";
 import { installFocusModality } from "./focusModality";
 import { watchInstallPrompt } from "./installApp";
-import "./cascade.css";
 import "./fonts.css";
 import "./styles.css";
 
@@ -49,3 +49,4 @@ import "./chat-header.css";
 import "./progressive-blur.css";
 import "./context-card.css";
 import "./focus-ring.css";
+import "./forced.css";

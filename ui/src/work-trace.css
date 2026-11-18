@@ -1,4 +1,5 @@
 /* Work trace: one folded line at the end of a run's Activity list, or under its final reply when that list is not drawn; small cuts of the strip, the title, a chevron. */
+@layer legacy {
 .work-trace{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin:var(--space-2) 0 0}
 .work-trace-line{flex:1 1 220px;cursor:pointer}
 .work-trace-thumbs{display:inline-flex;flex:none;gap:2px}
@@ -27,3 +28,4 @@
 .work-capture-stack img + img { margin-left:-40px; }
 .work-capture-stack span { margin-left:5px; font:var(--type-meta); }
 .work-trace-thumbs .work-trace-thumb + .work-trace-thumb { margin-left:-46px; border:2px solid var(--surface); }
+}

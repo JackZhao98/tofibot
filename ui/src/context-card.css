@@ -9,6 +9,7 @@
    Sidebar: a real third grid track at the window edge (.sidebar-pane) that PUSHES the chat. Open animates the track with
    --m-panel-in, close with --m-panel-out; expanding changes --sidebar-w with --m-base. The chat and the widget column shrink
    with it (--widget-w). Widget chrome and sidebar chrome are in context-column.css / sidebar-shell.css and load with their chunks. */
+@layer legacy {
 @media (min-width:1100px) {
   .workspace .workspace-grid, .workspace .workspace-grid.context-open {
     position:relative;
@@ -89,8 +90,6 @@
 @keyframes sidebar-shell-in { from { opacity:.4; } }
 @media (prefers-reduced-motion:reduce) {
   .workspace .sidebar-pane > *, .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }
-  .workspace .workspace-grid, .workspace .detail-pane.widget-column { transition:none!important; }
-  .workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest) { transition:none!important; }
 }
 
 /* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that
@@ -119,3 +118,4 @@
 .workspace .detail-pane.context-panel:not(.widget-column).surface-exiting{animation:none;opacity:0;transform:none}
 @keyframes context-panel-in{from{opacity:.4}}
 @media(prefers-reduced-motion:reduce){.workspace .detail-pane.context-panel:not(.widget-column).visible:not(.surface-exiting){animation:none}}
+}

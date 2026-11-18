@@ -5,6 +5,7 @@
 /* Header: frosted glass you can see through. The message pane runs up under the header (--chat-header-height is measured in
    App.tsx), so scrolled lines stay visible, blurred, behind the two pills; the blur is full at the top edge and fades out
    toward the list, with only a light translucent tint. Two stacked layers (::before and ::after), each with its own mask band. */
+@layer legacy {
 :root .workspace .chat-body { margin-top:calc(var(--chat-header-height,64px) * -1); }
 :root .workspace .message-scroll { mask-image:none; -webkit-mask-image:none; scroll-padding-top:var(--chat-header-height,64px); padding-top:calc(var(--chat-header-height,64px) + 14px); }
 :root .workspace .chat-header { pointer-events:none; isolation:isolate; --pbt-ramp:30px; --pbt-blur-1:3px; --pbt-blur-2:9px; --pbt-tint:30%; }
@@ -30,4 +31,5 @@
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
   :root .workspace .chat-header::after { display:none; }
   :root .workspace .chat-header::before { background:linear-gradient(to bottom,var(--bg) 60%,transparent); }
+}
 }

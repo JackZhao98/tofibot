@@ -1,4 +1,5 @@
 /* Motion Lab's BotWorking presentation, in the conversation of both shells (the desktop app no longer keeps its own tool rows). */
+@layer legacy {
 :root .workspace .message-content .typing-cursor{width:2px;height:1.05em;margin-left:2px;vertical-align:-.15em;background:var(--lagoon);animation:blink 1s steps(2,start) infinite}
 :root .workspace .composer-row>.dictation-button.is-starting{color:var(--lagoon-text);border-color:var(--lagoon);background:color-mix(in srgb,var(--lagoon) 12%,var(--surface-2));animation:web-mic-connecting 1.2s var(--ease-inout) infinite}
 :root .workspace .dictation-status.is-starting{color:var(--lagoon-text)}
@@ -93,3 +94,4 @@
 @media(forced-colors:active){:root .workspace .computer-look{color:ButtonText;opacity:1}}
 
 .web-tool-step-trigger{width:100%;text-align:start;font:inherit}
+}

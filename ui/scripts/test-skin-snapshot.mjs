@@ -65,8 +65,11 @@ function snapshot(detail) {
   const styleOf = (element, pseudo) => { const style = getComputedStyle(element, pseudo); return props.map(name => style.getPropertyValue(name)).join(";").split(location.origin).join(""); };
   const result = {};
   const walk = (element, path) => {
-    // display:none paints nothing, and animations under it keep following the clock without being listed.
-    if (getComputedStyle(element).display === "none") { result[path] = "none"; return; }
+    // display:none paints nothing, and animations under it keep following the clock without being listed. Neither does a
+    // box clipped to nothing (visually hidden text, the native select Radix keeps for forms).
+    const own = getComputedStyle(element);
+    if (own.display === "none") { result[path] = "none"; return; }
+    if (own.position === "absolute" && own.clip === "rect(0px, 0px, 0px, 0px)") { result[path] = "clipped"; return; }
     let full = styleOf(element);
     for (const pseudo of ["::before", "::after"]) { const content = getComputedStyle(element, pseudo).content; if (content !== "none" && content !== "normal") full += `|${pseudo}:${styleOf(element, pseudo)}`; }
     result[path] = detail ? full : hash(full);
@@ -225,7 +228,8 @@ function compare() {
       const lines = differing.slice(0, 4).map(path => {
         if (!(path in x) || !(path in y)) return `    ${path}: only in ${path in x ? "base" : "head"}`;
         if (!DETAIL) return `    ${path}`;
-        if (x[path] === "none" || y[path] === "none") return `    ${path}: display ${x[path] === "none" ? "none" : "shown"} -> ${y[path] === "none" ? "none" : "shown"}`;
+        const painted = value => (value === "none" || value === "clipped" ? value : "shown");
+        if (painted(x[path]) !== "shown" || painted(y[path]) !== "shown") return `    ${path}: ${painted(x[path])} -> ${painted(y[path])}`;
         const props = a[mode].props, before = x[path].split("|"), after = y[path].split("|"), changes = [];
         for (let part = 0; part < Math.max(before.length, after.length); part += 1) {
           const label = (before[part] ?? after[part]).match(/^(::\w+):/)?.[1] ?? "";

@@ -1,3 +1,4 @@
+@layer legacy {
 .bb-document { margin:0; height:100dvh; overflow:hidden; background:var(--bg); color:var(--ink); font:13px/1.4 var(--body); -webkit-font-smoothing:antialiased; user-select:none; }
 .bb-root { height:100%; }
 .bb-chrome, .bb-chrome * { box-sizing:border-box; }
@@ -31,3 +32,4 @@
 @media (width < 520px) { .bb-status-text { display:none; } }
 @keyframes bb-pulse { 50% { opacity:.35; } }
 @media (prefers-reduced-motion:reduce) { .bb-chrome * { animation:none; transition:none; } }
+}

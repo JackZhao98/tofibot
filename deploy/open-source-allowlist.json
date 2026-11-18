@@ -105,6 +105,7 @@
     "ui/THIRD_PARTY_NOTICES.md",
     "ui/catalog.html",
     "ui/index.html",
+    "ui/cssLayerOrderPlugin.ts",
     "ui/oauthAssetsPlugin.ts",
     "ui/package-lock.json",
     "ui/package.json",

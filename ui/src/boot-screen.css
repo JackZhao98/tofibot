@@ -1,4 +1,5 @@
 /* Boot screen: skeleton of the app behind one frost layer, the calico mark breathing on top. CSS only. */
+@layer legacy {
 .boot{--boot-ease:var(--ease-out);position:fixed;inset:0;z-index:var(--z-cover);display:grid;place-items:center;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;background:var(--bg);color:var(--muted);font-size:14px}
 .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none}
 .boot-skeleton,.boot-frost{position:absolute;inset:0;animation:boot-in var(--m-base) var(--ease-out) both}
@@ -56,4 +57,5 @@
   .boot.is-warm :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
   .boot-dissolve{animation:boot-out var(--m-base) var(--ease-out) forwards!important}
   .boot-dissolve :is(.boot-skeleton,.boot-frost,.boot-logo-wrap){animation:none!important}
+}
 }

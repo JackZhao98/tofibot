@@ -1,6 +1,7 @@
 /* The settings visual language (docs/design/settings-simplify.md section 5): filled surfaces, no outlines, no hard shadows.
    Chunky things left: the window frame (settings-system.css) and the one orange primary button per view.
    Tokens only (src/skin/). Shared components first, then the few panels that still need a rule of their own. */
+@layer legacy {
 .settings-stack{display:grid;gap:24px;align-content:start;min-width:0}
 /* A block a link can scroll to (SectionAnchor) is a plain grid item: it must not widen its track. */
 .settings-anchor{min-width:0}
@@ -306,3 +307,4 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 /* Admin › Design system: the catalog fills the page below its "open in a new tab" link. */
 .design-system-page{display:flex;flex-direction:column;height:100%;min-height:0;gap:var(--space-2)}
 .design-system-page iframe{flex:1;width:100%;min-height:0;border:0}
+}

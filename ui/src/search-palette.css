@@ -1,5 +1,6 @@
 /* Search palette (SearchPalette.tsx, lazy). Centred floating panel on the dialog layer; a full-width sheet on a phone.
    Motion: --m-base in / --m-panel-out out (leaving is shorter). Colours only from tokens, so dark mode follows. No backdrop blur: it re-rasterises the whole window on every key (72 ms vs 32 ms per key, measured). */
+@layer legacy {
 .search-palette-scrim{position:fixed;inset:0;z-index:var(--z-dialog);display:grid;justify-items:center;align-items:start;padding:12vh 24px 24px;background:var(--scrim);animation:search-scrim-in var(--m-quick) var(--ease-out)}
 .search-palette-scrim[data-state="closing"]{animation:search-scrim-out var(--m-instant) var(--ease-in) forwards;pointer-events:none}
 .search-palette{display:flex;flex-direction:column;width:min(640px,100%);max-height:min(560px,76dvh);overflow:hidden;border:var(--legacy-edge-w) solid var(--line);border-radius:var(--radius-2xl);background:var(--surface);box-shadow:var(--shadow);color:var(--ink);animation:search-panel-in var(--m-quick) var(--ease-out)}
@@ -52,4 +53,5 @@
 @keyframes search-scrim-out{from{opacity:1}to{opacity:0}}
 @keyframes search-panel-in{from{opacity:0}to{opacity:1}}
 @keyframes search-panel-out{from{opacity:1}to{opacity:0}}
+}
 

@@ -1,4 +1,5 @@
 /* Conversation tools stay adjacent to their sender, including status. */
+@layer legacy {
 .work-details{max-width:var(--chat-max);margin:0 auto;padding-left:39px}
 .tool-message{margin:8px 0 12px;padding-left:0}
 .tool-sender{margin-bottom:5px;color:var(--text-soft);font-size:12px;font-weight:600}
@@ -109,3 +110,4 @@
 .view-only-message.is-user[data-joins-next] .view-only-message-bubble { border-bottom-right-radius:var(--bubble-joined); }
 .view-only-message.is-bot[data-joins-prev] .view-only-message-bubble { border-top-left-radius:var(--bubble-joined); }
 .view-only-message.is-bot[data-joins-next] .view-only-message-bubble { border-bottom-left-radius:var(--bubble-joined); }
+}

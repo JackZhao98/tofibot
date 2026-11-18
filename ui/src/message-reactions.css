@@ -1,3 +1,4 @@
+@layer legacy {
 .message-reactions { display:flex; align-items:center; flex-wrap:wrap; gap:5px; width:fit-content; margin:2px 0 9px; }
 .message-reactions.is-user { margin-left:auto; }
 .reaction-chip { display:inline-flex; align-items:center; justify-content:center; gap:5px; height:27px; min-width:27px; padding:2px 8px; border:1px solid var(--line-soft); border-radius:999px; color:var(--muted); background:var(--surface-2); font:12px/1 var(--mono); }
@@ -14,3 +15,4 @@
 .reaction-emoji-picker em-emoji-picker { width:100%; height:min(435px,calc(100dvh - 40px)); min-height:180px; --border-radius:14px; --shadow:none; --font-family:system-ui,sans-serif; }
 .reaction-context-menu.has-emoji-picker > p { padding:6px 10px; }
 .reaction-context-menu .reaction-picker-loading { color:var(--muted); padding:12px; }
+}

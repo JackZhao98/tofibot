@@ -1,4 +1,5 @@
 /* Admin console: capacity summary, account list, account detail, delete flow. Tokens only. */
+@layer legacy {
 .admin-accounts{display:grid;gap:22px;align-content:start;min-width:0;max-width:860px}
 .admin-accounts .admin-intro{margin:0;color:var(--muted);font:13px/1.6 var(--body)}
 .admin-accounts .admin-error{margin:0;padding:10px 12px;border:0;border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger-text);font:13px/1.5 var(--body);overflow-wrap:anywhere}
@@ -83,7 +84,8 @@
 .admin-secret{display:grid;gap:6px}
 .admin-secret>label{color:var(--ink);font:600 13px/1.4 var(--body)}
 .admin-secret-line{display:flex;gap:8px;align-items:stretch}
-.admin-secret-line input{flex:1;font-family:var(--mono)!important;font-size:13px!important}
+.admin-secret-line input{flex:1}
+.admin-secret-input{font-family:var(--mono)!important;font-size:13px!important}
 .admin-secret>p{margin:0;color:var(--muted);font:12.5px/1.5 var(--body)}
 .admin-secret textarea{resize:vertical;font:13px/1.5 var(--body)}
 .admin-secret-actions{display:flex;justify-content:flex-start}
@@ -111,3 +113,4 @@
 }
 @keyframes admin-push{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.admin-detail{animation:none}}
+}

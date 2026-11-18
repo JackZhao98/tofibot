@@ -1,3 +1,4 @@
+@layer legacy {
 .terminal-panel{position:relative;display:flex;flex-direction:column;width:min(1120px,calc(100vw - 64px));height:min(760px,calc(100dvh - 80px));min-height:320px;overflow:hidden;border:var(--edge-soft) solid var(--line-soft);border-radius:var(--radius-2xl);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
 .terminal-header{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:58px;padding:10px 16px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
 .terminal-header>div:first-child{display:flex;align-items:baseline;gap:10px;min-width:0}.terminal-header strong{font:600 14px/1.4 var(--font-body);color:var(--ink)}.terminal-header span{font:var(--type-meta);color:var(--muted)}
@@ -13,3 +14,4 @@
 @media(max-width:700px){.terminal-panel{width:calc(100vw - 24px);height:calc(100dvh - 40px);min-height:280px}.terminal-header{gap:8px;padding:8px 10px}.terminal-actions{gap:4px}.terminal-panel button{padding-inline:9px}.terminal-stage{padding:8px}.terminal-status{gap:8px;padding-inline:10px}}
 @media(prefers-reduced-motion:reduce){.terminal-panel button{transition:none}}
 .terminal-notify{display:inline-flex;flex:none;color:var(--muted)}
+}

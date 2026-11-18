@@ -1,5 +1,6 @@
 /* Group settings cover (GroupSettingsPanel.tsx) and the member picker NewGroupDialog shares with it. Loads with either chunk.
    Filled surfaces, no outlined rows, the global arrow cursor. */
+@layer legacy {
 .cover-body:has(> .group-settings) { overflow:hidden; }
 .group-settings { position:relative; display:flex; flex-direction:column; height:100%; min-height:0; background:var(--surface); }
 .gs-scroll { flex:1 1 auto; min-height:0; padding:24px 28px 104px; overflow:hidden auto; overscroll-behavior:contain; }
@@ -46,3 +47,4 @@ button.gs-row:focus-visible, .gs-button:focus-visible { outline:var(--focus-ring
 @media (max-width:767px) { .gs-scroll { padding:18px 18px 104px; } }
 @media (prefers-reduced-motion:reduce) { .gs-member, .gs-row, .gs-button { transition:none; } }
 @media (forced-colors:active) { .gs-member[data-selected] { outline:2px solid Highlight; } }
+}

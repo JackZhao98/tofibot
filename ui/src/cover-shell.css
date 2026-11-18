@@ -1,6 +1,7 @@
 /* Covers (docs/design/widgets-and-sidebar.md section 2.3): the Settings window's geometry (centred, 22px radius, --float-shadow,
    --z-dialog) on a ModalDialog scrim. Enter with --m-panel-in, leave with --m-panel-out; the same keyframes the Settings window uses.
    Loads with CoverShell. */
+@layer legacy {
 .cover-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:24px; background:var(--scrim); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); animation:cover-scrim-in var(--m-base) var(--ease-out) both; }
 .cover-scrim.is-leaving { animation:cover-scrim-out var(--m-panel-out) var(--ease-settle) both; pointer-events:none!important; }
 .cover-window { display:flex; flex-direction:column; width:var(--window-w-cover); height:var(--window-h); max-height:var(--window-h); overflow:hidden; border:3px solid var(--line); border-radius:22px; background:var(--surface); color:var(--ink); box-shadow:var(--shadow),var(--float-shadow); outline:none; animation:modal-enter var(--m-quick) var(--ease-out) both; }
@@ -28,3 +29,4 @@
   .cover-scrim, .cover-scrim.is-leaving, .cover-window, .cover-window.is-leaving { animation:none; }
 }
 @media (forced-colors:active) { .cover-window { outline:1px solid CanvasText; } }
+}

@@ -1,11 +1,12 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { cssLayerOrderPlugin } from "./cssLayerOrderPlugin.ts";
 
 // Desktop pages build separately after the workspace, preserving its chunks and shell budget.
 // The Mac app serves each entry at its canonical /__desktop/<page> route.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cssLayerOrderPlugin()],
   build: {
     outDir: "dist",
     emptyOutDir: false,

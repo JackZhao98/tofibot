@@ -1,0 +1,35 @@
+/* The rules that must force a result stay outside every layer (V3 PLAN 7.5), so no layered rule can undo them. */
+@import "./forced-focus.css";
+
+/* Reduced motion. */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+@media (prefers-reduced-motion:reduce){.settings-shell,.settings-shell *{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){.workspace .detail-pane:has(.settings-shell){animation:none!important}}
+@media (prefers-reduced-motion: reduce){.workspace .message-list, .workspace .message-list *{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.workspace .workspace-grid, .workspace .detail-pane.widget-column{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest){transition:none!important}}
+@media (prefers-reduced-motion:reduce){.approval-card,.approval-fold,.approval-actions > button,.approval-result{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){.bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bs-button, .bot-style-pop, .bot-style-pop button, .bs-section{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.mcp-service-status i{animation:none!important}}
+@media (prefers-reduced-motion:reduce){.onb-scrim, .onb-step, .onb-bubble, .onb-connected, .onb-waiting i, .onb-sheet, .onb-progress i::after{animation:none!important;transition:none!important}}
+
+/* iOS Safari zooms the page when a focused field computes below 16px; the zoom also disables the keyboard handler. */
+@media (pointer:coarse),(any-pointer:coarse){input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=button],[type=submit],[type=hidden]),textarea,select{font-size:16px!important}}
+
+/* Mac drag regions. Every app-region declaration lives here, in load order, so they only compete with each other. */
+html[data-desktop="darwin"] .workspace .chat-header > .chat-header-drag{-webkit-app-region:drag}
+html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .chat-header input{-webkit-app-region:no-drag}
+html[data-desktop="darwin"] :is(dialog,[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper],.computer-detail.is-expanded,.desktop-floating-shell.is-small,.detail-pane.visible,.sidebar-pane,.widget-slot[data-dragging],.web-row[data-dragging]){-webkit-app-region:no-drag}
+html[data-desktop="darwin"] .native-titlebar{-webkit-app-region:drag}
+html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag}
+html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
+.bot-browser-panel, .bot-browser-panel .desktop-window-controls, .bot-browser-panel button{-webkit-app-region:no-drag}
+html[data-desktop="darwin"] .detail-backdrop{-webkit-app-region:no-drag}
+@media (min-width:768px){html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle,.sidebar-logo-expand,.search-trigger,.create-menu-anchor>.icon-button){-webkit-app-region:no-drag}}
+@media (min-width:768px){html[data-desktop="darwin"] .workspace .sidebar-scrim{-webkit-app-region:no-drag}}
+.context-card .view-only-chat.is-sidebar .view-only-chat-header{-webkit-app-region:no-drag}
+.desktop-floating-shell.is-small:not(.is-docked){-webkit-app-region:no-drag}
+html[data-desktop="darwin"] .mac-settings-titlebar{-webkit-app-region:drag}
+.permission-guide,.permission-guide *{-webkit-app-region:no-drag}
+.desktop-page :is(button,input,textarea,a,[role="button"]){-webkit-app-region:no-drag}

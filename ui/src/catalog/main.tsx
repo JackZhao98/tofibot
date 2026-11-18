@@ -1,10 +1,10 @@
 // The isolated Design System bundle. Never imported by the workspace.
 // The sandbox must evaluate before any product module (it replaces storage and the network): keep it the first import.
+import "../cascade.css";
 import { CATALOG_MARKER, frameParams } from "./sandbox";
 import { mountFrame } from "./Frame";
 // The product's global stylesheets, in the order src/main.tsx imports them (scripts/test-catalog.mjs keeps the two
 // lists equal), so the cascade in a frame is the cascade in the app.
-import "../cascade.css";
 import "../fonts.css";
 import "../styles.css";
 import "../interaction-system.css";
@@ -26,6 +26,7 @@ import "../chat-header.css";
 import "../progressive-blur.css";
 import "../context-card.css";
 import "../focus-ring.css";
+import "../forced.css";
 import "./catalog.css";
 import { createRoot } from "react-dom/client";
 import { i18nReady } from "../i18n";

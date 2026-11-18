@@ -1,5 +1,6 @@
 /* Sidebar drag-and-drop and pinned tiles. The drag hook (useSidebarDnd.ts) moves elements with transforms only; this file
    gives those transforms their glide (motion tokens), the lift, the pin drop zone and the tile dock. */
+@layer legacy {
 .workspace .conversation-row,.workspace .pin-tile { -webkit-touch-callout:none; }
 .workspace .contact-section .dnd-live:not(.is-dnd-dragging) { transition:transform var(--m-quick) var(--ease-out); }
 .workspace .contact-section .dnd-live:not(.is-dnd-dragging):hover { background:transparent; }
@@ -61,3 +62,4 @@
 .pin-tile-badge[data-status="working"] { top:9px; right:9px; width:10px; height:10px; border-radius:50%; background:var(--blue); animation:v2-breathe 2.4s var(--ease-inout) infinite; }
 @media (prefers-reduced-motion:reduce) { .pin-tile-badge[data-status="working"] { animation:none; } }
 @media (forced-colors:active) { .pin-tile.active { outline:2px solid Highlight; } }
+}

@@ -1,8 +1,10 @@
 /* Cascade layer order. Every entry loads this file first (test:css-layers checks it).
    reset, tokens and base hold the global defaults: element selectors, structure custom properties (skin/structure.css)
    and the default focus ring. skin holds the active skin's colours, shadows, glass, radii and fonts (skin/legacy.css
-   until the V3 flip); it sits above tokens so a skin may restate a structure value, and below everything else.
-   Component styles are not in a layer, and a style outside a layer always wins over every layer, so a global default
-   can never override a component, whatever its specificity or load order. components, platform and utilities are
-   reserved for the shared classes that move in later. */
-@layer reset, tokens, skin, base, components, platform, utilities;
+   until the V3 flip); it sits above tokens so a skin may restate a structure value. vendor holds third-party CSS
+   (vendor/). legacy holds every V2 product sheet until its surface is rebuilt. platform and utilities are reserved.
+   The V3 kit and the rules that must force a result (forced.css) are not in a layer: a style outside a layer wins over
+   every layer, whatever its specificity or load order, so no V2 rule can override the kit.
+   Inside legacy, `:is(#_, .x)` replaces !important where a V2 rule must beat its neighbours: it has an id's specificity
+   and, unlike a layered !important, still loses to the kit. */
+@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;

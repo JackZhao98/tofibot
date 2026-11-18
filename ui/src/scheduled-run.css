@@ -1,3 +1,4 @@
+@layer legacy {
 .scheduled-run {
   --scheduled-stub-width:70px;
   --scheduled-notch:6px;
@@ -117,3 +118,4 @@
 .scheduled-run-sources { margin-top:10px; color:var(--muted); font:12px/1.6 var(--body); }
 .scheduled-run-sources > strong { font-weight:600; }
 .scheduled-run-sources ul { margin:3px 0 0; padding-left:18px; overflow-wrap:anywhere; }
+}

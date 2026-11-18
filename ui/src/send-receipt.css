@@ -1,5 +1,6 @@
 /* Receipts. Delivered and read are a mark at the end of the hover/focus/tap action row, next to the time, and own no row.
    Only a failed send keeps a line under its bubble (the retry); a sending message is dimmed instead. */
+@layer legacy {
 .workspace .message-user .send-receipt { display:flex; justify-content:flex-end; align-items:center; height:14px; margin:2px 2px 0 auto; color:var(--muted); font:11px/14px var(--body); }
 .workspace .message-user:has(.send-receipt) { margin-bottom:4px; }
 .workspace .send-receipt-mark { position:relative; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:20px; height:var(--bar-btn,28px); margin-left:2px; color:var(--muted); }
@@ -38,4 +39,5 @@
 @media (pointer:coarse) { .workspace .send-receipt-action { position:relative; } .workspace .send-receipt-action::after { content:""; position:absolute; inset:-15px -8px; } }
 @media (prefers-reduced-motion:no-preference) {
   .workspace .send-receipt.is-failed, .workspace .send-receipt.is-retrying { animation:send-receipt-note-in var(--m-base) var(--ease-out); }
+}
 }

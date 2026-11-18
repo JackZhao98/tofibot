@@ -1,3 +1,4 @@
+@layer legacy {
 .followups-page .followup-bot-name{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%}
 .followups-page .followup-bot-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .followups-page .followup-stat{color:var(--ink);font:600 14px/1.4 var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
@@ -11,3 +12,4 @@
 .followups-page .followup-actions button{min-height:34px;padding:5px 12px;font-size:13px}
 .followups-page .followup-actions button[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
 .followups-page .followup-item[data-state="handled_by_owner"],.followups-page .followup-item[data-state="dismissed"]{opacity:.7}
+}

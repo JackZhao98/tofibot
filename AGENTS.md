@@ -190,17 +190,22 @@ Design: `docs/design/user-groups.md` section 5 (local). The UI reads policy from
 Owner 2026-11-13: no global or fallback style may override a component. The global base is small and stable; components
 add their own styles on top; a thing used in many places is defined once.
 
-- `ui/src/cascade.css` declares `@layer reset, tokens, skin, base, components, platform, utilities;`. Every entry (`main.tsx`,
-  `desktop-settings/main.tsx`, `catalog/main.tsx`, the Mac pages) imports it before any other stylesheet.
+- `ui/src/cascade.css` declares `@layer reset, tokens, skin, base, vendor, legacy, platform, utilities;`. Every entry (`main.tsx`,
+  `desktop-settings/main.tsx`, `catalog/main.tsx`, the Mac pages) imports it first of all, and `ui/cssLayerOrderPlugin.ts`
+  repeats the order line in every layered sheet, because the first sheet to name a layer fixes its rank.
 - Global defaults go in a layer: `reset` (box sizing), `tokens` (the structure custom properties in `skin/structure.css`:
   space, motion, layers, layout widths, type scale), `skin` (the active skin in `skin/legacy.css`: colours, shadows, glass,
   radii, edge widths, fonts, the high-contrast and no-blur overrides and the few component tokens; selected by
   `data-skin` on `<html>`, written only by `skin/skin.ts` `applySkin` with `data-theme`), `base` (element defaults: page colours, selection,
-  caret, the default field look, the default focus ring). Component styles are not in a layer, and a style outside a
-  layer always wins over every layer, whatever its specificity or load order.
-- Rules that must force a result stay outside the layers on purpose: reduced motion, `forced-colors`, the iOS 16 px
-  input size, the pointer-modality focus rule (`focus-ring.css`), platform drag regions (`desktop-system.css`).
-- `test:css-layers` (CI and `ci-local`) checks the order line and ratchets, per stylesheet, the unlayered global rules,
+  caret, the default field look, the default focus ring). Third-party CSS goes through `ui/src/vendor/` into `vendor`.
+  Every V2 product sheet is wrapped in `legacy` until its surface is rebuilt. V3 kit styles are not in a layer, and a
+  style outside a layer always wins over every layer, whatever its specificity or load order.
+- Rules that must force a result stay outside the layers on purpose, in `ui/src/forced.css`: the global reduced-motion
+  rule and the reduced-motion `!important` rules of long-lived sheets, the iOS 16 px input size, every `app-region`
+  declaration; `ui/src/forced-focus.css` holds the pointer-modality ring rule. Do not add `!important` in `legacy`: a
+  layered `!important` beats the kit. Use `:is(#_, .selector)` (id specificity) when a V2 rule must win.
+- `test:css-layers` (CI and `ci-local`) checks the order line, that every product rule is in a layer, the vendor and
+  entry-HTML rules, the legacy `!important` limits, and ratchets, per stylesheet, the unlayered global rules,
   `:root` specificity bumps, `html:not([data-desktop])` forks, `!important` and `:root` token definitions outside the
   tokens file (`ui/scripts/css-layers-baseline.json`). Counts only go down; lower the baseline with `--update` in the
   commit that removes them. Totals at the start (2026-11-13): global 22, rootBump 241, webFork 47, important 79,

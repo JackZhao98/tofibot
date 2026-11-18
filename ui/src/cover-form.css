@@ -1,5 +1,6 @@
 /* The unsaved-changes bar and the leave question shared by the edit forms inside covers (CoverForm.tsx). Loads with it.
    Filled surfaces only: an inverse bar (the same ink as the tooltips), no outlines. Enter --m-quick, leave --m-press. */
+@layer legacy {
 .cover-dirty-bar { position:absolute; z-index:var(--z-raised); left:20px; right:20px; bottom:18px; display:flex; justify-content:center; pointer-events:none;
   opacity:0; visibility:hidden; transform:translateY(calc(100% + 28px));
   transition:transform var(--m-press) var(--ease-in), opacity var(--m-press) var(--ease-in), visibility 0s linear var(--m-press); }
@@ -30,3 +31,4 @@
 .cover-leave-keep { background:var(--inverse); color:var(--on-inverse); }
 @keyframes cover-leave-scrim-in { from { opacity:0; } }
 @media (prefers-reduced-motion:reduce) { .cover-leave-scrim, .cover-leave-dialog { animation:none; } }
+}

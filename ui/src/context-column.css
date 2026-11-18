@@ -2,6 +2,7 @@
    A card is a filled surface with a soft elevation (--card-elevation, --card-lift in skin/legacy.css): no outline, no hard
    offset shadow. Layout of the column itself (grid track, scrolling, enter/leave) is eager and lives in context-card.css. */
 
+@layer legacy {
 .context-card { min-width:0; min-height:0; border-radius:14px; background:var(--surface); color:var(--ink); box-shadow:var(--card-elevation); overflow:clip; }
 
 /* A widget's slot owns its enter and exit. Entering, the row grows from nothing while the card rises, so the widgets below
@@ -71,7 +72,7 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 .context-card .terminal-stage { padding:8px 14px 10px; background:transparent; }
 .context-card .terminal-status { min-height:0; padding:6px 14px 10px; border-top:0; background:transparent; }
 .context-card .view-only-chat.is-sidebar { position:static; z-index:auto; display:flex; flex-direction:column; width:100%; height:min(420px,60dvh); border:0; border-radius:0; background:transparent; box-shadow:none; animation:none; }
-.context-card .view-only-chat.is-sidebar .view-only-chat-header { min-height:0; padding:0 14px 8px; border:0; background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; -webkit-app-region:no-drag; user-select:auto; }
+.context-card .view-only-chat.is-sidebar .view-only-chat-header { min-height:0; padding:0 14px 8px; border:0; background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; user-select:auto; }
 .context-card .view-only-chat.is-sidebar .view-only-chat-body { flex:1 1 auto; min-height:0; padding:4px 14px 12px; }
 .context-card .view-only-chat.is-sidebar .view-only-message-copy { max-width:92%; }
 .context-card .view-only-chat.is-sidebar .view-only-chat-footer { min-height:0; padding:8px 14px; justify-content:flex-start; border:0; border-top:1px solid var(--line-soft); background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; color:var(--muted); font:var(--type-meta); }
@@ -81,3 +82,4 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
   .context-card, .context-card-grip, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }
 }
 @media (forced-colors:active) { .context-card { outline:1px solid CanvasText; } }
+}

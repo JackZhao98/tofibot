@@ -1,4 +1,5 @@
 /* Members widget (MembersWidget.tsx), inside a context card. Loads with the lazy chunk `membersWidget`. Filled hover states only. */
+@layer legacy {
 .members-widget { display:grid; gap:2px; padding:0 8px 10px; }
 .mw-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 6px 4px 10px; color:var(--muted); font:12px/1.4 var(--body); }
 .mw-gear { display:grid; place-items:center; flex:none; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--ink-soft); transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
@@ -17,3 +18,4 @@
 .mw-idle { color:var(--muted); font:12px/1.4 var(--body); }
 @media (pointer:coarse) { .mw-gear { width:44px; height:44px; } .mw-open { min-height:48px; } }
 @media (prefers-reduced-motion:reduce) { .mw-gear, .mw-member { transition:none; } }
+}

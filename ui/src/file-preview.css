@@ -1,5 +1,6 @@
 /* File cards, tiles and the file viewer (BotAttachments v2q). */
 
+@layer legacy {
 .file-preview { width:min(960px, calc(100vw - 48px)); max-width:none; height:min(88dvh, 900px); max-height:none; padding:0; overflow:hidden; border:2px solid var(--line); border-radius:16px; background:var(--surface); box-shadow:var(--shadow); color:var(--ink); }
 .file-preview[open] { display:block; }
 .file-preview::backdrop { background:var(--lightbox-scrim); }
@@ -50,3 +51,4 @@
 .message-code-block > .message-code { margin:0; border-radius:0 0 10px 10px; }
 .message-code-block > .message-code.is-collapsed { max-height:calc(16 * 1.5em + 22px); overflow-y:hidden; }
 .message-code-more { display:block; width:100%; margin-top:2px; text-align:left; }
+}

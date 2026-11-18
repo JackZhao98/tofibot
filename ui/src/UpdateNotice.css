@@ -1,3 +1,4 @@
+@layer legacy {
 .update-banner{position:relative;display:flex;align-items:center;gap:10px;flex-shrink:0;padding:8px 16px;border-bottom:1px solid var(--line-soft);background:color-mix(in srgb,var(--lagoon) 10%,var(--surface));color:var(--ink);font:13px/1.45 var(--body)}
 .update-banner>svg{flex:none;color:var(--lagoon-text)}
 .update-banner p{flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
@@ -31,3 +32,4 @@
 .update-dialog-error{color:var(--danger-text)}
 .version-card .update-progress{justify-content:flex-end}
 @media(max-width:700px){.version-card .update-progress{justify-content:flex-start}.update-progress-bar{flex-basis:100%;width:auto}}
+}

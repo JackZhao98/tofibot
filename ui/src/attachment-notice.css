@@ -1,4 +1,5 @@
 /* Why a stored file will not open (AttachmentNotice). It grows in over --m-panel-in and folds away over --m-panel-out. */
+@layer legacy {
 .attachment-notice-wrap { display: grid; grid-template-rows: 1fr; animation: attachment-notice-in var(--m-panel-in) var(--ease-out) both; }
 .attachment-notice-wrap[data-open="false"] { grid-template-rows: 0fr; opacity: 0; animation: attachment-notice-out var(--m-panel-out) var(--ease-in) both; }
 .attachment-notice-body { min-height: 0; overflow: hidden; }
@@ -14,3 +15,4 @@
 @keyframes attachment-notice-in { from { grid-template-rows: 0fr; opacity: 0; } }
 @keyframes attachment-notice-out { from { grid-template-rows: 1fr; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .attachment-notice-wrap, .attachment-notice-wrap[data-open="false"] { animation: none; } }
+}
