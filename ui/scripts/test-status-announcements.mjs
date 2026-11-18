@@ -10,6 +10,8 @@ import { createServer } from "vite";
 const server = await createServer({configFile:false, root:dirname(dirname(fileURLToPath(import.meta.url))),server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 const helpers = await server.ssrLoadModule("/src/taskIssuePresentation.ts");
 const {buildRetryFamilies,isTerminalRun} = await server.ssrLoadModule("/src/runFamily.ts");
+// The expected live-region text below is Chinese.
+await (await server.ssrLoadModule("/src/i18n/index.ts")).setLanguage("zh-CN");
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const out = await mkdtemp(join(tmpdir(), "tofi-status-announcements-"));
@@ -67,11 +69,11 @@ try {
     "--types", "vite/client", "--resolveJsonModule", "true",
     "--outDir", out, "--skipLibCheck", "--declaration", "false", "--pretty", "false",
   ], { cwd: root });
-  const app = await readFile(join(out, "App.js"), "utf8");
+  const app = await readFile(join(out, "chat/RunActivity.js"), "utf8");
   const desktop = await readFile(join(out, "BotDesktopPanel.js"), "utf8");
-  assert((await readFile(join(root, "src/App.tsx"), "utf8")).includes("<RunStatusAnnouncement key={active.id}"), "conversation identity must remount the announcer");
+  assert((await readFile(join(root, "src/chat/ChatPane.tsx"), "utf8")).includes("<RunStatusAnnouncement key={`run-status-${active.id}`}"), "conversation identity must remount the announcer");
   assert((await readFile(join(root, "src/BotDesktopPanel.tsx"), "utf8")).includes("<DesktopStatusAnnouncement key={selectedBotId}"), "Bot identity must remount the announcer");
-  const runMount = () => mount(app, "RunStatusAnnouncement", "\nfunction WorkingMembers");
+  const runMount = () => mount(app, "RunStatusAnnouncement", "\nexport function WorkingMembers");
   const viewerMount = () => mount(desktop, "DesktopStatusAnnouncement", "\nexport function BotDesktopPanel");
   const botById = new Map([["bot-a", { name: "Alpha" }]]);
   const run = (id, status, conversation_id = "a") => ({ id, status, conversation_id, bot_id: "bot-a" });

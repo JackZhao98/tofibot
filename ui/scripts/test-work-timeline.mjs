@@ -26,7 +26,7 @@ try {
   const images = await modules.load('/src/attachmentImages.ts');
   assert.ok(images.singleBox('wide').width <= 240);
   assert.ok(images.singleBox('wide').height <= 240);
-  const app = await readFile(join(uiRoot,'src/App.tsx'),'utf8');
+  const app = await readFile(join(uiRoot,'src/chat/MessageBubble.tsx'),'utf8');
   assert.ok(app.includes('</div>}{!isUser && hasAttachments && <div className="message-attachments bot-attachments">{mediaOnly && avatar}'), 'Bot attachments follow the closed bubble');
   console.log('PASS timeline ordering, grouping, privacy, shared capture identity, thumbnail bounds, attachment placement');
 } finally { await modules.close(); }

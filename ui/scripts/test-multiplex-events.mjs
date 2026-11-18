@@ -59,16 +59,16 @@ try {
   // Exercise the actual compiled App connection callbacks, isolated from visual
   // components. This keeps delayed events/timers deterministic without claiming
   // to emulate the browser's HTTP connection pool.
-  const app = await readFile(join(out, "App.js"), "utf8");
+  const app = await readFile(join(out, "workspace/Workspace.js"), "utf8");
   function between(start, end) {
     const first = app.indexOf(start), last = app.indexOf(end, first);
     assert(first >= 0 && last > first, `locate App callback block: ${start}`);
     return app.slice(first, last);
   }
-  const workspaceCode = between("const handleWorkspaceEvent = useCallback(", "useEffect(() => { void refreshIndex();");
-  const conversationCode = between("const connectEvents = useCallback(", "useEffect(() => {");
-  const configCallbacks = between("const applyConfig = useCallback(", "useEffect(() => { void refreshIndex();");
-  const chatCallbacks = between("const updateConversationPreview = useCallback(", "useEffect(() => {");
+  const workspaceCode = between("const scheduleWorkspaceEventRefresh = useCallback(", "useEffect(() => { void refreshIndex();");
+  const conversationCode = between("const connectLatest = useRef", "useEffect(() => {");
+  const configCallbacks = between("const applyConfig = useCallback(", "const beginWorkspaceRequest = ");
+  const chatCallbacks = conversationCode;
   const memoSlots = [];
   let memoIndex = 0;
   const memo = (callback, deps) => {
@@ -77,8 +77,8 @@ try {
     if (!previous || deps.some((value, i) => !Object.is(value, previous.deps[i]))) memoSlots[index] = { callback, deps };
     return memoSlots[index].callback;
   };
-  const identityEnv = { useCallback: memo, configRef: { current: null }, setConfig() {}, setCodexStatusRefresh() {}, questions: { refresh() {} } };
-  const renderCallbacks = new Function(...Object.keys(identityEnv), `${configCallbacks}\n${chatCallbacks}\nreturn {applyConfig,connectEvents,connectWorkspaceEvents,refreshWorkspaceOnConnect,handleWorkspaceEvent};`);
+  const identityEnv = { useCallback: memo, useEffect() {}, handleEvent() {}, configRef: { current: null }, setConfig() {}, setCodexStatusRefresh() {}, questions: { refresh() {} }, flushWorkspaceEvents: { current: null }, workspaceEventTimer: { current: undefined }, workspaceEventPending: { current: false }, workspaceInFlight: { current: 0 }, setComputerCapability() {}, setCapabilityPolicy() {}, useRef: initial => ({ current: initial }), refreshIndex: undefined, refreshConfig: undefined };
+  const renderCallbacks = new Function(...Object.keys(identityEnv), `${configCallbacks}\n${workspaceCode}\n${chatCallbacks}\nreturn {applyConfig,connectEvents,connectWorkspaceEvents,refreshWorkspaceOnConnect,handleWorkspaceEvent};`);
   const initialCallbacks = renderCallbacks(...Object.values(identityEnv));
   for (let render = 0; render < 20; render++) {
     initialCallbacks.applyConfig({ default_model: `model-${render}`, model_configured: render % 2 === 0, provider: "test" });
@@ -96,7 +96,7 @@ try {
   let timerID = 0, extensionRefresh = 0;
   const refreshes = [], chats = [], connectionStates = [];
   const env = {
-    ...refs, openConversationEvents, openWorkspaceEvents, useCallback: callback => callback,
+    ...refs, flushWorkspaceEvents: { current: null }, workspaceEventTimer: { current: undefined }, workspaceEventPending: { current: false }, workspaceInFlight: { current: 0 }, workspaceWatchdog: { current: undefined }, eventWatchdog: { current: undefined }, workspaceLastFrameAt: { current: 0 }, lastFrameAt: { current: 0 }, STREAM_STALE_MS: 30_000, workspaceFailNow: { current: undefined }, eventFailNow: { current: undefined }, openConversationEvents, openWorkspaceEvents, useCallback: callback => callback, useEffect() {}, useRef: initial => ({ current: initial }),
     refreshIndex: () => refreshes.push("index"), refreshConversations: () => refreshes.push("conversations"),
     refreshConfig: () => refreshes.push("config"), setExtensionRefresh: update => { extensionRefresh = update(extensionRefresh); }, setScheduleRefresh() {},
     setStreamConnected: value => connectionStates.push(value),
@@ -105,14 +105,19 @@ try {
     window: {
       setTimeout: (callback, delay) => { timers.set(++timerID, { callback, delay }); return timerID; },
       clearTimeout: id => timers.delete(id),
+      setInterval: () => ++timerID,
+      clearInterval() {},
     },
   };
+  // A connect schedules the 200 ms workspace refresh; run it so only connection timeouts are left to check.
+  const runFlushTimers = () => { for (const [id, timer] of [...timers]) if (timer.delay === 200) { timers.delete(id); timer.callback(); } };
   const create = new Function(...Object.keys(env), `${workspaceCode}\n${conversationCode}\nreturn {connectWorkspaceEvents,connectEvents};`);
   const connect = create(...Object.values(env));
   connect.connectWorkspaceEvents();
   const emptySource = refs.workspaceEventSource.current;
   assert(emptySource && !emptySource.closed);
   emptySource.open();
+  runFlushTimers();
   assert.equal(timers.size, 0, "onopen clears its connection timeout");
   emptySource.emit("workspace", { scope: "bots", revision: 4 }, 4);
   assert.equal(refs.workspaceEventCursor.current, 4);
@@ -127,6 +132,7 @@ try {
   emptySource.emit("workspace", { scope: "config", revision: 5 }, 5);
   assert.equal(refs.workspaceEventCursor.current, 4, "late closed-source revision must remain replayable");
   first.open();
+  runFlushTimers();
   assert.equal(extensionRefresh, 0, "ordinary opens do not reset extensions");
   assert.equal(timers.size, 0);
   first.emit("workspace", { scope: "config", revision: 5 }, 42);
@@ -189,8 +195,11 @@ try {
     return { promise, resolve };
   };
   async function settle() { for (let i = 0; i < 20; i++) await Promise.resolve(); }
+  const { mergeRunUpdates } = await ui.load("/src/runMerge.ts");
+  const { reconcileToolActivity } = await ui.load("/src/toolTimeline.ts");
+  const { isTerminalRun } = await ui.load("/src/runFamily.ts");
   function snapshotHarness(mode) {
-    const state = {}, pendingTimers = new Map(), connections = [];
+    const state = { Messages: [], Runs: [], ToolActivities: [] }, pendingTimers = new Map(), connections = [];
     const slow = pendingRead();
     let readCount = 0, nextTimer = 0, cleanup;
     const page = { messages: [{ id: "message", seq: 12 }], drafts: [], has_more: false, event_cursor: 77 };
@@ -199,7 +208,7 @@ try {
       state[key] = typeof value === "function" ? value(state[key]) : value;
     }]));
     const input = {
-      ...snapshotRefs, ...setters, activeId: "chat-a", errorText: error => error.message, arrivalIDs: { current: new Set() },
+      ...snapshotRefs, eventWatchdog: { current: undefined }, mergeRunUpdates, reconcileToolActivity, isTerminalRun, shownSnapshotId: { current: undefined }, snapshotRetryNow: { current: undefined }, snapshotCache: { current: new Map() }, ...setters, activeId: "chat-a", errorText: error => error.message, arrivalIDs: { current: new Set() },
       toolActivityKey: item => item.id,
       useEffect: effect => { cleanup = effect(); },
       connectEvents: id => { connections.push({ id, cursor: snapshotRefs.eventCursor.current, loadedId: state.LoadedId }); },
@@ -216,6 +225,7 @@ try {
       window: {
         setTimeout: (callback, delay) => { pendingTimers.set(++nextTimer, { callback, delay }); return nextTimer; },
         clearTimeout: id => pendingTimers.delete(id),
+        clearInterval() {},
       },
     };
     new Function(...Object.keys(input), snapshotCode)(...Object.values(input));
@@ -259,17 +269,18 @@ try {
   assert.equal(lateResult.connections.length, 0);
   const exhausted = snapshotHarness("fail");
   await settle();
-  for (const delay of [1000, 2000, 4000]) {
+  // The source never gives up: the backoff doubles to a 15 s cap and the next retry is always queued.
+  for (const delay of [1000, 2000, 4000, 8000, 15_000, 15_000]) {
     assert.equal(exhausted.fire(), delay);
     await settle();
   }
-  assert.equal(exhausted.reads(), 4, "snapshot retries have a finite three-retry budget");
-  assert.equal(exhausted.pendingTimers.size, 0);
+  assert.equal(exhausted.reads(), 7, "snapshot retries keep going on a capped backoff");
+  assert.equal(exhausted.pendingTimers.size, 1, "a retry is always queued while the snapshot fails");
   assert.equal(exhausted.connections.length, 0);
   exhausted.state.Error = ""; // An unrelated config refresh clears general errors.
   assert.equal(exhausted.state.SnapshotError, "snapshot unavailable", "persistent snapshot errors remain visible independently");
   exhausted.cleanup();
-  console.log("multiplex SSE checks: PASS (independent cursors, source isolation, replay, timeout/reset, serial snapshot recovery, retry cancellation and finite budget)");
+  console.log("multiplex SSE checks: PASS (independent cursors, source isolation, replay, timeout/reset, serial snapshot recovery, retry cancellation and capped endless backoff)");
 } finally {
   delete globalThis.EventSource;
   await ui?.close();

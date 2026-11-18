@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const app = readFileSync(join(root, "src/App.tsx"), "utf8");
+const app = ["src/workspace/Workspace.tsx", "src/chat/ChatPane.tsx", "src/chat/MessageBubble.tsx"].map(file => readFileSync(join(root, file), "utf8")).join("\n");
 
 const start = app.indexOf("const connectEvents = useCallback(");
 assert.ok(start > 0, "connectEvents is a useCallback");
@@ -55,5 +55,5 @@ assert.ok(app.includes("fullTimelineFor !== active.id && viewport.opensAtBottom 
 // synchronously (2026-11-04: an 84 ms task at 4x CPU when a row hover's Bot settings chunk landed during a sidebar drag).
 const panelWatches = [...app.matchAll(/usePanelLoaded\(([^)]*)\)/g)].map(match => match[1]);
 assert.ok(panelWatches.length > 0, "the Workspace still watches a lazy chunk somewhere (update this check if not)");
-for (const args of panelWatches) assert.ok(args.includes(","), `usePanelLoaded(${args}) in App.tsx must say when it watches (second argument)`);
+for (const args of panelWatches) assert.ok(args.includes(","), `usePanelLoaded(${args}) in Workspace.tsx must say when it watches (second argument)`);
 console.log("perf structure checks: PASS (stable connectEvents, gated ownership poll, slow computer-info poll, chunk watches)");
