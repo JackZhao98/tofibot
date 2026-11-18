@@ -3,7 +3,9 @@
 // standard computed property, including ::before and ::after when they render. Custom properties are not compared:
 // renaming them is what these PRs do; what they resolve to shows up in the standard properties. transition-* is not
 // compared either: it shapes a change, not a frame, and libraries switch it inline by timing (dnd-kit sortable rows);
-// test:motion-tokens holds the durations.
+// test:motion-tokens holds the durations. Nor is animation-delay: the boot logo derives its phase from the clock, so
+// looping animations are captured at their first frame with no delay. Each tree has its own dev server, so the page's
+// origin is removed from url() values.
 //
 // The cat artwork (svg[data-tofi-avatar], animated from JS) is compared at its root only, as in test:skin-sensitivity.
 // Coverage (PLAN 7.5): every catalog state; every Settings tab and Administration page on the org fixture; sign-in and
@@ -56,13 +58,15 @@ const trees = [{ name: `base (${BASE})`, ui: join(work, "ui"), repo: work }, { n
 // In the page: pause or finish animations, then hash (or keep, with DETAIL) every standard property of every element.
 function snapshot(detail) {
   for (const animation of document.getAnimations()) {
-    try { const end = animation.effect?.getComputedTiming?.().endTime; if (Number.isFinite(end)) animation.finish(); else { animation.pause(); animation.currentTime = 0; } } catch { /* an animation that cannot be finished is left as is */ }
+    try { const end = animation.effect?.getComputedTiming?.().endTime; if (Number.isFinite(end)) animation.finish(); else { animation.effect?.updateTiming?.({ delay: 0 }); animation.pause(); animation.currentTime = 0; } } catch { /* an animation that cannot be finished is left as is */ }
   }
-  const props = [...getComputedStyle(document.documentElement)].filter(name => !name.startsWith("--") && !name.startsWith("transition")).sort();
+  const props = [...getComputedStyle(document.documentElement)].filter(name => !name.startsWith("--") && !name.startsWith("transition") && name !== "animation-delay").sort();
   const hash = text => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
-  const styleOf = (element, pseudo) => { const style = getComputedStyle(element, pseudo); return props.map(name => style.getPropertyValue(name)).join(";"); };
+  const styleOf = (element, pseudo) => { const style = getComputedStyle(element, pseudo); return props.map(name => style.getPropertyValue(name)).join(";").split(location.origin).join(""); };
   const result = {};
   const walk = (element, path) => {
+    // display:none paints nothing, and animations under it keep following the clock without being listed.
+    if (getComputedStyle(element).display === "none") { result[path] = "none"; return; }
     let full = styleOf(element);
     for (const pseudo of ["::before", "::after"]) { const content = getComputedStyle(element, pseudo).content; if (content !== "none" && content !== "normal") full += `|${pseudo}:${styleOf(element, pseudo)}`; }
     result[path] = detail ? full : hash(full);
@@ -221,8 +225,15 @@ function compare() {
       const lines = differing.slice(0, 4).map(path => {
         if (!(path in x) || !(path in y)) return `    ${path}: only in ${path in x ? "base" : "head"}`;
         if (!DETAIL) return `    ${path}`;
-        const props = a[mode].props, p = x[path].split("|")[0].split(";"), q = y[path].split("|")[0].split(";");
-        return `    ${path}: ${props.filter((_, i) => p[i] !== q[i]).slice(0, 6).map(name => `${name} ${p[props.indexOf(name)]} -> ${q[props.indexOf(name)]}`).join("; ") || "(pseudo-element)"}`;
+        if (x[path] === "none" || y[path] === "none") return `    ${path}: display ${x[path] === "none" ? "none" : "shown"} -> ${y[path] === "none" ? "none" : "shown"}`;
+        const props = a[mode].props, before = x[path].split("|"), after = y[path].split("|"), changes = [];
+        for (let part = 0; part < Math.max(before.length, after.length); part += 1) {
+          const label = (before[part] ?? after[part]).match(/^(::\w+):/)?.[1] ?? "";
+          const strip = text => (text ?? "").replace(/^::\w+:/, "").split(";");
+          const p = strip(before[part]), q = strip(after[part]);
+          props.forEach((name, i) => { if (p[i] !== q[i]) changes.push(`${label}${label ? " " : ""}${name} ${p[i]} -> ${q[i]}`); });
+        }
+        return `    ${path}: ${changes.slice(0, 6).join("; ")}`;
       });
       failures.push({ key, text: `${key} [${mode}]: ${differing.length} element(s) differ\n${lines.join("\n")}` });
     }
