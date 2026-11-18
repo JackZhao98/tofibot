@@ -5,4 +5,9 @@
 .tb-seg-opt:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 .tb-seg-opt:disabled { opacity: .5; cursor: not-allowed; }
 @media (pointer: coarse), (any-pointer: coarse) { .tb-seg-opt { height: 36px; } }
+/* On a phone the track may sit beside text in a settings row: tighter options, and labels that still do not fit wrap to a second row. */
+@media (max-width: 700px) {
+  .tb-seg { flex-wrap: wrap; gap: 2px; }
+  .tb-seg-opt { padding-inline: 6px; }
+}
 @media (prefers-reduced-motion: reduce) { .tb-seg-opt { transition: none; } }

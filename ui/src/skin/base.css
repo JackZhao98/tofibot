@@ -10,8 +10,7 @@
   :where(button, input, select, textarea, optgroup) { font-family: inherit; }
   ::selection { background: color-mix(in srgb, var(--cobalt) 30%, transparent); }
   :is(input, textarea, [contenteditable="true"]) { caret-color: var(--ink); }
-  /* Controls read in the body face and code in the mono face, unless a component sets its own. */
-  :where(button, input, select, textarea) { font-family: var(--font-body); }
+  /* Code reads in the mono face unless a component sets its own. */
   :where(code) { font-family: var(--font-mono); }
 
   /* One focus indication for the product: a 2px ring at a 2px offset, for the keyboard only. A component may change the offset

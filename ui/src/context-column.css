@@ -41,7 +41,7 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 @media (pointer:coarse) { .context-card-button { width:44px; height:44px; } }
 .context-card-button svg { transition:rotate var(--m-base) var(--ease-out); }
 
-/* Folding a card is the shared .collapsible-content height animation; the content stays mounted (a live computer session
+/* Folding a card is the kit's .tb-collapsible height animation; the content stays mounted (a live computer session
    survives it). The computer card never folds and lets its screen overflow. */
 .context-card.is-bare .context-card-body { overflow:visible; }
 .context-card-inner { min-height:0; min-width:0; overflow:clip; }

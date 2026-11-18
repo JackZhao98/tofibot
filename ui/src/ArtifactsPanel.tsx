@@ -111,7 +111,7 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
     <div className="artifacts-toolbar">
       <Tabs.List className="artifacts-tabs artifacts-kinds" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <Tabs.Trigger key={value} value={value}>{label}</Tabs.Trigger>)}</Tabs.List>
       <label className="artifacts-search"><TofiIcon name="search" size={16} /><input type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} /></label>
-      <div className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><Switch label={t("artifacts.include_uploads")} checked={uploads} onChange={setUploads} /></div>
+      <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><Switch checked={uploads} onChange={setUploads} /></label>
     </div>
     {kinds.filter(([value]) => value !== kind).map(([value]) => <Tabs.Content key={value} value={value} forceMount hidden />)}
     <Tabs.Content value={kind} className="artifacts-result-panel">
