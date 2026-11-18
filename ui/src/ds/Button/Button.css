@@ -1,0 +1,24 @@
+/* Button: a quiet hover wash and a slight press. Secondary has a mid-tone outline; the primary is tomato with the bold ink
+   edge and a ledge it presses into (README Edges: one of the four bold-edge things). */
+.tb-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 600 14px/1 var(--font-display); letter-spacing: .01em;
+  border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
+  padding: 0 16px; height: 40px; color: var(--ink);
+  box-shadow: none;
+  transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), background-color var(--m-quick) var(--ease-out);
+}
+.tb-btn--sm { height: 32px; padding: 0 12px; font-size: 13px; }
+.tb-btn:hover:not(:disabled) { background-image: linear-gradient(var(--hover), var(--hover)); }
+.tb-btn:active:not(:disabled) { transform: scale(.98); }
+.tb-btn:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-btn--primary { background: var(--tomato); color: var(--on-block); border: var(--edge-bold) solid var(--ink); box-shadow: var(--hard-sm); }
+.tb-btn--primary:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: var(--hard); }
+.tb-btn--primary:active:not(:disabled) { transform: translate(2px, 3px); box-shadow: none; }
+.tb-btn--secondary { background: var(--surface); }
+.tb-btn--danger { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
+.tb-btn--ghost { background: transparent; border-color: transparent; box-shadow: none; }
+.tb-btn--ghost:hover:not(:disabled) { background-color: var(--hover); transform: none; box-shadow: none; }
+.tb-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.tb-btn.is-busy .tb-btn-label { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .tb-btn { transition: none; } }

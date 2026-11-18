@@ -1,0 +1,17 @@
+/* V3 kit: styles several components share. Unlayered on purpose (V3 PLAN 1 and 7.5): a rule outside every layer beats
+   every layered one. Every value is a skin role or a structure token. Imported by the components that use it. */
+.tb-mono { font-family: var(--font-mono); font-feature-settings: "zero" 1; }
+.tb-eyebrow { font: 600 10px/1.2 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.tb-glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--border-1) solid var(--line);
+  box-shadow: var(--shadow);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .tb-glass { background: var(--glass-strong); } }
+@media (prefers-reduced-transparency: reduce) { .tb-glass { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* The breathing dot: Badge working, and later ToolSteps and ScheduleCard. One loop, stopped by reduced motion. */
+.tb-breath { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: tb-breath 2.4s var(--ease-inout) infinite; }
+@keyframes tb-breath { 0%, 100% { transform: scale(.8); opacity: .55; } 50% { transform: scale(1.1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .tb-breath { animation: none; } }

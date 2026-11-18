@@ -57,3 +57,10 @@ html.catalog-frame .catalog-control-grid label { display:grid; gap:6px; }
 
 .catalog-shell [data-catalog-section="foundations"] .catalog-frames { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 .catalog-shell [data-catalog-section="foundations"] .catalog-frame-box { width:100%; }
+
+/* The V3 kit section: specimen layout only. Each kit component keeps its own look from src/ds/. */
+html.catalog-frame .catalog-specimen { display: grid; gap: 6px; justify-items: start; align-content: start; }
+html.catalog-frame .catalog-specimen > small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+html.catalog-frame .catalog-stack { display: grid; gap: 12px; max-width: 520px; }
+html.catalog-frame .catalog-dots { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background-color: var(--bg); background-image: var(--dot-grid); background-size: var(--dot-step) var(--dot-step); }
+html.catalog-frame .catalog-note { margin: 0 0 12px; color: var(--muted); }
