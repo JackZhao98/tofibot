@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import {mkdir, rm} from "node:fs/promises";
 import {dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
-import {selectItems} from "./lib/select.mjs";
+import {pickSelect, selectItems, selectValue} from "./lib/select.mjs";
 import {createOrgStub, openSettings, startFixture} from "./lib/org-fixture.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -564,11 +564,11 @@ try {
       return stub.handle(url, method, body);
     }};
     const view = await openSettings({browser, fixture, stub: withBackups, errors, params: {tab: "admin-resources"}});
-    const select = card(view.page, "backup_store").locator('select[data-field="before_update"]');
+    const select = card(view.page, "backup_store").locator('button.ui-select-trigger[data-field="before_update"]');
     await select.waitFor();
-    assert.equal(await select.inputValue(), "attempt", "the default is best effort");
+    assert.equal(await selectValue(select), "attempt", "the default is best effort");
     assert.match(await text(card(view.page, "backup_store").locator(".backup-hint")), /Required.*stops the update/);
-    await select.selectOption("require");
+    await pickSelect(select, "require");
     await card(view.page, "backup_store").locator('[data-action="save-settings"]').click();
     await view.page.waitForFunction(() => true);
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -627,7 +627,7 @@ try {
     }};
     const view = await openSettings({browser, fixture, stub: withRestore, errors, params: {tab: "admin-resources"}});
     const panel = card(view.page, "backup_store").locator('[data-section="restore-account"]');
-    await panel.locator("select").first().selectOption("acct_two");
+    await pickSelect(panel.locator("button.ui-select-trigger").first(), "acct_two");
     await panel.locator('input[name="backup-restore-confirm"]').fill("Sam Example");
     await panel.locator('[data-action="restore-account"]').click();
     const refusal = card(view.page, "backup_store").locator('[role="alert"]');

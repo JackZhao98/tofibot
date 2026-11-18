@@ -31,7 +31,7 @@ export default function SelectRadixImpl(props: SelectProps & { options: NonNulla
   const [layer, setLayer] = useState<"dialog" | undefined>();
   return <RadixSelect.Root value={hasEmpty || value !== "" ? encode(value) : ""} onValueChange={next => onValueChange(decode(next))} disabled={disabled} name={name}
     onOpenChange={open => { if (open) setLayer(trigger.current?.closest('[aria-modal="true"]') ? "dialog" : undefined); }}>
-    <RadixSelect.Trigger ref={trigger} id={id} className={`tb-select ui-select-trigger${className ? ` ${className}` : ""}`} data-size={size} data-value={value}
+    <RadixSelect.Trigger ref={trigger} id={id} className={`tb-select ui-select-trigger${className ? ` ${className}` : ""}`} data-size={size} data-field={props["data-field"]} data-value={value}
       aria-label={props["aria-label"]} aria-labelledby={props["aria-labelledby"]} aria-describedby={props["aria-describedby"]} aria-invalid={props["aria-invalid"]}>
       <span className="tb-select-value ui-select-value"><RadixSelect.Value placeholder={placeholder} /></span>
       <RadixSelect.Icon asChild><Icon name="chevron-down" size={16} /></RadixSelect.Icon>

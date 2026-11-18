@@ -40,6 +40,8 @@ export type SelectProps = {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  /** A hook for tests and for the form code that names its fields. */
+  "data-field"?: string;
 };
 
 export const isGroup = (choice: SelectChoice): choice is SelectGroup => "options" in choice;
@@ -77,7 +79,7 @@ export function Select(props: SelectProps) {
   const size = props.size ?? "md";
   const selected = flatOptions(choices).find(option => option.value === value);
   return <Suspense fallback={<button type="button" id={props.id} disabled aria-label={props["aria-label"]} aria-labelledby={props["aria-labelledby"]}
-    className={`tb-select ui-select-trigger${props.className ? ` ${props.className}` : ""}`} data-size={size} data-value={props.value} data-placeholder={selected ? undefined : ""}>
+    className={`tb-select ui-select-trigger${props.className ? ` ${props.className}` : ""}`} data-size={size} data-field={props["data-field"]} data-value={props.value} data-placeholder={selected ? undefined : ""}>
     <span className="tb-select-value ui-select-value">{selected?.label ?? props.placeholder ?? ""}</span><Icon name="chevron-down" size={16} /></button>}>
     <RadixSelect {...props} options={choices} size={size} />
   </Suspense>;

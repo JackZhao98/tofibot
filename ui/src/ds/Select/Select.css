@@ -14,6 +14,8 @@
 @layer legacy { .tb-select-value, .tb-select-value > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tb-select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; } .tb-select[data-size="sm"] { width: auto; } }
 
 .tb-select-list { z-index: var(--z-menu); min-width: var(--radix-select-trigger-width); max-width: min(420px, calc(100vw - 16px)); max-height: min(var(--radix-select-content-available-height), 360px); overflow: hidden; border-radius: var(--radius-md); color: var(--ink); }
+/* Inside a modal (Settings) the list stacks just above it; SelectRadix sets data-layer. */
+.tb-select-list[data-layer="dialog"] { z-index: calc(var(--z-dialog) + 1); }
 .tb-select-viewport { padding: 6px; display: grid; gap: 1px; }
 .tb-select-group-label { padding: 8px 10px 4px; color: var(--muted); font: 600 10px/1.2 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
 .tb-select-item { position: relative; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 34px 6px 10px; border-radius: var(--radius-xs); color: var(--ink); font: 500 14px/1.3 var(--font-body); outline: 0; cursor: pointer; user-select: none; -webkit-user-select: none; }
