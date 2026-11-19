@@ -171,9 +171,9 @@ export const popovers: CatalogSection = {
         await step.find(".computer-detail.is-folded", 12000); await step.wait(700);
       } },
     { id: "sidebar-tasks", kind: "app", label: "Sidebar: Tasks (≥1100 px)", note: "a real grid track at the window edge that pushes the chat; the widgets shrink with it", app: DM, widths: ["desktop"], probe: ".sidebar-pane",
-      drive: async step => { await step.click("button[aria-label='Tasks']"); await step.find(".sidebar-pane .sidebar-shell"); await step.wait(800); } },
+      drive: async step => { await step.click(".header-more > button"); await step.find(".more-menu button"); await step.click([...document.querySelectorAll<HTMLElement>(".more-menu button")].find(item => item.textContent === "Tasks")!); await step.find(".sidebar-pane .sidebar-shell"); await step.wait(800); } },
     { id: "sidebar-expanded", kind: "app", label: "Sidebar: expanded", note: "clamp(480px, 50vw, 760px); the chat keeps at least 480px", app: DM, widths: ["desktop"], probe: ".sidebar-pane",
-      drive: async step => { await step.click("button[aria-label='Tasks']"); await step.find(".sidebar-pane .sidebar-shell"); await step.click(".sidebar-shell-expand"); await step.wait(800); } },
+      drive: async step => { await step.click(".header-more > button"); await step.find(".more-menu button"); await step.click([...document.querySelectorAll<HTMLElement>(".more-menu button")].find(item => item.textContent === "Tasks")!); await step.find(".sidebar-pane .sidebar-shell"); await step.click(".sidebar-shell-expand"); await step.wait(800); } },
     { id: "cover-bot-settings", kind: "app", label: "Cover: Bot settings", note: "one page, section list on the left (a list that pushes the page on a phone); Identity first; Escape closes", app: DM, probe: ".cover-window", keyboard: { close: "Escape" },
       drive: async step => { await step.click(".chat-identity"); await step.find(".cover-window .bot-settings"); await step.wait(700); } },
     { id: "cover-bot-settings-role", kind: "app", label: "Cover: Bot settings, Role", note: "rows=10 with a character count", app: DM, probe: ".cover-window",

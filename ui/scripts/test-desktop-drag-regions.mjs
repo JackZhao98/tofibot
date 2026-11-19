@@ -17,6 +17,13 @@ import assert from "node:assert/strict";
 import {exerciseBrowserEntry} from "./test-bot-browser-pip.mjs";
 import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
 
+// V3 PR 3.2: Tasks is an item of the header's More menu, no longer a header button.
+async function toggleTasks(page) {
+  await page.locator(".header-more > button").click();
+  await page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: "Tasks" }).click();
+}
+
+
 // 1110 px: the drawer still overlays the chat (up to 1120 px) while the layout already counts as wide (from 1100 px).
 // 1200 px: between 1121 and 1279 the old drawer track rule applied to Settings.
 const SIZES = [{ width: 1280, height: 800 }, { width: 1200, height: 760 }, { width: 1110, height: 760 }, { width: 860, height: 640 }];
@@ -28,7 +35,9 @@ let checked = 0;
 
 async function open(size) {
   const page = await browser.newPage({ viewport: size });
-  const state = { info: { kind: "firecracker", state: "hibernated", workspace_root: "/workspace", browser: "Google Chrome", hibernation: true }, requests: [] };
+  // Sixty short messages: the list scrolls, so the chat header can be at its start or scrolled (an empty list has no start mark).
+  const messages = Array.from({ length: 60 }, (_, i) => ({ id: `m${i}`, conversation_id: "conv-synthetic", seq: i + 1, role: i % 2 ? "assistant" : "user", sender_bot_id: i % 2 ? "bot-synthetic" : undefined, content: `Synthetic line ${i + 1}`, created_at: new Date(Date.UTC(2026, 9, 13, 10, i)).toISOString() }));
+  const state = { info: { kind: "firecracker", state: "hibernated", workspace_root: "/workspace", browser: "Google Chrome", hibernation: true }, requests: [], messages };
   await installStubs(page, state);
   await page.route("**/api/**", async route => {
     const path = new URL(route.request().url()).pathname;
@@ -107,7 +116,7 @@ async function blocked(page) {
     const header = document.querySelector(".chat-header");
     let headerDrag = null;
     if (header && header.getBoundingClientRect().width) {
-      const h = header.getBoundingClientRect(), title = header.querySelector(".chat-title").getBoundingClientRect(), actions = header.querySelector(".header-actions").getBoundingClientRect();
+      const h = header.getBoundingClientRect(), title = header.querySelector(".chat-identity").getBoundingClientRect(), actions = header.querySelector(".header-actions").getBoundingClientRect();
       const y = h.top + h.height / 2;
       headerDrag = { middle: inDrag((title.right + actions.left) / 2, y), below: inDrag((title.right + actions.left) / 2, h.bottom + 12) };
     }
@@ -139,6 +148,12 @@ for (const size of SIZES) {
   if (!narrow) await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
   await page.locator(".workspace-grid.sidebar-collapsed").waitFor();
   await check(page, "collapsed conversation", size);
+  // V3 PR 3.2 (PageChatHeader): at the start of a conversation the cat is big and hangs below the title row; once the list scrolls
+  // it is the small cat on the row. The centre-line rule is for that second position.
+  // The header must be the scrolled one after the list scrolls; if it is not, the wait below throws and the centre-line rule never runs on a
+  // header that is still at the top.
+  await page.locator(".message-scroll").evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await page.locator(".tb-chathead.is-scrolled").waitFor({ timeout: 5000 });
   const collapsed = await page.evaluate(() => ({
     controls: [...document.querySelectorAll(".sidebar-top button")].filter(el => el.getBoundingClientRect().width).map(el => {
       const box = el.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
@@ -200,10 +215,10 @@ for (const size of SIZES) {
   // .detail-pane.visible.context-panel: matching it let this step pass on the closed Bot computer's 220 ms exit
   // and time out when a slow runner outlasted that exit (CI 11-14).
   const tasksDrawer = ".sidebar-pane:not(.is-leaving), .detail-pane.visible.context-panel:not(.widget-column):not(.surface-exiting)";
-  await page.getByRole("button", { name: "Tasks" }).first().click();
+  await toggleTasks(page);
   await page.locator(tasksDrawer).waitFor();
   await check(page, "tasks drawer", size);
-  await page.getByRole("button", { name: "Tasks" }).first().click({ force: true }).catch(() => {});
+  
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".sidebar-pane, .detail-pane.visible.context-panel:not(.widget-column)"), null, { timeout: 5000 });
 

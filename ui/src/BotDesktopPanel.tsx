@@ -862,7 +862,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     <Switch.Root checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
       aria-label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} data-hint={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} onCheckedChange={toggleDriver}>
       <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
-      <span className="desktop-driver-side is-bot" aria-hidden="true"><BotAvatar id={switchBot} mini animated={false} /></span>
+      <span className="desktop-driver-side is-bot" aria-hidden="true"><BotAvatar id={switchBot} mini /></span>
       <span className="desktop-driver-side is-you" aria-hidden="true">{t("desktop.control.you")}</span>
     </Switch.Root>
   </div> : <div className={`desktop-chin is-${capsule.tone}`}><span className="sr-only desktop-chin-text" role="status">{capsule.text}</span></div>;

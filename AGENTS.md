@@ -271,7 +271,7 @@ Rules:
   stay as class names for the tests and `senderGroups.ts` and carry no rule. The loading state is the plain spinner (`LoadingCat` is
   gone). `BotAvatar.tsx` (V2) draws the ground tile (`tb-botavatar tb-bot--<ground>`, ground from `useBotGround`) around the cat
   everywhere (its `display` is a default in `@layer legacy`, so V2 hide rules still win; the kit `ds/BotAvatar` asks it for the bare cat
-  with `bare`); the header cat keeps its motion until PR 3.2. The top band sits at `--z-chrome` (the `above` prop), above the widget
+  with `bare`); the header cat is the kit `ChatHeader` (PR 3.2, below). The top band sits at `--z-chrome` (the `above` prop), above the widget
   column and, by coming first in the DOM, below the header. The chat pane has exactly 5 backdrop layers (PLAN R2): the two bands (2 each)
   and the composer field. The header pills and the jump button have a translucent `--surface` fill and no backdrop of their own;
   `test:live-fixes` fails on a sixth. The keyboard-open padding adds the band's 40px ramp.
@@ -296,6 +296,21 @@ Rules:
   `SettingsRow` takes `data-*` and `fill` (a field-like control takes the whole line under the label on a phone). Tests that read a
   notification switch open the Notifications row first (`[data-setting="notifications"] .gen-expand-toggle`). Not in the product, so not on
   the page though the mock draws them: a name field, the password row, Enter to send. `timezone-settings.css` is gone.
+
+- Chat header (PR 3.2). `chat/ChatHeader.tsx` builds the kit `ds/ChatHeader` (`.tb-chathead`; `chat-header.css` is gone). No bar: a bare cat
+  (`ds/BotAvatar` with the tile taken away, `size="var(--cat)"`; up to 3 cats for a group) and its name, centred over the pane's top band;
+  the pills have a translucent `--surface` fill and no backdrop, and the kit header draws its own blur layers only with `blur` (catalog).
+  Positions: `top` (64px cat, name under it, at the list's start), `scrolled` (34px), `aside` (a cover is open: the cat steps left). The
+  header box is always one row (`--chathead-top-min: 58px`); the big cat hangs below it over `.chat-top-mark`, a 64px spacer at the head of
+  `.message-scroll`, which an IntersectionObserver in `ChatPane` watches (no scroll reading). The cat travels with CSS transitions on
+  `left`/`transform`, not Motion `layoutId` (the entry budget has no room). The Mac sidebar inset is `--chathead-inset` (desktop-system.css).
+  The left pill (back to the list) shows up to 767px only (`menuMode="narrow"`). At most three actions: the 电脑 slot (Bot computer, else the
+  Mac app's browser panel, plus the Macs this Bot can look at), artifacts, 更多. Tasks, and in a group Members, are 更多 items; with a Bot
+  computer the Mac browser panel is a 更多 item too. Cat state (`botCatState` in `botActivity.ts`): waiting (a run is `waiting`) > working
+  (a tool runs) > thinking (a run is live) > error (the last run failed) > asleep (quiet) > none; the CSS loops are sway, bob and lean, still
+  under reduced motion, and the dot names the state. Cats elsewhere are drawn once, awake or asleep: `avatarMotionDirector.ts` and the life
+  layer are gone. Hooks kept as class names for scripts and `lazyPanels` preload: `chat-header`, `chat-identity` (the cat button),
+  `chat-name-pill h1`, `back-button`, `header-actions`, `header-more`, `computer-button`, `computer-driven-dot`, `member-avatar-stack`.
 
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.

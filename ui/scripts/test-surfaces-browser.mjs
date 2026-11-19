@@ -15,6 +15,13 @@ import assert from "node:assert/strict";
 import { launch, startUi } from "./computer-window-fixture.mjs";
 import { BOT, DM, DM2, GROUP, botOwner, newState, openWorkspace, usageFor } from "./widgets-fixture.mjs";
 
+// V3 PR 3.2: Tasks is an item of the header's More menu, no longer a header button.
+async function toggleTasks(page) {
+  await page.locator(".header-more > button").click();
+  await page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: "Tasks" }).click();
+}
+
+
 const ARCHIVE_ENABLED = /export const ARCHIVE_ENABLED = true/.test(readFileSync(new URL("../src/featureFlags.ts", import.meta.url), "utf8"));
 const { server, origin } = await startUi();
 const browser = await launch();
@@ -94,7 +101,7 @@ try {
     const state = newState();
     const { context, page, errors } = await openWorkspace(browser, origin, state);
     assert.equal(side(page), null);
-    await page.getByRole("button", { name: "Tasks", exact: true }).click();
+    await toggleTasks(page);
     await poll(page, () => document.querySelector(".sidebar-pane"));
     assert.equal(side(page), "tasks", "opening the sidebar writes ?side=tasks (no history entry)");
     const entries = await page.evaluate(() => history.length);
@@ -111,7 +118,7 @@ try {
     assert.equal(side(page), "tasks");
     assert.deepEqual(await cards(page), []);
     // Closing removes the parameter and keeps the path.
-    await page.getByRole("button", { name: "Tasks", exact: true }).click();
+    await toggleTasks(page);
     await settled(page);
     assert.equal(side(page), null);
     assert.match(page.url(), /\/b\/bot-two$/);
@@ -562,7 +569,7 @@ try {
         assert.equal(open.columns[2], 0, `${name} ${width}: opening widgets reserves no right-hand track (got ${open.columns[2]}px)`);
         assert.equal(open.chatRight, open.width, `${name} ${width}: the chat reaches the window edge`);
         // The sidebar still owns that track while it is open, and gives it back.
-        await page.getByRole("button", { name: "Tasks" }).click();
+        await toggleTasks(page);
         await page.locator(".sidebar-pane:not(.is-leaving)").waitFor();
         await page.waitForTimeout(700);
         assert.ok((await tracks(page)).columns[2] >= 360, `${name} ${width}: an open sidebar takes its track`);

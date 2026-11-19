@@ -15,9 +15,9 @@ import "../../desktop-presence.css";
 
 const buttons = [
   "primary-button", "secondary-button", "ghost-button", "text-button", "st-button", "st-button is-danger",
-  "close-button", "icon-button", "top-icon-button", "computer-button", "computer-button is-ready",
+  "close-button", "icon-button", "top-icon-button",
    "admin-danger-button", "purge-button", "mcp-button", "mcp-button mcp-danger",
-  "bs-button", "bs-button is-danger", "gs-button", "gs-button is-danger", "settings-ghost-button", "danger-link", "work-icon-button", "work-icon-button is-danger", "back-button", "send-button",
+  "bs-button", "bs-button is-danger", "gs-button", "gs-button is-danger", "settings-ghost-button", "danger-link", "work-icon-button", "work-icon-button is-danger", "send-button",
 ];
 function Controls({ disabled = false }: { disabled?: boolean }) {
   const radioName = useId();
@@ -37,9 +37,9 @@ function Controls({ disabled = false }: { disabled?: boolean }) {
 const buttonStates: CatalogState[] = buttons.map(className => ({
   id: className.replaceAll(" ", "-"), kind: "inline", label: `.${className.replaceAll(" ", ".")}`,
   // These are native buttons with product classes, not copied component markup.
-  render: () => <div className={className.startsWith("computer-button") ? "header-actions" : "mcp-settings"}><div className="catalog-specimens">{["Rest", "Hover", "Focus", "Pressed", "Disabled"].map((state, index) => <span key={state}>
+  render: () => <div className="mcp-settings"><div className="catalog-specimens">{["Rest", "Hover", "Focus", "Pressed", "Disabled"].map((state, index) => <span key={state}>
     <small>{state} </small><button type="button" aria-label={`${className} ${state}`} disabled={index === 4} data-specimen={index} className={className}>
-      {/close-button|icon-button|computer-button|desktop-control-button/.test(className) ? <TofiIcon name={className.includes("close") ? "close" : "monitor"} size={18}/> : "Example"}
+      {/close-button|icon-button|desktop-control-button/.test(className) ? <TofiIcon name={className.includes("close") ? "close" : "monitor"} size={18}/> : "Example"}
     </button></span>)}</div></div>,
   force: [{ selector: '[data-specimen="1"]', state: "hover" }, { selector: '[data-specimen="2"]', state: "focus" }, { selector: '[data-specimen="3"]', state: "active" }],
 }));

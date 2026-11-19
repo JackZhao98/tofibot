@@ -8,7 +8,7 @@
 //     fold to one line each, opening one closes the other, and a fourth Bot folds into "+1 more"; at phone width nothing
 //     overflows; the card is not in the entry chunk. A step with pictures shows a small stack that opens the viewer;
 //     a picture whose file is gone drops out. The team board is gone: a group's open to-dos are one line under the
-//     cards that opens the Work panel, the header has the Tasks button, and the Work panel filters by goal and changes
+//     cards that opens the Work panel, the More menu has Tasks, and the Work panel filters by goal and changes
 //     the assignee of a group's item.
 //  3. Screenshots (--shots <dir>): 2x, light and dark, desktop and phone width, Chromium and WebKit, DM and group.
 // Run: PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm run test:plan-card [-- --browser] [-- --shots /abs/dir]
@@ -324,7 +324,11 @@ try {
         await page.locator(".plan-dock-tasks").waitFor({ timeout: 8000 });
         assert.equal((await page.locator(".plan-dock-tasks").textContent()).trim(), "2 open to-dos", `${engineName}: the open to-dos of this group`);
         assert.equal(await page.locator('.header-actions [data-hint="Team board"]').count(), 0, `${engineName}: no board button`);
-        assert.equal(await page.locator('.header-actions [data-hint="Tasks"]').count(), 1, `${engineName}: the Tasks button, like a DM`);
+        // V3 PR 3.2: the header holds at most three actions; Tasks moved into the More menu (PLAN 9.3 row 3.2).
+        assert.equal(await page.locator('.header-actions [data-hint="Tasks"]').count(), 0, `${engineName}: Tasks is not a header button`);
+        await page.locator(".header-more > button").click();
+        await page.locator('.more-menu[data-state=open] [role=menuitem]').filter({ hasText: "Tasks" }).waitFor({ timeout: 4000 });
+        await page.keyboard.press("Escape");
         await page.locator(".plan-dock-tasks").click();
         const panel = page.locator(".work-panel");
         await panel.locator(".work-row").first().waitFor({ timeout: 8000 });

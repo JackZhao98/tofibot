@@ -27,7 +27,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .workspace{height:var(--viewport-height,100dvh);min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .workspace-grid{height:100%;min-height:0;flex:1;display:grid;grid-template-columns:var(--sidebar-width,260px) minmax(0,1fr);overflow:hidden}
 .contact-pane{display:flex;min-height:0;flex-direction:column;overflow:hidden;border-right:1px solid var(--line);padding:14px 10px}
-.sidebar-top,.pane-heading,.detail-heading,.chat-header,.chat-title,.header-actions,.composer-tools,.composer-row,.message-meta,.memory-footer{display:flex;align-items:center}
+.sidebar-top,.pane-heading,.detail-heading,.composer-tools,.composer-row,.message-meta,.memory-footer{display:flex;align-items:center}
 .sidebar-top{justify-content:space-between;min-height:36px;margin:0 5px 13px}
 .sidebar-actions,.header-actions{display:flex;align-items:center;gap:4px}
 .create-menu-anchor{position:relative}
@@ -49,19 +49,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 
 .chat-pane{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .chat-body{position:relative;min-height:0;display:flex;flex:1;flex-direction:column;overflow:hidden}
-.chat-header{position:relative;z-index:var(--z-chrome);justify-content:space-between;min-height:64px;padding:9px clamp(14px,4vw,32px)}
-.chat-title{gap:10px;min-width:0}
-.chat-title h1{margin:0}
-.chat-title p{max-width:48vw;overflow:hidden;margin:4px 0 0;text-overflow:ellipsis;white-space:nowrap}
-.back-button{display:none;place-items:center;width:36px;height:36px}
-.chat-identity{display:flex;align-items:center;gap:9px;min-width:0;max-width:min(48vw,360px);text-align:left}
-.member-avatar-stack{display:inline-flex;align-items:center;min-width:36px}
-.member-avatar-stack .avatar{width:28px;height:28px;margin-left:-8px}
-.member-avatar-stack .avatar:first-child{margin-left:0}
-.chat-name,.chat-name-pill{max-width:min(44vw,280px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-name-pill{padding:0}
-.chat-identity h1{max-width:100%;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.computer-button{display:grid;place-items:center;width:36px;height:36px;padding:0}
+.chat-header{z-index:var(--z-chrome)}
 
 .run-status,.message-status::before,.tool-activity-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted)}
 .run-status.status-queued,.message-status.status-queued::before{background:var(--orange)}
@@ -293,24 +281,12 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
   .contact-pane,.contact-pane::after{transform:none}
   .contact-pane::after{opacity:0}
 }
-.back-button{display:grid}
-.back-button:active,.chat-header .header-actions button:active{background:var(--surface-2);transform:scale(.94)}
-.chat-header{min-height:58px;padding:max(7px,env(safe-area-inset-top)) 12px 7px}
-.chat-title{gap:8px;min-width:0;flex:1}
-.chat-identity{max-width:calc(100vw - 112px);flex:1;min-width:0}
-.member-avatar-stack{max-width:92px;overflow:hidden;flex:0 0 auto}
-.member-avatar-stack .avatar:nth-child(n+4){display:none}
-.chat-title p{max-width:42vw}
-.header-actions .secondary-button{display:none}
-.header-actions .ghost-button{display:grid;width:36px;height:36px;padding:0;place-items:center;border-radius:50%}
-.header-actions .ghost-button span{display:none}
 .message-scroll{padding:25px 14px 16px}
 .message-user .message-content{max-width:88%}
 .message-bot .message-content{max-width:100%}
 .message{margin-bottom:15px}
 .composer{padding-right:14px;padding-left:14px;padding-bottom:max(13px,env(safe-area-inset-bottom))}
 .composer-tools{min-height:24px}
-.chat-name,.chat-name-pill{max-width:40vw}
 }
 
 /* Detail drawers stay outside the workspace grid at tablet widths. */

@@ -100,7 +100,9 @@ try {
     });
     await vm.goto(origin);
     if (width < 1100) await vm.locator('.conversation-row').first().click().catch(() => {});
-    await vm.locator('[data-computer-toggle]').first().click();
+    // V3 PR 3.2: the Mac app's browser panel and the Bot computer share one header button, which opens a menu of the two.
+    await vm.locator('.header-actions .computer-button[aria-haspopup="menu"]').click();
+    await vm.locator('.source-menu [data-computer-toggle]').click();
     await vm.locator('.desktop-floating-shell').waitFor();
     const placed = await vm.evaluate(() => {
       const shell = document.querySelector('.desktop-floating-shell');

@@ -16,7 +16,6 @@ import "../src/web-tool-steps.css";
 import "../src/web-mention.css";
 import "../src/web-file-drop.css";
 import "../src/workspace/sidebar.css";
-import "../src/chat-header.css";
 import "../src/context-card.css";
 
 const at = "2026-10-10T08:53:00Z";

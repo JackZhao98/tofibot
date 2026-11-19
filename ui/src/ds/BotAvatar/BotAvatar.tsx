@@ -18,7 +18,8 @@ export type BotAvatarProps = {
   name: string;
   /** A fixed ground, instead of the Bot's own. `paper` is the plain surface. */
   coat?: BotCoat;
-  size?: number;
+  /** Pixels, or a CSS length (the chat header sizes its cat with a variable). */
+  size?: number | string;
   /** thinking: teal ring. working: teal dot. waiting: grape dot (needs you). error: red dot. asleep: dimmed, no dot. */
   state?: BotAvatarState;
   /** An image of the cat, in place of the procedural one. */
@@ -37,7 +38,7 @@ export function BotAvatar({ id, name, coat, size = 40, state, src, className }: 
     style={{ width: size, height: size }} role="img" aria-label={state ? `${name}, ${t(`ds.botState.${state}`)}` : name}>
     {src ? <img src={src} alt="" />
       : id ? <span className="tb-botavatar-cat"><BotCat id={id} mini still bare /></span>
-      : <Icon name="bot" size={Math.round(size * 0.55)} />}
+      : <Icon name="bot" size={typeof size === "number" ? Math.round(size * 0.55) : 20} />}
     {showDot && <span className="tb-botavatar-dot" aria-hidden="true" />}
   </span>;
 }

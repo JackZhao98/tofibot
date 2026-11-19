@@ -64,8 +64,8 @@ form[aria-busy=true]{cursor:progress}
 }
 @media(min-width:768px) and (max-width:1023px){.workspace-grid{--sidebar-width:232px}}
 @media(max-width:767px){
- .sidebar-toggle-slot{display:none}.chat-header{padding:8px 12px;min-height:60px}.contact-pane{padding:16px 12px}
- .top-icon-button,.icon-button,.ghost-button,.computer-button{width:40px;height:40px;min-width:40px}
+ .sidebar-toggle-slot{display:none}.contact-pane{padding:16px 12px}
+ .top-icon-button,.icon-button,.ghost-button{width:40px;height:40px;min-width:40px}
 }
 :root[data-theme="dark"] .message-code,:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .codex-status,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .schedule-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-soft);border-color:var(--line);color:var(--text)}
 :root[data-theme="dark"] .computer-detail.is-expanded{background:var(--surface)}
@@ -111,10 +111,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
    place where the user can respond. */
 
 /* Give the identity more room without making the whole header feel padded. */
-.chat-header{padding-inline:14px}
-.chat-identity{gap:6px;padding-inline:4px}
-.member-avatar-stack{min-width:40px}
-.member-avatar-stack .avatar{width:38px;height:38px;margin-left:-6px}
 .message-scroll{padding-inline:clamp(12px,3vw,48px)}
 
 /* The avatar is the product's visual signature; let it read in the list. */
@@ -122,14 +118,9 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 
 
 @media(max-width:767px){
-  .chat-header{padding-inline:10px}
-  .chat-identity{gap:2px}
-  .member-avatar-stack{min-width:38px}
-  .member-avatar-stack .avatar{width:36px;height:36px}
   .contact-pane{padding-inline:8px}
 }
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
-.back-button{color:var(--text);background:transparent;border-radius:50%}.back-button:hover{background:var(--surface-hover)}
 html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
 html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
 @keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}
@@ -187,7 +178,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .notification-status{font-size:13px;color:var(--muted);margin:12px 0 0;line-height:1.6}
 
 @media(pointer:coarse){
-  .top-icon-button,.icon-button,.ghost-button,.computer-button,.close-button,.back-button{width:44px;height:44px;min-width:44px}
+  .top-icon-button,.icon-button,.ghost-button,.close-button{width:44px;height:44px;min-width:44px}
   .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){

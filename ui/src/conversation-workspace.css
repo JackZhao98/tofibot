@@ -10,6 +10,11 @@
 .workspace .chat-pane .message-scroll { mask-image: none; -webkit-mask-image: none; scroll-padding-top: var(--chat-header-height, 64px); padding-top: calc(var(--chat-header-height, 64px) + 14px); }
 .workspace .chat-pane .chat-header { pointer-events: none; isolation: isolate; }
 .workspace .chat-pane .chat-header > * { pointer-events: auto; }
+/* The header box stays one row high at every position; the big cat at the start of a conversation hangs below it, over this spacer (ds/ChatHeader). */
+.workspace .chat-header { --chathead-top-min: 58px; }
+.workspace .chat-top-mark { height: 64px; flex: none; pointer-events: none; }
+/* The macOS window-drag strip (desktop-system.css); nothing on the web. It never takes the pointer (wheel scrolls the list under the header). */
+.workspace .chat-header > .chat-header-drag { display:none; pointer-events:none; }
 /* Edge seals: the top band covers the header and a ramp (height set in ChatPane), the bottom band the composer and a ramp. Both stop at the scrollbar. */
 .workspace .chat-pane { --pblur-inset-right: var(--scroll-bar-w, 0px); }
 /* The top band is `above` (the chrome layer), one above the widget column and (by coming first in the DOM) below the header, so the cards that
@@ -41,7 +46,6 @@
 .workspace .composer-row>.send-button{width:44px;height:44px;min-width:44px;flex-basis:44px}
 .workspace .composer-row>.dictation-button{width:44px;height:44px;min-width:44px;flex:0 0 44px}
 .workspace .composer-row textarea{min-height:44px;padding:10px 0}
-.header-actions [aria-pressed="true"]{background:var(--surface-hover)}
 .related-message-link,.message-notice .related-message-link{max-width:100%;min-height:32px;gap:7px;padding:5px 9px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text-soft);font-size:12px;line-height:20px;text-align:left}
 .related-message-link:hover{border-color:var(--line-strong)}
 .related-message-link>span:first-child,.related-message-avatars{flex-shrink:0}
@@ -70,10 +74,6 @@
   .workspace .terminal-header strong{max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .workspace .terminal-actions{gap:4px}
   .workspace .terminal-actions button{padding:7px 9px}
-  .workspace .chat-identity{min-width:0;max-width:100%}
-  .workspace .chat-title{min-width:0;flex:1}
-  .workspace .chat-name-pill{min-width:0}
-  .workspace .chat-name-pill h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(min-width:768px) and (max-width:1099px){
   .workspace .workspace-grid{grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
@@ -83,17 +83,9 @@
   .workspace .detail-pane.context-panel:not(.visible){transform:none}
 }
 /* Container width, rather than window width, also covers desktop context panels. */
-.workspace .chat-title,.workspace .chat-identity,.workspace .chat-name-pill{min-width:0}
-.workspace .chat-title{flex:1}
-.workspace .chat-identity{max-width:100%}
-.workspace .chat-name-pill h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.workspace .member-avatar-stack,.workspace .header-actions{flex-shrink:0}
 @container(max-width:540px){
   .workspace .message-scroll{padding-inline:16px}
   .workspace .composer{padding-inline:16px}
-  .workspace .chat-header{padding-inline:8px}
-  .workspace .chat-identity{padding-inline:4px}
-  .workspace .member-avatar-stack .avatar{width:32px;height:32px;flex-basis:32px}
 }
 @media(max-width:767px){.workspace .composer{padding-inline:12px}.work-details{padding-left:39px}}
 @media(prefers-reduced-motion:reduce){.workspace .workspace-grid{transition:none}}

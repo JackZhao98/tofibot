@@ -28,6 +28,13 @@ import { fileURLToPath } from "node:url";
 import { createOverlayFixture } from "./lib/overlay-fixture.mjs";
 
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// V3 PR 3.2: Tasks is an item of the header's More menu, no longer a header button.
+async function toggleTasks(page) {
+  await page.locator(".header-more > button").click();
+  await page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: "Tasks" }).click();
+}
+
 const engineName = process.env.OVERLAYS_ENGINE === "webkit" ? "webkit" : "chromium";
 const fx = await createOverlayFixture({ engineName, dist: process.env.OVERLAYS_DIST });
 const only = process.env.OVERLAYS_ONLY;
@@ -339,7 +346,7 @@ await check("sidebar row menu > Delete: the dialog takes focus, Escape returns i
   await context.close();
 });
 
-await check("sidebar row menu: opening and closing it renders the menu only, not the workspace around it; the cats hold still while it opens", async () => {
+await check("sidebar row menu: opening and closing it renders the menu only, not the workspace around it; the cats stay still", async () => {
   const { page, context } = await fx.open({ renders: true });
   await sleep(600);
   // The probe sees the workspace render at all (a conversation switch does).
@@ -363,10 +370,10 @@ await check("sidebar row menu: opening and closing it renders the menu only, not
   const after = await page.evaluate(() => window.__workspaceRenders);
   console.log(`  workspace renders while the row menu opened and closed: ${after - settled}; cat attribute writes: ${idleWrites} in 400 ms idle, ${openWrites} in the 250 ms after the open`);
   assert.equal(after - settled, 0, "the workspace did not render for the row menu");
-  assert.ok(idleWrites >= 5, `the cats animate when idle (${idleWrites} writes), so the hold is observable`);
-  // The frame or two before the menu commits may still animate (WebKit delivers the press a frame later than Chromium).
-  const expected = idleWrites * 250 / 400;
-  assert.ok(openWrites <= expected * 0.2, `the cats hold still while the menu opens (${openWrites} writes; ${Math.round(expected)} when not held)`);
+  // V3 PR 3.2 (PLAN 8.3): cats are drawn once, with no life layer; only the header cat moves, with CSS. Nothing writes to a cat's SVG,
+  // idle or while a menu opens, so there is nothing left to hold.
+  assert.equal(idleWrites, 0, `the cats are still when idle (${idleWrites} writes)`);
+  assert.equal(openWrites, 0, `the cats stay still while the menu opens (${openWrites} writes)`);
   await context.close();
 });
 
@@ -460,7 +467,7 @@ await check("layers: @ menu, attachment and account menus escape their container
 
 await check("Z4: at 1280 px the header menu opens above the sidebar (it no longer reaches under it)", async () => {
   const { page, context } = await fx.open({});
-  await page.getByRole("button", { name: "Tasks", exact: true }).first().click();
+  await toggleTasks(page);
   await page.locator(".sidebar-pane").waitFor({ timeout: 4000 });
   await sleep(400);
   await page.locator(".header-more > button").click();
@@ -588,6 +595,7 @@ import {createRoot} from 'react-dom/client';
 import {i18nReady} from '../src/i18n';
 import {installFocusModality} from '../src/focusModality';
 import {BotIdentityCard} from '../src/BotIdentityCard';
+
 installFocusModality();
 const bot = {id: 'bot_a', name: 'Ledger Cat', instructions: 'Synthetic role that keeps the weekly ledger tidy.'} as any;
 (window as any).__mentioned = 0;
