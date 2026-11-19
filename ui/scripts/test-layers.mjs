@@ -126,7 +126,7 @@ await check("#tofi-layers follows #root and is not a stacking context", async ()
 
 await check("a real hover hint portals into #tofi-layers and is topmost at its centre, above a toast", async () => {
   const { page, context, errors } = await fixture.open({ viewport: { width: 1280, height: 820 } });
-  await page.evaluate(() => document.querySelector(".workspace").insertAdjacentHTML("beforeend", '<div class="stream-status workspace-status workspace-toast" role="alert" data-probe="toast">probe</div>'));
+  await page.evaluate(() => document.querySelector(".workspace").insertAdjacentHTML("beforeend", '<div class="workspace-status workspace-toast" role="alert" data-probe="toast">probe</div>'));
   const target = page.locator(".chat-header [data-hint]").last();
   await target.hover();
   await page.locator(".action-hint").waitFor({ timeout: 3000 });
@@ -151,7 +151,7 @@ const STACK = [
   // [name, parent selector, html, expected layer]
   ["drop-ghost", "#tofi-layers", '<div class="web-drop-ghost">g</div>', "drag"],
   ["hint", "#tofi-layers", '<div class="tb-hint action-hint" role="tooltip">h</div>', "tooltip"],
-  ["toast", ".workspace", '<div class="stream-status workspace-status workspace-toast" role="alert">t</div>', "toast"],
+  ["toast", ".workspace", '<div class="workspace-status workspace-toast" role="alert">t</div>', "toast"],
   ["sheet", "#tofi-layers", '<div class="sheet-overlay">s</div>', "dialog+1"],
   ["delete", "#tofi-layers", '<div class="tb-scrim tb-scrim--modal">d</div>', "dialog"],
   ["onboarding", "#tofi-layers", '<div class="onb-scrim">o</div>', "dialog"],

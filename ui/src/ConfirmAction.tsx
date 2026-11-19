@@ -16,7 +16,7 @@ export function ConfirmQuestion({ question, confirmLabel, tone = "danger", pendi
   return <ModalDialog onClose={onCancel} locked={pending} overlayClassName={DIALOG_SCRIM} initialFocus={cancelButton}>
     <Dialog className="confirm-dialog" tone={tone} role="alertdialog" busy={pending} title={question}
       actions={<>
-        <Button ref={cancelButton} variant="secondary" disabled={disabled || pending} onClick={onCancel}>{t("action.cancel")}</Button>
+        <Button ref={cancelButton} variant="secondary" disabled={pending} onClick={onCancel}>{t("action.cancel")}</Button>
         <Button variant={tone === "danger" ? "danger" : "primary"} busy={pending} disabled={disabled || pending} onClick={onConfirm}>{pending ? t("action.processing") : confirmLabel}</Button>
       </>}>
       {error ? <p className="error-text" role="alert">{error}</p> : null}
@@ -33,7 +33,7 @@ export function useConfirmation(onConfirm: () => Promise<void>, disabled?: boole
   return {
     asking, pending, error,
     ask: () => setAsking(true),
-    cancel: () => { if (pending || disabled) return; setError(""); setAsking(false); },
+    cancel: () => { if (pending) return; setError(""); setAsking(false); }, // `disabled` blocks the action only: a modal must always have a way out
     confirm: async () => {
       if (pending || disabled) return;
       setPending(true); setError("");

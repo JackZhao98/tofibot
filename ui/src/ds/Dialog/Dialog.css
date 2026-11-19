@@ -5,7 +5,7 @@
    scale goes and only the opacity stays (PLAN 8.2). The scrim fades only. */
 .tb-scrim { box-sizing: border-box; position: relative; display: grid; place-items: center; padding: 32px 20px; background: var(--scrim); border-radius: var(--radius-md); }
 /* In the product the scrim is the whole window, above everything but toasts and hints. */
-.tb-scrim--modal { position: fixed; inset: 0; z-index: var(--z-dialog); padding: 24px; border-radius: 0; animation: tb-scrim-in var(--m-quick) var(--ease-out) both; }
+.tb-scrim--modal { position: fixed; inset: 0; z-index: var(--z-dialog); padding: 24px; border-radius: 0; animation: tb-scrim-in var(--m-quick) var(--ease-out) backwards; } /* No forwards fill: a held opacity animation would stop the dialog's backdrop blur from seeing the page. */
 .tb-scrim--modal[data-state="closed"] { animation: tb-scrim-out var(--m-press) var(--ease-in) both; pointer-events: none; }
 @keyframes tb-scrim-in { from { opacity: 0; } }
 @keyframes tb-scrim-out { to { opacity: 0; } }

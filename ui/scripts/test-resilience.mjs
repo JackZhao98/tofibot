@@ -181,7 +181,7 @@ await check("a requeued run drops its stale draft", async () => {
 await check("a two second blip shows nothing and moves nothing", async () => {
   const { page, context } = await open();
   await liveOk(page).waitFor();
-  const probe = () => page.evaluate(() => ({ grid: document.querySelector(".workspace-grid")?.getBoundingClientRect().top ?? -1, status: document.querySelectorAll(".workspace-status, .stream-status").length, statusText: [...document.querySelectorAll(".workspace-status, .stream-status")].map(e => e.className + ":" + e.textContent.slice(0, 60)).join("|"), lost: document.querySelectorAll('.sidebar-account-identity[aria-label*="lost"]').length, cards: document.body.innerText.includes("status is unconfirmed") }));
+  const probe = () => page.evaluate(() => ({ grid: document.querySelector(".workspace-grid")?.getBoundingClientRect().top ?? -1, status: document.querySelectorAll(".workspace-status, .computer-preparing").length, statusText: [...document.querySelectorAll(".workspace-status, .computer-preparing")].map(e => e.className + ":" + e.textContent.slice(0, 60)).join("|"), lost: document.querySelectorAll('.sidebar-account-identity[aria-label*="lost"]').length, cards: document.body.innerText.includes("status is unconfirmed") }));
   const seen = [];
   setDown(true);
   const sampler = (async () => { for (let i = 0; i < 40; i++) { seen.push(await probe()); await sleep(200); } })();

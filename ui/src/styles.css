@@ -341,7 +341,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .work-recovery{flex-basis:100%;margin-left:30px;font-size:12px;overflow-wrap:anywhere}
 .work-recovery p{margin:5px 0;white-space:pre-wrap}
 .work-recovery summary{color:var(--muted)}
-.computer-preparing{display:flex;align-items:center;gap:8px}.computer-preparing span{color:var(--muted)}.computer-preparing .secondary-button{margin-left:auto;padding:5px 9px;font-size:11px}
+.computer-preparing{display:flex;flex-shrink:0;align-items:center;gap:8px;padding:6px 18px;color:var(--muted);font-size:12px;background:var(--sunk)}.computer-preparing span{color:var(--muted)}.computer-preparing .secondary-button{margin-left:auto;padding:5px 9px;font-size:11px}
 
 .message-content pre code{background:none;padding:0}
 .message-table{max-width:100%;overflow-x:auto}
