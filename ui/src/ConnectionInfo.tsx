@@ -1,6 +1,10 @@
 import {useDebugMode} from "./debugMode";
-import { useEffect, useState } from "react";
-import { SettingsRow } from "./settings/components";
+import { useEffect, useRef, useState } from "react";
+import { SettingsRow } from "./ds/SettingsRow/SettingsRow";
+import { TextInput } from "./ds/TextInput/TextInput";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { ExpandRow } from "./settings/ExpandRow";
+import "./settings/general.css";
 import { useTranslation } from "./i18n";
 
 type DesktopConnection =
@@ -28,7 +32,7 @@ function desktopConnection(value: unknown): DesktopConnection | null {
 // Read-only connection identity for both the browser and desktop shell. The
 // desktop settings bridge is intentionally not used: it exposes unrelated Mac
 // device configuration and is restricted to its own local settings page.
-export function ConnectionInfo() {
+export function useConnectionInfo() {
   const { t } = useTranslation("settings");
   const debug = useDebugMode();
   const isDesktop = Boolean((window as Window & { tofiDesktop?: unknown }).tofiDesktop);
@@ -81,11 +85,48 @@ export function ConnectionInfo() {
     mode = t("connection.mode_desktop");
   }
   const addressLabel = connection?.connectionMode === "ssh" ? t("connection.server") : isDesktop ? t("connection.server_address") : t("connection.access_address");
+  return { endpoint, copyable: !isDesktop || Boolean(connection), mode, addressLabel, isDesktop, connection, loading: state.loading, memorySession, instanceID: state.instanceID, debug };
+}
+
+/** The address in a read-only mono field with a copy button; the button shows a check for a moment, as copy buttons do elsewhere. */
+export function AddressField({ address, copyable }: { address: string; copyable: boolean }) {
+  const { t } = useTranslation("settings");
+  const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  async function copy() {
+    setFailed(false);
+    try { await navigator.clipboard.writeText(address); setCopied(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setCopied(false), 1800); } catch { setFailed(true); }
+  }
+  return <span className="gen-addr">
+    <TextInput mono readOnly value={address} aria-label={t("connection.server_address")} onFocus={event => event.currentTarget.select()} />
+    <IconButton icon={copied ? "check" : "copy"} label={copied ? t("connection.copied") : t("connection.copy")} disabled={!copyable} onClick={() => void copy()} />
+    <span className="gen-note gen-addr-note" role="status">{failed ? t("connection.copy_failed") : ""}</span>
+  </span>;
+}
+
+/** The rows of the connection: type, address, and the Mac app's switch. A Settings page places them in a section or a folded row. */
+export function ConnectionRows({ info }: { info: ReturnType<typeof useConnectionInfo> }) {
+  const { t } = useTranslation("settings");
+  const { endpoint, mode, addressLabel, isDesktop, connection, loading, memorySession, instanceID, debug } = info;
   return <>
-    <SettingsRow label={t("connection.title")} description={mode} control={isDesktop ? <a className="st-button" href="/__desktop/setup">{t("connection.switch_server")}</a> : undefined}/>
-    <SettingsRow label={addressLabel} control={<code className="connection-value">{endpoint}</code>}/>
-    {debug && <SettingsRow label={t("connection.instance_id")} control={<code className="connection-value">{state.instanceID || (state.loading ? t("connection.confirming") : t("connection.unconfirmed"))}</code>}/>}
-    {memorySession && <p className="settings-card-note" role="status">{t("connection.memory_session")}</p>}
-    {isDesktop && !state.loading && !connection && <p className="settings-card-note">{t("connection.local_entry", { origin: window.location.origin })}</p>}
+    <SettingsRow label={t("connection.title")} hint={mode}>{isDesktop ? <a className="tb-btn tb-btn--secondary tb-btn--sm" href="/__desktop/setup"><span className="tb-btn-label">{t("connection.switch_server")}</span></a> : null}</SettingsRow>
+    <SettingsRow fill label={addressLabel}><AddressField address={endpoint} copyable={info.copyable} /></SettingsRow>
+    {debug && <SettingsRow label={t("connection.instance_id")}><code className="gen-mono">{instanceID || (loading ? t("connection.confirming") : t("connection.unconfirmed"))}</code></SettingsRow>}
+    {memorySession && <p className="gen-note" role="status">{t("connection.memory_session")}</p>}
+    {isDesktop && !loading && !connection && <p className="gen-note">{t("connection.local_entry", { origin: window.location.origin })}</p>}
   </>;
+}
+
+/** The System page's Server section: the same rows in its own card. */
+export function ConnectionInfo() {
+  return <ConnectionRows info={useConnectionInfo()} />;
+}
+
+/** General's folded row: the address in grey on the line, the connection's rows under it. */
+export function ServerAddressRow() {
+  const { t } = useTranslation("settings");
+  const info = useConnectionInfo();
+  return <ExpandRow label={t("connection.server_address")} summary={info.endpoint} mono data-setting="server-address"><ConnectionRows info={info} /></ExpandRow>;
 }

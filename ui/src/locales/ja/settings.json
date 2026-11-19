@@ -1011,7 +1011,10 @@
     "unconfirmed": "現在確認できません",
     "memory_session": "キーチェーンを使用できません。今回のログインは App を開いている間だけ有効で、再起動後は再度ログインが必要です。",
     "switch_server": "サーバーを切り替える",
-    "local_entry": "ローカルアプリのアドレス：{{origin}}。リモートアドレスと接続方法は、アプリのサーバー設定で確認してください。"
+    "local_entry": "ローカルアプリのアドレス：{{origin}}。リモートアドレスと接続方法は、アプリのサーバー設定で確認してください。",
+    "copy": "アドレスをコピー",
+    "copied": "コピーしました",
+    "copy_failed": "コピーできませんでした。アドレスを選択してコピーしてください。"
   },
   "auto_review": {
     "saved": "このアカウントの AutoReview 設定を保存しました。",
@@ -1171,10 +1174,14 @@
     "details": "技術的な詳細"
   },
   "general": {
-    "region": "言語と地域",
     "chat": "チャット",
     "activity_title": "チャットにアクティビティを表示",
-    "activity_save_failed": "保存できませんでした。もう一度お試しください。"
+    "activity_save_failed": "保存できませんでした。もう一度お試しください。",
+    "account": "アカウント",
+    "name": "名前",
+    "email": "メール",
+    "role": "役割",
+    "appearance": "外観と言語"
   },
   "advanced": {
     "server": "サーバー",
@@ -1777,7 +1784,12 @@
     "device_reason_cursor_stalled": "サーバーの応答が進みません。再試行しています",
     "device_reason_bad_response": "読み取れない応答がサーバーから届きました。再試行しています",
     "device_reason_session_expired": "サインインの有効期限が切れました",
-    "device_reason_notifications_unsupported": "この Mac は通知に対応していません"
+    "device_reason_notifications_unsupported": "この Mac は通知に対応していません",
+    "notifications": "通知",
+    "summary_all_on": "すべてオン",
+    "summary_all_off": "すべてオフ",
+    "summary_some": "{{total}} 件中 {{on}} 件オン",
+    "summary_attention": "要確認"
   },
   "approval": {
     "label": "このアカウントの承認モード",

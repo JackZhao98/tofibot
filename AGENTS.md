@@ -284,6 +284,18 @@ Rules:
   adjust from their own legacy sheets. `settings-system.css`, `settings/settings-components.css` and `settings/section-jump.css` are gone;
   the rules a page still needed moved into that page's sheet (each block says which PR takes it out). The section frame is `tb-flash`
   (`ds/shared.css`).
+- Settings General (PR 6.2). The page is built of kit parts only: `ds/SettingsSection` (title, no description), `ds/SettingsRow`, `Select`,
+  `Segmented` (through `settings/components` `Segmented`, which keeps the `segmented` hook), `Switch` (through `SettingsSwitch`, which adds
+  the "Saved" note), `Button`, `Avatar`. Sections: Account (`OwnerAccount`: name beside a `cobalt` Avatar, email, role; nothing on a server
+  without sign-in), Appearance and language (`ThemeRow`, `LanguageSetting`, `TimezoneSetting`: one card, which answers to both
+  `appearance` and `region` in `GeneralPage`), Chats (`ChatsSettings`: Show activity, then two folded rows) and Sign out (`SignOut`,
+  a ghost Button under the sections). The folded row is `settings/ExpandRow` (Radix Collapsible: the closed rows are not mounted; the
+  summary stays on the line): Notifications (the four account switches, and "This device" with the Mac app) and Server address
+  (`ConnectionRows`; `useConnectionInfo` is shared with System's Server section). `settings/general.css` (`@layer legacy`, imported by each
+  component that needs it) only fits parts to their place: the select's width (`gen-ctl`), the note under a card (`gen-note`), the folded row.
+  `SettingsRow` takes `data-*` and `fill` (a field-like control takes the whole line under the label on a phone). Tests that read a
+  notification switch open the Notifications row first (`[data-setting="notifications"] .gen-expand-toggle`). Not in the product, so not on
+  the page though the mock draws them: a name field, the password row, Enter to send. `timezone-settings.css` is gone.
 
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.

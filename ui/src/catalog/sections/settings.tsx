@@ -2,7 +2,16 @@ import { useState, type ReactNode } from "react";
 import { openSettings } from "../drive";
 import { Banner, ChangedNote, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, SettingsSubpage, SettingsSwitch, StatusBadge, type BadgeState } from "../../settings/components";
 import { ConfirmAction } from "../../ConfirmAction";
-import { AppearancePicker, Disclosure } from "../../InteractionPrimitives";
+import { Disclosure } from "../../InteractionPrimitives";
+import { ThemeRow } from "../../AppearanceSetting";
+import { OwnerAccount, SignOut } from "../../OwnerAccount";
+import { ExpandRow } from "../../settings/ExpandRow";
+import { SettingsRow as KitRow } from "../../ds/SettingsRow/SettingsRow";
+import deSettings from "../../locales/de/settings.json";
+import deChat from "../../locales/de/chat.json";
+import { AddressField } from "../../ConnectionInfo";
+import { SessionContext } from "../../OwnerSession";
+import { SettingsSection as KitSection } from "../../ds/SettingsSection/SettingsSection";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
 import "../../connections/connections.css";
@@ -137,9 +146,38 @@ const botProps = (extra: Partial<BotSkillsViewProps> = {}): BotSkillsViewProps =
 const botState = (id: string, label: string, props: Partial<BotSkillsViewProps> | (() => Partial<BotSkillsViewProps>)): CatalogState =>
   ({ id: `bot-skills-${id}`, kind: "inline", label, context: ["cover-window", "bot-settings", "bs-page", "bs-scroll", "bs-sections", "bs-section"], render: () => <BotSkillsView {...botProps(typeof props === "function" ? props() : props)} /> });
 
+function AccountSample({ long = false }: { long?: boolean }) {
+  const owner = long
+    ? { id: "acct_1", username: "Aleksandra Wojciechowska-Montgomery", email: "aleksandra.wojciechowska-montgomery@research-group.example", role: "member" as const }
+    : { id: "acct_1", username: "Lin Park", email: "lin@tofi.example", role: "admin" as const };
+  return <SessionContext.Provider value={{ session: { enabled: true, setup_required: false, authenticated: true, password_transport_allowed: true, owner } as never, logout: async () => {} }}>
+    <div style={{ maxWidth: 760, display: "grid", gap: 24 }}><OwnerAccount /><SignOut /></div>
+  </SessionContext.Provider>;
+}
+/** The German catalog text (src/locales/de/settings.json) on the General parts: the longest labels the page has to hold. */
+function GermanGeneral() {
+  const [theme, setTheme] = useState<"system" | "light" | "dark">("system");
+  const [on, setOn] = useState(true);
+  const de = deSettings;
+  return <div style={{ maxWidth: 760, display: "grid", gap: 24 }}>
+    <KitSection title={de.general.appearance}>
+      <KitRow label={de.appearance.title}><Segmented label={de.appearance.label} value={theme} onChange={setTheme} options={(["system", "light", "dark"] as const).map(key => ({ value: key, label: de.appearance[key] }))} /></KitRow>
+      <KitRow fill label={de.language.title}><span className="gen-ctl"><Select aria-label={de.language.label} value="de" onValueChange={noop} options={[{ value: "de", label: "Deutsch" }, { value: "en", label: "English" }]} /></span></KitRow>
+      <KitRow fill label={de.timezone.label} hint={de.timezone.note}><span className="gen-ctl"><Select aria-label={de.timezone.current} value="Europe/Berlin" onValueChange={noop} options={[{ value: "Europe/Berlin", label: "Europe/Berlin" }]} /></span></KitRow>
+    </KitSection>
+    <KitSection title={de.general.chat}>
+      <KitRow label={de.general.activity_title}><SettingsSwitch label={de.general.activity_title} checked={on} onChange={setOn} /></KitRow>
+      <ExpandRow label={de.chats.notifications} summary={de.chats.summary_attention} attention>
+        {[de.chats.task_notifications, de.chats.chat_notifications, de.chats.needs_you_notifications, de.chats.spend_alert_notifications].map(label => <KitRow key={label} label={label}><SettingsSwitch label={label} checked={on} onChange={setOn} /></KitRow>)}
+      </ExpandRow>
+      <p className="gen-note gen-note--danger" role="status">{deChat.notifications.off}</p>
+      <ExpandRow defaultOpen label={de.connection.server_address} summary="https://tofi-heimserver.example.net" mono><KitRow label={de.connection.title} hint={de.connection.mode_browser.replace("{{protocol}}", "HTTPS")}><span /></KitRow><KitRow fill label={de.connection.server_address}><AddressField address="https://tofi-heimserver.example.net" copyable /></KitRow></ExpandRow>
+    </KitSection>
+  </div>;
+}
 function Theme() {
   const [value, setValue] = useState<"system" | "light" | "dark">("system");
-  return <AppearancePicker value={value} onChange={setValue} />;
+  return <KitSection title={t("settings:general.appearance")}><ThemeRow value={value} onChange={setValue} /></KitSection>;
 }
 function SwitchSample({ initial = false, disabled = false, slow = false, label = "Switch" }: { initial?: boolean; disabled?: boolean; slow?: boolean; label?: string }) {
   const [on, setOn] = useState(initial);
@@ -255,7 +293,7 @@ export const settings: CatalogSection = {
       <button type="button" className="primary-button">Add connection</button>
       <button type="button" className="st-link">Text action</button>
     </div> },
-    { id: "settings-section-jump", kind: "inline", label: "Section reached by a link", note: "a link such as /settings/general#region scrolls here and frames the section once (data-jump-target, cleared after 1.7 s)", render: () => <div data-section="region" data-jump-target=""><SettingsSection title={t("settings:general.region")}><SettingsCard><SettingsRow label={t("settings:language.label")} description="A synthetic description under the label." control={<StatusBadge state="ok" />} /></SettingsCard></SettingsSection></div> },
+    { id: "settings-section-jump", kind: "inline", label: "Section reached by a link", note: "a link such as /settings/general#region scrolls here and frames the section once (data-jump-target, cleared after 1.7 s)", render: () => <div data-section="region" data-jump-target=""><SettingsSection title={t("settings:general.appearance")}><SettingsCard><SettingsRow label={t("settings:language.label")} description="A synthetic description under the label." control={<StatusBadge state="ok" />} /></SettingsCard></SettingsSection></div> },
     { id: "badges", kind: "inline", label: "Status badges", render: () => <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
       {(["ok", "need", "bad", "asleep", "testing"] as BadgeState[]).map(state => <StatusBadge key={state} state={state} />)}</div> },
     { id: "banners", kind: "inline", label: "Banners", note: "error announces itself (role=alert); the others are silent", render: () => <div style={{ display: "grid", gap: 10 }}>
@@ -270,7 +308,7 @@ export const settings: CatalogSection = {
     { id: "segmented-focus", kind: "inline", label: "Segmented, keyboard focus", force: [{ selector: ".segmented button:nth-child(2)", state: "focus" }], render: () => <Choice /> },
     { id: "segmented-hover", kind: "inline", label: "Segmented, hover", force: [{ selector: ".segmented button:nth-child(3)", state: "hover" }], render: () => <Choice /> },
     { id: "segmented-disabled", kind: "inline", label: "Segmented, disabled", render: () => <Choice disabled /> },
-    { id: "appearance", kind: "inline", label: "Appearance picker", render: () => <Theme /> },
+    { id: "appearance", kind: "inline", label: "Theme row (Segmented in a kit section)", render: () => <Theme /> },
     { id: "details", kind: "inline", label: "Details disclosure (closed / open)", render: () => <div style={{ display: "grid", gap: 8 }}>
       <SettingsDetails><p>The long version of the help text.</p></SettingsDetails>
       <Disclosure title={t("settings:disclosure.details")} defaultOpen><p>The long version of the help text.</p></Disclosure>
@@ -357,6 +395,17 @@ export const settings: CatalogSection = {
     { id: "shell", kind: "app", label: "Settings page, General", note: "the full page (dot ground, bar, rail with You / Organization / Server, head row), opened from the gear beside the account",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell", keyboard: { close: "Escape" },
       drive: async step => { await openSettings(step); } },
+    { id: "shell-general-open", kind: "app", label: "Settings page, General with Notifications and Server address open", note: "both folded rows open under their line; the chevron turns, the rows are the kit's",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
+      drive: async step => { await openSettings(step); await step.click('[data-setting="notifications"] .gen-expand-toggle'); await step.click('[data-setting="server-address"] .gen-expand-toggle'); await step.find('[data-setting="notify-chats"]'); await step.wait(400); } },
+    { id: "shell-general-blocked", kind: "app", label: "Settings page, General with the browser's notification permission refused", note: "the folded row says Needs attention and the reason is under it, without opening the row",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
+      drive: async step => { Object.defineProperty(window.Notification, "permission", { configurable: true, get: () => "denied" }); await openSettings(step); await step.find('[data-setting="notify-blocked"]'); await step.wait(400); } },
+    { id: "general-de", kind: "inline", label: "General in German: the longest labels, open Notifications", note: "the German catalog text on the same parts; nothing spills or truncates at 390 px", render: () => <GermanGeneral /> },
+    { id: "general-account", kind: "inline", label: "General › Account and Sign out", note: "name beside a blue disc, email in mono, role; the Sign out button under the sections",
+      render: () => <AccountSample /> },
+    { id: "general-account-long", kind: "inline", label: "General › Account with a long name and a long address", note: "wraps anywhere; the disc stays round",
+      render: () => <AccountSample long /> },
     { id: "shell-environments", kind: "app", label: "Settings page, Environments (an Organization page)", note: "the group name above the title follows the rail",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
       drive: async step => { await openSettings(step); await step.click('.settings-tabs [data-tab="computer"]'); await step.find('.settings-page-body[data-page="computer"]'); await step.wait(300); } },

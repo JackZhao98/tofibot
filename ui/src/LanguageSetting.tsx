@@ -2,12 +2,13 @@ import { useState } from "react";
 import { chooseLanguage } from "./saveLanguage";
 import { isLanguagePreference, matchLanguage, useLanguage, useTranslation, type LanguagePreference } from "./i18n";
 import { languageChoices, selectedLanguageChoice } from "./languageChoices";
-import "./timezone-settings.css";
+import { SettingsRow } from "./ds/SettingsRow/SettingsRow";
 import { Select } from "./Select";
 import { SavedNote, useSavedFlash } from "./settings/components";
+import "./settings/general.css";
 
 /**
- * Settings › General. A choice applies at once (like appearance), then saves to
+ * Settings › General › Language. A choice applies at once (like the theme), then saves to
  * the account so other devices follow. Each language is named in its own script.
  */
 export function LanguageSetting() {
@@ -24,13 +25,13 @@ export function LanguageSetting() {
     setBusy(false);
     if (!failure) flash();
   }
-  return <section className="timezone-setting language-setting">
-    <div><h3>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</h3></div>
-    <SavedNote show={saved}/>
-    <label className="timezone-select"><span className="sr-only">{t("language.label")}</span>
-      <Select value={selectedLanguageChoice(preference, browser)} disabled={busy} onValueChange={value => { if (isLanguagePreference(value)) void choose(value); }}
-        options={languageChoices(browser).map(choice => ({ value: choice.value, label: choice.label, tag: choice.tag ? t("language.default") : undefined }))} />
-    </label>
-    {error && <p className="timezone-error" role="alert">{error}</p>}
-  </section>;
+  return <>
+    <SettingsRow fill label={<>{t("language.title")}{language !== "en" && <span lang="en"> · Language</span>}</>} data-setting="language">
+      <span className="gen-saved-ctl"><SavedNote show={saved} />
+        <span className="gen-ctl"><Select aria-label={t("language.label")} value={selectedLanguageChoice(preference, browser)} disabled={busy} onValueChange={value => { if (isLanguagePreference(value)) void choose(value); }}
+          options={languageChoices(browser).map(choice => ({ value: choice.value, label: choice.label, tag: choice.tag ? t("language.default") : undefined }))} /></span>
+      </span>
+    </SettingsRow>
+    {error && <p className="gen-note gen-note--danger" role="alert">{error}</p>}
+  </>;
 }

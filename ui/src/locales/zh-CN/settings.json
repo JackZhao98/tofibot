@@ -1011,7 +1011,10 @@
     "unconfirmed": "暂时无法确认",
     "memory_session": "钥匙串暂不可用。本次登录仅在 App 打开期间有效，重启后需要重新登录。",
     "switch_server": "切换服务器",
-    "local_entry": "本地客户端入口：{{origin}}。远端地址和连接方式请在客户端的服务器配置中查看。"
+    "local_entry": "本地客户端入口：{{origin}}。远端地址和连接方式请在客户端的服务器配置中查看。",
+    "copy": "复制地址",
+    "copied": "已复制",
+    "copy_failed": "无法复制。请选中地址后手动复制。"
   },
   "auto_review": {
     "saved": "已保存当前账号的 AutoReview 设置。",
@@ -1171,10 +1174,14 @@
     "details": "技术详情"
   },
   "general": {
-    "region": "语言与地区",
     "chat": "对话",
     "activity_title": "在对话中显示活动",
-    "activity_save_failed": "保存失败，请重试。"
+    "activity_save_failed": "保存失败，请重试。",
+    "account": "账户",
+    "name": "名字",
+    "email": "邮箱",
+    "role": "角色",
+    "appearance": "外观与语言"
   },
   "advanced": {
     "server": "服务器",
@@ -1777,7 +1784,12 @@
     "device_reason_cursor_stalled": "服务器的响应没有推进，正在重试",
     "device_reason_bad_response": "服务器返回了无法读取的响应，正在重试",
     "device_reason_session_expired": "登录已过期",
-    "device_reason_notifications_unsupported": "这台 Mac 不支持通知"
+    "device_reason_notifications_unsupported": "这台 Mac 不支持通知",
+    "notifications": "通知",
+    "summary_all_on": "全部打开",
+    "summary_all_off": "全部关闭",
+    "summary_some": "{{total}} 项中 {{on}} 项打开",
+    "summary_attention": "需要处理"
   },
   "approval": {
     "label": "当前账号的审批模式",

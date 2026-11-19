@@ -15,7 +15,7 @@ export function revealSection(tab: string, section: string | null) {
   target = section ? {tab, section} : null;
   if (section) window.dispatchEvent(new CustomEvent(REVEAL_EVENT, {detail: {tab, section}}));
 }
-function useReveal(tab: string, reveal: (section: string) => void) {
+export function useReveal(tab: string, reveal: (section: string) => void) {
   useEffect(() => {
     const listen = (event: Event) => {
       const detail = (event as CustomEvent<{tab: string; section: string}>).detail;

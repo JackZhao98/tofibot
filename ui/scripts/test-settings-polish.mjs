@@ -43,8 +43,8 @@ import {buildAndServeFixture} from "./lib/fixture-build.mjs";
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-button", "st-link", "tb-switch", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
-const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
+const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-button", "st-link", "tb-switch", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "gen-expand-toggle", "tb-btn", "tb-iconbtn", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
+const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
 const VIEWPORTS = (process.env.POLISH_VIEWPORTS ?? "1440,390").split(",").map(width => [width, ...SIZES[width]]);
@@ -92,7 +92,7 @@ function auditPage(opts) {
     const r = el.getBoundingClientRect();
     return r.width >= 200 && r.height >= 56;
   };
-  const cardOf = el => { for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) { if (node.matches(".settings-card, .sheet, .settings-banner, .owner-account, .extension-card") || CARD_BORDERED(node)) return node; } return null; };
+  const cardOf = el => { for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) { if (node.matches(".settings-card, .sheet, .settings-banner, .extension-card") || CARD_BORDERED(node)) return node; } return null; };
   const innerLeft = card => card.getBoundingClientRect().left + parseFloat(style(card).borderLeftWidth);
   const innerRight = card => card.getBoundingClientRect().right - parseFloat(style(card).borderRightWidth);
 

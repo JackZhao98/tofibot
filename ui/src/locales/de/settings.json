@@ -1021,7 +1021,10 @@
     "unconfirmed": "Gerade nicht bestätigbar",
     "memory_session": "Der Schlüsselbund ist nicht verfügbar. Diese Anmeldung gilt nur, solange die App geöffnet ist; nach einem Neustart musst du dich erneut anmelden.",
     "switch_server": "Server wechseln",
-    "local_entry": "Lokale App-Adresse: {{origin}}. Remote-Adresse und Verbindungsart findest du in den Servereinstellungen der App."
+    "local_entry": "Lokale App-Adresse: {{origin}}. Remote-Adresse und Verbindungsart findest du in den Servereinstellungen der App.",
+    "copy": "Adresse kopieren",
+    "copied": "Kopiert",
+    "copy_failed": "Kopieren fehlgeschlagen. Markiere die Adresse und kopiere sie."
   },
   "auto_review": {
     "saved": "AutoReview-Einstellungen für dieses Konto gespeichert.",
@@ -1185,10 +1188,14 @@
     "details": "Technische Details"
   },
   "general": {
-    "region": "Sprache und Region",
     "chat": "Chats",
     "activity_title": "Aktivität in Chats anzeigen",
-    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
+    "activity_save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
+    "account": "Konto",
+    "name": "Name",
+    "email": "E-Mail",
+    "role": "Rolle",
+    "appearance": "Darstellung und Sprache"
   },
   "advanced": {
     "server": "Server",
@@ -1792,7 +1799,12 @@
     "device_reason_cursor_stalled": "Die Antwort des Servers ist nicht vorangekommen. Neuer Versuch",
     "device_reason_bad_response": "Der Server hat eine unlesbare Antwort gesendet. Neuer Versuch",
     "device_reason_session_expired": "Die Anmeldung ist abgelaufen",
-    "device_reason_notifications_unsupported": "Dieser Mac unterstützt keine Benachrichtigungen"
+    "device_reason_notifications_unsupported": "Dieser Mac unterstützt keine Benachrichtigungen",
+    "notifications": "Benachrichtigungen",
+    "summary_all_on": "Alle an",
+    "summary_all_off": "Alle aus",
+    "summary_some": "{{on}} von {{total}} an",
+    "summary_attention": "Prüfen nötig"
   },
   "approval": {
     "label": "Freigabemodus für dieses Konto",

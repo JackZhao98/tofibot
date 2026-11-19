@@ -1031,7 +1031,10 @@
     "unconfirmed": "Confirmation impossible pour le moment",
     "memory_session": "Le trousseau est indisponible. Cette connexion n’est valable que tant que l’app reste ouverte ; vous devrez vous reconnecter après un redémarrage.",
     "switch_server": "Changer de serveur",
-    "local_entry": "Adresse locale de l’application : {{origin}}. L’adresse distante et le type de connexion se trouvent dans les réglages serveur de l’application."
+    "local_entry": "Adresse locale de l’application : {{origin}}. L’adresse distante et le type de connexion se trouvent dans les réglages serveur de l’application.",
+    "copy": "Copier l’adresse",
+    "copied": "Copié",
+    "copy_failed": "Copie impossible. Sélectionnez l’adresse et copiez-la."
   },
   "auto_review": {
     "saved": "Réglages AutoReview de ce compte enregistrés.",
@@ -1199,10 +1202,14 @@
     "details": "Détails techniques"
   },
   "general": {
-    "region": "Langue et région",
     "chat": "Discussions",
     "activity_title": "Afficher l’activité dans les discussions",
-    "activity_save_failed": "Échec de l’enregistrement. Réessayez."
+    "activity_save_failed": "Échec de l’enregistrement. Réessayez.",
+    "account": "Compte",
+    "name": "Nom",
+    "email": "E-mail",
+    "role": "Rôle",
+    "appearance": "Apparence et langue"
   },
   "advanced": {
     "server": "Serveur",
@@ -1807,7 +1814,12 @@
     "device_reason_cursor_stalled": "La réponse du serveur n'a pas progressé. Nouvelle tentative",
     "device_reason_bad_response": "Le serveur a envoyé une réponse illisible. Nouvelle tentative",
     "device_reason_session_expired": "La connexion a expiré",
-    "device_reason_notifications_unsupported": "Ce Mac ne prend pas en charge les notifications"
+    "device_reason_notifications_unsupported": "Ce Mac ne prend pas en charge les notifications",
+    "notifications": "Notifications",
+    "summary_all_on": "Tout activé",
+    "summary_all_off": "Tout désactivé",
+    "summary_some": "{{on}} sur {{total}} activées",
+    "summary_attention": "À vérifier"
   },
   "approval": {
     "label": "Mode d’approbation de ce compte",

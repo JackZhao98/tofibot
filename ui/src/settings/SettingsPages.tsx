@@ -11,11 +11,12 @@ import {ConnectionInfo} from "../ConnectionInfo";
 import {DictationSettings,useDictationStatus} from "../DictationSettings";
 import {ExtensionPanel} from "../ExtensionPanel";
 import {FollowupsSettings} from "../FollowupsSettings";
-import { AppearancePicker } from "../InteractionPrimitives";
+import {ThemeRow} from "../AppearanceSetting";
+import {SettingsSection as KitSection} from "../ds/SettingsSection/SettingsSection";
 import {LanguageSetting} from "../LanguageSetting";
 import {ModelDefaults} from "../ModelSettings";
 import {HelpAndFeedback} from "./HelpAndFeedback";
-import {OwnerAccount} from "../OwnerAccount";
+import {OwnerAccount,SignOut} from "../OwnerAccount";
 import {PortabilitySettings} from "../PortabilitySettings";
 import {ModelProviders} from "../ProviderSettings";
 import {WebToolsSettings} from "../WebToolsSettings";
@@ -109,14 +110,16 @@ function ComputerPage({openTab,bots}:{openTab:(tab:SettingsTab)=>void;bots:Bot[]
  </>;
 }
 
+/** General: account, appearance and language, chats (with the folded notifications and server address), sign out. */
 function GeneralPage({appearance}:SettingsPagesProps){
  const {t}=useTranslation("settings");
  return <div className="settings-stack">
   <SectionAnchor id="account"><OwnerAccount/></SectionAnchor>
-  <SectionAnchor id="appearance"><AppearancePicker value={appearance.preference} onChange={appearance.choose}/></SectionAnchor>
-  <SettingsSection id="region" title={t("general.region")}><SettingsCard className="settings-region"><LanguageSetting/><TimezoneSetting/></SettingsCard></SettingsSection>
-  <SettingsSection id="chats" title={t("general.chat")}><ChatsSettings/></SettingsSection>
+  {/* One section answers to both ids: the theme, the language and the zone are one card (the older links name "region"). */}
+  <SectionAnchor id="appearance"><SectionAnchor id="region"><KitSection title={t("general.appearance")}><ThemeRow value={appearance.preference} onChange={appearance.choose}/><LanguageSetting/><TimezoneSetting/></KitSection></SectionAnchor></SectionAnchor>
+  <SectionAnchor id="chats"><ChatsSettings/></SectionAnchor>
   <HelpAndFeedback/>
+  <SignOut/>
  </div>;
 }
 
@@ -180,7 +183,7 @@ function AdvancedPage({portabilityBotID,portabilityFile,onPortabilityFileConsume
  return <>
   <Hidden when={sub!==null}><div className="settings-stack">
    {admin&&<SettingsSection id="version" title={t("advanced.version")}><VersionCard/></SettingsSection>}
-   <SettingsSection id="server" title={t("advanced.server")}><SettingsCard><ConnectionInfo/></SettingsCard></SettingsSection>
+   <SectionAnchor id="server"><KitSection title={t("advanced.server")}><ConnectionInfo/></KitSection></SectionAnchor>
    <SettingsSection><SettingsCard>{row(t("shell.page.automation.name"),"behavior",t("advanced.behavior_hint"))}</SettingsCard></SettingsSection>
    <SettingsSection id="data" title={t("advanced.data")}><SettingsCard>{row(t("portability.export"),"export")}{row(t("portability.import"),"import")}{row(t("changes.title"),"changes")}</SettingsCard></SettingsSection>
    <SettingsSection id="diagnostics" title={t("advanced.diagnostics")}><SettingsCard>{row(t("usage.health.title"),"health")}{row(t("advanced.debug"),"debug")}</SettingsCard></SettingsSection>
