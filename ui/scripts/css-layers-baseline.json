@@ -160,13 +160,6 @@
     "important": 1,
     "tokenDef": 0
   },
-  "progressive-blur.css": {
-    "global": 0,
-    "rootBump": 13,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "question-card.css": {
     "global": 0,
     "rootBump": 23,
@@ -233,7 +226,7 @@
   "v2-app.css": {
     "global": 0,
     "rootBump": 14,
-    "webFork": 26,
+    "webFork": 24,
     "important": 0,
     "tokenDef": 0
   },
