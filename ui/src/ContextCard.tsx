@@ -6,7 +6,8 @@ import { TofiIcon as Icon } from "./icons";
 import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
 import { useLeaving } from "./surfacePresence";
 import { WidgetGripContext, type WidgetGripApi } from "./widgetGrip";
-import { GripGlyph, SortableList, SortableStatus, useSortableItem } from "./SortableList";
+import { SortableList, SortableStatus, useSortableItem } from "./SortableList";
+import { GripGlyph } from "./GripGlyph";
 import "./context-column.css";
 
 const TITLE_KEY = { computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;

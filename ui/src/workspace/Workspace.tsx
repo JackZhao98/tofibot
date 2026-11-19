@@ -2243,8 +2243,8 @@ export function Workspace() {
       meta={preview}
       {...rowStatus(indicator, unread)} />;
     // Once the drag chunk is here a movable row is wrapped by it; before, the same row is drawn plain.
-    if (!dnd || !sortable || !sidebarDndEnabled) return <Fragment key={conversation.id}>{draw()}</Fragment>;
-    return pinned ? <sortable.SidebarDockRow key={conversation.id} id={conversation.id} render={draw} /> : <sortable.SidebarListRow key={conversation.id} id={conversation.id} render={draw} />;
+    if (!dnd || !sortable) return <Fragment key={conversation.id}>{draw()}</Fragment>;
+    return pinned ? <sortable.SidebarDockRow key={conversation.id} id={conversation.id} disabled={!sidebarDndEnabled} render={draw} /> : <sortable.SidebarListRow key={conversation.id} id={conversation.id} disabled={!sidebarDndEnabled} render={draw} />;
   }
 
   function pinTile(conversation: Conversation) { return conversationRow(conversation, true, true); }

@@ -39,7 +39,7 @@ const group = { id: "grp_1", kind: "group", name: "Synthetic Group", bot_ids: ["
 const baseConvs = [...dms, group];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function open({ reduced = false, viewport = { width: 1180, height: 820 }, touch = false, dms: seed } = {}) {
+async function open({ reduced = false, viewport = { width: 1180, height: 820 }, touch = false, dms: seed, holdChunk = 0 } = {}) {
   const context = await browser.newContext({ viewport, locale: "en-US", reducedMotion: reduced ? "reduce" : "no-preference", ...(touch ? { hasTouch: true, isMobile: true } : {}) });
   await context.addInitScript(() => {
     try { localStorage.setItem("tofi:appearance", "light"); } catch {}
@@ -90,8 +90,11 @@ async function open({ reduced = false, viewport = { width: 1180, height: 820 }, 
     if (path === "/api/mail-drafts") return json({ drafts: [] });
     return json({});
   });
+  // holdChunk delays the drag library's chunk, so a test can act while the rows are still the plain ones.
+  if (holdChunk) await page.route(/SortableList-[\w-]+\.js/, async route => { await sleep(holdChunk); await route.continue(); });
   await page.goto(origin + "/");
   await page.locator(".conversation-row").first().waitFor();
+  if (holdChunk) return { page, context, errors, puts, layout };
   // The drag engine is its own chunk, loaded when the browser is idle after the list mounts.
   await page.waitForFunction(() => document.querySelector(".contact-section")?.getAttribute("data-dnd-ready") === "1", null, { timeout: 8000 });
   await page.waitForTimeout(300);
@@ -633,6 +636,22 @@ for (const rate of engine === "chromium" ? [1, 4] : []) await check(`frame timin
   assert.ok(sorted.filter(ms => ms > 34).length <= (rate === 1 ? 0 : 6), "dropped frames are rare, not sustained");
   assert.ok(script < 4 * rate, `script ${script.toFixed(2)} ms per frame`);
   assert.ok(layouts <= idleLayouts + 1.5, `a drag adds at most a layout or so per frame to the idle ${idleLayouts.toFixed(2)} (got ${layouts.toFixed(2)})`);
+  await context.close();
+});
+
+await check("the rows are made again when the drag chunk arrives: a focused row keeps focus, and a row is still a button to a screen reader", async () => {
+  const { page, context, errors } = await open({ holdChunk: 2500 });
+  assert.equal(await page.locator("[data-dnd-ready]").count(), 0, "the chunk is not here yet");
+  await rowFor(page, "Cat 03").focus();
+  assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".contact-name")?.textContent), "Cat 03");
+  await page.waitForFunction(() => document.querySelector(".contact-section")?.getAttribute("data-dnd-ready") === "1", null, { timeout: 15000 });
+  assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".contact-name")?.textContent), "Cat 03", "the focused row still has focus after the chunk arrived");
+  const row = rowFor(page, "Cat 03");
+  assert.equal(await row.evaluate(node => node.tagName), "BUTTON");
+  assert.ok(["button", null].includes(await row.getAttribute("role")), "a row has its button role");
+  assert.equal(await row.getAttribute("aria-roledescription"), null, "a row is not announced as draggable");
+  assert.equal(await row.getAttribute("aria-describedby"), null, "no pointer to the library's instructions");
+  assert.deepEqual(errors, []);
   await context.close();
 });
 

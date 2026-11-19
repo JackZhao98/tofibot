@@ -67,11 +67,11 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ CreateMenu, sortable, sidebarDnd, mobileList, modalPanelOpen, desktopExpanded, sidebarFolded, t, setSidebarFolded, setSearchOpen, createMenuRef, createMenuTriggerRef, setCreateMenuOpen, createMenuOpen, botImportRef, importBotPackage, showCreateMenu, newBotBusy, createNewBot, openCoverPanel, botImportBusy, newBotError, botImportError, sidebarListRef, pinnedConversations, pinTile, customSidebarSections, conversationRow, defaultSidebarConversations, sidebarDndEnabled, sidebarLiveRef, onboardingState, visibleSidebarConversations, bots, conversations, modelReady, setOnboardingForced, linkConnected, setPortabilityBotID, setPortabilityFile, openSettings, setUsageBotId, setArtifactsMode }: SidebarProps) {
-  const dnd = sortable && sidebarDndEnabled ? sortable : null;
+  const dnd = sortable;
   const body: ReactNode = <>
             <PinDropZone label={t("sidebar.drop_to_pin")} hint={t("sidebar.drop_to_pin_hint")}>{pinnedConversations.length > 0 ? <PinDock label={t("sidebar.pinned")}>{dnd ? <dnd.SidebarDock ids={pinnedConversations.map(item => item.id)}>{pinnedConversations.map(pinTile)}</dnd.SidebarDock> : pinnedConversations.map(pinTile)}</PinDock> : null}</PinDropZone>
             {Object.entries(customSidebarSections).map(([name, items]) => <section className="sidebar-custom-section" key={name}><div className="tb-eyebrow sidebar-eyebrow">{name}</div>{items.map(item => conversationRow(item))}</section>)}
-            <div className="tb-eyebrow sidebar-eyebrow">{t("sidebar.messages")}</div>{defaultSidebarConversations.map(item => conversationRow(item, sidebarDndEnabled))}
+            <div className="tb-eyebrow sidebar-eyebrow">{t("sidebar.messages")}</div>{defaultSidebarConversations.map(item => conversationRow(item, true))}
             <div className="sr-only" role="status" aria-live="polite" ref={sidebarLiveRef} />
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && !bots.length && !conversations.length && <Suspense fallback={null}><FirstRunHero side onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense>}
             {onboardingState !== "sheet" && !visibleSidebarConversations.length && <EmptyState name="sidebar" className={`empty-copy is-compact${!bots.length && !conversations.length ? " first-run-hide-mobile" : ""}`} look={CATS.mochi} pose="asleep"><p>{t("sidebar.empty")}</p><button className="primary-button sidebar-empty-create" disabled={newBotBusy} onClick={() => void createNewBot()}>{newBotBusy ? t("create.creating") : t("create.create_bot")}</button></EmptyState>}

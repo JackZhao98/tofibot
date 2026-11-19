@@ -23,13 +23,6 @@ const watchReduced = (change: () => void) => {
 };
 const isReduced = () => reducedQuery().matches;
 
-/** Six dots in two columns: the handle shape people already read as "move". */
-export function GripGlyph({ size = 16 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
-    {[4, 8, 12].map(y => [6, 10].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.1" />))}
-  </svg>;
-}
-
 /** Shared only by lazy panels. The library owns activation, displacement, scrolling and cancellation; callers own order. */
 export function SortableList({ items, onMove, announce, instructions, onDragging, children }: {
   items: string[]; onMove: (id: string, to: number) => void; announce: (id: string, index: number) => string;
@@ -124,6 +117,8 @@ export type RowBind = {
 type Zone = "dock" | "list";
 type Flight = { rect: DOMRect; kind: "lift" | "cross" | "slide"; at: number; focus?: boolean };
 
+// The list is drawn plain until this chunk arrives, then its rows are made again: the row that had focus is found again by this.
+let heldFocus = (typeof document !== "undefined" && document.activeElement?.closest?.("[data-sidebar-flip]")?.getAttribute("data-sidebar-flip")) || null;
 const LONG_PRESS_MS = 380;
 const MOUSE_SLOP = 4;
 const TOUCH_SLOP = 9;
@@ -223,6 +218,16 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
   // A list row's own slot moves when the pinned area opens above it; the transform takes that shift back out so it stays under the pointer.
   const keepUnderPointer: Modifier = ({ transform }) => ({ ...transform, y: transform.y - (drag.current?.shift ?? 0) });
 
+  const track = useCallback((event: MouseEvent | TouchEvent) => {
+    const point = "touches" in event ? event.touches[0] ?? event.changedTouches[0] : event;
+    if (point) pointer.current = { x: point.clientX, y: point.clientY };
+  }, []);
+  // The first layout: give focus back to the row that had it before the rows were made again.
+  useLayoutEffect(() => {
+    if (!heldFocus) return;
+    nodeOf(scroller(), heldFocus)?.focus({ preventScroll: true });
+    heldFocus = null;
+  }, []);
   useEffect(() => {
     const list = scroller();
     if (list) list.dataset.dndReady = "1";
@@ -237,6 +242,8 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     list?.addEventListener("contextmenu", holdMenu, true);
     return () => {
       if (list) delete list.dataset.dndReady;
+      window.removeEventListener("mousemove", track);
+      window.removeEventListener("touchmove", track);
       document.removeEventListener("keydown", claimEscape, true);
       window.removeEventListener("click", swallowClick, true);
       list?.removeEventListener("contextmenu", holdMenu, true);
@@ -244,7 +251,7 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
       zoneEl()?.removeAttribute("data-dnd");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [track]);
 
   // The pinned area opening or closing moves rows; they glide from where they were seen, once the new layout is in.
   useLayoutEffect(() => {
@@ -253,10 +260,6 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     if (tops) glideFrom(tops);
   });
 
-  const track = (event: MouseEvent | TouchEvent) => {
-    const point = "touches" in event ? event.touches[0] ?? event.changedTouches[0] : event;
-    if (point) pointer.current = { x: point.clientX, y: point.clientY };
-  };
   const stopTracking = () => { window.removeEventListener("mousemove", track); window.removeEventListener("touchmove", track); };
 
   const onDragStart = ({ active, activatorEvent }: DragStartEvent) => {
@@ -363,7 +366,7 @@ function useLanding(id: string, node: RefObject<HTMLElement | null>) {
 }
 
 /** Menu key and Shift+F10 open the row's menu (some platforms send no contextmenu event for them); Alt+Arrow moves a pinned row. */
-function useRowKeys(id: string, zone: Zone, shared: Shared) {
+function useRowKeys(id: string, zone: Zone, shared: Shared, disabled: boolean) {
   return useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
     const { live } = shared;
     if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
@@ -374,7 +377,7 @@ function useRowKeys(id: string, zone: Zone, shared: Shared) {
     }
     const step = ({ ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 } as Record<string, number>)[event.key];
     // List rows follow recency; only pinned rows take a manual order.
-    if (zone !== "dock" || !step || !event.altKey || event.ctrlKey || event.metaKey) return;
+    if (disabled || zone !== "dock" || !step || !event.altKey || event.ctrlKey || event.metaKey) return;
     event.preventDefault();
     const { pinned, list } = live.current.getIds();
     const from = pinned.indexOf(id), to = from + step;
@@ -383,16 +386,18 @@ function useRowKeys(id: string, zone: Zone, shared: Shared) {
     pinned.forEach(row => { const el = nodeOf(live.current.scrollRef.current, row); if (el) flights.set(row, { rect: el.getBoundingClientRect(), kind: "slide", at: now, focus: row === id }); });
     live.current.onAnnounce({ kind: "move", id, pos: to + 1, total: pinned.length });
     live.current.onCommit({ pinned: moveItem(pinned, from, to), list });
-  }, [id, zone, shared]);
+  }, [id, zone, shared, disabled]);
 }
 
 type Binding = { setNodeRef: (node: HTMLElement | null) => void; attributes: object; listeners?: object; transform: { x: number; y: number } | null; transition?: string; isDragging: boolean; active: unknown };
-function useBind(id: string, zone: Zone, binding: Binding, render: (bind: RowBind) => ReactNode) {
+function useBind(id: string, zone: Zone, disabled: boolean, binding: Binding, render: (bind: RowBind) => ReactNode) {
   const shared = useContext(SidebarDndShared)!;
   const node = useRef<HTMLElement | null>(null);
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging, active } = binding;
+  const { setNodeRef, attributes: dndAttributes, listeners, transform, transition, isDragging, active } = binding;
   const ref = useCallback((el: HTMLElement | null) => { node.current = el; setNodeRef(el); }, [setNodeRef]);
-  const onKeyDown = useRowKeys(id, zone, shared);
+  const onKeyDown = useRowKeys(id, zone, shared, disabled);
+  // The row stays a button to a screen reader: not "draggable", and no pointer to the library's empty instructions.
+  const attributes = useMemo(() => { const { "aria-roledescription": _role, "aria-describedby": _by, ...rest } = dndAttributes as Record<string, unknown>; return rest; }, [dndAttributes]);
   useLanding(id, node);
   const className = `${isDragging ? "is-dnd-dragging " : ""}${active ? "dnd-live" : ""}`.trim();
   const transformCss = transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)${isDragging ? ` scale(${LIFT})` : ""}` : undefined;
@@ -402,14 +407,14 @@ function useBind(id: string, zone: Zone, binding: Binding, render: (bind: RowBin
 }
 
 /** A pinned row: sortable inside the dock. */
-export function SidebarDockRow({ id, render }: { id: string; render: (bind: RowBind) => ReactNode }) {
+export function SidebarDockRow({ id, disabled = false, render }: { id: string; disabled?: boolean; render: (bind: RowBind) => ReactNode }) {
   const reduced = useSyncExternalStore(watchReduced, isReduced, () => false);
-  const sortable = useSortable({ id, animateLayoutChanges: noLayoutAnimation, transition: { duration: reduced ? 0 : MOTION.base, easing: EASE.settle } });
-  return useBind(id, "dock", { ...sortable, transition: reduced ? "none" : sortable.transition ?? undefined }, render);
+  const sortable = useSortable({ id, disabled, animateLayoutChanges: noLayoutAnimation, transition: { duration: reduced ? 0 : MOTION.base, easing: EASE.settle } });
+  return useBind(id, "dock", disabled, { ...sortable, transition: reduced ? "none" : sortable.transition ?? undefined }, render);
 }
 
 /** A list row: draggable only, it never moves among the rows. */
-export function SidebarListRow({ id, render }: { id: string; render: (bind: RowBind) => ReactNode }) {
-  const draggable = useDraggable({ id });
-  return useBind(id, "list", { ...draggable, transition: undefined }, render);
+export function SidebarListRow({ id, disabled = false, render }: { id: string; disabled?: boolean; render: (bind: RowBind) => ReactNode }) {
+  const draggable = useDraggable({ id, disabled });
+  return useBind(id, "list", disabled, { ...draggable, transition: undefined }, render);
 }
