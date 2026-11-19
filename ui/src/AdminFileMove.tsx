@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {fileMoveApi, fileMoveError, type FileMoveDirection, type FileMoveView, type FileReport} from "./adminOrgApi";
 import {useTranslation} from "./i18n";
-import {ConfirmAction} from "./InteractionSystem";
+import {ConfirmAction} from "./ConfirmAction";
 import {formatBytes} from "./storageApi";
 
 const REPORT_COUNTS = ["rows", "missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans", "orphans_young"] as const;

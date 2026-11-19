@@ -103,33 +103,3 @@ export function ActionHints() {
   }, []);
   return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: hint.side ? "translate(0, -50%)" : `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, hint.host) : null;
 }
-
-/** Destructive actions stay beside their content and always offer a way back. */
-export function ConfirmAction({ label, question, disabled, onConfirm }: { label: string; question: string; disabled?: boolean; onConfirm: () => Promise<void> }) {
-  const { t } = useTranslation("settings");
-  const [confirming, setConfirming] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const trigger = useRef<HTMLButtonElement>(null);
-  const cancelButton = useRef<HTMLButtonElement>(null);
-  const wasConfirming = useRef(false);
-  useEffect(() => {
-    if (confirming) cancelButton.current?.focus();
-    else if (wasConfirming.current) trigger.current?.focus();
-    wasConfirming.current = confirming;
-  }, [confirming]);
-  function cancel() { if (pending || disabled) return; setError(""); setConfirming(false); }
-  async function confirm() {
-    if (pending || disabled) return;
-    setPending(true); setError("");
-    try { await onConfirm(); setConfirming(false); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t("action.failed")); }
-    finally { setPending(false); }
-  }
-  return <span className="confirm-action">
-    <button ref={trigger} type="button" className="danger-link" disabled={disabled} hidden={confirming} onClick={() => setConfirming(true)}>{label}</button>
-    {confirming && <span className="inline-confirmation" role="group" aria-label={question} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); cancel(); } }}>
-      <span>{question}</span><button type="button" className="danger-link" disabled={disabled || pending} onClick={() => void confirm()}>{pending ? t("action.processing") : t("confirm.action", { action: label })}</button><button ref={cancelButton} type="button" disabled={disabled || pending} onClick={cancel}>{t("action.cancel")}</button>{error && <span className="error-text" role="alert">{error}</span>}
-    </span>}
-  </span>;
-}

@@ -7,7 +7,7 @@ import {adminOrgApi, createOrgWebToolsAdapter, orgError, type FileMoveView, type
 import {useHostHasComputer} from "./computerCapability";
 import {useTranslation} from "./i18n";
 import {formatList} from "./i18n/format";
-import {ConfirmAction} from "./InteractionSystem";
+import {ConfirmAction} from "./ConfirmAction";
 import {useOwnerSession} from "./OwnerSession";
 import {CardHead, formatVerified, maskedKey} from "./ProviderSettings";
 import {Banner, SettingsCard, SettingsRow, SettingsSection, type BadgeState} from "./settings/components";

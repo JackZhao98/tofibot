@@ -3,7 +3,7 @@ import {adminApi, type AdminAccount} from "./adminApi";
 import {adminOrgApi, backupApi, backupError, orgError, type BackupSnapshot, type BackupView, type OrgResource} from "./adminOrgApi";
 import {ApiError} from "./api";
 import {useTranslation} from "./i18n";
-import {ConfirmAction} from "./InteractionSystem";
+import {ConfirmAction} from "./ConfirmAction";
 import {CardHead, formatVerified} from "./ProviderSettings";
 import {SettingsCard, SettingsSection, type BadgeState} from "./settings/components";
 import {useUserTimezone} from "./UserTimezone";

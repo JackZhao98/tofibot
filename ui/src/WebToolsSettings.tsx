@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useId, useState, type FormEvent} from "react";
 import {api, ApiError} from "./api";
-import {ConfirmAction} from "./InteractionSystem";
+import {ConfirmAction} from "./ConfirmAction";
 import {ServiceMark} from "./ServiceMark";
 import {TofiIcon} from "./icons";
 import {SortableList, SortableStatus, useSortableItem} from "./SortableList";

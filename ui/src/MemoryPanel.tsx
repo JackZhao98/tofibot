@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CATS, EmptyState } from "./EmptyCat";
 import { TofiIcon as Icon } from "./icons";
-import { ConfirmAction } from "./InteractionSystem";
+import { ConfirmAction } from "./ConfirmAction";
 import { useDebugMode } from "./debugMode";
 import { memoryDisplay } from "./displayMetadata";
 import { ApiError } from "./api";

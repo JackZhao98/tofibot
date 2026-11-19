@@ -4,7 +4,7 @@ import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import {useCallback,useEffect,useRef,useState} from "react";
 import { CATS, EmptyState } from "./EmptyCat";
 import {ApiError,request} from "./api";
-import { ConfirmAction } from "./InteractionSystem";
+import { ConfirmAction } from "./ConfirmAction";
 import { Disclosure } from "./InteractionPrimitives";
 import type {Bot} from "./types";
 import {useSettingsActive} from "./settingsActivity";

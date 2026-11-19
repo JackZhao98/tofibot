@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, request } from "../api";
-import { ConfirmAction } from "../InteractionSystem";
+import { ConfirmAction } from "../ConfirmAction";
 import { Disclosure } from "../InteractionPrimitives";
 import { TofiIcon } from "../icons";
 import { skillCatalog } from "../skillCatalog";
