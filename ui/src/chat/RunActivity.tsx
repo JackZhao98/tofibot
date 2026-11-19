@@ -173,13 +173,13 @@ export function WorkingMembers({ isGroup, companionBotId, companionMotion, worki
     if (!groupRuns.length && !groupExternal.length) return null;
     let queuePosition = 0;
     return <div className="working-members group-working-members" ref={rowRef} aria-label={t("working.group_queue")}>
-      {groupExternal.map(botId => <div className="working-member group-working-cat is-running" data-working-key={`external-${botId}`} key={`external-${botId}`} role="group" aria-label={t("working.aria", { name: botById.get(botId)?.name ?? "Bot", status: t("working.working") })}><BotAvatar id={botId} motion="working" /></div>)}
+      {groupExternal.map(botId => <div className="working-member group-working-cat is-running" data-working-key={`external-${botId}`} key={`external-${botId}`} role="group" aria-label={t("working.aria", { name: botById.get(botId)?.name ?? "Bot", status: t("working.working") })}><BotAvatar plain id={botId} motion="working" /></div>)}
       {groupRuns.map(run => {
         const queued = run.status !== "running";
         const position = queued ? ++queuePosition : 0;
         const name = run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot";
         return <div className={`working-member group-working-cat${queued ? " is-queued" : " is-running"}`} data-working-key={run.id} key={run.id} role="group" aria-label={t("working.aria", { name, status: queued ? t("working.queue_position", { position }) : labelForRun(run) })}>
-          <BotAvatar id={run.bot_id} motion={!connected || queued ? "awake" : "working"} />
+          <BotAvatar plain id={run.bot_id} motion={!connected || queued ? "awake" : "working"} />
           {queued && <span className="group-queue-index" aria-hidden="true">{position}</span>}
         </div>;
       })}
@@ -187,7 +187,7 @@ export function WorkingMembers({ isGroup, companionBotId, companionMotion, worki
   }
   return <div className="working-members" ref={rowRef} aria-label={t("working.status_label")}>
     {companionBotId && <div className="working-member work-active work-companion" key={`companion-${companionBotId}`} role="group" aria-label={t("working.aria", { name: botById.get(companionBotId)?.name ?? "Bot", status: companionRun ? labelForRun(companionRun) : companionExternal ? t("working.working") : companionMotion === "sleeping" ? t("working.resting") : t("working.awake") })}>
-      <BotAvatar id={companionBotId} motion={companionRun ? companionRun.status === "running" ? "working" : "awake" : companionExternal ? "working" : companionMotion ?? "sleeping"} />
+      <BotAvatar plain id={companionBotId} motion={companionRun ? companionRun.status === "running" ? "working" : "awake" : companionExternal ? "working" : companionMotion ?? "sleeping"} />
       {companionRun && isDesktop && <span className="working-label">{connected ? labelForRun(companionRun) : t("working.uncertain")}</span>}
       {!companionRun && companionExternal && <span className="working-label">{t("working.working")}</span>}
     </div>}
@@ -199,14 +199,14 @@ export function WorkingMembers({ isGroup, companionBotId, companionMotion, worki
     const name = run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot";
     const visibleLabel = isGroup && run.kind !== "triage" ? t("live.named", { name, status: label }) : label;
     if (active) return <div className={`working-member work-active${uncertain ? " work-uncertain" : ""}`} key={run.id} role="group" title={`${name} · ${label}`} aria-label={t("working.aria", { name, status: label })}>
-      <BotAvatar id={run.bot_id} motion={!uncertain && run.status === "running" ? "working" : "awake"} />
+      <BotAvatar plain id={run.bot_id} motion={!uncertain && run.status === "running" ? "working" : "awake"} />
       {isDesktop && <span className="working-label">{uncertain ? t("working.uncertain") : visibleLabel}</span>}
     </div>;
     return null;
   })}{external.filter(botId => botId !== companionBotId).map(botId => {
     const name = botById.get(botId)?.name ?? "Bot";
     return <div className="working-member work-active" key={`external-${botId}`} role="group" title={`${name} · ${t("working.working")}`} aria-label={t("working.aria", { name, status: t("working.working") })}>
-      <BotAvatar id={botId} motion="working" />
+      <BotAvatar plain id={botId} motion="working" />
       <span className="working-label">{isGroup ? t("working.named_working", { name }) : t("working.working")}</span>
     </div>;
   })}</div>;
