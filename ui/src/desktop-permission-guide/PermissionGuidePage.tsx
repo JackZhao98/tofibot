@@ -1,4 +1,5 @@
 import { useTranslation } from "../i18n";
+import { Icon } from "../ds/Icon/Icon";
 import { applySkin } from "../skin/skin";
 
 // Native theme updates can arrive while the catalogs are loading, before React mounts.
@@ -17,6 +18,6 @@ export function PermissionGuidePage() {
       <img src="/__desktop/app-icon.png" draggable={false} alt=""/>
       <div className="permission-copy"><strong>{t("desktop_pages.guide.title", {name})}</strong><p>{t("desktop_pages.guide.hint")}</p></div>
     </div>
-    <button className="st-link permission-close" aria-label={t("desktop_pages.guide.close")} onClick={() => window.close()}>×</button>
+    <button className="st-link permission-close" aria-label={t("desktop_pages.guide.close")} onClick={() => window.close()}><Icon name="close" size={16} /></button>
   </main>;
 }
