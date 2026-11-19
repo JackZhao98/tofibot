@@ -93,7 +93,8 @@ const shots = process.env.CATALOG_SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
 // Deadlines for conditions that become true by themselves (a frame is ready, an overlay is closed): they only bound a hang, so
 // they are far above any plausible machine. A check passes the moment its condition holds; a slow runner never fails one.
-const LOAD_MS = 120_000, WAIT_MS = 15_000;
+// A frame's drive has several steps, each patient for 60 s (src/catalog/drive.ts), so a frame needs more than two of them.
+const LOAD_MS = 300_000, WAIT_MS = 15_000;
 const WIDTHS = { desktop: { width: 1280, height: 800 }, phone: { width: 390, height: 760 } };
 const networkApi = [];
 
