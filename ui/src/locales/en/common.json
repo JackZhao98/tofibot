@@ -157,6 +157,7 @@
     },
     "remove": "Remove",
     "removeNamed": "Remove {{name}}",
+    "close": "Close",
     "dismiss": "Dismiss",
     "loading": "Loading",
     "presence": {

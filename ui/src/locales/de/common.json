@@ -157,6 +157,7 @@
     },
     "remove": "Entfernen",
     "removeNamed": "{{name}} entfernen",
+    "close": "Schließen",
     "dismiss": "Schließen",
     "loading": "Wird geladen",
     "presence": {
