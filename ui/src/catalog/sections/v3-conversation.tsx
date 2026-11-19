@@ -50,7 +50,7 @@ export const conversation: CatalogState[] = [
     </div> },
   { id: "divider", kind: "inline", label: "Divider · date, unread line",
     render: () => <div className="catalog-stack"><Divider>Today · 14:20</Divider><Divider tone="unread">3 new</Divider></div> },
-  { id: "notice", kind: "inline", label: "Notice · text only, one action, the sentence as the action, a failed read",
+  { id: "notice-lines", kind: "inline", label: "Notice · text only, one action, the sentence as the action, a failed read",
     note: "At most one action. Spend reminders, handovers, a command that ended, a read that failed. Never a run's error.",
     render: () => <div className="catalog-stack">
       <Notice icon="retry">Resuming from the last checkpoint.</Notice>
