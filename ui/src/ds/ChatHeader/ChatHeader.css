@@ -57,7 +57,7 @@
 .tb-chathead.is-top .tb-chathead-title { font-size: 18px; font-weight: 800; }
 .tb-chathead.is-aside .tb-chathead-cat { left: calc(10px + var(--chathead-inset, 0px)); transform: none; max-width: calc(100% - var(--chathead-inset, 0px) - var(--hr) - 24px); }
 .tb-chathead:not(.is-top) .tb-chathead-sub { display: none; }
-@container (max-width: 340px) { .tb-chathead:not(.is-top) .tb-chathead-name { display: none; } .tb-chathead:not(.is-top) .tb-chathead-cat { padding: 0 4px; } }
+@container (max-width: 300px) { .tb-chathead:not(.is-top) .tb-chathead-name { display: none; } .tb-chathead:not(.is-top) .tb-chathead-cat { padding: 0 4px; } }
 @media (prefers-reduced-motion: reduce) {
   .tb-chathead, .tb-chathead-cat, .tb-chathead-face .tb-botavatar { transition: none; }
   .tb-chathead-face .tb-botavatar:is(.is-working, .is-thinking, .is-waiting) :is(.tb-botavatar-cat, img, .tb-botavatar-dot) { animation: none; }
