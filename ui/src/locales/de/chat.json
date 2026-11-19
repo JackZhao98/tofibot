@@ -337,8 +337,7 @@
     "unavailable_retrying": "Server nicht erreichbar. Neuer Versuch …",
     "older_failed": "Ältere Nachrichten konnten nicht geladen werden: {{error}}",
     "unread": "Ungelesen",
-    "unread_below": "Ungelesene Nachrichten ab hier",
-    "view_latest": "Neueste Nachrichten anzeigen"
+    "unread_below": "Ungelesene Nachrichten ab hier"
   },
   "hover": {
     "copy": "Kopieren",

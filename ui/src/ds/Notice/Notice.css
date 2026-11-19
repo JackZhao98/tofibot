@@ -1,3 +1,11 @@
 .tb-notice { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 2px auto; padding: 4px 10px; max-width: 560px; border-radius: var(--radius-xs); font: 400 12.5px/1.45 var(--font-body); color: var(--ink-soft); text-align: center; }
 .tb-notice-icon { display: inline-grid; color: var(--muted); }
 .tb-notice-action { display: inline-flex; }
+.tb-notice--danger { color: var(--danger-text); }
+.tb-notice--danger .tb-notice-icon { color: var(--danger-text); }
+/* The sentence itself is the action (a hand-over that opens its chat, an Undo inside a line): an underlined word, not a button. */
+.tb-notice-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.tb-notice-link:hover { color: var(--ink); }
+.tb-notice-link:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); border-radius: var(--radius-xs); }
+.tb-notice-link:disabled { cursor: default; opacity: .6; text-decoration: none; }
+@media (pointer: coarse) { .tb-notice-link { min-height: 44px; padding-inline: 4px; } }

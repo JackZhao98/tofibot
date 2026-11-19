@@ -332,8 +332,7 @@
     "unavailable_retrying": "サーバーに接続できません。再試行しています…",
     "older_failed": "以前のメッセージを読み込めませんでした：{{error}}",
     "unread": "未読",
-    "unread_below": "ここから未読メッセージ",
-    "view_latest": "最新のメッセージを見る"
+    "unread_below": "ここから未読メッセージ"
   },
   "hover": {
     "copy": "コピー",

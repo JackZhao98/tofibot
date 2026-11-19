@@ -9,6 +9,8 @@ import type { Bot, Conversation, Message } from "./types";
 import { mergeViewOnlyHistory, type ViewOnlyHistory, type ViewOnlyHistoryPage } from "./viewOnlyHistory";
 import { SENDER_GROUP_WINDOW_MS } from "./senderGroups";
 import { ModalDialog } from "./overlays/ModalDialog";
+import { Notice } from "./ds/Notice/Notice";
+import { Button } from "./ds/Button/Button";
 
 export type ViewOnlyChatTarget = {
   source: Conversation;
@@ -130,8 +132,8 @@ function ViewOnlyChatHistory({ conversationId, runId, botById, closeRef }: { con
 
   return <main ref={bodyRef} className="view-only-chat-body" aria-busy={loading}>
     {!history && loading && <div className="inline-state" role="status"><div className="spinner" />{t("viewOnly.loading")}</div>}
-    {error && <div className="history-error" role="alert">{error}</div>}
-    {(history?.hasMore || error) && <button ref={loadRef} type="button" className="load-older" style={{ minHeight: 44 }} aria-controls={listId} aria-disabled={loading} onClick={() => void loadPage()}>{loading ? t("viewOnly.loading_older") : error ? history ? t("viewOnly.retry_older") : t("common:action.retry") : t("history.load_older")}</button>}
+    {error && <Notice tone="danger" icon="alert" className="history-error">{error}</Notice>}
+    {(history?.hasMore || error) && <Button ref={loadRef} variant="ghost" size="sm" className="load-older" aria-controls={listId} aria-disabled={loading} onClick={() => void loadPage()}>{loading ? t("viewOnly.loading_older") : error ? history ? t("viewOnly.retry_older") : t("common:action.retry") : t("history.load_older")}</Button>}
     {history && !history.hasMore && <p ref={startRef} tabIndex={-1} className="muted" style={{ textAlign: "center", fontSize: 12 }}>{t("viewOnly.at_start")}</p>}
     <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
     {history && !history.messages.length && <EmptyState name="view-only-empty" className="conversation-empty" look={CATS.mochi} pose={history.hasMore ? "curious" : "asleep"}><h2>{history.hasMore ? t("viewOnly.no_match") : t("viewOnly.empty")}</h2></EmptyState>}

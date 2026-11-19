@@ -342,8 +342,7 @@
     "unavailable_retrying": "Serveur injoignable. Nouvelle tentative…",
     "older_failed": "Impossible de charger les messages précédents : {{error}}",
     "unread": "Non lus",
-    "unread_below": "Messages non lus ci-dessous",
-    "view_latest": "Voir les derniers messages"
+    "unread_below": "Messages non lus ci-dessous"
   },
   "hover": {
     "copy": "Copier",

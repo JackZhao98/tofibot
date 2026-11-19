@@ -177,8 +177,6 @@ html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot
   border-radius:12px; font:var(--type-code);
 }
 .workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; font-size:inherit; }
-.workspace .message-notice { color:var(--muted); font:11px/1.5 var(--mono); }
-.workspace .message-notice button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-mention { background:var(--pink); color:var(--on-block); border-radius:6px; }
 .workspace .related-message-link { background:var(--surface); border-color:var(--line-soft); color:var(--ink-soft); }
 .workspace .related-message-link:hover { border-color:var(--line); color:var(--ink); }

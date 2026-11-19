@@ -337,8 +337,7 @@
     "unavailable_retrying": "Can't reach the server. Retrying…",
     "older_failed": "Couldn't load earlier messages: {{error}}",
     "unread": "Unread",
-    "unread_below": "Unread messages below",
-    "view_latest": "View latest messages"
+    "unread_below": "Unread messages below"
   },
   "hover": {
     "copy": "Copy",

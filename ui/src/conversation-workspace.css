@@ -116,7 +116,6 @@
 .view-only-chat-footer{min-height:64px;padding-bottom:max(10px,env(safe-area-inset-bottom));border-color:var(--glass-edge);background:var(--legacy-glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .view-only-chat-footer>span{display:inline-flex;align-items:center;gap:6px}
 .view-only-chat-footer .secondary-button{min-height:44px}
-.view-only-chat .history-error{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px}
 @media(max-width:540px){
   .view-only-chat-header{padding:12px 16px;gap:8px}
   .view-only-chat-identity{gap:6px}
