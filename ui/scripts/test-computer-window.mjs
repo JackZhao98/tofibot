@@ -396,7 +396,8 @@ try {
     await page.waitForTimeout(1500);
     assert.equal(await button.getAttribute("data-computer-state"), "off");
     assert.equal(await button.getAttribute("aria-label"), "Bot computer, off");
-    assert.equal(await button.getAttribute("title"), "Bot computer, off");
+    // V3 PR 3.2: the kit IconButton names itself with the Hint (data-hint) in place of the native title; the aria-label above stays.
+    assert.equal(await button.getAttribute("data-hint"), "Bot computer, off");
     assert.equal(await button.evaluate(element => element.classList.contains("is-on")), false, "neutral when asleep");
     const neutral = await bg();
     // The computer comes up (nothing opens), then a Bot starts driving it.

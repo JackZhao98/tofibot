@@ -22,7 +22,9 @@
 
 .tb-chathead-cat { position: absolute; top: max(8px, env(safe-area-inset-top)); left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); z-index: 1; display: flex; align-items: center; gap: 10px; min-height: 42px; max-width: calc(100% - var(--hl) - var(--chathead-inset, 0px) - var(--hr) - 16px); padding: 0 6px; box-sizing: border-box; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink); font: inherit; cursor: pointer; transition: left var(--m-base) var(--ease-out), transform var(--m-base) var(--ease-out), padding var(--m-base) var(--ease-out); }
 @container (min-width: 560px) { .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); max-width: calc(100% - var(--chathead-inset, 0px) - 2 * max(var(--hl), var(--hr)) - 16px); } }
-.tb-chathead-cat:hover .tb-chathead-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* The underline is always laid out and only its colour changes, so a pointer passing over the name costs a paint and no layout. */
+.tb-chathead-title { text-decoration: underline 2px transparent; text-underline-offset: 3px; }
+.tb-chathead-cat:hover .tb-chathead-title { text-decoration-color: currentColor; }
 .tb-chathead-cat:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 .tb-chathead-face { display: inline-flex; align-items: center; flex: none; }
 .tb-chathead-face-i { display: inline-flex; flex: none; }
