@@ -1171,10 +1171,14 @@
     "details": "기술 세부 정보"
   },
   "general": {
-    "region": "언어 및 지역",
     "chat": "채팅",
     "activity_title": "채팅에 활동 표시",
-    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요."
+    "activity_save_failed": "저장하지 못했습니다. 다시 시도하세요.",
+    "account": "계정",
+    "name": "이름",
+    "email": "이메일",
+    "role": "역할",
+    "appearance": "화면 및 언어"
   },
   "advanced": {
     "server": "서버",
@@ -1777,7 +1781,11 @@
     "device_reason_cursor_stalled": "서버 응답이 진행되지 않았습니다. 다시 시도하는 중",
     "device_reason_bad_response": "서버가 읽을 수 없는 응답을 보냈습니다. 다시 시도하는 중",
     "device_reason_session_expired": "로그인이 만료되었습니다",
-    "device_reason_notifications_unsupported": "이 Mac은 알림을 지원하지 않습니다"
+    "device_reason_notifications_unsupported": "이 Mac은 알림을 지원하지 않습니다",
+    "notifications": "알림",
+    "summary_all_on": "모두 켜짐",
+    "summary_all_off": "모두 꺼짐",
+    "summary_some": "{{total}}개 중 {{on}}개 켜짐"
   },
   "approval": {
     "label": "이 계정의 승인 모드",

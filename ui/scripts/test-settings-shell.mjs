@@ -545,7 +545,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 2. Each tab renders its heading and description; 3. deep links; 6. dirty draft.
   {
     const {page, close} = await open({admin: "1"});
-    const markers = {general: "Language and region", connections: "Add", skills: "research-assistant", permissions: "Approval mode", models: "Defaults for new Bots", computer: null, usage: null, advanced: "Danger zone", admin: null};
+    const markers = {general: "Appearance and language", connections: "Add", skills: "research-assistant", permissions: "Approval mode", models: "Defaults for new Bots", computer: null, usage: null, advanced: "Danger zone", admin: null};
     for (const id of [...TABS, "admin"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
       await page.waitForFunction(tab => document.querySelector(`.settings-tabs [aria-current="page"]`)?.dataset.tab === tab, id);

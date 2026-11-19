@@ -1,21 +1,23 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "../cx";
 import "./SettingsRow.css";
 
-export type SettingsRowProps = {
+export type SettingsRowProps = Omit<HTMLAttributes<HTMLDivElement>, "children" | "className"> & {
   label: ReactNode;
   /** Only when it adds something the label does not say. */
   hint?: ReactNode;
   /** The id of the control, when there is one: the label then names it for screen readers. */
   htmlFor?: string;
   className?: string;
+  /** A field-like control (Select, TextInput): on a phone it takes the whole line under the label, not its own width. */
+  fill?: boolean;
   /** The control. */
   children?: ReactNode;
 };
 
 /** One setting: a label and an optional hint on the left, its control on the right. Wraps under the label on a phone. */
-export function SettingsRow({ label, hint, htmlFor, className, children }: SettingsRowProps) {
-  return <div className={cx("tb-srow2", className)}>
+export function SettingsRow({ label, hint, htmlFor, className, fill, children, ...rest }: SettingsRowProps) {
+  return <div {...rest} className={cx("tb-srow2", fill && "tb-srow2--fill", className)}>
     <div className="tb-srow2-text">
       {htmlFor ? <label className="tb-srow2-label" htmlFor={htmlFor}>{label}</label> : <div className="tb-srow2-label">{label}</div>}
       {hint ? <div className="tb-srow2-hint">{hint}</div> : null}

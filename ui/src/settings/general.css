@@ -1,0 +1,37 @@
+/* Settings › General (V3 PR 6.2): what the kit parts (ds/SettingsSection, SettingsRow, Select, Segmented, Switch) do not place themselves.
+   The look is the kit's; this sheet only fits things to their place, so it stays in @layer legacy. Every component of the page imports it. */
+@layer legacy {
+/* A select in a row: a fixed width on a line of its own, the whole line on a phone (SettingsRow `fill`). */
+.gen-ctl { display: block; width: 220px; max-width: 100%; min-width: 0; }
+.gen-saved-ctl { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+/* Addresses and ids: mono, wrap anywhere. */
+.gen-mono { display: block; max-width: 100%; color: var(--ink); font: 400 12.5px/1.5 var(--font-mono); overflow-wrap: anywhere; text-align: right; }
+@media (max-width: 700px) { .gen-mono { text-align: left; } }
+/* A line of explanation or a failure under the rows of a card, inside the card's padding. */
+.gen-note { margin: 0; padding: 12px 16px; border-top: var(--border-1) solid var(--line); color: var(--muted); font: 400 12.5px/1.5 var(--font-body); overflow-wrap: anywhere; }
+.gen-note--danger { color: var(--danger-text); }
+.gen-subhead { margin: 0; padding: 12px 16px 0; border-top: var(--border-1) solid var(--line); color: var(--muted); font: 600 12.5px/1.4 var(--font-body); }
+/* A folded row: a chevron, the name and a one-line summary; the rows open under it. */
+.gen-expand { border-top: var(--border-1) solid var(--line); }
+.gen-expand:first-child { border-top: 0; }
+.gen-expand-toggle { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 12px 16px; cursor: pointer; font: 600 14px/1.4 var(--font-body); color: var(--ink); }
+.gen-expand-toggle:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-md); }
+.gen-expand-toggle:hover { background: var(--surface-2); }
+.gen-expand-chev { flex: none; color: var(--muted); transition: transform var(--m-quick) var(--ease-out); }
+.gen-expand-toggle[data-state="open"] .gen-expand-chev { transform: rotate(90deg); }
+.gen-expand-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gen-expand-summary { flex: 0 1 auto; min-width: 0; max-width: 55%; color: var(--muted); font: 400 12.5px/1.4 var(--font-body); text-align: right; overflow-wrap: anywhere; }
+.gen-expand-panel { border-top: var(--border-1) solid var(--line); }
+@media (max-width: 700px) {
+  .gen-expand-toggle { min-height: 52px; padding: 12px 14px; }
+  .gen-expand-summary { max-width: 45%; }
+  .gen-note, .gen-subhead { padding-left: 14px; padding-right: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .gen-expand-chev { transition: none; } }
+/* The account row: a disc and a name. */
+.gen-who { display: inline-flex; min-width: 0; align-items: center; gap: 12px; min-width: 0; max-width: 100%; font: 400 14px/1.4 var(--font-body); color: var(--ink); overflow-wrap: anywhere; }
+/* Sign out sits under the sections, on the page's ground. */
+.gen-signout { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.gen-signout .gen-note { padding: 0; border-top: 0; }
+@media (max-width: 700px) { .gen-saved-ctl .gen-ctl { flex: 1; width: auto; } }
+}

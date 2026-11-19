@@ -1199,10 +1199,14 @@
     "details": "Détails techniques"
   },
   "general": {
-    "region": "Langue et région",
     "chat": "Discussions",
     "activity_title": "Afficher l’activité dans les discussions",
-    "activity_save_failed": "Échec de l’enregistrement. Réessayez."
+    "activity_save_failed": "Échec de l’enregistrement. Réessayez.",
+    "account": "Compte",
+    "name": "Nom",
+    "email": "E-mail",
+    "role": "Rôle",
+    "appearance": "Apparence et langue"
   },
   "advanced": {
     "server": "Serveur",
@@ -1807,7 +1811,11 @@
     "device_reason_cursor_stalled": "La réponse du serveur n'a pas progressé. Nouvelle tentative",
     "device_reason_bad_response": "Le serveur a envoyé une réponse illisible. Nouvelle tentative",
     "device_reason_session_expired": "La connexion a expiré",
-    "device_reason_notifications_unsupported": "Ce Mac ne prend pas en charge les notifications"
+    "device_reason_notifications_unsupported": "Ce Mac ne prend pas en charge les notifications",
+    "notifications": "Notifications",
+    "summary_all_on": "Tout activé",
+    "summary_all_off": "Tout désactivé",
+    "summary_some": "{{on}} sur {{total}} activées"
   },
   "approval": {
     "label": "Mode d’approbation de ce compte",

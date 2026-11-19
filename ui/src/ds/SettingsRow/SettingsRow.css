@@ -8,4 +8,6 @@ label.tb-srow2-label { display: block; }
 @media (max-width: 700px) {
   .tb-srow2 { flex-wrap: wrap; gap: 10px 14px; padding: 12px 14px; }
   .tb-srow2-text { flex: 1 1 160px; }
+  .tb-srow2--fill .tb-srow2-control { flex: 1 1 100%; }
+  .tb-srow2--fill .tb-srow2-control > * { flex: 1; min-width: 0; }
 }

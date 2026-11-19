@@ -2,11 +2,16 @@ import {useEffect, useState} from "react";
 import {useTranslation} from "./i18n";
 import {useUserTimezone, type NotifyKey} from "./UserTimezone";
 import {ShowActivitySetting} from "./TimezoneSettings";
-import {SettingsCard, SettingsRow, SettingsSwitch} from "./settings/components";
+import {SettingsRow} from "./ds/SettingsRow/SettingsRow";
+import {SettingsSection} from "./ds/SettingsSection/SettingsSection";
+import {SettingsSwitch} from "./settings/components";
+import {ExpandRow} from "./settings/ExpandRow";
+import {ServerAddressRow} from "./ConnectionInfo";
 import {useBrowserNotifierState} from "./attentionNotifier";
 import type {DesktopNotifierSettings, DesktopNotifierStatus} from "./desktop";
+import "./settings/general.css";
 
-/** Settings > General > Chats: what the chat list and notifications show. Each switch applies at once and is stored on the account. */
+/** Settings > General > Chats: what the chat list shows, the notifications (folded) and the server address (folded). Each switch applies at once and is stored on the account. */
 export function ChatsSettings() {
   const {t} = useTranslation(["settings", "chat"]);
   const preference = useUserTimezone();
@@ -30,19 +35,22 @@ export function ChatsSettings() {
     {kind: "needs_you", label: t("settings:chats.needs_you_notifications"), on: preference.notifyNeedsYou},
     {kind: "spend_alerts", label: t("settings:chats.spend_alert_notifications"), on: preference.notifySpendAlerts},
   ];
-  const anyOn = preference.notifyChats || preference.notifyTasks || preference.notifyNeedsYou || preference.notifySpendAlerts;
+  const onCount = rows.filter(row => row.on).length;
+  const anyOn = onCount > 0;
+  const summary = onCount === rows.length ? t("settings:chats.summary_all_on") : onCount === 0 ? t("settings:chats.summary_all_off") : t("settings:chats.summary_some", {on: onCount, total: rows.length});
   // A browser without the Mac app: its own permission. A Mac app reports its own state below.
   const blocked = !bridge && anyOn && permission !== "granted" && permission !== "default";
-  return <>
-    <SettingsCard>
-      <ShowActivitySetting/>
-      {rows.map(row => <div key={row.kind} data-setting={`notify-${row.kind}`}><SettingsRow inline label={row.label} control={<SettingsSwitch label={row.label} checked={row.on} disabled={busy !== null || !preference.ready} busy={busy === row.kind} onChange={on => change(row.kind, on)}/>}/></div>)}
-    </SettingsCard>
-    {failed && <p className="timezone-error" role="alert">{t("settings:general.activity_save_failed")}</p>}
-    {bridge && <DeviceNotifications bridge={bridge}/>}
-    {!bridge && notifier === "server_unsupported" && <p className="field-note" role="status" data-setting="notify-server-unsupported">{t("settings:chats.server_unsupported")}</p>}
-    {blocked && <p className="field-note" role="status">{permission === "unsupported" ? t("chat:notifications.unsupported") : t("chat:notifications.off")}</p>}
-  </>;
+  return <SettingsSection title={t("settings:general.chat")}>
+    <ShowActivitySetting/>
+    <ExpandRow label={t("settings:chats.notifications")} summary={summary} data-setting="notifications">
+      {rows.map(row => <SettingsRow key={row.kind} label={row.label} data-setting={`notify-${row.kind}`}><SettingsSwitch label={row.label} checked={row.on} disabled={busy !== null || !preference.ready} busy={busy === row.kind} onChange={on => change(row.kind, on)}/></SettingsRow>)}
+      {failed && <p className="gen-note gen-note--danger" role="alert">{t("settings:general.activity_save_failed")}</p>}
+      {!bridge && notifier === "server_unsupported" && <p className="gen-note" role="status" data-setting="notify-server-unsupported">{t("settings:chats.server_unsupported")}</p>}
+      {blocked && <p className="gen-note" role="status">{permission === "unsupported" ? t("chat:notifications.unsupported") : t("chat:notifications.off")}</p>}
+      {bridge && <DeviceNotifications bridge={bridge}/>}
+    </ExpandRow>
+    <ServerAddressRow/>
+  </SettingsSection>;
 }
 
 const KNOWN_REASONS = ["connecting", "too_many_waiters", "wait_ignored", "cursor_stalled", "bad_response", "session_expired", "notifications_unsupported"] as const;
@@ -74,14 +82,12 @@ function DeviceNotifications({bridge}: {bridge: NonNullable<Window["tofiDesktop"
     {key: "content", label: t("settings:chats.device_content")},
     {key: "openAtLogin", label: t("settings:chats.device_login")},
   ];
-  return <section className="device-notifications" aria-label={t("settings:chats.device_title")} data-setting="notify-device">
-    <h3 className="field-note device-notifications-title">{t("settings:chats.device_title")}</h3>
-    <SettingsCard>
-      {switches.map(item => <div key={item.key} data-setting={`notify-device-${item.key}`}><SettingsRow inline label={item.label} control={<SettingsSwitch label={item.label} checked={status?.settings[item.key] ?? false} disabled={!status} onChange={on => update({[item.key]: on})}/>}/></div>)}
-    </SettingsCard>
-    <p className="field-note" role="status" data-setting="notify-device-status" data-state={status?.state ?? "unknown"}>{text}</p>
-    {reasonKey && <p className="field-note" data-setting="notify-device-reason" data-reason={reasonKey}>{t(`settings:chats.device_reason_${reasonKey}`)}</p>}
-    <p className="field-note">{t("settings:chats.device_login_hint")}</p>
-    {failed && <p className="timezone-error" role="alert">{t("settings:general.activity_save_failed")}</p>}
+  return <section aria-label={t("settings:chats.device_title")} data-setting="notify-device">
+    <h3 className="gen-subhead">{t("settings:chats.device_title")}</h3>
+    {switches.map(item => <SettingsRow key={item.key} label={item.label} data-setting={`notify-device-${item.key}`}><SettingsSwitch label={item.label} checked={status?.settings[item.key] ?? false} disabled={!status} onChange={on => update({[item.key]: on})}/></SettingsRow>)}
+    <p className="gen-note" role="status" data-setting="notify-device-status" data-state={status?.state ?? "unknown"}>{text}</p>
+    {reasonKey && <p className="gen-note" data-setting="notify-device-reason" data-reason={reasonKey}>{t(`settings:chats.device_reason_${reasonKey}`)}</p>}
+    <p className="gen-note">{t("settings:chats.device_login_hint")}</p>
+    {failed && <p className="gen-note gen-note--danger" role="alert">{t("settings:general.activity_save_failed")}</p>}
   </section>;
 }

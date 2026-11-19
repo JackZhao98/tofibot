@@ -108,6 +108,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       return json({}, 404);
     });
     await page.goto(`${origin}/${fixture.split("/").pop()}/index.html?${new URLSearchParams(params)}`);
+    await page.locator(".settings-page-body [data-setting='notifications'] .gen-expand-toggle").click();
     await page.locator(".settings-page-body [data-setting='notify-chats']").waitFor();
     return {page, context, errors, close: () => context.close()};
   }
@@ -244,7 +245,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         const overflow = await t.page.evaluate(() => {
           const out = [];
           if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push("page");
-          for (const el of document.querySelectorAll(".settings-page-body .debug-toggle, .settings-page-body .field-note, .settings-page-body .device-notifications-title")) {
+          for (const el of document.querySelectorAll(".settings-page-body .debug-toggle, .settings-page-body .field-note, .settings-page-body .gen-subhead, .settings-page-body .gen-note")) {
             const box = el.getBoundingClientRect();
             if (el.scrollWidth > el.clientWidth + 1 || box.right > window.innerWidth + 1 || box.left < -1) out.push(`${el.getAttribute("data-setting") || el.className}: scroll ${el.scrollWidth} client ${el.clientWidth} right ${Math.round(box.right)}`);
           }

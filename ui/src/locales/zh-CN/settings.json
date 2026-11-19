@@ -1171,10 +1171,14 @@
     "details": "技术详情"
   },
   "general": {
-    "region": "语言与地区",
     "chat": "对话",
     "activity_title": "在对话中显示活动",
-    "activity_save_failed": "保存失败，请重试。"
+    "activity_save_failed": "保存失败，请重试。",
+    "account": "账户",
+    "name": "名字",
+    "email": "邮箱",
+    "role": "角色",
+    "appearance": "外观与语言"
   },
   "advanced": {
     "server": "服务器",
@@ -1777,7 +1781,11 @@
     "device_reason_cursor_stalled": "服务器的响应没有推进，正在重试",
     "device_reason_bad_response": "服务器返回了无法读取的响应，正在重试",
     "device_reason_session_expired": "登录已过期",
-    "device_reason_notifications_unsupported": "这台 Mac 不支持通知"
+    "device_reason_notifications_unsupported": "这台 Mac 不支持通知",
+    "notifications": "通知",
+    "summary_all_on": "全部打开",
+    "summary_all_off": "全部关闭",
+    "summary_some": "{{total}} 项中 {{on}} 项打开"
   },
   "approval": {
     "label": "当前账号的审批模式",

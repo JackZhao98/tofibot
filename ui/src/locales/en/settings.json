@@ -1185,10 +1185,14 @@
     "details": "Technical details"
   },
   "general": {
-    "region": "Language and region",
     "chat": "Chats",
     "activity_title": "Show activity in chats",
-    "activity_save_failed": "Couldn't save. Try again."
+    "activity_save_failed": "Couldn't save. Try again.",
+    "account": "Account",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "appearance": "Appearance and language"
   },
   "advanced": {
     "server": "Server",
@@ -1792,7 +1796,11 @@
     "device_reason_cursor_stalled": "The server's answer did not advance. Retrying",
     "device_reason_bad_response": "The server sent an answer Tofi cannot read. Retrying",
     "device_reason_session_expired": "The sign-in expired",
-    "device_reason_notifications_unsupported": "This Mac does not support notifications"
+    "device_reason_notifications_unsupported": "This Mac does not support notifications",
+    "notifications": "Notifications",
+    "summary_all_on": "All on",
+    "summary_all_off": "All off",
+    "summary_some": "{{on}} of {{total}} on"
   },
   "approval": {
     "label": "Approval mode for this account",
