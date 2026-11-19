@@ -5,8 +5,8 @@ import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
 import { useLeaving } from "./surfacePresence";
-import { WidgetGrip, WidgetGripContext, type WidgetGripApi } from "./widgetGrip";
-import { SortableList, SortableStatus, useSortableItem } from "./SortableList";
+import { WidgetGripContext, type WidgetGripApi } from "./widgetGrip";
+import { GripGlyph, SortableList, SortableStatus, useSortableItem } from "./SortableList";
 import "./context-column.css";
 
 const TITLE_KEY = { computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
@@ -16,6 +16,11 @@ const TITLE_KEY = { computer: "contextCard.title.desktop", terminal: "contextCar
  * the right. A folded widget keeps its content mounted (a live computer session must survive it) and only hides it.
  * `leaving` is set while the widget plays its exit; the card stays in place until the motion is over.
  */
+/** The grip button; the same markup in a card header and in the computer's cluster, styled by the container. */
+function WidgetGrip({ grip, className }: { grip: WidgetGripApi; className: string }) {
+  return <button ref={grip.ref} type="button" className={`${className} widget-grip`} aria-label={grip.label} data-hint={grip.hint} aria-keyshortcuts="Space Alt+ArrowUp Alt+ArrowDown" {...grip.attributes} {...grip.activator}><GripGlyph /></button>;
+}
+
 export function ContextCard({ id, order, collapsed = false, leaving = false, focusN = 0, moveStep, onToggle, onClose, children }: {
   id: WidgetId; order: number; collapsed?: boolean; leaving?: boolean; focusN?: number; moveStep: (step: -1 | 1) => void; onToggle: (id: string) => void; onClose: (id: string) => void; children: ReactNode;
 }) {
