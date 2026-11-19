@@ -9,9 +9,11 @@ test("overlapping surfaces share tinted glass and paired backdrop filters", () =
   // Locate the material rule by its declarations, rather than lazy component file order.
   const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".sheet,") && body.includes("background:var(--legacy-glass)"));
   assert.ok(material, "one shared surface recipe exists");
-  for (const name of ["sidebar-account-menu", "more-menu", "mention-menu", "composer-add-menu", "ui-select-content", "cover-window", "sheet", "search-palette", "desktop-window-controls"]) {
+  for (const name of ["cover-window", "sheet", "search-palette", "desktop-window-controls"]) {
     assert.ok(material[1].includes(`.${name}`), `${name} uses the shared material`);
   }
+  // Menus, popovers and the Select list are on the kit's glass since PRs 2.2 and 2.3.
+  for (const file of ["overlays/RadixOverlays.tsx", "SelectRadix.tsx"]) assert.match(read(file), /\btb-glass\b/, `${file} uses the kit glass`);
   assert.match(material[2], /-webkit-backdrop-filter:var\(--blur\)/);
   assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--blur\)/);
   // The material is a skin role now (V3 PLAN 7.6): the bridge points the V2 glass names at --glass-strong, and the blur at --glass-blur.
