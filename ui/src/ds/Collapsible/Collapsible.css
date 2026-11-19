@@ -1,0 +1,14 @@
+/* Radix Collapsible content. Radix turns transitions off while it measures each open and close, so the motion is a keyframe
+   animation (Radix restores animation-name after measuring) on the grid row, 0fr to 1fr: nothing is measured, so content that
+   loads after the open grows with the drawer (with forceMount, Radix never writes --radix-collapsible-content-height). Closed
+   content that stays mounted is hidden, so Find and the accessibility tree skip it. The content holds one child element.
+   Overflow is in @layer legacy on purpose: a surface that must scroll or show its content past the box (the usage and computer
+   cards) does that with a contextual rule in its own legacy sheet, and that rule must keep beating this default. */
+@layer legacy { .tb-collapsible { overflow: hidden; } }
+.tb-collapsible { display: grid; grid-template-rows: 1fr; }
+.tb-collapsible > * { min-height: 0; }
+.tb-collapsible[data-state="open"] { animation: tb-collapsible-open var(--m-base) var(--ease-out); }
+.tb-collapsible[data-state="closed"] { grid-template-rows: 0fr; visibility: hidden; animation: tb-collapsible-close var(--m-base) var(--ease-settle); }
+@keyframes tb-collapsible-open { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+@keyframes tb-collapsible-close { from { grid-template-rows: 1fr; opacity: 1; visibility: visible; } to { grid-template-rows: 0fr; opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .tb-collapsible { animation: none; } }

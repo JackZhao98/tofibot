@@ -66,3 +66,4 @@ html.catalog-frame .catalog-specimen > small { color: var(--muted); font-size: 1
 html.catalog-frame .catalog-stack { display: grid; gap: 12px; max-width: 520px; }
 html.catalog-frame .catalog-dots { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background-color: var(--bg); background-image: var(--dot-grid); background-size: var(--dot-step) var(--dot-step); }
 html.catalog-frame .catalog-note { margin: 0 0 12px; color: var(--muted); }
+.catalog-switch button.ui-select-trigger { width: auto; }

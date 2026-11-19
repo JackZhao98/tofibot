@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import {useCallback, useEffect, useRef, useState, type RefObject} from "react";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
@@ -110,10 +111,10 @@ export function MacFolders({bots}: {bots: Bot[]}) {
     {!status.exec.available && <p className="mf-note" role="status" data-folders-exec="">{t("environments.folders.exec_unavailable")}</p>}
     {status.tools.length > 0 && <Collapsible.Root className="st-fold mf-tools" data-folders-tools="">
       <Collapsible.Trigger className="mf-tools-trigger"><span>{t("environments.folders.tools")}</span><TofiIcon className="disclosure-chevron" name="chevron-down" size={14} aria-hidden="true"/></Collapsible.Trigger>
-      <Collapsible.Content className="collapsible-content"><div>
+      <CollapsibleContent><div>
         <p className="mf-note">{t("environments.folders.tools_note")}</p>
         <ul className="mf-tools-list">{status.tools.map(tool => <li key={tool}><code dir="auto">{tool}</code></li>)}</ul>
-      </div></Collapsible.Content>
+      </div></CollapsibleContent>
     </Collapsible.Root>}
   </SettingsSection>;
 }

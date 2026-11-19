@@ -14,6 +14,7 @@ import {Banner, SettingsCard, SettingsRow, SettingsSection, type BadgeState} fro
 import type {SettingsTab} from "./SettingsShell";
 import {useUserTimezone} from "./UserTimezone";
 import {WebToolsSettings} from "./WebToolsSettings";
+import {Select} from "./Select";
 import "./admin-accounts.css";
 import "./admin-org.css";
 
@@ -372,10 +373,10 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: config?.bucket ?? "", endpoint: config?.endpoint ?? ""})}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
     {resource && <div className="file-store-destination">
       <label htmlFor={`${formId}-dest`}>{t("admin.org.file_store.destination")}</label>
-      <select id={`${formId}-dest`} data-field="destination" value={config?.kind === "disk" ? "disk" : "s3"} onChange={event => void destination(event.target.value as "s3" | "disk")}>
+      <Select id={`${formId}-dest`} data-field="destination" value={config?.kind === "disk" ? "disk" : "s3"} onValueChange={next => void destination(next as "s3" | "disk")}>
         <option value="s3">{t("admin.org.file_store.dest_bucket")}</option>
         <option value="disk">{t("admin.org.file_store.dest_disk")}</option>
-      </select>
+      </Select>
     </div>}
     {resource && <p className="field-note">{t("admin.org.file_store.dest_note", {days: config?.delete_grace_days ?? 14})}</p>}
     {resource && <div className="provider-actions">
@@ -390,13 +391,13 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       : t(`admin.org.error.${removeBlock.code}`)}</p>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
       <label htmlFor={`${formId}-preset`}>{t("admin.org.file_store.preset")}</label>
-      <select id={`${formId}-preset`} data-field="preset" value={preset} disabled={saving} onChange={event => applyPreset(event.target.value as "" | FileStorePreset)}>
+      <Select id={`${formId}-preset`} data-field="preset" value={preset} disabled={saving} onValueChange={next => applyPreset(next as "" | FileStorePreset)}>
         <option value="">{t("admin.org.file_store.preset_custom")}</option>
         <option value="r2">{t("admin.org.file_store.preset_r2")}</option>
         <option value="s3">{t("admin.org.file_store.preset_s3")}</option>
         <option value="b2">{t("admin.org.file_store.preset_b2")}</option>
         <option value="minio">{t("admin.org.file_store.preset_minio")}</option>
-      </select>
+      </Select>
       {preset && <p className="field-note" data-field="preset-note">{t("admin.org.file_store.preset_note")}</p>}
       <label htmlFor={`${formId}-endpoint`}>{t("admin.org.file_store.endpoint")}</label>
       <input id={`${formId}-endpoint`} name="org-file-store-endpoint" type="url" autoComplete="off" spellCheck={false} placeholder="https://<account>.r2.cloudflarestorage.com" value={form.endpoint} disabled={saving} onChange={set("endpoint")}/>

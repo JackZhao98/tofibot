@@ -7,6 +7,7 @@ import {ConfirmAction} from "./InteractionSystem";
 import {CardHead, formatVerified} from "./ProviderSettings";
 import {SettingsCard, SettingsSection, type BadgeState} from "./settings/components";
 import {useUserTimezone} from "./UserTimezone";
+import {Select} from "./Select";
 
 /** The Recovery Key is typed as 8 groups of 4; the last two groups confirm it was written down. */
 const lastTwoGroups = (key: string) => key.split("-").slice(-2).join("").toUpperCase();
@@ -127,13 +128,13 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
 
       {view?.configured && settings && <div className="backup-settings" data-section="settings">
         <label htmlFor={`${formId}-remote`}>{t("admin.org.backup.remote")}</label>
-        <select id={`${formId}-remote`} data-field="remote" value={settings.remote} onChange={event => patch({remote: event.target.value as "on" | "off"})}><option value="off">{t("admin.org.backup.off")}</option><option value="on">{t("admin.org.backup.on")}</option></select>
+        <Select id={`${formId}-remote`} data-field="remote" value={settings.remote} onValueChange={next => patch({remote: next as "on" | "off"})}><option value="off">{t("admin.org.backup.off")}</option><option value="on">{t("admin.org.backup.on")}</option></Select>
         <label htmlFor={`${formId}-schedule`}>{t("admin.org.backup.schedule")}</label>
-        <select id={`${formId}-schedule`} data-field="schedule" value={settings.schedule} onChange={event => patch({schedule: event.target.value as typeof settings.schedule})}>{(["daily", "6h", "hourly", "manual"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.schedule_${option}`)}</option>)}</select>
+        <Select id={`${formId}-schedule`} data-field="schedule" value={settings.schedule} onValueChange={next => patch({schedule: next as typeof settings.schedule})}>{(["daily", "6h", "hourly", "manual"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.schedule_${option}`)}</option>)}</Select>
         <label htmlFor={`${formId}-verify`}>{t("admin.org.backup.verify")}</label>
-        <select id={`${formId}-verify`} data-field="verify" value={settings.verify} onChange={event => patch({verify: event.target.value as typeof settings.verify})}>{(["weekly", "monthly", "manual"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.verify_${option}`)}</option>)}</select>
+        <Select id={`${formId}-verify`} data-field="verify" value={settings.verify} onValueChange={next => patch({verify: next as typeof settings.verify})}>{(["weekly", "monthly", "manual"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.verify_${option}`)}</option>)}</Select>
         <label htmlFor={`${formId}-before-update`}>{t("admin.org.backup.before_update")}</label>
-        <select id={`${formId}-before-update`} data-field="before_update" aria-describedby={`${formId}-before-update-hint`} value={settings.before_update ?? "attempt"} onChange={event => patch({before_update: event.target.value as typeof settings.before_update})}>{(["attempt", "require", "off"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.before_update_${option}`)}</option>)}</select>
+        <Select id={`${formId}-before-update`} data-field="before_update" aria-describedby={`${formId}-before-update-hint`} value={settings.before_update ?? "attempt"} onValueChange={next => patch({before_update: next as typeof settings.before_update})}>{(["attempt", "require", "off"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.before_update_${option}`)}</option>)}</Select>
         <p id={`${formId}-before-update-hint`} className="backup-hint">{t("admin.org.backup.before_update_hint")}</p>
         {(["keep_daily", "keep_weekly", "keep_monthly", "stale_after_hours"] as const).map(key => <div key={key} className="provider-key-row"><label htmlFor={`${formId}-${key}`}>{t(`admin.org.backup.${key}`)}</label><input id={`${formId}-${key}`} data-field={key} type="number" min={1} value={settings[key]} onChange={num(key)}/></div>)}
         <button type="button" className="st-button" data-action="save-settings" onClick={() => void act(async () => { setView(await backupApi.settings(settings)); setDraft(null); }, t("admin.org.backup.settings_saved"))}>{t("admin.org.backup.save_settings")}</button>
@@ -201,11 +202,11 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
     <h4>{t("admin.org.backup.restore_title")}</h4>
     <p className="field-note">{t("admin.org.backup.restore_help")}</p>
     <label htmlFor={`${formId}-account`}>{t("admin.org.backup.restore_account")}</label>
-    <select id={`${formId}-account`} value={account} onChange={event => void pick(event.target.value)}><option value="">—</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.username}</option>)}</select>
+    <Select id={`${formId}-account`} value={account} onValueChange={next => void pick(next)}><option value="">—</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.username}</option>)}</Select>
     {account && points.length === 0 && <p className="field-note">{t("admin.org.backup.snapshots_none")}</p>}
     {points.length > 0 && <>
       <label htmlFor={`${formId}-point`}>{t("admin.org.backup.restore_point")}</label>
-      <select id={`${formId}-point`} value={snapshot} onChange={event => setSnapshot(event.target.value)}>{points.map(item => <option key={item.name} value={item.name}>{formatVerified(item.at, timezone)} · {item.rows?.conversations ?? 0} / {item.rows?.messages ?? 0}</option>)}</select>
+      <Select id={`${formId}-point`} value={snapshot} onValueChange={setSnapshot}>{points.map(item => <option key={item.name} value={item.name}>{formatVerified(item.at, timezone)} · {item.rows?.conversations ?? 0} / {item.rows?.messages ?? 0}</option>)}</Select>
       <label htmlFor={`${formId}-name`}>{t("admin.org.backup.restore_confirm_name")}</label>
       <input id={`${formId}-name`} name="backup-restore-confirm" type="text" autoComplete="off" spellCheck={false} value={name} onChange={event => setName(event.target.value)}/>
       <button type="button" className="st-button" data-action="restore-account" disabled={busy || !snapshot || !target || name !== target.username} onClick={() => void restore()}>{t("admin.org.backup.restore_button")}</button>

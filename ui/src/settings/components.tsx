@@ -1,8 +1,9 @@
 import { useDropzone } from "react-dropzone";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import * as RadioGroup from "@radix-ui/react-radio-group";
+import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
+import { Segmented as KitSegmented } from "../ds/Segmented/Segmented";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
-import * as Switch from "@radix-ui/react-switch";
+import { Switch } from "../ds/Switch/Switch";
 import {TofiIcon} from "../icons";
 import {useTranslation} from "../i18n";
 import { Disclosure } from "../InteractionPrimitives";
@@ -70,7 +71,7 @@ export function SavedNote({show}: {show: boolean}) {
 }
 
 /**
- * Switch (Radix): 36x22, off = 20% ink, on = lagoon. Only for "on / off and it takes effect now". `onChange` may return a promise:
+ * Switch: the kit's (Radix, 46x26, teal when on). Only for "on / off and it takes effect now". `onChange` may return a promise:
  * "Saved" shows for 1.5 s once it resolves; a rejection shows nothing (the caller reports the failure).
  */
 export function SettingsSwitch({checked, onChange, label, labelledBy, disabled = false, busy = false, id, className = "", showSaved = true}: {checked: boolean; onChange: (next: boolean) => void | Promise<unknown>; /** The accessible name when no visible label points at the switch. */ label?: string; labelledBy?: string; disabled?: boolean; busy?: boolean; id?: string; className?: string; showSaved?: boolean}) {
@@ -83,7 +84,7 @@ export function SettingsSwitch({checked, onChange, label, labelledBy, disabled =
   };
   return <span className={`st-switch-wrap ${className}`.trim()}>
     {showSaved && <SavedNote show={saved}/>}
-    <Switch.Root id={id} className="st-switch" checked={checked} disabled={disabled} aria-label={label} aria-labelledby={labelledBy} aria-busy={busy || undefined} onCheckedChange={change}><Switch.Thumb className="st-switch-thumb"/></Switch.Root>
+    <Switch id={id} checked={checked} disabled={disabled} label={label} labelledBy={labelledBy} busy={busy} onChange={change} />
   </span>;
 }
 
@@ -109,7 +110,7 @@ export function Banner({tone, title, children, action, details}: {tone: "error" 
   return <div className={`settings-banner is-${tone}`} role={tone === "error" ? "alert" : undefined}>
     <TofiIcon name={bannerIcon[tone]} size={18} aria-hidden="true"/>
     <div className="settings-banner-copy"><strong>{title}</strong>{children && <p>{children}</p>}
-      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><Collapsible.Content className="collapsible-content"><pre id={detailsId} className="settings-banner-details">{details}</pre></Collapsible.Content></Collapsible.Root>}
+      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><CollapsibleContent><pre id={detailsId} className="settings-banner-details">{details}</pre></CollapsibleContent></Collapsible.Root>}
     </div>
     {action && <button type="button" className="st-button settings-banner-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}
   </div>;
@@ -121,11 +122,9 @@ export function DangerZone({title, children}: {title: ReactNode; children: React
   return <section className="settings-sec danger-zone" aria-labelledby={id}><div className="settings-sec-head"><h4 id={id}>{title}</h4></div>{children}</section>;
 }
 
-/** Segmented control: a radiogroup over a short list. */
+/** Segmented control: the kit's, a radiogroup over a short list. The class `segmented` is the hook of the surfaces that place it (and of the tests). */
 export function Segmented<T extends string>({value, options, onChange, label, disabled = false}: {value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void; label: string; disabled?: boolean}) {
-  return <RadioGroup.Root value={value} onValueChange={onChange} disabled={disabled} className="segmented" aria-label={label}>
-    {options.map(option => <RadioGroup.Item key={option.value} value={option.value}>{option.label}</RadioGroup.Item>)}
-  </RadioGroup.Root>;
+  return <KitSegmented className="segmented" value={value} options={options} onChange={onChange} label={label} disabled={disabled} />;
 }
 
 /** Short help text stays visible; the long version sits behind a "Details" disclosure. */

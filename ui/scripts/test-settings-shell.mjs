@@ -1382,8 +1382,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log(`PASS admin screenshots: ${count} saved to ${dir}`);
   }
 
-  // ---- 7e. Visual language (settings-simplify P0): a quiet window. No container inside is outlined (V3 buttons and select triggers
-  // have their own edge, so a button does not count), nothing is hard-shadowed, at most one primary button per view; header 56px with a 20px title and no line; content column at most 640px.
+  // ---- 7e. Visual language (settings-simplify P0): a quiet window. No container inside is outlined (V3 controls have their own edge,
+  // so buttons, select triggers and the segmented control do not count), nothing is hard-shadowed, at most one primary button per view; header 56px with a 20px title and no line; content column at most 640px.
   {
     const {page, close} = await open({admin: "1"}, {reduced: true});
     await page.waitForTimeout(600);
@@ -1393,7 +1393,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const inspect = id => page.locator(`.settings-page-body[data-page="${id}"]`).evaluate(body => {
       const visible = node => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; };
       const all = [...body.querySelectorAll("*")].filter(visible);
-      const bordered = all.filter(node => { if (node.matches("button")) return false; const style = getComputedStyle(node); return parseFloat(style.borderTopWidth) >= 1 && style.borderTopStyle !== "none" && parseFloat(style.borderLeftWidth) >= 1 && node.getBoundingClientRect().width > 60; }).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
+      const bordered = all.filter(node => { if (node.matches("button, .tb-seg")) return false; const style = getComputedStyle(node); return parseFloat(style.borderTopWidth) >= 1 && style.borderTopStyle !== "none" && parseFloat(style.borderLeftWidth) >= 1 && node.getBoundingClientRect().width > 60; }).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
       // A hard shadow is an outset layer with an offset and no blur (--shadow, --shadow-sm); the soft lift (--st-lift) blurs.
       const isHard = node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\)/g, "").split(",").some(layer => { if (/inset/.test(layer)) return false; const [x, y, blur] = layer.trim().split(/\s+/).map(parseFloat); return blur === 0 && (x !== 0 || y !== 0); });
       const hard = all.filter(isHard).map(node => node.tagName.toLowerCase() + "." + [...node.classList].join("."));
@@ -1412,11 +1412,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.equal(report.primaries, 0, `${id}: no add or submit action, so no primary button`);
       assert.ok(report.column <= 640.5, `${id}: content column is at most 640px (saw ${report.column})`);
     }
-    // Switch: 36x22 Radix switch, button role, saved in place. Measured before the admin pages,
+    // Switch: 46x26 Radix switch (the V3 kit Switch), button role, saved in place. Measured before the admin pages,
     // where a rail click on General did not switch the page in this test (open question in the PR).
     await page.locator('.settings-tabs [data-tab="general"]').click();
     const switchBox = await page.locator('.settings-page-body[data-page="general"] [role="switch"]').first().evaluate(element => ({tag: element.tagName, w: element.offsetWidth, h: element.offsetHeight}));
-    assert.deepEqual(switchBox, {tag: "BUTTON", w: 36, h: 22}, "a switch is a 36x22 Radix button");
+    assert.deepEqual(switchBox, {tag: "BUTTON", w: 46, h: 26}, "a switch is a 46x26 Radix button");
     // At most one primary button per view; Connections has the add action, Environments, Models and System none.
     const primaries = {};
     for (const id of [...TABS, "admin", "admin-groups", "admin-resources", "admin-design"]) {
@@ -1433,7 +1433,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const id of ["computer", "models", "advanced", "permissions", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
     // A phone column is 16px from the edge and nothing is wider than the viewport.
     await close();
-    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 36x22 switch");
+    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 46x26 switch");
   }
 
   // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 39 items, 8 common rows and five folded groups;

@@ -44,7 +44,7 @@ const {default: react} = await import("@vitejs/plugin-react");
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-button", "st-link", "st-switch", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
+const ALLOWED_BUTTON_CLASSES = ["primary-button", "secondary-button", "text-button", "settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-button", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-button", "st-link", "tb-switch", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".appearance-options", ".onb-seg", ".emoji-mart", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
@@ -662,11 +662,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   let scenarioRuns = 0;
   const combos = [];
   for (const [vpName, width, height] of VIEWPORTS) for (const theme of THEMES) combos.push({vpName, width, height, theme});
-  async function runCombo({vpName, width, height, theme}) {
+  async function runScenario({vpName, width, height, theme}, scenario) {
     const mobile = width < 700;
-    const queue = scenarios.filter(scenario => !only || only.test(scenario.id));
-    // The scenarios are mostly waiting (settle delays, focus sweep), so a few workers per combo cut the wall time without changing what is audited.
-    const worker = async () => { for (let scenario; (scenario = queue.shift());) {
+    {
       let context, page;
       const startedAt = Date.now();
       try {
@@ -692,8 +690,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         warnings.push(`scenario ${scenario.id} (${vpName}, ${theme}) failed: ${error.message.split("\n")[0]}`);
         violations.push({kind: "scenario-error", selector: scenario.id, detail: error.message.split("\n")[0], scenario: scenario.id, viewport: vpName, theme});
       } finally { await context?.close(); }
-    } };
-    await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 4)}, worker));
+    }
   }
   // Vite transforms a module on its first request. Load each selected surface once, alone, so the parallel pages below
   // do not all wait on the same cold transforms.
@@ -708,7 +705,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator(".onb-welcome h2").waitFor();
     await context.close();
   }
-  await Promise.all(combos.map(runCombo));
+  // One pool for every viewport and theme. Separate pools opened 16 pages at once, and the import scenarios ran their key
+  // derivation together in all of them, which starved page loads on an 8-core machine.
+  const queue = combos.flatMap(combo => selected.map(scenario => ({combo, scenario})));
+  const worker = async () => { for (let job; (job = queue.shift());) await runScenario(job.combo, job.scenario); };
+  await Promise.all(Array.from({length: Number(process.env.POLISH_WORKERS ?? 6)}, worker));
 
   // ---- Report
   const unique = new Map();

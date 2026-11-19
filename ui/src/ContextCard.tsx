@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
@@ -51,7 +52,7 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
       <span className="context-card-actions"><WidgetGrip grip={grip} className="context-card-button context-card-grip" />
       <button type="button" className="context-card-button context-card-close" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button></span>
     </header>}
-    <Collapsible.Content forceMount className="context-card-body collapsible-content" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></Collapsible.Content>
+    <CollapsibleContent forceMount className="context-card-body" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></CollapsibleContent>
   </section></Collapsible.Root></div>;
 }
 

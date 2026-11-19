@@ -50,24 +50,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .status-badge.is-asleep .status-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
 .status-badge.is-testing .status-dot{background:var(--lagoon)}
 
-/* Switch (Radix): 36x22; off = 20% ink, on = lagoon. */
 .st-switch-wrap{display:inline-flex;align-items:center;gap:8px;flex:none}
-.st-switch{position:relative;flex:none;width:36px;height:22px;min-height:22px;padding:0;border:0;border-radius:11px;background:color-mix(in srgb,var(--ink) 20%,transparent);transition:background-color var(--m-press)}
-.st-switch[data-state="checked"]{background:var(--lagoon)}
-.st-switch-thumb{display:block;width:18px;height:18px;margin:0;border-radius:50%;background:var(--surface);transform:translateX(2px);transition:transform var(--m-press) var(--ease-out);will-change:transform}
-.st-switch[data-state="checked"] .st-switch-thumb{transform:translateX(16px)}
-.st-switch:disabled{opacity:.5;cursor:not-allowed}
-.st-switch:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
-.st-switch[aria-busy="true"]{cursor:progress}
-/* On a phone the button is a 44px tap target; the 36x22 track is drawn inside it. */
-@media(max-width:700px){
-  .st-switch{width:52px;height:44px;min-height:44px;border-radius:0;background:transparent}
-  .st-switch[data-state="checked"]{background:transparent}
-  .st-switch::before{content:"";position:absolute;left:8px;top:11px;width:36px;height:22px;border-radius:11px;background:color-mix(in srgb,var(--ink) 20%,transparent);transition:background-color var(--m-press)}
-  .st-switch[data-state="checked"]::before{background:var(--lagoon)}
-  .st-switch-thumb{position:absolute;left:10px;top:13px;transform:none}
-  .st-switch[data-state="checked"] .st-switch-thumb{transform:translateX(14px)}
-}
 /* "Saved" beside the control that saved: 1.5 s, reserved width so nothing jumps. */
 .settings-saved{min-width:0;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
 .settings-saved:empty{display:none}
@@ -91,7 +74,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 @media(max-width:700px){
   .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
   .settings-shell .settings-row-control button.ui-select-trigger,.settings-shell .settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
-  .settings-shell .segmented>button{min-height:36px}
 }
 
 /* Fields: a title above, a filled input with no outline, 40px, 10px radius. Not inside a group. */
@@ -121,14 +103,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .settings-page-body button.ui-select-trigger[data-state="open"]{background:var(--surface)}
 .settings-page-body button.ui-select-trigger:focus-visible{outline-offset:2px}
 .settings-page-body button.ui-select-trigger[aria-invalid="true"]{box-shadow:inset 0 0 0 1.5px var(--danger)}
-
-/* Segmented: only for 2-3 short options worth seeing together. Groove under a lifted selected block. */
-.segmented{display:inline-flex;gap:2px;margin:0;padding:3px;border:0;border-radius:10px;background:var(--sunk);max-width:100%}
-.segmented>button{min-height:28px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body);white-space:nowrap;transition:background-color var(--m-press),color var(--m-press)}
-.segmented>button:hover:not(:disabled){color:var(--ink)}
-.segmented>button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
-.segmented>button:disabled{opacity:.5;cursor:not-allowed}
-.segmented>button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 
 /* Banner: only for an error or something you must do; one per page, at the top. Tinted, never outlined. */
 .settings-banner{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:14px;background:var(--surface-2);min-width:0}
@@ -197,11 +171,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .appearance-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px}
 .appearance-setting h3{margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
 .appearance-head .settings-saved{margin-right:auto}
-.appearance-options{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--sunk)}
-.appearance-options button{display:inline-flex;align-items:center;gap:8px;min-height:28px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft);font:500 13px/1 var(--body)}
-.appearance-options button:hover{color:var(--ink)}
-.appearance-options button[data-state="checked"]{background:var(--surface);color:var(--ink);box-shadow:var(--st-lift)}
-.appearance-options .theme-swatch{display:none}
 .notification-setting{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:0;padding:10px 0;border:0}
 .notification-setting>strong{font:500 14px/1.4 var(--body);color:var(--ink)}
 .notification-setting>.notification-status{max-width:100%;color:var(--ink-soft);font:13px/1.5 var(--body);overflow-wrap:anywhere;text-align:left}

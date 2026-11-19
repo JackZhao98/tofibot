@@ -5,7 +5,10 @@
 // Options come from the `options` prop, or, so a call site can swap the element and keep its markup, from
 // <option> / <optgroup> children (labels must be text). Values are strings; "" is a valid value ("none / default").
 import { Children, Fragment, isValidElement, lazy, Suspense, useMemo, type ReactNode } from "react";
-import "./select.css";
+import { Icon } from "./ds/Icon/Icon";
+import "./ds/control.css";
+import "./ds/shared.css";
+import "./ds/Select/Select.css";
 
 export type SelectOption = {
   value: string;
@@ -31,12 +34,14 @@ export type SelectProps = {
   id?: string;
   name?: string;
   className?: string;
-  /** "md" matches text inputs (44 px in settings); "sm" is for dense toolbars and rows. */
+  /** "md" is the text field (40 px); "sm" is for dense toolbars and rows (32 px). */
   size?: "md" | "sm";
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  /** A hook for tests and for the form code that names its fields. */
+  "data-field"?: string;
 };
 
 export const isGroup = (choice: SelectChoice): choice is SelectGroup => "options" in choice;
@@ -74,8 +79,8 @@ export function Select(props: SelectProps) {
   const size = props.size ?? "md";
   const selected = flatOptions(choices).find(option => option.value === value);
   return <Suspense fallback={<button type="button" id={props.id} disabled aria-label={props["aria-label"]} aria-labelledby={props["aria-labelledby"]}
-    className={`ui-select-trigger${props.className ? ` ${props.className}` : ""}`} data-size={size} data-value={props.value} data-placeholder={selected ? undefined : ""}>
-    <span className="ui-select-value">{selected?.label ?? props.placeholder ?? ""}</span></button>}>
+    className={`tb-select ui-select-trigger${props.className ? ` ${props.className}` : ""}`} data-size={size} data-field={props["data-field"]} data-value={props.value} data-placeholder={selected ? undefined : ""}>
+    <span className="tb-select-value ui-select-value">{selected?.label ?? props.placeholder ?? ""}</span><Icon name="chevron-down" size={16} /></button>}>
     <RadixSelect {...props} options={choices} size={size} />
   </Suspense>;
 }

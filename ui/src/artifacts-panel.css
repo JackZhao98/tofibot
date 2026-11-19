@@ -106,8 +106,6 @@
 .workspace .artifacts-scopes { margin-bottom: 0; }
 @media (pointer: coarse) { .workspace .artifact-row { min-height: 48px; } }
 .workspace .artifacts-uploads { display: inline-flex; flex: none; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; color: var(--ink); font: 600 13px/1.4 var(--display); }
-.workspace .artifacts-uploads input { flex: none; margin: 0; }
-.workspace .artifacts-uploads input:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 
 /* A file that arrives while the widget is open: the row slips in and wears a lagoon tint that fades out (all --m-quick). */
 .workspace .artifacts-widget-list li[data-fresh] { overflow: clip; animation: artifact-row-in var(--m-quick) var(--ease-out) backwards; }

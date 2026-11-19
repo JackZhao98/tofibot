@@ -109,7 +109,7 @@
     "bridgeUse": 1
   },
   "interaction-system.css": {
-    "bridgeUse": 25
+    "bridgeUse": 21
   },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
@@ -186,16 +186,13 @@
   "search-palette.css": {
     "bridgeUse": 6
   },
-  "select.css": {
-    "bridgeUse": 3
-  },
   "sender-groups.css": {
     "bridgeUse": 2,
     "rootToken": 1,
     "webFork": 4
   },
   "settings-system.css": {
-    "bridgeUse": 18
+    "bridgeUse": 16
   },
   "settings/automation.css": {
     "bridgeUse": 4
@@ -207,10 +204,7 @@
     "bridgeUse": 2
   },
   "settings/settings-components.css": {
-    "bridgeUse": 18
-  },
-  "settings/settings-polish.css": {
-    "bridgeUse": 1
+    "bridgeUse": 16
   },
   "settings/spend-cap.css": {
     "bridgeUse": 1
@@ -259,7 +253,7 @@
     "webFork": 26
   },
   "v2-foundations.css": {
-    "bridgeUse": 8
+    "bridgeUse": 6
   },
   "web-file-drop.css": {
     "bridgeUse": 8,
