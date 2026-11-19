@@ -21,6 +21,13 @@ import { fileURLToPath } from "node:url";
 
 if (!process.env.PLAYWRIGHT_MODULE) { console.error("test:dialogs needs PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs"); process.exit(1); }
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// V3 PR 3.2: Tasks is an item of the header's More menu, no longer a header button.
+async function toggleTasks(page) {
+  await page.locator(".header-more > button").click();
+  await page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: "Tasks" }).click();
+}
+
 const results = [], failures = [];
 // TOFI_SKIP_TIMING=1 (CI): leave out the checks that read a clock; shared runners are too noisy for them. Run them locally.
 const timingCheck = name => process.env.TOFI_SKIP_TIMING === "1" && /\bwithin \d+ ms\b/.test(name);
@@ -124,7 +131,7 @@ await check("delete dialog: focus on Cancel, Tab stays inside, page hidden, aria
   await closed(page, "Escape after Tab");
   await page.waitForFunction(() => document.activeElement?.matches(".header-more > button"), null, { timeout: 2000 }).catch(() => {});
   const after = await page.evaluate(() => ({ focus: document.activeElement?.outerHTML.slice(0, 80), hidden: document.querySelectorAll('#root [aria-hidden="true"][data-aria-hidden]').length, inert: document.querySelector(".workspace").inert }));
-  truthy(after.focus?.includes("ghost-button"), `focus did not return to More: ${after.focus}`);
+  truthy(after.focus?.includes('aria-haspopup="menu"'), `focus did not return to More: ${after.focus}`);
   truthy(after.hidden === 0 && !after.inert, `the page stays hidden after closing: ${JSON.stringify(after)}`);
   // A click on blank space inside the card does not strand Escape (components.md C13).
   await menuDelete(page);
@@ -168,7 +175,7 @@ await check("delete dialog while busy: neither Escape nor the scrim closes it; a
 
 await check("Escape closes only the top layer: the dialog first, then the non-modal panel under it", async () => {
   const { page, context, errors } = await fixture.open({ viewport: { width: 1280, height: 820 }, motion: "reduce" });
-  await page.getByRole("button", { name: "Tasks", exact: true }).click();
+  await toggleTasks(page);
   await page.waitForFunction(() => document.querySelector(".workspace-grid")?.classList.contains("sidebar-open"));
   await menuDelete(page);
   await page.keyboard.press("Escape");
@@ -274,6 +281,7 @@ import {ActionHints} from '../src/InteractionSystem';
 import {WorkspaceToast} from '../src/WorkspaceToast';
 import {AdminSheet} from '../src/AdminSheets';
 import {ModalDialog,ConfirmDialog} from '../src/overlays/ModalDialog';
+
 installFocusModality();
 const w=window as any;w.__paneEscapes=0;w.__remote=[];w.__closed=[];
 function Native({onClose,onToast}:{onClose:()=>void;onToast:()=>void}){

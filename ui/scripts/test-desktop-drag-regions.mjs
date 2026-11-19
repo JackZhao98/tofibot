@@ -17,6 +17,13 @@ import assert from "node:assert/strict";
 import {exerciseBrowserEntry} from "./test-bot-browser-pip.mjs";
 import { installStubs, startUi, launch } from "./computer-window-fixture.mjs";
 
+// V3 PR 3.2: Tasks is an item of the header's More menu, no longer a header button.
+async function toggleTasks(page) {
+  await page.locator(".header-more > button").click();
+  await page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: "Tasks" }).click();
+}
+
+
 // 1110 px: the drawer still overlays the chat (up to 1120 px) while the layout already counts as wide (from 1100 px).
 // 1200 px: between 1121 and 1279 the old drawer track rule applied to Settings.
 const SIZES = [{ width: 1280, height: 800 }, { width: 1200, height: 760 }, { width: 1110, height: 760 }, { width: 860, height: 640 }];
@@ -139,6 +146,11 @@ for (const size of SIZES) {
   if (!narrow) await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
   await page.locator(".workspace-grid.sidebar-collapsed").waitFor();
   await check(page, "collapsed conversation", size);
+  // V3 PR 3.2 (PageChatHeader): at the start of a conversation the cat is big and hangs below the title row; once the list scrolls
+  // it is the small cat on the row. The centre-line rule is for that second position.
+  await page.locator(".message-scroll").evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await page.locator(".tb-chathead.is-scrolled").waitFor({ timeout: 3000 }).catch(() => {});
+  const headerAtTop = await page.locator(".tb-chathead.is-top").count() > 0;
   const collapsed = await page.evaluate(() => ({
     controls: [...document.querySelectorAll(".sidebar-top button")].filter(el => el.getBoundingClientRect().width).map(el => {
       const box = el.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
@@ -154,7 +166,7 @@ for (const size of SIZES) {
   const lastRight = Math.max(...collapsed.controls.map(box => box.right));
   const controlMiddle = (collapsed.controls[0].top + collapsed.controls[0].bottom) / 2;
   assert.ok(collapsed.identity.left >= lastRight, `the chat title starts after the rail buttons (${collapsed.identity.left} >= ${lastRight})`);
-  assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
+  if (!headerAtTop) assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
   if (!narrow) {
     await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
     await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();
@@ -200,10 +212,10 @@ for (const size of SIZES) {
   // .detail-pane.visible.context-panel: matching it let this step pass on the closed Bot computer's 220 ms exit
   // and time out when a slow runner outlasted that exit (CI 11-14).
   const tasksDrawer = ".sidebar-pane:not(.is-leaving), .detail-pane.visible.context-panel:not(.widget-column):not(.surface-exiting)";
-  await page.getByRole("button", { name: "Tasks" }).first().click();
+  await toggleTasks(page);
   await page.locator(tasksDrawer).waitFor();
   await check(page, "tasks drawer", size);
-  await page.getByRole("button", { name: "Tasks" }).first().click({ force: true }).catch(() => {});
+  
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector(".sidebar-pane, .detail-pane.visible.context-panel:not(.widget-column)"), null, { timeout: 5000 });
 
