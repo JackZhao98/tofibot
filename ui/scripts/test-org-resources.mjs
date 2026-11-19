@@ -134,10 +134,11 @@ try {
     stub.writes.length = 0;
     await openai.getByRole("button", {name: "Remove"}).click();
     assert.equal(stub.writes.length, 0, "Remove asks first");
-    await openai.getByRole("group", {name: "Remove the organization's OpenAI key?"}).waitFor();
-    await openai.getByRole("button", {name: "Cancel"}).click();
+    // The confirmation is a Dialog in the layer root, not a group inside the row (PR 2.3).
+    await page.getByRole("alertdialog", {name: "Remove the organization's OpenAI key?"}).waitFor();
+    await page.getByRole("alertdialog").getByRole("button", {name: "Cancel"}).click();
     await openai.getByRole("button", {name: "Remove"}).click();
-    await openai.locator(".inline-confirmation .danger-link").click();
+    await page.locator(".confirm-dialog .tb-btn--danger").click();
     await openai.locator("input[type=password]").waitFor();
     assert.deepEqual(stub.writes, ["DELETE /api/admin/org/resources/provider:openai"]);
     const banner = page.locator('[data-testid="org-missing"]');
@@ -204,7 +205,7 @@ try {
     assert.equal(await e2b.locator('[data-action="retry-build"]').count(), 0, "a custom template is never rebuilt: no Retry build");
     await holdsNoKey(page, E2B_KEY);
     await e2b.getByRole("button", {name: "Remove"}).click();
-    await e2b.locator(".inline-confirmation .danger-link").click();
+    await page.locator(".confirm-dialog .tb-btn--danger").click();
     await e2b.locator("input[type=password]").waitFor();
     // Without a KVM host the VM row says so.
     await close();

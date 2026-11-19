@@ -159,6 +159,7 @@
     },
     "remove": "Retirer",
     "removeNamed": "Retirer {{name}}",
+    "close": "Fermer",
     "dismiss": "Fermer",
     "loading": "Chargement",
     "presence": {

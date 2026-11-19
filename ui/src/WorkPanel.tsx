@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { TofiIcon } from "./icons";
 import { BotAvatar } from "./BotAvatar";
-import { ConfirmAction } from "./InteractionSystem";
+import { ConfirmAction } from "./ConfirmAction";
 import { Disclosure } from "./InteractionPrimitives";
 import { useUserTimezone } from "./UserTimezone";
 import { formatZonedTime } from "./timezone";

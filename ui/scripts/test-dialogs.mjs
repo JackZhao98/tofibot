@@ -1,6 +1,6 @@
 // Modal dialogs on Radix Dialog / AlertDialog (docs/design/migration.md step 3, ui/src/overlays/ModalDialog.tsx).
 //  1. Bundle (production build): dialogs, menus and popovers are only in lazy chunks (D31, D82); the dialogs that used to
-//     sit in the entry (ReassignPrimaryDialog, DialogShell) are lazy too; menus and dialogs share one copy of Radix's
+//     sit in the entry (ReassignPrimaryDialog) are lazy too; menus and dialogs share one copy of Radix's
 //     layer and focus primitives (ds/integrate).
 //  2. Real app (production build, synthetic data, Chromium): the delete dialog takes focus on Cancel, keeps Tab and
 //     Shift+Tab inside, hides the page from screen readers (aria-hidden around it, the workspace inert), carries
@@ -66,7 +66,7 @@ await check("dialogs, menus, popovers and Settings controls ship in lazy chunks;
   }
   const eagerRadix = eager.filter(file => LAZY_RADIX.some(marker => seen.get(file)?.includes(marker)));
   truthy(!eagerRadix.length, `a lazy-only Radix part is in the entry: ${eagerRadix.map(file => `${file} (${LAZY_RADIX.filter(marker => seen.get(file).includes(marker)).join(", ")})`).join("; ")}`);
-  for (const name of ["ReassignPrimaryDialog", "DeleteConversationDialog", "DialogShell", "ModalDialog"]) {
+  for (const name of ["ReassignPrimaryDialog", "DeleteConversationDialog", "ModalDialog"]) {
     const files = [...seen.keys()].filter(file => file.startsWith(`assets/${name}-`));
     truthy(files.length, `${name} is not a chunk of its own`);
     truthy(!files.some(file => eager.includes(file)), `${name} is loaded with the entry`);

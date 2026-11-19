@@ -21,7 +21,6 @@
 .env-reason-detail{color:var(--muted);font-size:11.5px;line-height:1.5}
 .env-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .env-controls .env-more{width:32px;padding:0}
-.env-menu .mcp-menu-danger{margin-top:0;border-top:0;border-radius:8px}
 .env-add-menu button{display:flex;align-items:center;gap:9px}
 .env-add-menu button>svg{flex:none;color:var(--muted)}
 @media(max-width:560px){.env-head{align-items:flex-start;flex-direction:column}}

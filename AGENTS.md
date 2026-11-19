@@ -252,6 +252,14 @@ Rules:
   `.field-note` and `.error-text` take the kit Field message type (12px, muted / danger-text) in place: each keeps one base
   rule in `v2-foundations.css` (they are not in `ds/legacy-aliases.css`; the `aliasRule` baseline only falls) and they are in
   `ds/aliases.json`. Rules that name them in another sheet are contextual and leave with that sheet.
+- Overlays (PR 2.3). `ds/pop.css` is the popup material and motion (`.tb-pop`: opacity only, `--m-quick` in and `--m-press` out, on Radix
+  `data-state`; z-index is a zero-specificity default in `@layer legacy`, `[data-layer="dialog"]` is unlayered). `ds/Menu` is the Menu
+  (`.tb-menu`, `.tb-menu-item`: glass, the row under the pointer is solid ink, `is-danger` turns red then danger fill), `ds/Dialog` the
+  Dialog (`.tb-dialog`, `glass-strong`, `--shadow-lg`, the red mark for `tone="danger"`, `DIALOG_SCRIM` for the scrim), `ds/Hint` the
+  tooltip element, `ds/Toast` the notice. The same rule as the form controls holds: the look is unlayered and wins; what a surface
+  fits to its place (a menu's width, padding and row height, a dialog's width and scroll) is a default at `:where()` specificity in an
+  `@layer legacy` block inside the kit sheet, so a contextual rule in a V2 sheet still wins. Never put a look property in that block and
+  never a fit property outside it.
 
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.
@@ -636,11 +644,18 @@ the old CSS offsets were measured from as `anchor` (or a viewport `point` for co
 typeahead; Escape returns focus to the trigger; Tab closes and continues from the trigger (inside an `aria-modal` container it stays there);
 a press outside closes without eating the press; a focus move alone does not close. Do not wrap the lazy module in `React.lazy` + `Suspense`
 (React 19 holds a revealed boundary for ~300 ms). Do not use Radix Tooltip (hints are `data-hint` read by `ActionHints`;
-`data-hint-tone="quiet"` gives the white look) or Radix ContextMenu (the sidebar drag engine owns the 380 ms long press). A surface opened
+`data-hint-tone="quiet"` gives the white look) or Radix ContextMenu (the sidebar drag engine owns the 380 ms long press; the only
+ContextMenu left is the Bot computer's PiP window, `FloatingDesktop.tsx`, which wears the same Menu classes). A surface opened
 inside an `aria-modal` container stacks at `calc(var(--z-dialog) + 1)` (`data-layer="dialog"`). State that a large component sets but does
 not render from (the sidebar row menu) goes in an `OverlaySlot` + `SlotView`, so opening it does not re-render the Workspace.
 `npm --prefix ui run test:overlays` (also `OVERLAYS_ENGINE=webkit`) holds keyboard, dismissal, placement, layers, the bundle split and the
 open cost; `test:shell-budget` keeps Radix out of the entry.
+Drawing (PR 2.3): the adapters in `RadixOverlays.tsx` put `tofi-pop tb-pop tb-glass tb-menu` on a menu (and its submenu), `tofi-pop tb-pop tb-glass`
+on a popover, and `tb-menu-item` on every button or link among the items (`MENU_SURFACE`, `MENU_ITEM` in `ds/Menu/Menu.tsx`); the Select
+list, the identity card and the PiP menu wear the same classes. `tofi-pop` and `menu-subtrigger` stay as hooks the tests read. A
+destructive item says `is-danger` in its own `className`. A surface's old class stays for what it fits (the account menu's width, the
+composer menu's row rhythm). Do not write a background, border, radius, shadow or hover colour for a menu in a V2 sheet: the kit wins and the
+rule is dead. Menu and popover opening motion is opacity only (no scale).
 
 # Web UI dialogs
 
@@ -661,6 +676,18 @@ A dialog opened from a menu item reads where focus returns before it opens (`rem
 unmounts with the menu and the workspace turns inert in the same commit; from the sidebar row menu that is the row it was opened
 on (recorded by the `OverlaySlot` listener; `test:overlays` holds it). Menus and dialogs share one copy of the Radix primitives
 (one layer stack), so keep the four `@radix-ui/*` packages on versions npm dedupes.
+Drawing (PR 2.3): a dialog is the kit `Dialog` (`ds/Dialog`) as the child of `ModalDialog`, with `overlayClassName={DIALOG_SCRIM}`
+(`tb-scrim tb-scrim--modal`, the window, `--z-dialog`). Radix puts `data-state` on the panel, so it fades and scales from .98 to 1 on the panel
+tokens (`--m-panel-in`, `--ease-out`), and under reduced motion only the opacity stays. The Dialog names itself from its title and its body
+(`aria-labelledby` / `aria-describedby` are its own); `tone="danger"` is always `role="alertdialog"` and a neutral dialog that must be
+answered passes `role="alertdialog"`. Put the target above the question in `.tb-dialog-target`, notes in `.tb-dialog-note`, buttons in
+`actions` (confirm last, `Button variant="danger"` for a deletion). `DeleteConversationDialog`, `ReassignPrimaryDialog`, `UpdateDialog` and
+`InstallSheet` use it (`DialogShell.tsx` and the `.delete-dialog*` rules are gone; `delete-dialog` and `delete-dialog-submit` stay as hooks for the
+tests). A confirmation is a Dialog too: `ui/src/ConfirmAction.tsx` has `ConfirmAction` (a `danger-link` trigger), `ConfirmQuestion` (the dialog) and
+`useConfirmation`; the schedule delete and the provider method switch use them. There is no inline confirmation (`.inline-confirmation` is
+gone). Import `ConfirmAction` only from lazy chunks, never from `InteractionSystem.tsx` (it is in the entry). Closing is immediate: a
+dialog is unmounted by its owner, so only its opening is animated; a Radix-driven close (a dialog that keeps `open` itself) gets the
+`data-state="closed"` exit from the same CSS. The Update dialog's closing is not animated yet.
 
 # Web UI controls on Radix
 
@@ -688,8 +715,10 @@ Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches
   window took as much glue as the 40 lines it would replace (tried 2026-11-13).
 - The Activity drawer and the tool-step drawers are Radix Collapsible with the shared `CollapsibleContent` motion. An
   outside open (a step link) goes through the drawer's handle and waits for the `taskActivity` chunk, so it never opens empty.
-- `WorkspaceToast` is a plain `role="alert"` notice (refresh failed with Retry, or a named Bot browser failure), not Radix
-  Toast: a Toast is a dismissable layer that takes Escape from the dialog under it and would hide an unresolved error.
+- `WorkspaceToast` and `ProxyChallengeNotice` are the kit `Toast` (tone error, one action; `ds/Toast`) in a plain element, not Radix
+  Toast: a Toast is a dismissable layer that takes Escape from the dialog under it and would hide an unresolved error. The refresh
+  failure and the Bot browser failure are `role="alert"`; the proxy challenge keeps `role="status"` (`role` prop). `.workspace-toast` only
+  places the toast (fixed, centred, `--z-toast`, `width: max-content`); the look is the kit's.
   `SavedNote` stays inline beside its control.
 - The computer window's fold and enlarge transitions stay on the platform Web Animations API: Motion `animate()` only
   changes the call (tried 2026-11-13). The mini window's drag is Motion.

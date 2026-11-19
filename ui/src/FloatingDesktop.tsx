@@ -9,6 +9,7 @@ import { MOTION, EASE, SPRING } from "./motion";
 import { layerRoot } from "./layers";
 import { PIP_SIZES, clampPipPoint, defaultPipStored, nearestPipCorner, projectPipPoint, nudgePipPoint, parsePipStored, pipPlaceFromPoint, resolvePipPlace, snapPipSide, type PipCorner, type PipPlace, type PipStored } from "./floatingDesktopPosition";
 import "./desktop-shell.css";
+import { MENU_ITEM, MENU_SURFACE } from "./ds/Menu/Menu";
 
 const PIP_KEY = "tofi.pip.v1";
 const loadPip = (): PipStored => { try { return parsePipStored(localStorage.getItem(PIP_KEY)); } catch { return defaultPipStored; } };
@@ -269,15 +270,15 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
         mount and unmount focus moves are off (keepFocus): entry focus and return stay in the effect above. */}
     <ContextMenu.Trigger asChild disabled={!pipActive}><FocusScope asChild trapped={expanded} loop onMountAutoFocus={keepFocus} onUnmountAutoFocus={keepFocus}>{shell}</FocusScope></ContextMenu.Trigger>
     {pipActive && <ContextMenu.Portal container={layerRoot()}>
-      <ContextMenu.Content className="tofi-pop pip-menu" aria-label={t("desktop.pip.menu")} collisionPadding={8}
+      <ContextMenu.Content className={`tofi-pop ${MENU_SURFACE} pip-menu`} aria-label={t("desktop.pip.menu")} collisionPadding={8}
         onCloseAutoFocus={event => { event.preventDefault(); shellRef.current?.querySelector<HTMLElement>(".desktop-enlarge")?.focus({ preventScroll: true }); }}>
-        {corners.map(({ corner, key }) => <ContextMenu.Item key={corner} className="pip-menu-item" onSelect={() => place({ corner, dx: 0, dy: 0 })}>{t(`desktop.pip.corner_${key}`)}</ContextMenu.Item>)}
-        <ContextMenu.Separator className="pip-menu-separator" />
+        {corners.map(({ corner, key }) => <ContextMenu.Item key={corner} className={`pip-menu-item ${MENU_ITEM}`} onSelect={() => place({ corner, dx: 0, dy: 0 })}>{t(`desktop.pip.corner_${key}`)}</ContextMenu.Item>)}
+        <ContextMenu.Separator className="pip-menu-separator tb-menu-sep" />
         <ContextMenu.RadioGroup value={String(pip.size)} onValueChange={value => place({ size: Number(value) })}>
-          {PIP_SIZES.map((size, index) => <ContextMenu.RadioItem key={size} value={String(size)} className="pip-menu-item">{t(`desktop.pip.size_${(["small", "medium", "large"] as const)[index]}`)}<ContextMenu.ItemIndicator className="pip-menu-check" /></ContextMenu.RadioItem>)}
+          {PIP_SIZES.map((size, index) => <ContextMenu.RadioItem key={size} value={String(size)} className={`pip-menu-item ${MENU_ITEM}`}>{t(`desktop.pip.size_${(["small", "medium", "large"] as const)[index]}`)}<ContextMenu.ItemIndicator className="pip-menu-check" /></ContextMenu.RadioItem>)}
         </ContextMenu.RadioGroup>
-        <ContextMenu.Separator className="pip-menu-separator" />
-        <ContextMenu.Item className="pip-menu-item" onSelect={() => closeRef.current()}>{t("desktop.close")}</ContextMenu.Item>
+        <ContextMenu.Separator className="pip-menu-separator tb-menu-sep" />
+        <ContextMenu.Item className={`pip-menu-item ${MENU_ITEM}`} onSelect={() => closeRef.current()}>{t("desktop.close")}</ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Portal>}
   </ContextMenu.Root>;

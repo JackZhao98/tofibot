@@ -86,7 +86,7 @@
 .bs-section .settings-feedback { margin:8px 0 0; color:var(--ink-soft); font:13px/1.5 var(--body); }
 
 /* The avatar picker opens on its own button, in the layer root (outside .workspace), so it carries its own rules here. */
-.bot-style-pop { z-index:calc(var(--z-dialog) + 1); width:min(372px,calc(100vw - 24px)); max-height:min(640px,var(--radix-popover-content-available-height,640px)); overflow:hidden auto; overscroll-behavior:contain; padding:14px; border:0; border-radius:20px; background:var(--surface); color:var(--ink); box-shadow:var(--bs-pop); outline:none; }
+.bot-style-pop { z-index:calc(var(--z-dialog) + 1); width:min(372px,calc(100vw - 24px)); max-height:min(640px,var(--radix-popover-content-available-height,640px)); overflow:hidden auto; overscroll-behavior:contain; padding:14px; outline:none; }
 .bot-style-pop .bot-avatar-picker.bot-avatar-v2 { display:grid; gap:14px; margin:0; padding:0; border:0; background:transparent; }
 .bot-style-pop .bot-avatar-stage { position:relative; display:grid; place-items:center; min-height:190px; overflow:hidden; border-radius:14px; background:var(--surface-2); }
 .bot-style-pop .bot-avatar-stage > .avatar, .bot-style-pop .bot-avatar-stage > .avatar > .tofi-avatar { display:block; width:150px; height:150px; }

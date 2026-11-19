@@ -28,7 +28,7 @@
 .update-dialog-channel code{font:13px var(--mono);color:var(--ink)}
 .update-dialog-badge{padding:2px 9px;border:1px solid var(--line-soft);border-radius:999px;font-size:12px;font-weight:600;color:var(--ink)}
 .update-dialog-badge.is-rc{border-color:var(--lagoon-text);color:var(--lagoon-text)}
-.update-dialog .delete-dialog-note a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.update-dialog .tb-dialog-note a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 .update-dialog-error{color:var(--danger-text)}
 .version-card .update-progress{justify-content:flex-end}
 @media(max-width:700px){.version-card .update-progress{justify-content:flex-start}.update-progress-bar{flex-basis:100%;width:auto}}

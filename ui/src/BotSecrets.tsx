@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {request} from "./api";
-import {ConfirmAction} from "./InteractionSystem";
+import {ConfirmAction} from "./ConfirmAction";
 import {useTranslation} from "./i18n";
 import {formatDateTime} from "./i18n/format";
 import "./bot-secrets.css";

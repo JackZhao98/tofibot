@@ -28,7 +28,7 @@ export function MoreMenu({ name, menu, busy = false }: { name: string; menu: Row
       <TofiIcon name="more" size={20} variant={open ? "filled" : "outline"} />
     </button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu" label={label} trigger={trigger} anchor={anchor} align="end" sideOffset={7}>
-      {menu.map(item => <button key={item.key} className={item.danger ? "mcp-menu-danger" : undefined} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>)}
+      {menu.map(item => <button key={item.key} className={item.danger ? "mcp-menu-danger is-danger" : undefined} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>)}
     </OverlayMenu>}
   </div>;
 }

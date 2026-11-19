@@ -1,8 +1,9 @@
+import { Toast } from "./ds/Toast/Toast";
 import { useTranslation } from "./i18n";
 import { InTopLayer } from "./layers";
 
-/** The site's protection (e.g. Cloudflare) wants a fresh check and silent renewal did not work. Same shape as WorkspaceToast; "Verify again" reloads the page at the current URL. Loaded only when raised (ProxyChallengeSlot). */
+/** The site's protection (e.g. Cloudflare) wants a fresh check and silent renewal did not work. The same kit Toast as WorkspaceToast (tone error, role="status" because the page is not broken, only waiting); "Verify again" reloads the page at the current URL. Loaded only when raised (ProxyChallengeSlot). */
 export function ProxyChallengeBanner() {
   const { t } = useTranslation("common");
-  return <InTopLayer><div className="stream-status workspace-status workspace-toast proxy-challenge-toast" role="status">{t("apiError.proxy_challenge")}<button className="secondary-button" onClick={() => window.location.reload()}>{t("action.verify_again")}</button></div></InTopLayer>;
+  return <InTopLayer><Toast tone="error" role="status" className="workspace-status workspace-toast proxy-challenge-toast" action={t("action.verify_again")} onAction={() => window.location.reload()}>{t("apiError.proxy_challenge")}</Toast></InTopLayer>;
 }

@@ -169,7 +169,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     reset();
     let t = await open({scene: "hide"});
-    const confirm = t.page.locator(".delete-dialog-actions .primary-button");
+    const confirm = t.page.locator(".delete-dialog .tb-btn--primary");
     await confirm.waitFor({timeout: 15000});
     assert.equal(await confirm.isDisabled(), true);
     await pickSelect(t.page.locator(".primary-successor .ui-select-trigger"), "bot_inbox");

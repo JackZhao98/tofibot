@@ -155,6 +155,7 @@
     },
     "remove": "移除",
     "removeNamed": "移除 {{name}}",
+    "close": "關閉",
     "dismiss": "關閉",
     "loading": "載入中",
     "presence": {

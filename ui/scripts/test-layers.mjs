@@ -126,7 +126,7 @@ await check("#tofi-layers follows #root and is not a stacking context", async ()
 
 await check("a real hover hint portals into #tofi-layers and is topmost at its centre, above a toast", async () => {
   const { page, context, errors } = await fixture.open({ viewport: { width: 1280, height: 820 } });
-  await page.evaluate(() => document.querySelector(".workspace").insertAdjacentHTML("beforeend", '<div class="stream-status workspace-status workspace-toast" role="alert" data-probe="toast">probe</div>'));
+  await page.evaluate(() => document.querySelector(".workspace").insertAdjacentHTML("beforeend", '<div class="workspace-status workspace-toast" role="alert" data-probe="toast">probe</div>'));
   const target = page.locator(".chat-header [data-hint]").last();
   await target.hover();
   await page.locator(".action-hint").waitFor({ timeout: 3000 });
@@ -150,16 +150,16 @@ await check("a real hover hint portals into #tofi-layers and is topmost at its c
 const STACK = [
   // [name, parent selector, html, expected layer]
   ["drop-ghost", "#tofi-layers", '<div class="web-drop-ghost">g</div>', "drag"],
-  ["hint", "#tofi-layers", '<div class="action-hint" role="tooltip">h</div>', "tooltip"],
-  ["toast", ".workspace", '<div class="stream-status workspace-status workspace-toast" role="alert">t</div>', "toast"],
+  ["hint", "#tofi-layers", '<div class="tb-hint action-hint" role="tooltip">h</div>', "tooltip"],
+  ["toast", ".workspace", '<div class="workspace-status workspace-toast" role="alert">t</div>', "toast"],
   ["sheet", "#tofi-layers", '<div class="sheet-overlay">s</div>', "dialog+1"],
-  ["delete", "#tofi-layers", '<div class="delete-dialog-overlay">d</div>', "dialog"],
+  ["delete", "#tofi-layers", '<div class="tb-scrim tb-scrim--modal">d</div>', "dialog"],
   ["onboarding", "#tofi-layers", '<div class="onb-scrim">o</div>', "dialog"],
   ["leave", "#tofi-layers", '<div class="settings-leave-overlay">l</div>', "dialog"],
   ["restart", "#tofi-layers", '<div class="resource-restart-overlay">r</div>', "dialog"],
   ["boot", "#root", '<div class="boot boot-dissolve">b</div>', "cover"],
-  ["menu", "#tofi-layers", '<div class="sidebar-context-menu" role="menu">m</div>', "menu"], // a Radix menu since step 2
-  ["identity", "#tofi-layers", '<section class="bot-identity-card">i</section>', "popover"],
+  ["menu", "#tofi-layers", '<div class="sidebar-context-menu tb-pop tb-glass tb-menu" role="menu">m</div>', "menu"], // a Radix menu since step 2
+  ["identity", "#tofi-layers", '<section class="bot-identity-card tb-pop tb-glass">i</section>', "popover"],
   ["sidebar", ".workspace", '<aside class="sidebar-pane" style="position:fixed">c</aside>', "panel"],
   ["floating-computer", ".workspace", '<div class="desktop-floating-shell">f</div>', "pill"],
 ];

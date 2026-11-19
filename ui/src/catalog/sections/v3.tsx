@@ -7,10 +7,11 @@ import { conversation } from "./v3-conversation";
 import { files } from "./v3-files";
 import { forms } from "./v3-forms";
 import { identity } from "./v3-identity";
+import { overlays } from "./v3-overlays";
 import { settingsKit } from "./v3-settings";
 import { status } from "./v3-status";
 
 export const v3: CatalogSection = {
   id: "v3", number: "V3", title: "V3 components",
-  states: [...actions, ...status, ...forms, ...choices, ...identity, ...conversation, ...settingsKit, ...files],
+  states: [...actions, ...status, ...forms, ...choices, ...identity, ...conversation, ...settingsKit, ...files, ...overlays],
 };

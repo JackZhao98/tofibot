@@ -1,0 +1,15 @@
+/* The V3 popup material (PLAN 74, 8.2). `.tb-pop` is every floating surface that opens
+   from a trigger: a Menu, a popover, the Select list, the identity card. Radix puts data-state on it, so the motion is CSS:
+   opacity only, --m-quick in and --m-press out (PLAN 8.2). Reduced motion shortens the duration (forced.css) and the
+   exit still ends, so a closing surface never stays mounted.
+   Everything that is look is unlayered and wins over @layer legacy. Everything a surface fits to its own place (width,
+   padding, the height of a row, wrapping) is a default at zero specificity inside @layer legacy, so a contextual rule in
+   a V2 sheet keeps working until its surface is rebuilt. */
+.tb-pop { color: var(--ink); border-radius: var(--radius-md); transform-origin: var(--radix-popper-transform-origin, center); animation: tb-pop-in var(--m-quick) var(--ease-out) both; }
+.tb-pop[data-state="closed"] { animation: tb-pop-out var(--m-press) var(--ease-in) both; pointer-events: none; }
+/* Opened from inside a modal (Settings, a cover): just above it. RadixOverlays sets data-layer. */
+.tb-pop[data-layer="dialog"] { z-index: calc(var(--z-dialog) + 1); }
+@keyframes tb-pop-in { from { opacity: 0; } }
+@keyframes tb-pop-out { to { opacity: 0; } }
+/* The layer a surface sits on is a default; a surface that needs another (the Bot style popover, the identity card) says so. */
+@layer legacy { :where(.tb-pop) { z-index: var(--z-menu); } }

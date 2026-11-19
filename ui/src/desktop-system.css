@@ -52,7 +52,7 @@ html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
 .attachment-native-actions button:hover{background:var(--surface-hover);color:var(--text)}
 .attachment-native-actions [draggable="true"]{cursor:grab}.attachment-native-actions [draggable="true"]:active{cursor:grabbing}
 .attachment-status{font-size:11px;color:var(--muted);padding:4px 0}
-@media(prefers-reduced-transparency:reduce){html[data-desktop="darwin"] .contact-pane{background:var(--sidebar-bg)}html[data-desktop] :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-reduced-transparency:reduce){html[data-desktop="darwin"] .contact-pane{background:var(--sidebar-bg)}}
 
 .bot-browser-settings > summary { cursor: pointer; padding: 12px 0; }
 /* An enlarged mini window covers the whole window; it must sit above the titlebar drag strip or its close and shrink controls cannot be pressed. */

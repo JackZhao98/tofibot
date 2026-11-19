@@ -1,6 +1,8 @@
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ApiError } from "./api";
 import { useTranslation } from "./i18n";
+import { Button } from "./ds/Button/Button";
+import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
 import { ModalDialog } from "./overlays/ModalDialog";
 import { TofiIcon } from "./icons";
 
@@ -10,8 +12,6 @@ export function UpdateDialog({ offer, onConfirm, onClose }: { offer: { version: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const cancel = useRef<HTMLButtonElement>(null);
-  const headingId = useId();
-  const descriptionId = useId();
   const rc = offer.channel === "rc";
   async function confirm() {
     if (busy) return;
@@ -19,21 +19,21 @@ export function UpdateDialog({ offer, onConfirm, onClose }: { offer: { version: 
     try { await onConfirm(); }
     catch (cause) { setError(cause instanceof ApiError ? cause.message : t("update.dialog.failed")); setBusy(false); }
   }
-  return <ModalDialog onClose={onClose} locked={busy} overlayClassName="delete-dialog-overlay" initialFocus={cancel}>
-    <section className="delete-dialog update-dialog" role="alertdialog" aria-labelledby={headingId} aria-describedby={descriptionId} aria-busy={busy} data-update-dialog={offer.channel}>
+  return <ModalDialog onClose={onClose} locked={busy} overlayClassName={DIALOG_SCRIM} initialFocus={cancel}>
+    <Dialog className="delete-dialog update-dialog" role="alertdialog" busy={busy} data-update-dialog={offer.channel}
+      title={rc ? t("update.dialog.title_rc", { version: offer.version }) : t("update.dialog.title", { version: offer.version })}
+      actions={<>
+        <Button ref={cancel} variant="secondary" disabled={busy} onClick={onClose}>{t("update.dialog.cancel")}</Button>
+        <Button variant="primary" busy={busy} disabled={busy} onClick={() => void confirm()}>{t("update.dialog.confirm")}</Button>
+      </>}>
       <div className="update-dialog-channel">
         <TofiIcon name="info" size={16} aria-hidden="true" />
         <span className={`update-dialog-badge${rc ? " is-rc" : ""}`}>{rc ? t("update.dialog.channel_rc") : t("update.dialog.channel_stable")}</span>
         <code>{offer.version}</code>
       </div>
-      <h2 id={headingId}>{rc ? t("update.dialog.title_rc", { version: offer.version }) : t("update.dialog.title", { version: offer.version })}</h2>
-      <p id={descriptionId}>{rc ? t("update.dialog.body_rc", { version: offer.version }) : t("update.dialog.body", { version: offer.version })}</p>
-      {offer.notes && <p className="delete-dialog-note"><a href={offer.notes} target="_blank" rel="noopener noreferrer">{t("update.dialog.notes")}</a></p>}
+      <p>{rc ? t("update.dialog.body_rc", { version: offer.version }) : t("update.dialog.body", { version: offer.version })}</p>
+      {offer.notes && <p className="tb-dialog-note"><a href={offer.notes} target="_blank" rel="noopener noreferrer">{t("update.dialog.notes")}</a></p>}
       {error && <p className="update-dialog-error" role="alert">{error}</p>}
-      <div className="delete-dialog-actions">
-        <button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("update.dialog.cancel")}</button>
-        <button type="button" className="primary-button" disabled={busy} onClick={() => void confirm()}>{t("update.dialog.confirm")}</button>
-      </div>
-    </section>
+    </Dialog>
   </ModalDialog>;
 }

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { openSettings } from "../drive";
 import { Banner, ChangedNote, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, SettingsSubpage, SettingsSwitch, StatusBadge, type BadgeState } from "../../settings/components";
-import { ConfirmAction } from "../../InteractionSystem";
+import { ConfirmAction } from "../../ConfirmAction";
 import { AppearancePicker, Disclosure } from "../../InteractionPrimitives";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
@@ -281,15 +281,18 @@ export const settings: CatalogSection = {
       <FilePicker label="Choose a file" fileName="synthetic-export.tofi" onFile={noop} />
       <FilePicker label="Choose a file" dropHint="or drop it here" disabled onFile={noop} />
     </div> },
-    { id: "danger", kind: "inline", label: "Danger zone with an in-place confirm", render: () => <DangerZone title="Danger zone">
+    { id: "danger", kind: "inline", label: "Danger zone with a confirm dialog", render: () => <DangerZone title="Danger zone">
       <SettingsRow label="Delete synthetic data" description="Removes every synthetic record." control={<ConfirmAction label="Delete" question="Delete everything?" onConfirm={async () => {}} />} />
     </DangerZone> },
-    { id: "confirm-open", kind: "inline", label: "In-place confirm, asking", note: "focus moves to Cancel; Escape steps back",
-      drive: step => step.click(".confirm-action .danger-link").then(() => undefined),
+    { id: "confirm-open", kind: "overlay", label: "Confirm dialog, asking", note: "a destructive action asks in a Dialog; focus moves to Cancel; Escape steps back", probe: ".confirm-dialog",
+      keyboard: { close: "Escape", reopen: { focus: ".confirm-action .danger-link", key: "Enter" } },
+      drive: async step => { await step.click(".confirm-action .danger-link"); await step.find(".confirm-dialog"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={async () => {}} /> },
-    { id: "confirm-busy", kind: "inline", label: "In-place confirm, working", drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".inline-confirmation .danger-link"); },
+    { id: "confirm-busy", kind: "overlay", label: "Confirm dialog, working", note: "buttons disabled; Escape and the scrim do nothing", probe: ".confirm-dialog",
+      drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".confirm-dialog .tb-btn--danger"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={never} /> },
-    { id: "confirm-error", kind: "inline", label: "In-place confirm, failed", drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".inline-confirmation .danger-link"); await step.find(".inline-confirmation .error-text"); },
+    { id: "confirm-error", kind: "overlay", label: "Confirm dialog, failed", probe: ".confirm-dialog",
+      drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".confirm-dialog .tb-btn--danger"); await step.find(".confirm-dialog .error-text"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={() => Promise.reject(new Error("Synthetic: the server refused"))} /> },
     { id: "service-marks", kind: "inline", label: "Service marks (every directory service, light/dark)", note: "real vendor marks from the brand registry on a neutral tile; the last one is the generic fallback for a custom service",
       render: () => <ul data-service-marks style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 10, margin: 0, padding: 0, listStyle: "none" }}>

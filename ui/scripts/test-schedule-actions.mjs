@@ -23,10 +23,11 @@ try {
   assert.equal((html.match(/<button/g) || []).length, 3, "edit, pause and delete are the only controls");
   assert.equal((html.match(/work-icon-button/g) || []).length, 3);
   assert(!/<button[^>]*>\s*(Edit|Pause|Delete)\s*<\/button>/.test(html), "no text pill buttons");
-  assert(!html.includes("inline-confirmation"), "the confirmation is closed until Delete is pressed");
+  assert(!html.includes("confirm-dialog"), "the confirmation is closed until Delete is pressed");
   assert(html.includes('class="work-actions work-icon-actions"'), "one row");
   const source = await readFile(join(uiRoot, "src/ScheduleActions.tsx"), "utf8");
-  assert(source.includes('role="group"') && source.includes('t("confirm.action"'), "Delete asks before it deletes");
+  // The confirmation is a Dialog (PR 2.3), not an inline group.
+  assert(source.includes("ConfirmQuestion") && source.includes('t("confirm.action"'), "Delete asks before it deletes");
   const panel = await readFile(join(uiRoot, "src/WorkPanel.tsx"), "utf8");
   for (const key of ["panel.pause", "panel.resume", "panel.rerun", "panel.delete"]) assert(panel.includes(key));
   console.log("PASS: schedule card actions are one row of labelled icon buttons with a delete confirmation");
