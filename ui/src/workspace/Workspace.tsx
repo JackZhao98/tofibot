@@ -22,7 +22,6 @@ import { useOwnerSession } from "../OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "../desktop";
 import { useUserTimezone } from "../UserTimezone";
 import { browserNotifier, type DeliveryItem } from "../attentionNotifier";
-import { dateInTimezone, dateTimeFormat } from "../timezone";
 import "../MessageAttachment";
 import { FilePreviewHost } from "../FileViewer";
 import "../MessageReactions";
@@ -60,9 +59,9 @@ import { occurrenceRootKey } from "../scheduleOccurrences";
 import { useScheduleOccurrences } from "../useScheduleOccurrences";
 import { useScheduleMetadata } from "../useScheduleMetadata";
 import { TofiIcon as Icon } from "../icons";
-import { intlLocale } from "../i18n/format";
 import "../BrandLogo";
-import { PinTile } from "../PinnedDock";
+import { SidebarRow } from "../ds/SidebarRow/SidebarRow";
+import { RowLead, rowStatus } from "./SidebarRows";
 import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "../sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "../useSidebarDnd";
 import { usePhoneSwipeBack } from "../usePhoneSwipeBack";
@@ -104,7 +103,7 @@ import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterCo
 import { useSurfaceEscape } from "../useSurfaceEscape";
 import type { SurfaceCtx } from "../SurfaceViews";
 import { traceUnderReply } from "../workTraceLayout";
-import { Avatar, SenderHead, blockKey, jumpToMessage, messageId, previewText } from "../chat/shared";
+import { SenderHead, blockKey, jumpToMessage, messageId, previewText } from "../chat/shared";
 import { setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "../chat/RunActivity";
 import { MessageBubble, localizeMessageRef, type RowHandlers } from "../chat/MessageBubble";
 import { type ComposerAttachment, type ComposerDraft } from "../chat/Composer";
@@ -226,12 +225,6 @@ function keepJump(id: string, root: () => HTMLElement | null) {
     if (Date.now() - start < 1500) window.setTimeout(tick, 100);
   };
   window.setTimeout(tick, 100);
-}
-function formatListTime(value: string, timeZone: string) {
-  const date = new Date(value);
-  const now = new Date();
-  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
-  return dateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
 }
 /** The server pings every 15s; this much silence on a stream means the link died without closing. */
 const STREAM_STALE_MS = 30_000;
@@ -2243,7 +2236,8 @@ export function Workspace() {
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => cause !== i18n.t("tasks:secondary.records_incomplete"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
   }));
 
-  function conversationRow(conversation: Conversation, draggable = false) {
+  /** One conversation as a kit SidebarRow. `zone` is the drag engine's: list rows follow recency, pinned rows take a manual order. */
+  function conversationRow(conversation: Conversation, draggable = false, pinned = false) {
     const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
     const preview = previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "");
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
@@ -2251,33 +2245,22 @@ export function Workspace() {
     const task = conversation.task_state;
     const unread = conversation.unread_count ?? 0;
     const indicator = rowIndicator(task, unread, motion === "working");
-    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
-      aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
-      className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`} data-unread={unread > 0 ? "" : undefined}
+    const dnd = draggable || pinned;
+    return <SidebarRow as="button" key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={dnd ? conversation.id : undefined} data-dnd-zone={dnd ? (pinned ? "dock" : "list") : undefined} aria-keyshortcuts={dnd ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
+      aria-label={[conversation.name, task ? taskStateLabel(task) : "", indicator === "working" ? t("sidebar.working") : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
+      className={pinned ? "contact-row pin-tile" : "contact-row conversation-row"} compact={sidebarFolded} active={activeId === conversation.id} unread={unread > 0} data-unread={unread > 0 ? "" : undefined}
       onClick={() => focusTask(conversation)}
       onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
       onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
       onPointerDown={() => prefetchConversation(conversation.id)}
-      onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}>
-      <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} members={conversation.bot_ids} motion={motion} />
-      <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
-      <time className="conversation-time">{conversation.last_message ? formatListTime(conversation.last_message.created_at, timezone) : ""}</time>
-      {indicator && <span className="conversation-status" data-status={indicator} aria-label={indicator === "unread" ? t("sidebar.unread", { count: unread }) : indicator === "working" ? t("sidebar.working") : task ? taskStateLabel(task) : undefined}>{indicator === "unread" ? Math.min(unread, 99) : null}</span>}
-    </button>;
+      onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}
+      avatar={<RowLead name={conversation.name} botId={botId} group={conversation.kind === "group"} working={indicator === "working"} />}
+      label={<><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</>}
+      meta={preview}
+      {...rowStatus(indicator, unread)} />;
   }
 
-  function pinTile(conversation: Conversation) {
-    const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
-    const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
-    const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
-    const task = conversation.task_state;
-    const unread = conversation.unread_count ?? 0;
-    return <PinTile key={conversation.id}
-      tile={{ id: conversation.id, name: conversation.name, avatarId: botId, group: conversation.kind === "group", members: conversation.bot_ids, motion, active: activeId === conversation.id, unread, indicator: rowIndicator(task, unread, motion === "working"),
-        label: [conversation.name, task ? taskStateLabel(task) : "", unread ? t("sidebar.unread", { count: unread }) : ""].filter(Boolean).join(t("sidebar.label_separator")), unreadLabel: t("sidebar.unread", { count: unread }), workingLabel: t("sidebar.working") }}
-      onOpen={() => focusTask(conversation)} onWarm={() => prefetchConversation(conversation.id)}
-      onMenu={event => setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY })} />;
-  }
+  function pinTile(conversation: Conversation) { return conversationRow(conversation, true, true); }
 
   async function deleteConversation(target: DeleteTarget, successorId?: string) {
     try {

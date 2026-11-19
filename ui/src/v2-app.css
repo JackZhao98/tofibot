@@ -30,60 +30,8 @@
 :root[data-theme="light"] .workspace .search-box input:is(:hover,:focus) {
   border:0; outline:0; border-radius:0; background:transparent; box-shadow:none; transform:none;
 }
-.workspace .section-label { padding:10px 10px 6px; color:var(--muted); font:600 10px/1.3 var(--mono); letter-spacing:.12em; }
-.workspace .section-label>span { color:inherit; font:inherit; }
-.workspace .contact-section { margin-inline:-6px; padding-inline:6px; }
-.workspace .contact-row {
-  min-height:64px; gap:6px; margin:0; padding:8px 10px;
-  border:var(--legacy-edge-w) solid transparent; border-radius:12px; color:var(--ink);
-  background:transparent; transition:background-color var(--m-press),border-color var(--m-press),transform var(--m-press),box-shadow var(--m-press);
-}
-.workspace .contact-row:hover { background:var(--surface); }
-.workspace .contact-row.active { background:var(--surface-2); border-color:var(--line); box-shadow:var(--shadow-sm); }
-.workspace .conversation-row>.avatar {
-  width:46px; height:46px; flex:0 0 46px; border-radius:14px;
-}
-.workspace .conversation-row>.avatar:not(.group-avatar) {
-  background:transparent;
-}
-.workspace .conversation-row.active>.avatar:not(.group-avatar) { background:transparent; }
-.workspace .contact-copy { gap:3px; }
-.workspace .contact-copy strong {
-  color:var(--ink); font:600 14px/1.3 var(--display); letter-spacing:0;
-}
-.workspace .contact-copy small { color:var(--muted); font:12px/1.35 var(--body); }
-.workspace .conversation-time { top:9px; right:9px; color:var(--muted); font:10px/1.4 var(--mono); }
-.workspace .contact-row.active:hover { transform:translate(-1px,-1px); box-shadow:var(--shadow); }
-.workspace .contact-row:active,.workspace .contact-row.active:active { transform:translate(2px,3px); box-shadow:none; }
 @keyframes v2-breathe { 50% { opacity:.35; transform:scale(.8); } }
 .workspace .sidebar-footer { border-top:1px solid var(--line-soft); padding:12px 6px 0; }
-.workspace .sidebar-settings-button { color:var(--ink-soft); border-radius:11px; }
-.workspace .sidebar-settings-button:hover { color:var(--ink); background:var(--surface-2); }
-.workspace .sidebar-account { position:relative; display:flex; align-items:center; gap:4px; }
-.workspace .sidebar-account-identity {
-  min-width:0; flex:1; display:flex; align-items:center; gap:9px; padding:6px;
-  border:0; border-radius:12px; background:transparent; color:var(--ink); text-align:left;
-}
-.workspace .sidebar-account-identity:hover,.workspace .sidebar-account-settings:hover { background:var(--surface-2); }
-.workspace .sidebar-account-identity { transition:background-color var(--m-quick) var(--ease-out),transform var(--m-quick) var(--ease-out),box-shadow var(--m-quick) var(--ease-out); }
-.workspace .sidebar-account-identity:hover { background:var(--surface-2); transform:translate(-1px,-1px); box-shadow:var(--shadow-sm); }
-.workspace .sidebar-account-identity:active { transform:translate(1px,2px); box-shadow:none; }
-.workspace .sidebar-account-monogram {
-  position:relative; display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px;
-  border:2px solid var(--line); border-radius:50%; background:var(--pink); color:var(--on-block);
-  font:700 16px/1 var(--display);
-}
-.workspace .sidebar-account-monogram i {
-  position:absolute; right:-3px; bottom:-3px; width:11px; height:11px;
-  border:2px solid var(--sunk); border-radius:50%; background:var(--green);
-}
-.workspace .sidebar-account-copy { min-width:0; display:grid; gap:3px; }
-.workspace .sidebar-account-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 13px/1.2 var(--display); }
-.workspace .sidebar-account-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:10px/1.2 var(--mono); }
-.workspace .sidebar-account-settings {
-  display:grid; place-items:center; width:36px; height:36px; flex:0 0 36px;
-  border:1px solid var(--line-soft); border-radius:10px; color:var(--ink-soft); background:transparent;
-}
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { width:min(280px,calc(100vw - 24px)); padding:8px; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading { display:grid; gap:3px; padding:8px 10px 10px; border-bottom:1px solid var(--line-soft); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading strong { font:600 14px/1.3 var(--display); }
@@ -396,8 +344,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .composer { padding-inline:12px; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .workspace .sidebar-logo-expand :is(.sidebar-logo-art,.sidebar-logo-arrow),
-  .workspace .sidebar-account-identity { transition:none; }
+  .workspace .sidebar-logo-expand :is(.sidebar-logo-art,.sidebar-logo-arrow) { transition:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
   .workspace .composer .composer-row { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }

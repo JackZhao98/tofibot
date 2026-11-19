@@ -16,7 +16,7 @@ import "../src/settings/settings-components.css";
 import "../src/web-tool-steps.css";
 import "../src/web-mention.css";
 import "../src/web-file-drop.css";
-import "../src/web-sidebar-list.css";
+import "../src/workspace/sidebar.css";
 import "../src/chat-header.css";
 import "../src/context-card.css";
 
