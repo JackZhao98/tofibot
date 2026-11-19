@@ -9,9 +9,7 @@ const GROUP_TONES: AvatarTone[] = ["mustard", "teal", "grape", "lime", "tomato"]
 
 /** A group's initials disc keeps one tone for as long as the group lives: the tone is read from its id. */
 export function groupTone(id: string): AvatarTone {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return GROUP_TONES[hash % GROUP_TONES.length];
+  return GROUP_TONES[id.charCodeAt(id.length - 1) % GROUP_TONES.length];
 }
 
 /** The lead of a conversation row: the Bot's squircle (a dot while it works), or the group's initials. */

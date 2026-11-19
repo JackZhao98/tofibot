@@ -12,6 +12,11 @@ import { useState } from "react";
 import { fileKind } from "../../filePreviewModel";
 import { CATS, EmptyCat, EmptyState } from "../../EmptyCat";
 import GroupAvatar from "../../GroupAvatar";
+import { Avatar } from "../../ds/Avatar/Avatar";
+import { Banner } from "../../ds/Banner/Banner";
+import { Button } from "../../ds/Button/Button";
+import { SidebarRow } from "../../ds/SidebarRow/SidebarRow";
+import { FinishSetupChip } from "../../OnboardingChrome";
 import { catalog, normalizeConfig, paletteOptions, type AvatarConfig } from "../../lib/tofi-avatar/index.js";
 import { at, bot, mailDraft } from "../world";
 import type { Message, Run } from "../../types";
@@ -22,7 +27,12 @@ const DM: AppOptions = { path: "/b/bot_mochi" };
 const GROUP: AppOptions = { path: "/g/grp_launch" };
 const LIST: AppOptions = { path: "/" };
 const ROW = (id: string) => `[data-sidebar-flip="${id}"]`;
-const PIN = ".pin-dock button";
+const PIN = ".pin-dock .tb-srow";
+/** The sidebar foot, drawn on its own at the sidebar's width: the pieces the real list cannot show without a native updater or a skipped setup. */
+const Foot = ({ children }: { children: React.ReactNode }) => <div className="workspace" style={{ width: 272, background: "var(--surface-2)", padding: 12 }}><div className="sidebar-footer"><div className="sidebar-account">{children}</div></div></div>;
+const settingsRow = (compact = false) => <SidebarRow as="button" compact={compact} className="sidebar-account-settings" icon="settings" label="Settings" data-hint="Settings" />;
+const identityRow = (options: { compact?: boolean; offline?: boolean } = {}) => <SidebarRow as="button" compact={options.compact} className="sidebar-account-identity" data-hint="Example"
+  avatar={<Avatar className="sidebar-account-monogram" name="Example" tone="cobalt" size={34} status={options.offline ? "offline" : "online"} />} label="Example" meta={options.offline ? <span className="sidebar-account-lost">Live connection lost</span> : "tofi.example.test:8443"} />;
 
 /** A look for member `n`: shape and coat both vary with it, so a cluster never repeats a cat. */
 const look = (n: number): AvatarConfig => {
@@ -42,12 +52,12 @@ export const rows: CatalogSection = {
   id: "rows", number: "6", title: "Sidebar conversation rows",
   states: [
     { id: "list", kind: "app", label: "Rows", note: "group (working), unread count, a question waiting (?)", app: LIST },
-    { id: "indicators", kind: "app", label: "One status per row", note: "Miso: waiting (?) over 3 unread. Nori: failed (!) over 1 unread. Juno: 2 unread. Pip: working dot. Kit: finished task, nothing shown. The title stays bold while there are unread messages.", app: { path: "/", indicators: true } },
+    { id: "indicators", kind: "app", label: "One status per row", note: "Miso: the waiting stamp over 3 unread. Nori: the failed stamp over 1 unread. Juno: a count of 2. Pip: the working dot on the avatar. Kit: finished task, nothing shown. The title stays bold while there are unread messages.", app: { path: "/", indicators: true } },
     { id: "indicators-collapsed", kind: "app", label: "One status per row, collapsed rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
-    { id: "rail-selected-dm", kind: "app", label: "Collapsed rail: selected Bot", note: "soft filled pill and the accent bar on the rail edge; no outline, no hard shadow", app: { ...DM, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
-    { id: "rail-selected-group", kind: "app", label: "Collapsed rail: selected group", note: "the heads apart in the pill, none overlapping", app: { ...GROUP, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "rail-selected-dm", kind: "app", label: "Collapsed rail: selected Bot", note: "the lead only, kept in the 2px ink edge of the selected row", app: { ...DM, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "rail-selected-group", kind: "app", label: "Collapsed rail: selected group", note: "the group's initials disc in its tone", app: { ...GROUP, indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
     { id: "rail-unread", kind: "app", label: "Collapsed rail: unread count", note: "Juno: the count badge, top-right of the avatar", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_juno")); } },
-    { id: "rail-question", kind: "app", label: "Collapsed rail: question waiting", note: "Miso: the ? badge, same size and place as the count", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_miso")); } },
+    { id: "rail-question", kind: "app", label: "Collapsed rail: question waiting", note: "Miso: the waiting stamp, same corner as the count", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_miso")); } },
     { id: "rail-hover", kind: "app", label: "Collapsed rail: hover tooltip", note: "lighter fill, the name in a black hint to the right of the rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.hover(ROW("dm_nori")); await step.wait(800); } },
     groupAvatars("group-avatars", "Group avatars, set A", 0),
     groupAvatars("group-avatars-b", "Group avatars, set B (other shapes and coats)", 9),
@@ -66,17 +76,24 @@ export const rows: CatalogSection = {
     { id: "search-messages-tab", kind: "app", label: "Search palette: Messages filter", app: LIST, drive: async step => { await step.click(".search-trigger"); await step.click(".search-palette-tabs button:last-child"); await step.wait(400); } },
     { id: "collapsed", kind: "app", label: "Sidebar collapsed", note: "avatars only; names move into hints", app: LIST, widths: ["desktop"],
       drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
+    { id: "foot", kind: "inline", label: "Sidebar foot: Settings, the account, update, finish setup", note: "two SidebarRows under a hairline; the account's avatar is blue, with the presence dot; the update is an info Banner with one action; the setup chip is a row with a waiting stamp",
+      render: () => <Foot><Banner className="sidebar-app-update-banner" tone="info" title="New version 0.6.4">Takes effect after restart<span className="sidebar-app-update-action"><Button variant="secondary" size="sm" icon="download">Update</Button></span></Banner><FinishSetupChip step={2} onClick={() => {}} />{settingsRow()}{identityRow()}</Foot> },
+    { id: "foot-offline", kind: "inline", label: "Sidebar foot: live connection lost", note: "the presence dot goes offline and the second line says so, in the danger text", render: () => <Foot>{settingsRow()}{identityRow({ offline: true })}</Foot> },
+    { id: "foot-rail", kind: "inline", label: "Sidebar foot in the collapsed rail", note: "lead only: the Settings glyph, the account avatar with its dot", widths: ["desktop"],
+      render: () => <div className="workspace"><div className="workspace-grid sidebar-collapsed" style={{ display: "block", width: 72, background: "var(--surface-2)", padding: 10 }}><div className="sidebar-footer"><div className="sidebar-account">{settingsRow(true)}{identityRow({ compact: true })}</div></div></div></div> },
+    { id: "narrow", kind: "app", label: "Narrow list (390): rows, eyebrows, footer", note: "from 700 px down: 44 px touch targets in the header, the footer keeps the safe-area inset, no toggle", app: { path: "/", indicators: true }, widths: ["phone"] },
+    { id: "narrow-pins", kind: "app", label: "Narrow list with a pinned row", note: "the Pinned eyebrow over a row of the same size as the list rows", app: DM, widths: ["phone"], drive: async step => { await step.find(".pin-dock .tb-srow"); } },
   ],
   gaps: ["Dragging, settling and the drop announcement: drag a row in a frame (or Alt+↑/↓ on a focused row)."],
 };
 
 export const pins: CatalogSection = {
-  id: "pins", number: "7", title: "Pinned tiles (PinTile / PinDock / PinDropZone)",
+  id: "pins", number: "7", title: "Pinned rows (PinDock / PinDropZone)",
   states: [
-    { id: "current", kind: "app", label: "Pinned tile, current", app: DM, widths: ["desktop"] },
-    { id: "idle", kind: "app", label: "Pinned tile, not current", app: GROUP, widths: ["desktop"] },
-    { id: "list", kind: "app", label: "Pinned tiles in the list (phone)", app: LIST, widths: ["phone"] },
-    { id: "focus", kind: "app", label: "Pinned tile, keyboard focus", app: LIST, drive: async step => { await step.focus(PIN); } },
+    { id: "current", kind: "app", label: "Pinned row, current", note: "a SidebarRow under the Pinned eyebrow", app: DM, widths: ["desktop"] },
+    { id: "idle", kind: "app", label: "Pinned row, not current", app: GROUP, widths: ["desktop"] },
+    { id: "list", kind: "app", label: "Pinned rows in the list (phone)", app: LIST, widths: ["phone"] },
+    { id: "focus", kind: "app", label: "Pinned row, keyboard focus", app: LIST, drive: async step => { await step.focus(PIN); } },
     { id: "collapsed", kind: "app", label: "Sidebar collapsed: one column, no names", app: LIST, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); } },
   ],
   gaps: ["Drop zone over the search box: it appears only while a row is dragged."],

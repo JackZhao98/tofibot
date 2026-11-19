@@ -73,7 +73,7 @@ for (const theme of themes) {
     await page.mouse.move(700, 500);
     await page.waitForTimeout(700);
     // The capsule holds the toggle, Search and New, each reachable (not under the drag strip or another layer).
-    for (const selector of [".sidebar-logo-expand", ".search-trigger", ".create-menu-anchor > .icon-button"]) {
+    for (const selector of [".sidebar-logo-expand", ".search-trigger", ".create-menu-anchor > .tb-iconbtn"]) {
       const hit = await page.locator(selector).evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
       if (!hit) errors.push(`${theme}: ${selector} is covered in the capsule`);
     }

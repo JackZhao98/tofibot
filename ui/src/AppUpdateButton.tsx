@@ -33,9 +33,8 @@ export function AppUpdateButton({ compact = false }: { compact?: boolean }) {
   const state = status?.state;
   return <>
     {visible && (compact
-      ? <IconButton className="sidebar-app-update" icon="download" label={label} title={label} data-state={state} aria-busy={busy || state === "downloading" || undefined} disabled={busy} onClick={install} />
-      : <Banner className="sidebar-app-update-banner" tone="info" title={title}
-        >{note}<span className="sidebar-app-update-action"><Button className="sidebar-app-update" variant="secondary" size="sm" icon="download" data-state={state} aria-label={label} data-hint={label} title={label} busy={busy || state === "downloading"} disabled={busy} onClick={install}>{t("app_update.action")}</Button></span></Banner>)}
+      ? <IconButton className="sidebar-app-update" icon="download" label={label} data-state={state} aria-busy={busy || state === "downloading" || undefined} disabled={busy} onClick={install} />
+      : <Banner className="sidebar-app-update-banner" tone="info" title={title}>{note}<span className="sidebar-app-update-action"><Button className="sidebar-app-update" variant="secondary" size="sm" icon="download" data-state={state} aria-label={label} data-hint={label} title={label} busy={busy || state === "downloading"} disabled={busy} onClick={install}>{t("app_update.action")}</Button></span></Banner>)}
     {(!visible || compact) && error && <span className="error-text" role="alert">{error}</span>}
   </>;
 }

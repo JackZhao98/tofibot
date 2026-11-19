@@ -8,7 +8,8 @@ import { arrowOpens, pressToggle } from "./overlays/OverlayHost";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, useTranslation } from "./i18n";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
-import { AppUpdateButton } from "./AppUpdateButton";
+// The native updater is a Mac-app feature: its status logic and its Banner stay out of the entry bundle and load only when the bridge exists.
+const AppUpdateButton = lazy(() => import("./AppUpdateButton").then(module => ({ default: module.AppUpdateButton })));
 import { Avatar } from "./ds/Avatar/Avatar";
 import { SidebarRow } from "./ds/SidebarRow/SidebarRow";
 import "./account-menu.css";
@@ -172,7 +173,7 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
   const address = hosting !== "self" ? "" : isDesktop ? desktopAddress : window.location.host;
   const status = connected ? t("account.live_ok") : t("account.live_lost");
   return <div className={`sidebar-account${!connected ? " is-offline" : ""}`} ref={menu}>
-    <AppUpdateButton compact={compact}/>
+    {window.tofiDesktop?.appUpdate && <Suspense fallback={null}><AppUpdateButton compact={compact}/></Suspense>}
     <SidebarRow as="button" className="sidebar-account-settings" compact={compact} icon="settings" label={t("common:nav.settings")} data-hint={t("common:nav.settings")} aria-label={t("common:nav.settings")} onClick={onSettings} />
     <SidebarRow as="button" ref={trigger} className="sidebar-account-identity" compact={compact} aria-label={t("account.menu_label", { name, status })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}
       avatar={<Avatar className="sidebar-account-monogram" name={name} tone="cobalt" size={34} status={connected ? "online" : "offline"} />}

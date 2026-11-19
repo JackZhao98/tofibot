@@ -1,7 +1,4 @@
 {
-  "account-menu.css": {
-    "bridgeUse": 1
-  },
   "admin-accounts.css": {
     "bridgeUse": 9
   },
@@ -46,9 +43,6 @@
   },
   "context-column.css": {
     "bridgeUse": 3
-  },
-  "conversation-task-status.css": {
-    "bridgeUse": 2
   },
   "conversation-workspace.css": {
     "bridgeUse": 12
@@ -142,7 +136,7 @@
     "bridgeUse": 9
   },
   "onboarding.css": {
-    "bridgeUse": 58
+    "bridgeUse": 55
   },
   "owner-setup.css": {
     "bridgeUse": 5
@@ -209,12 +203,6 @@
   "settings/spend-cap.css": {
     "bridgeUse": 1
   },
-  "sidebar-pins.css": {
-    "bridgeUse": 3
-  },
-  "sidebar-rail.css": {
-    "bridgeUse": 2
-  },
   "sidebar-shell.css": {
     "bridgeUse": 3
   },
@@ -249,7 +237,7 @@
     "bridgeUse": 20
   },
   "v2-app.css": {
-    "bridgeUse": 60,
+    "bridgeUse": 56,
     "webFork": 24
   },
   "v2-foundations.css": {
