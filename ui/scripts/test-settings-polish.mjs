@@ -31,7 +31,7 @@
 import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
 import {mkdtemp, mkdir, readFile, rm, writeFile} from "node:fs/promises";
-import {basename, dirname, join} from "node:path";
+import {dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 import {auditFocus} from "./focus-audit.mjs";
 
@@ -39,8 +39,7 @@ const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 if (!process.env.PLAYWRIGHT_MODULE) { console.log("SKIP: PLAYWRIGHT_MODULE is not set"); process.exit(0); }
 const {chromium, webkit} = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE));
 const engine = process.env.POLISH_BROWSER === "webkit" ? webkit : chromium;
-const {createServer} = await import("vite");
-const {default: react} = await import("@vitejs/plugin-react");
+import {buildAndServeFixture} from "./lib/fixture-build.mjs";
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
@@ -228,7 +227,7 @@ function auditPage(opts) {
 
 // ---------------------------------------------------------------------------------------------------------------
 const fixture = await mkdtemp(join(ui, ".settings-polish-"));
-let server, browser;
+let served, browser;
 const violations = [];
 const warnings = [];
 try {
@@ -249,6 +248,8 @@ import {subscribeSettingsDeepLinks} from '../src/settings/deepLinks';
 import {setPendingSection} from '../src/settings/pendingSection';
 
 import {UpdateBanner} from '../src/UpdateNotice';
+import {encryptPortable} from '../src/portabilityCrypto';
+(window as any).__encryptPortable=encryptPortable;
 const query=new URLSearchParams(location.search);
 if(query.get('section'))setPendingSection({scope:'settings',page:query.get('tab')!,section:query.get('section')!});
 const bots=[{id:'bot_research',name:'Research Bot',is_primary:true,archived:false,model:'default',reasoning_effort:'default'},{id:'bot_inbox',name:'Inbox Bot',archived:false,model:'gpt-6-luna',reasoning_effort:'medium'},{id:'bot_notes',name:'Notes Bot',archived:false,model:'default',reasoning_effort:'default'},{id:'bot_old',name:'Retired Bot',archived:true,model:'default',reasoning_effort:'default'}] as any;
@@ -264,9 +265,9 @@ function Fixture(){
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
-  await server.listen();
-  const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+  // Built once and served as built: a page is a few files, not one request per module.
+  served = await buildAndServeFixture(ui, fixture, {app: true});
+  const origin = served.origin;
   browser = await engine.launch(engine === chromium ? {executablePath: process.env.TOFI_TEST_CHROME || undefined} : {});
 
   // ---- Stubbed API: neutral sample data only.
@@ -431,9 +432,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const READY_MS = 60000;
   async function openTab(page, tab, mobile, params = {}) {
     const query = new URLSearchParams({lang: "en", tab, view: "page", ...params});
-    await page.goto(`${origin}/${basename(fixture)}/index.html?${query}`);
-    // Readiness waits, not speed checks: four workers cold-load the Vite dev modules at once, and on a busy machine a
-    // first paint took over 20 s (2026-11-04, admin-delete-failed; whole scenarios ran p50 11 s, max 27 s).
+    await page.goto(`${origin}${served.path}?${query}`);
+    // Readiness waits, not speed checks: a busy machine can take a long time to first paint.
     await page.locator(".settings-shell").waitFor({timeout: READY_MS});
     await page.waitForFunction(id => (document.querySelector(`.settings-page-body[data-page="${id}"]`)?.innerText ?? "").trim().length > 20, tab, {timeout: READY_MS});
     await page.waitForTimeout(tab === "usage" ? 1800 : 700);
@@ -444,7 +444,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   const click = async (locator, label) => { try { await locator.first().click({timeout: 4000}); } catch { warnings.push(`step skipped (not found): ${label}`); return false; } return true; };
   const bundleFile = async (page, {encrypt}) => {
     const source = JSON.stringify({format: "tofi.bundle", version: 3, kind: "account", included: ["bot_config", "chats", "memories", "settings", "vault_environment"], bots: [{id: "bot_research", name: "Research Bot"}, {id: "bot_inbox", name: "Inbox Bot"}], counts: {bot_config: 2}, vault_environment: [{id: "env_1", name: "WEB_API_TOKEN", target: "WEB_API_TOKEN", source_category: "active_vault"}]});
-    const text = encrypt ? await page.evaluate(async plain => (await import("/src/portabilityCrypto.ts")).encryptPortable(plain, "Synthetic-Test-Passphrase-Only"), source) : source;
+    const text = encrypt ? await page.evaluate(async plain => window.__encryptPortable(plain, "Synthetic-Test-Passphrase-Only"), source) : source;
     return {name: "sample-account.tofi.json", mimeType: "application/json", buffer: Buffer.from(text)};
   };
   const scenarios = [];
@@ -692,19 +692,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       } finally { await context?.close(); }
     }
   }
-  // Vite transforms a module on its first request. Load each selected surface once, alone, so the parallel pages below
-  // do not all wait on the same cold transforms.
   const selected = scenarios.filter(scenario => !only || only.test(scenario.id));
-  for (const tab of new Set(selected.filter(scenario => !scenario.onboarding).map(scenario => scenario.tab))) {
-    const {page, context} = await newPage(1440, 900, "light");
-    await openTab(page, tab, false);
-    await context.close();
-  }
-  if (selected.some(scenario => scenario.onboarding)) {
-    const {page, context} = await onboardingPage(1440, 900, "light");
-    await page.locator(".onb-welcome h2").waitFor();
-    await context.close();
-  }
   // One pool for every viewport and theme. Separate pools opened 16 pages at once, and the import scenarios ran their key
   // derivation together in all of them, which starved page loads on an 8-core machine.
   const queue = combos.flatMap(combo => selected.map(scenario => ({combo, scenario})));
@@ -729,6 +717,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   else console.log("PASS settings polish: 0 violations");
 } finally {
   await browser?.close();
-  await server?.close();
+  await served?.close();
   await rm(fixture, {recursive: true, force: true});
 }

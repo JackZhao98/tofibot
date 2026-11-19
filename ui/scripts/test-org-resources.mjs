@@ -291,7 +291,6 @@ try {
       stub.reset({build: {phase: "failed", version: "0.9.1", error_code: "template_stale_in_team", updated_at: "2026-11-08T19:00:00Z", min_guest_version: "0.8.0"}});
       stub.state.resources = {"computer:e2b": e2bRow()};
       const small = await open({}, {width, height, theme, touch});
-      if (width < 700) await small.page.locator('.settings-mhome [data-tab="admin-resources"]').click().catch(() => {});
       await ready(small.page);
       await note(small).waitFor();
       const overflow = await small.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -369,7 +368,6 @@ try {
     };
     for (const [width, height, touch] of [[1440, 900, false], [390, 844, true]]) {
       const {page, close} = await open({}, {width, height, theme, touch});
-      if (width < 700) await page.locator('.settings-mhome [data-tab="admin-resources"]').click().catch(() => {});
       await ready(page);
       await pane(page).locator(".web-row").first().waitFor();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -418,7 +416,6 @@ try {
     await shot(view.page, "member-models-provided-light-1440");
     await view.close();
     const phone = await open({tab: "models", policy: capabilities(provided)}, {width: 390, height: 844, theme: "dark", touch: true});
-    await phone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
     await models(phone.page).locator(".provided-card").waitFor();
     assert.ok((await phone.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, "no horizontal overflow on a phone");
     await shot(phone.page, "member-models-provided-dark-390");
@@ -507,7 +504,6 @@ try {
     await shot(signed.page, "member-own-allowed-signed-in-light-1440");
     await signed.close();
     const signedPhone = await open({tab: "models", policy: capabilities(true)}, {width: 390, height: 844, theme: "dark", touch: true});
-    await signedPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
     await section(signedPhone.page).locator('[data-provider="codex"]').waitFor();
     assert.ok((await signedPhone.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, "no horizontal overflow on a phone");
     await shot(signedPhone.page, "member-own-allowed-signed-in-dark-390");
@@ -515,7 +511,6 @@ try {
     stub.state.codex = {connected: false, needs_reconnect: false};
     stub.state.defaultModel = undefined; stub.state.models = undefined;
     const outPhone = await open({tab: "models", policy: capabilities(true)}, {width: 390, height: 844, theme: "dark", touch: true});
-    await outPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
     await section(outPhone.page).locator('[data-provider="codex"]').waitFor();
     assert.ok((await outPhone.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)) <= 0, "no horizontal overflow on a phone");
     await shot(outPhone.page, "member-own-allowed-signed-out-dark-390");
@@ -533,7 +528,6 @@ try {
       await off.close();
     }
     const offPhone = await open({tab: "models", policy: capabilities(false)}, {width: 390, height: 844, theme: "dark", touch: true});
-    await offPhone.page.locator('.settings-mhome [data-tab="models"]').click().catch(() => {});
     await models(offPhone.page).locator('[data-managed="ai_models-own"]').waitFor();
     await shot(offPhone.page, "member-own-forbidden-dark-390");
     await offPhone.close();
