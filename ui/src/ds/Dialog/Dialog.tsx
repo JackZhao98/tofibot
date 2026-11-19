@@ -13,7 +13,7 @@ export const DIALOG_SCRIM = "tb-scrim tb-scrim--modal";
 export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   /** A question or a plain statement of the action, naming the target. */
   title: ReactNode;
-  /** danger carries the red mark and `role="alertdialog"`. */
+  /** danger carries the red mark and is always `role="alertdialog"`. A neutral dialog that must be answered passes `role="alertdialog"`. */
   tone?: "neutral" | "danger";
   /** The buttons, confirm last. */
   actions?: ReactNode;
@@ -37,7 +37,7 @@ export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, 
   const titleId = useId(), bodyId = useId();
   // The Dialog names itself from its title and describes itself from its body. Radix Dialog.Content passes ids of a Title and a
   // Description we do not render, so what arrives in `rest` is replaced here.
-  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, className)} role={rest.role ?? (tone === "danger" ? "alertdialog" : "dialog")}
+  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, className)} role={tone === "danger" ? "alertdialog" : rest.role ?? "dialog"}
     aria-labelledby={rest["aria-label"] === undefined ? titleId : undefined} aria-describedby={children ? bodyId : undefined} aria-busy={busy || undefined}>
     <header className="tb-dialog-head">
       {tone === "danger" ? <span className="tb-dialog-mark"><Icon name="alert" size={20} /></span> : null}
