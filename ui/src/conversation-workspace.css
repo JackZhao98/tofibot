@@ -1,21 +1,19 @@
 /* The chat pane: layout only (V3 PR 3.1). The column is --chat-max wide, centred; the dot ground, the two ProgressiveBlur bands and the
-   jump button are kit elements that this sheet only places. Unlayered, like the kit, so a placement beats the kit's defaults.
-   Below the pane layout, the @layer legacy block holds what other PRs still own: the composer (4.1), the tool rows (4.3), the
-   widget column (5.3), the read-only trace and the narrow-width rules. */
+   jump button are kit elements that this sheet only places.
+   Below the pane layout, the same block holds what other PRs still own: the composer (4.1), the tool rows (4.3), the
+   widget column (5.3), the read-only trace and the narrow-width rules. Everything is in @layer legacy: the kit takes its own look and
+   its defaults (placement of the ground and the bands, the marker spacing) from custom properties set here. */
+@layer legacy {
 .workspace .chat-pane { position: relative; container-type: inline-size; }
-/* Ground: behind everything in the pane; it may later move on its own (arrival parallax, 3.5). */
-.workspace .chat-pane > .tb-ground { position: absolute; inset: 0; z-index: var(--z-base); pointer-events: none; }
 /* The list runs up under the header: the header is measured (--chat-header-height, Composer.tsx), the list pads itself back. */
-.workspace .chat-body { margin-top: calc(var(--chat-header-height, 64px) * -1); }
-.workspace .message-scroll { mask-image: none; -webkit-mask-image: none; scroll-padding-top: var(--chat-header-height, 64px); padding-top: calc(var(--chat-header-height, 64px) + 14px); }
-.workspace .chat-header { pointer-events: none; isolation: isolate; }
-.workspace .chat-header > * { pointer-events: auto; }
-/* Edge seals: the top band covers the header and a ramp; the bottom band covers the composer and a ramp. Both stop at the scrollbar. */
-.workspace .chat-pane > .tb-pblur { right: var(--scroll-bar-w, 0px); }
-.workspace .chat-pane > .tb-pblur--top { height: calc(var(--chat-header-height, 64px) + 30px); }
-.workspace .chat-pane > .tb-pblur--bottom { height: calc(var(--composer-height, 90px) + 40px); }
+.workspace .chat-pane .chat-body { margin-top: calc(var(--chat-header-height, 64px) * -1); }
+.workspace .chat-pane .message-scroll { mask-image: none; -webkit-mask-image: none; scroll-padding-top: var(--chat-header-height, 64px); padding-top: calc(var(--chat-header-height, 64px) + 14px); }
+.workspace .chat-pane .chat-header { pointer-events: none; isolation: isolate; }
+.workspace .chat-pane .chat-header > * { pointer-events: auto; }
+/* Edge seals: the top band covers the header and a ramp (height set in ChatPane), the bottom band the composer and a ramp. Both stop at the scrollbar. */
+.workspace .chat-pane { --pblur-inset-right: var(--scroll-bar-w, 0px); }
 /* Date and unread lines breathe: a marker is a pause in the list. */
-.workspace .message-list .tb-divider { margin: 22px 0; }
+.workspace .message-list { --divider-gap: 22px; }
 /* Back to latest: centred on the message column, above the composer; it moves left with the column when the widgets open. */
 .workspace .chat-body > .jump-latest { position: absolute; z-index: var(--z-pill); left: 0; right: var(--context-room, 0px); margin-inline: auto; bottom: calc(var(--composer-height, 90px) + 12px); }
 @media (min-width: 1100px) {
@@ -25,7 +23,6 @@
 @media (prefers-reduced-motion: reduce) { .workspace .chat-body > .jump-latest { transition: none; } }
 
 /* Conversation tools stay adjacent to their sender, including status. */
-@layer legacy {
 .work-details{max-width:var(--chat-max);margin:0 auto;padding-left:39px}
 .tool-message{margin:8px 0 12px;padding-left:0}
 .tool-sender{margin-bottom:5px;color:var(--text-soft);font-size:12px;font-weight:600}

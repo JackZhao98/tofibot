@@ -3,8 +3,8 @@ import "./ProgressiveBlur.css";
 
 export type ProgressiveBlurProps = {
   edge?: "top" | "bottom";
-  /** px, default 72. */
-  height?: number;
+  /** px (a number) or any CSS length, default 72px. */
+  height?: number | string;
   className?: string;
 };
 

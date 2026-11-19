@@ -225,7 +225,7 @@
     "bridgeUse": 5
   },
   "styles.css": {
-    "bridgeUse": 28
+    "bridgeUse": 25
   },
   "task-card.css": {
     "bridgeUse": 13
@@ -249,8 +249,8 @@
     "bridgeUse": 20
   },
   "v2-app.css": {
-    "bridgeUse": 61,
-    "webFork": 26
+    "bridgeUse": 60,
+    "webFork": 24
   },
   "v2-foundations.css": {
     "bridgeUse": 5

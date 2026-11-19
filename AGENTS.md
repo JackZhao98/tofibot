@@ -260,6 +260,18 @@ Rules:
   fits to its place (a menu's width, padding and row height, a dialog's width and scroll) is a default at `:where()` specificity in an
   `@layer legacy` block inside the kit sheet, so a contextual rule in a V2 sheet still wins. Never put a look property in that block and
   never a fit property outside it.
+- Chat frame (PR 3.1). The chat pane (`chat/ChatPane.tsx`, layout in `conversation-workspace.css`, all in `@layer legacy`) is built of kit
+  parts: `ds/Ground` (`.tb-dots tb-ground`, the 20px dot grid on its own absolutely placed layer, the first child of `.chat-pane`; the
+  chat body and the scroller are see-through), two `ds/ProgressiveBlur` bands (top: header height + 30px; bottom: composer height + 40px;
+  the heights are passed as CSS lengths, the pane sets `--pblur-inset-right` so they stop at the scrollbar), `ds/JumpButton` (arrow
+  only, class `jump-latest` kept as the hook for placement and tests; there is no new-message count), `ds/Divider` (date: a label with
+  no rule; unread: the tomato perforation; the pane sets `--divider-gap`) and `ds/Notice` (system lines, load older, history and send
+  errors; `tone="danger"` for a failed read or send, never for a run's error; at most one action; the sentence itself may be a
+  `.tb-notice-link`). The hooks `date-divider`, `unread-divider`, `message-notice`, `history-error`, `load-older` and `system-notice`
+  stay as class names for the tests and `senderGroups.ts` and carry no rule. The loading state is the plain spinner (`LoadingCat` is
+  gone). `BotAvatar.tsx` (V2) draws the ground tile (`tb-botavatar tb-bot--<ground>`, ground from `useBotGround`) around the cat
+  everywhere; the header cat keeps its motion until PR 3.2. The pane's backdrop layers: the two bands (2 each), the composer field,
+  the header pills and, while shown, the jump button.
 
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.
@@ -618,7 +630,7 @@ nothing shows when already standalone. Some browsers do not offer install on a s
 
 # Web UI layers
 
-One layer scale, in `ui/src/skin/structure.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10 (unused since the bottom blur was removed), `--z-chrome` 20, `--z-pill` 30,
+One layer scale, in `ui/src/skin/structure.css` (`--z-base` 0, `--z-raised` 1, `--z-edge-blur` 10 (the two ProgressiveBlur bands of the chat pane), `--z-chrome` 20, `--z-pill` 30,
 `--z-panel` 40, `--z-popover` 50, `--z-menu` 60, `--z-cover` 70, `--z-dialog` 80, `--z-toast` 90, `--z-tooltip` 100, `--z-drag` 110) and
 mirrored as `Z` in `ui/src/layers.ts` (docs/design/tokens.md §9). A z-index is `var(--z-*)`, `calc(var(--z-*) +/- 1)` or, inside a component's own
 stacking context, -1..3; TS writes `"var(--z-*)"`, never a number. Overlays portal into `layerRoot()` (`<div id="tofi-layers">` after `#root`,
