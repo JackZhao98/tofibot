@@ -41,13 +41,6 @@
     "important": 1,
     "tokenDef": 0
   },
-  "chat-header.css": {
-    "global": 0,
-    "rootBump": 26,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "connections/connections.css": {
     "global": 0,
     "rootBump": 2,

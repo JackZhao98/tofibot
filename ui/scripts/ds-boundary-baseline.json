@@ -100,7 +100,7 @@
     "bridgeUse": 1
   },
   "interaction-system.css": {
-    "bridgeUse": 16
+    "bridgeUse": 15
   },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
