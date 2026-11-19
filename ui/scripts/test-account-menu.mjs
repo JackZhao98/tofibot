@@ -38,8 +38,9 @@ test("footer omits client wording; the menu sheet adds no motion of its own", ()
   assert.match(source("ui/src/overlays/RadixOverlays.tsx"), /<DropdownMenu\.Content className=\{`tofi-pop /);
   assert.doesNotMatch(css, /translate|scale\(/);
   assert.match(css, /prefers-reduced-motion:reduce/);
-  assert.match(css, /-webkit-backdrop-filter:blur\(32px\)/);
-  assert.match(css, /var\(--surface\) 98%/);
+  // PLAN 74 / PR 2.3: the account menu is drawn with the kit Menu material (glass and its blur from the skin), not a sheet of its own.
+  assert.doesNotMatch(css, /backdrop-filter/);
+  assert.match(source("ui/src/ds/Menu/Menu.tsx"), /MENU_SURFACE = "tb-pop tb-glass tb-menu"/);
 });
 test("update contract is additive and wording exists in all seven locales", () => {
   const desktop = source("ui/src/desktop.ts");

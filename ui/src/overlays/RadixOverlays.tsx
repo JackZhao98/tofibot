@@ -7,6 +7,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as RadixPopover from "@radix-ui/react-popover";
 import { Children, cloneElement, Fragment, isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { MENU_ITEM, MENU_SURFACE } from "../ds/Menu/Menu";
 import { layerRoot } from "../layers";
 import { holdAvatarLife } from "../lib/tofi-avatar/index.js";
 import { OverlaySubmenu, type OverlayMenuProps, type OverlayPopoverProps } from "./OverlayHost";
@@ -51,15 +52,17 @@ function Submenu({ label, icon, className, children }: { label: string; icon?: R
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLDivElement>(null);
   return <DropdownMenu.Sub open={open} onOpenChange={setOpen}>
-    <DropdownMenu.SubTrigger ref={trigger} className="menu-subtrigger">{icon}<span>{label}</span><i className="menu-subtrigger-chevron" aria-hidden="true" /></DropdownMenu.SubTrigger>
+    <DropdownMenu.SubTrigger ref={trigger} className={`menu-subtrigger ${MENU_ITEM}`}>{icon}<span className="tb-menu-label">{label}</span><i className="tb-menu-chevron" aria-hidden="true" /></DropdownMenu.SubTrigger>
     <DropdownMenu.Portal container={layerRoot()}>
-      <DropdownMenu.SubContent className={`tofi-pop ${className ?? ""}`} aria-label={label} sideOffset={6} alignOffset={-8} collisionPadding={MENU_PADDING}
+      <DropdownMenu.SubContent className={`tofi-pop ${MENU_SURFACE} ${className ?? ""}`} aria-label={label} sideOffset={6} alignOffset={-8} collisionPadding={MENU_PADDING}
         onEscapeKeyDown={event => { event.preventDefault(); setOpen(false); trigger.current?.focus(); }}>
         {asItems(children)}
       </DropdownMenu.SubContent>
     </DropdownMenu.Portal>
   </DropdownMenu.Sub>;
 }
+
+const withItemClass = (child: ReactElement) => cloneElement(child as ReactElement<{ className?: string }>, { className: [(child.props as { className?: string }).className, MENU_ITEM].filter(Boolean).join(" ") });
 
 /** Every <button> among the children (at any depth inside plain elements and fragments) becomes a Radix item on the same element. */
 function asItems(children: ReactNode): ReactNode {
@@ -72,8 +75,10 @@ function asItems(children: ReactNode): ReactNode {
       return <DropdownMenu.Item asChild disabled={props.disabled}
         // A press that began elsewhere (the long-press that opened a context menu) must not choose the item it ends on.
         onPointerUp={event => event.preventDefault()}
-        onSelect={props["data-keep-open"] !== undefined ? event => event.preventDefault() : undefined}>{child}</DropdownMenu.Item>;
+        onSelect={props["data-keep-open"] !== undefined ? event => event.preventDefault() : undefined}>{withItemClass(child)}</DropdownMenu.Item>;
     }
+    // A link among the items (the account menu's project links) wears the item look; it is not a Radix item.
+    if (child.type === "a") return withItemClass(child);
     if (typeof child.type === "string" && props.children !== undefined) return cloneElement(child as ReactElement<ItemProps>, undefined, asItems(props.children));
     return child;
   });
@@ -105,7 +110,7 @@ export function Menu({ open, onOpenChange, className, id, label, trigger, anchor
   return <DropdownMenu.Root open={open} onOpenChange={onOpenChange} modal={false}>
     {point ? createPortal(hidden, layerRoot()) : hidden}
     <DropdownMenu.Portal container={layerRoot()}>
-      <DropdownMenu.Content className={`tofi-pop ${className ?? ""}`} id={id} aria-label={label} aria-labelledby={label ? undefined : trigger?.current?.id || undefined}
+      <DropdownMenu.Content className={`tofi-pop ${MENU_SURFACE} ${className ?? ""}`} id={id} aria-label={label} aria-labelledby={label ? undefined : trigger?.current?.id || undefined}
         side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={MENU_PADDING} data-layer={layerOf(returnTo())}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(returnTo(), outside.current); }}
         onFocusOutside={keepOnFocusMove}
@@ -164,7 +169,7 @@ export function Popover({ open, onOpenChange, className, anchor, container, take
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Anchor virtualRef={anchor} />
     <RadixPopover.Portal container={container ?? layerRoot()}>
-      <RadixPopover.Content ref={content} className={`tofi-pop ${className ?? ""}`} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={POPOVER_PADDING} data-layer={layerOf(opener.current)} {...rest}
+      <RadixPopover.Content ref={content} className={`tofi-pop tb-pop tb-glass ${className ?? ""}`} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={POPOVER_PADDING} data-layer={layerOf(opener.current)} {...rest}
         onOpenAutoFocus={event => { if (!takeFocus) event.preventDefault(); }}
         onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(opener.current, outside.current); }}
         onFocusOutside={keepOnFocusMove}

@@ -4,6 +4,8 @@
 import * as RadixSelect from "@radix-ui/react-select";
 import { useRef, useState } from "react";
 import { Icon } from "./ds/Icon/Icon";
+import "./ds/pop.css";
+import "./ds/shared.css";
 import { layerRoot } from "./layers";
 import { flatOptions, isGroup, type SelectOption, type SelectProps } from "./Select";
 
@@ -37,7 +39,7 @@ export default function SelectRadixImpl(props: SelectProps & { options: NonNulla
       <RadixSelect.Icon asChild><Icon name="chevron-down" size={16} /></RadixSelect.Icon>
     </RadixSelect.Trigger>
     <RadixSelect.Portal container={layerRoot()}>
-      <RadixSelect.Content className="tofi-pop tb-glass tb-select-list ui-select-content" position="popper" sideOffset={6} collisionPadding={POPUP_PADDING} data-layer={layer}>
+      <RadixSelect.Content className="tofi-pop tb-pop tb-glass tb-select-list ui-select-content" position="popper" sideOffset={6} collisionPadding={POPUP_PADDING} data-layer={layer}>
         <RadixSelect.Viewport className="tb-select-viewport">
           {options.map((choice, index) => isGroup(choice)
             ? <RadixSelect.Group key={`${choice.label}:${index}`}>

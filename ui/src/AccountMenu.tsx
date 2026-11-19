@@ -27,7 +27,7 @@ export function AccountMenu({ setOpen, name, trigger, menu, session, logout, onS
       </OverlaySubmenu>
       <div className="sidebar-account-menu-rule"/>
       <div className="sidebar-account-menu-footer">
-        {session?.enabled && <button className="sidebar-account-logout" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}><TofiIcon name="logout" size={16}/>{busy ? t("account.signing_out") : t("account.sign_out")}</button>}
+        {session?.enabled && <button className="sidebar-account-logout is-danger" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}><TofiIcon name="logout" size={16}/>{busy ? t("account.signing_out") : t("account.sign_out")}</button>}
         <button className="sidebar-account-theme" data-keep-open="" aria-label={t(`common:theme.${appearance.preference}`)} data-hint={t(`common:theme.${appearance.preference}`)} title={t(`common:theme.${appearance.preference}`)} onClick={() => appearance.choose(appearance.preference === "system" ? "light" : appearance.preference === "light" ? "dark" : "system")}><TofiIcon name={appearance.preference === "system" ? "monitor" : appearance.preference === "light" ? "sun" : "moon"} size={16}/></button>
       </div>
       {error && <p className="error-text" role="alert">{error}</p>}

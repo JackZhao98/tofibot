@@ -56,7 +56,7 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
     <button ref={trigger} type="button" className="st-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={t("environments.more", {name})} data-hint={t("environments.more", {name})}
       {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={t("environments.more", {name})} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
-      {items.map(action => <button key={action} type="button" className="mcp-menu-danger" data-action={action} onClick={() => { setOpen(false); onAction(action, item); }}>{t(`environments.action.${action}`)}</button>)}
+      {items.map(action => <button key={action} type="button" className="mcp-menu-danger is-danger" data-action={action} onClick={() => { setOpen(false); onAction(action, item); }}>{t(`environments.action.${action}`)}</button>)}
     </OverlayMenu>}
   </>;
 }

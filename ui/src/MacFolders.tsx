@@ -39,7 +39,7 @@ function FolderMenu({folder, disabled, onReveal, onRemove}: {folder: MacFolder; 
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       <button type="button" data-action="reveal" onClick={() => { setOpen(false); onReveal(); }}>{t("environments.folders.reveal")}</button>
       {folder.bots.length > 1 && folder.bots.map(bot => <button key={bot.id} type="button" data-action="remove-bot" data-bot={bot.id} onClick={() => { setOpen(false); onRemove(bot.id); }}>{t("environments.folders.remove_bot", {name: bot.name})}</button>)}
-      <button type="button" className="mcp-menu-danger" data-action="remove" onClick={() => { setOpen(false); onRemove(); }}>{t("environments.folders.remove")}</button>
+      <button type="button" className="mcp-menu-danger is-danger" data-action="remove" onClick={() => { setOpen(false); onRemove(); }}>{t("environments.folders.remove")}</button>
     </OverlayMenu>}
   </>;
 }
