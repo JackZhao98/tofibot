@@ -117,18 +117,11 @@ export const perch: CatalogSection = {
 };
 
 export const edges: CatalogSection = {
-  id: "edges", number: "22", title: "Edge blur, header glass and the \"new messages\" pill",
+  id: "edges", number: "22", title: "Edge blur, header and the jump button",
   states: [
-    { id: "blur", kind: "app", label: "Bottom blur and header glass", note: "messages scroll under the header and fade into the blur above the composer", app: { ...DM, longHistory: true } },
+    { id: "blur", kind: "app", label: "Top and bottom blur on the dot ground", note: "messages scroll under the header and the composer and stay visible, blurred, in both bands", app: { ...DM, longHistory: true } },
     { id: "pill", kind: "app", label: "Jump to latest", app: { ...DM, longHistory: true }, probe: ".jump-latest",
       drive: async step => { await step.scrollTo(".message-scroll", 0); await step.find(".jump-latest"); } },
-    { id: "pill-count", kind: "app", label: "Jump to latest, with new messages", app: { ...DM, longHistory: true }, probe: ".jump-latest",
-      drive: async step => {
-        await step.scrollTo(".message-scroll", 0);
-        await step.find(".jump-latest");
-        step.emit("message", { conversation_id: "dm_mochi", message: { id: "m_dm_mochi_new", conversation_id: "dm_mochi", seq: 99, role: "assistant", content: "The review is at 15:00.", created_at: new Date().toISOString(), sender_bot_id: "bot_mochi", sender_bot_name: "Mochi" } });
-        await step.find(".jump-new-count");
-      } },
   ],
   gaps: ["Reduced transparency fallback: macOS Settings › Accessibility › Display › Reduce transparency."],
 };

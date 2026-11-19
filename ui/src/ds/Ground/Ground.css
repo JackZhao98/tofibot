@@ -1,0 +1,2 @@
+/* The notebook ground: a 20px dot grid on a layer of its own, so the pane can move it (parallax, PLAN 8.2) without repainting. */
+.tb-dots { background-color: var(--bg); background-image: var(--dot-grid); background-size: var(--dot-step) var(--dot-step); background-position: calc(var(--dot-step) / 2) calc(var(--dot-step) / 2); }

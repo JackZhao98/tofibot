@@ -1,5 +1,5 @@
 /* Browser chat header: no bar. The identity and the actions are two quiet pills resting on the
-   reading plane, over frosted glass the messages scroll up under (progressive-blur.css). The action pill
+   reading plane, under the pane's top ProgressiveBlur band (conversation-workspace.css). The action pill
    is also where the top-right context card hangs from. */
 /* The macOS window-drag strip (desktop-system.css); nothing on the web. It never takes the pointer (wheel scrolls the list under the header). */
 @layer legacy {

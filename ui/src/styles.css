@@ -145,7 +145,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .work-active{width:fit-content;min-height:30px;gap:10px}
 
 .work-details{margin-left:39px;color:var(--muted);font-size:11px}
-.jump-latest{position:absolute;z-index:var(--z-pill);right:clamp(16px,4vw,32px);bottom:24px;display:inline-flex;align-items:center;gap:6px;padding:9px 13px}
 .typing-cursor{display:inline-block;width:6px;height:15px;margin-left:4px;vertical-align:-2px;background:var(--accent);animation:blink 1s infinite}
 @keyframes blink{50%{opacity:0}
 }
@@ -327,7 +326,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .message{margin-bottom:15px}
 .composer{padding-right:14px;padding-left:14px;padding-bottom:max(13px,env(safe-area-inset-bottom))}
 .composer-tools{min-height:24px}
-.jump-latest{right:15px;bottom:21px}
 .chat-name,.chat-name-pill{max-width:40vw}
 }
 

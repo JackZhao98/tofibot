@@ -406,7 +406,7 @@ export function Composer({ workStatus, activeRun, allRuns, stepRunIds, latestRep
     // Measured on the workspace so the floating desktop, mounted outside the chat pane, docks above the composer too.
     const pane = form?.closest<HTMLElement>(".workspace") ?? form?.closest<HTMLElement>(".chat-pane");
     if (!form || !pane) return;
-    // The header height too: on the web the message pane runs up under the header's frosted glass (progressive-blur.css).
+    // The header height too: on the web the message pane runs up under the header's frosted glass (the top ProgressiveBlur band, conversation-workspace.css).
     const header = pane.querySelector<HTMLElement>(".chat-header");
     const measure = () => {
       pane.style.setProperty("--composer-height", `${form.getBoundingClientRect().height}px`);

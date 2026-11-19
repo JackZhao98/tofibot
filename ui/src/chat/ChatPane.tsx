@@ -42,6 +42,9 @@ import { FirstRunHero, MailDraftCard } from "./shared";
 import { attachmentUrl } from "../filePreviewModel";
 import { type ViewOnlyChatTarget } from "../ViewOnlyChat";
 import { lazy } from "react";
+import { Ground } from "../ds/Ground/Ground";
+import { ProgressiveBlur } from "../ds/ProgressiveBlur/ProgressiveBlur";
+import { JumpButton } from "../ds/JumpButton/JumpButton";
 import { dateTimeFormat } from "../timezone";
 import { intlLocale } from "../i18n/format";
 
@@ -162,6 +165,7 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
   return (
     <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
+            <Ground />
             {header}
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             <div className="chat-body">
@@ -278,8 +282,10 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                   {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
                 </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
-              {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
+              {viewport.showJump && <JumpButton className="jump-latest" label={t("history.jump_latest")} onClick={jumpLatest} />}
             </div>
+            <ProgressiveBlur edge="top" className="chat-edge-top" />
+            <ProgressiveBlur edge="bottom" className="chat-edge-bottom" />
             {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<>{(runs.some(run => run.plan) || taskItems.some(task => task.checklist?.length) || openTasks > 0) && <PlanDock key={active.id} runs={runs} tasks={taskItems} botById={botById} group={active.kind === "group"} openTasks={openTasks} onOpenTasks={() => openSidebarId("tasks")} />}<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} /></>} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} dictationReady={config?.dictation_configured === true} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
           </>}
         </main>
