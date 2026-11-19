@@ -14,6 +14,8 @@
 .workspace .chat-pane > .tb-pblur { right: var(--scroll-bar-w, 0px); }
 .workspace .chat-pane > .tb-pblur--top { height: calc(var(--chat-header-height, 64px) + 30px); }
 .workspace .chat-pane > .tb-pblur--bottom { height: calc(var(--composer-height, 90px) + 40px); }
+/* Date and unread lines breathe: a marker is a pause in the list. */
+.workspace .message-list .tb-divider { margin: 22px 0; }
 /* Back to latest: centred on the message column, above the composer; it moves left with the column when the widgets open. */
 .workspace .chat-body > .jump-latest { position: absolute; z-index: var(--z-pill); left: 0; right: var(--context-room, 0px); margin-inline: auto; bottom: calc(var(--composer-height, 90px) + 12px); }
 @media (min-width: 1100px) {

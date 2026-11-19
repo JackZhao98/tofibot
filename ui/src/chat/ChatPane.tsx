@@ -42,6 +42,7 @@ import { FirstRunHero, MailDraftCard } from "./shared";
 import { attachmentUrl } from "../filePreviewModel";
 import { type ViewOnlyChatTarget } from "../ViewOnlyChat";
 import { lazy } from "react";
+import { Divider } from "../ds/Divider/Divider";
 import { Ground } from "../ds/Ground/Ground";
 import { ProgressiveBlur } from "../ds/ProgressiveBlur/ProgressiveBlur";
 import { JumpButton } from "../ds/JumpButton/JumpButton";
@@ -187,13 +188,13 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                         const draft = item.draft;
                         if (ownedBy(draft)) return placementsAt("draft", draft.draft_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
+                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <Divider className="date-divider">{formatDateDivider(draft.created_at, timezone)}</Divider>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
                         if (ownedBy(question)) return placementsAt("question", question.question_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
+                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <Divider className="date-divider">{formatDateDivider(question.created_at, timezone)}</Divider>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
                       }
                       const message = item.message;
                       const previous = previousItem?.kind === "message" ? previousItem.message : undefined;

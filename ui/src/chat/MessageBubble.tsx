@@ -29,6 +29,7 @@ import { useSmoothStreamText } from "../useSmoothStreamText";
 import type { Bot, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary } from "../types";
 import { MOTION, EASE } from "../motion";
 import { Avatar, blockKey, jumpToMessage, messageId, previewText } from "./shared";
+import { Divider } from "../ds/Divider/Divider";
 import { ToolActivityList, type ToolDetailState } from "./RunActivity";
 
 // Shown only before the first Bot exists.
@@ -221,8 +222,8 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
   return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
-    {m.dividerLabel !== undefined && <div className="date-divider"><span>{m.dividerLabel}</span></div>}
-    {m.unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
+    {m.dividerLabel !== undefined && <Divider className="date-divider">{m.dividerLabel}</Divider>}
+    {m.unread && <Divider tone="unread" className="unread-divider" label={t("history.unread_below")}>{t("history.unread")}</Divider>}
     <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
       <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
         run={m.run} tools={tools}
