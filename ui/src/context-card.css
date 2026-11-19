@@ -43,7 +43,7 @@
   /* Widgets. The column is a scroll container, so it would clip its cards' shadows at its own edge: it is laid out --widget-bleed-* larger than
      the cards on the left, right and bottom and pads them back in, so the shadows draw in full on every side. It also runs up under the header
      (top 0, padding for the header's height) and sits one layer below it, and the composer's box (which spans under the column and is one layer above it) lets the pointer through its empty padding (below), so cards that scroll up pass under the same progressive blur as the
-     messages (progressive-blur.css) instead of ending at a hard line. */
+     messages, under the pane's top ProgressiveBlur band (one layer above this column, below the header: conversation-workspace.css), instead of ending at a hard line. */
   .workspace .detail-pane.widget-column {
     display:flex; flex-direction:column; align-items:stretch; gap:0; box-sizing:border-box;
     border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; animation:none;
@@ -66,11 +66,9 @@
 
   /* The chat gives way to the widgets with the same motion: --m-panel-in while they open, --m-panel-out while they close. */
   .workspace .workspace-grid .message-scroll { padding-right:calc(clamp(18px,4vw,64px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
-  /* The jump pill sits at the middle of the message column, so it moves left with the column when widgets open. */
-  .workspace .workspace-grid .jump-latest { left:0; right:var(--context-room,0px); transition:right var(--m-panel-out) var(--ease-settle); }
   .workspace .workspace-grid .composer { padding-right:calc(clamp(16px,4vw,32px) + var(--context-room,0px)); transition:padding-right var(--m-panel-out) var(--ease-settle); }
   .workspace .workspace-grid:is(.context-open,.sidebar-open) .message-scroll { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
-  .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.jump-latest,.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
+  .workspace .workspace-grid:is(.context-open,.sidebar-open) :is(.composer) { transition-duration:var(--sidebar-dur); transition-timing-function:var(--ease-out); }
 
   /* Focus mode: an expanded sidebar, or a sidebar on a window too narrow to share (chat under ~640px), gives the whole chat to the
      messages. The widgets stay open and mounted, hidden once the track is in, and return as it closes. */

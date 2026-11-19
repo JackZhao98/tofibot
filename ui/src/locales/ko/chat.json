@@ -330,11 +330,9 @@
     "load_older": "이전 메시지 보기",
     "loading_messages": "메시지를 불러오는 중…",
     "unavailable_retrying": "서버에 연결할 수 없습니다. 다시 시도하는 중…",
-    "new_count_other": "새 메시지 {{count}}개",
     "older_failed": "이전 메시지를 불러오지 못했습니다: {{error}}",
     "unread": "읽지 않음",
-    "unread_below": "아래부터 읽지 않은 메시지",
-    "view_latest": "최신 메시지 보기"
+    "unread_below": "아래부터 읽지 않은 메시지"
   },
   "hover": {
     "copy": "복사",

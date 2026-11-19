@@ -12,7 +12,6 @@ import { TofiIcon as Icon } from "../icons";
 import { Suspense } from "react";
 import { type AvatarMotion } from "../BotAvatar";
 import { CATS, EmptyCat, EmptyState } from "../EmptyCat";
-import { LoadingCat } from "../motion/legacy/LoadingCat";
 import { receiptFor } from "../sendReceipts";
 import { mergeRunUpdates } from "../runMerge";
 import { DraftStream } from "../draftStream";
@@ -42,6 +41,12 @@ import { FirstRunHero, MailDraftCard } from "./shared";
 import { attachmentUrl } from "../filePreviewModel";
 import { type ViewOnlyChatTarget } from "../ViewOnlyChat";
 import { lazy } from "react";
+import { Notice } from "../ds/Notice/Notice";
+import { Button } from "../ds/Button/Button";
+import { Divider } from "../ds/Divider/Divider";
+import { Ground } from "../ds/Ground/Ground";
+import { ProgressiveBlur } from "../ds/ProgressiveBlur/ProgressiveBlur";
+import { JumpButton } from "../ds/JumpButton/JumpButton";
 import { dateTimeFormat } from "../timezone";
 import { intlLocale } from "../i18n/format";
 
@@ -162,16 +167,18 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
   return (
     <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
+            <Ground />
+            <ProgressiveBlur edge="top" above height="calc(var(--chat-header-height, 64px) + 30px)" />
             {header}
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             <div className="chat-body">
               <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
                 <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
-                  {viewport.boundaryError && <div className="history-error" role="alert">{t("history.boundary_failed")}<button onClick={viewport.retryBoundary}>{t("common:action.retry")}</button><button onClick={jumpLatest}>{t("history.view_latest")}</button></div>}
-                  {historyError && !viewport.boundaryError && <div className="history-error history-error-older" role="alert"><span>{t("history.older_failed", { error: historyError })}</span><button onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</button></div>}
-                  {hasMore && <button className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</button>}
+                  {viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error" action={<Button variant="ghost" size="sm" onClick={viewport.retryBoundary}>{t("common:action.retry")}</Button>}>{t("history.boundary_failed")}</Notice>}
+                  {historyError && !viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error history-error-older" action={<Button variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</Button>}>{t("history.older_failed", { error: historyError })}</Notice>}
+                  {hasMore && <Notice icon="history" className="load-older-row" action={<Button variant="ghost" size="sm" className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</Button>} />}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className="inline-state"><div className="spinner" />{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       if (index < timelineFrom) return null;
@@ -183,13 +190,13 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                         const draft = item.draft;
                         if (ownedBy(draft)) return placementsAt("draft", draft.draft_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(draft.created_at, timezone) || +new Date(draft.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(draft.created_at, timezone)}</span></div>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
+                        return <div className="message-block" key={`mail-draft-${draft.draft_id}`}>{divider && <Divider className="date-divider">{formatDateDivider(draft.created_at, timezone)}</Divider>}<Suspense fallback={null}><MailDraftCard draft={draft} bot={botById.get(draft.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async () => { await mailDrafts.refresh(); await refreshConversations(); }} /></Suspense></div>;
                       }
                       if (item.kind === "question") {
                         const question = item.question;
                         if (ownedBy(question)) return placementsAt("question", question.question_id).map(renderPlacement);
                         const divider = !previousTime || dateInTimezone(previousTime, timezone) !== dateInTimezone(question.created_at, timezone) || +new Date(question.created_at) - +new Date(previousTime) >= 10 * 60_000;
-                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <div className="date-divider"><span>{formatDateDivider(question.created_at, timezone)}</span></div>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
+                        return <div className="message-block" key={`question-${question.question_id}`}>{divider && <Divider className="date-divider">{formatDateDivider(question.created_at, timezone)}</Divider>}<Suspense fallback={null}><QuestionCard item={question} bot={botById.get(question.bot_id)} group={active.kind === "group"} archived={active.archived} onChanged={async (resolved) => { await questions.refresh(resolved); await refreshConversations(); }} /></Suspense></div>;
                       }
                       const message = item.message;
                       const previous = previousItem?.kind === "message" ? previousItem.message : undefined;
@@ -275,11 +282,12 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                   <ToolActivityList activities={toolTimeline.fallback} summaries={terminalToolSummaries.filter(summary => toolTimeline.fallback.some(activity => activity.run_id === summary.run_id))} details={toolDetailState} onLoadDetails={loadToolDetails} botById={botById} activeRunIds={activeRunIds} group={active.kind === "group"} />
                   {placementsAt(undefined).map(renderPlacement)}
                   {!isDesktop && pendingRuns.filter(run => !ownedRunIDs.has(run.id)).map(run => <LiveRunStatus key={run.id} run={run} botName={run.kind === "triage" ? "Tofi" : botById.get(run.bot_id)?.name ?? "Bot"} showName={active.kind === "group"} />)}
-                  {error && !proxyChallenged && <div className="error-banner system-notice" role="alert">{error}</div>}
+                  {error && !proxyChallenged && <Notice tone="danger" icon="error" className="error-banner system-notice">{error}</Notice>}
                 </div></ComputerLookContext.Provider></ActivityViewContext.Provider></RunStartContext.Provider></ExpiryFinishingContext.Provider>
               </div>
-              {viewport.showJump && <button className="jump-latest" aria-label={t("history.jump_latest")} onClick={jumpLatest}><Icon name="arrow-down" size={18} variant="filled" />{viewport.newCount > 0 && <span className="jump-new-count">{t("history.new_count", { count: viewport.newCount })}</span>}</button>}
+              {viewport.showJump && <JumpButton className="jump-latest tb-jump--solid" label={t("history.jump_latest")} onClick={jumpLatest} />}
             </div>
+            <ProgressiveBlur edge="bottom" height="calc(var(--composer-height, 90px) + 40px)" />
             {active.kind === "group" && !active.archived && !active.bot_ids.some(id => botById.has(id) && !botById.get(id)?.archived) ? <div className="composer empty-group-composer"><span>{t("composer.no_members")}</span><button className="secondary-button" onClick={() => openCoverPanel("group-settings")}>{t("composer.add_members")}</button></div> : <Composer workStatus={<>{(runs.some(run => run.plan) || taskItems.some(task => task.checklist?.length) || openTasks > 0) && <PlanDock key={active.id} runs={runs} tasks={taskItems} botById={botById} group={active.kind === "group"} openTasks={openTasks} onOpenTasks={() => openSidebarId("tasks")} />}<WorkingMembers isGroup={active.kind === "group"} companionBotId={active.kind === "dm" ? active.bot_id || active.bot_ids[0] : undefined} companionMotion={active.kind === "dm" ? conversationMotion(active, active.bot_id || active.bot_ids[0]) : undefined} workingBotIds={active.working_bot_ids ?? []} drafts={Object.values(drafts)} runs={runs} botById={botById} toolActivities={toolActivities} signals={runSignals} connected={streamConnected} /></>} activeRun={runs.find(run => run.status === "running" || run.status === "queued" || run.status === "waiting")} allRuns={runs} stepRunIds={stepRunIds} latestReplyId={messages.filter(message => message.role === "assistant").at(-1)?.id} onRunsStopped={stopped => setRuns(current => mergeRunUpdates(current, stopped))} onStopError={setError} avatarMention={avatarMention} conversation={active} bots={bots} draft={composerDrafts[active.id] ?? emptyComposerDraft()} onDraftChange={updateComposerDraft} onSend={send} onSendStart={jumpLatest} onSent={jumpLatest} modelConfigured={config?.model_configured ?? false} dictationReady={config?.dictation_configured === true} onConnectModel={connectModel} draftReady={composerDraftReady} readOnly={Boolean(active.archived)} />}
           </>}
         </main>

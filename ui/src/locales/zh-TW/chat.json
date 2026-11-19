@@ -330,11 +330,9 @@
     "load_older": "查看更早的訊息",
     "loading_messages": "讀取訊息…",
     "unavailable_retrying": "無法連線到伺服器，正在重試…",
-    "new_count_other": "{{count}} 則新訊息",
     "older_failed": "暫時無法載入更早的訊息：{{error}}",
     "unread": "未讀",
-    "unread_below": "以下為未讀訊息",
-    "view_latest": "查看最新訊息"
+    "unread_below": "以下為未讀訊息"
   },
   "hover": {
     "copy": "複製",

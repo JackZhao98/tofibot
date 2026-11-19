@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "../../i18n";
 import { BotAvatar as BotCat } from "../../BotAvatar";
-import { getBotGround, subscribeBotGround, type Ground } from "../../avatarStore";
+import type { Ground } from "../../avatarStore";
+import { useBotGround } from "../../useBotGround";
 import { Icon } from "../Icon/Icon";
 import { cx } from "../cx";
 import "../bot-context.css";
@@ -26,27 +26,17 @@ export type BotAvatarProps = {
   className?: string;
 };
 
-function useGround(id: string | undefined): Ground | undefined {
-  const [ground, setGround] = useState<Ground | undefined>(() => id ? getBotGround(id) : undefined);
-  useEffect(() => {
-    if (!id) { setGround(undefined); return; }
-    setGround(getBotGround(id));
-    return subscribeBotGround(id, setGround);
-  }, [id]);
-  return ground;
-}
-
 /** A Bot: a squircle in its colour holding the cat, with a small status dot. Still everywhere except the chat header
  *  (V3 PLAN 8.2): the cat here is drawn once, with no life layer. */
 export function BotAvatar({ id, name, coat, size = 40, state, src, className }: BotAvatarProps) {
   const { t } = useTranslation();
-  const stored = useGround(id);
+  const stored = useBotGround(id);
   const ground = coat ?? stored ?? "tomato";
   const showDot = state && state !== "asleep";
   return <span className={cx("tb-botavatar", ground !== "paper" && `tb-bot--${ground}`, ground === "paper" && "tb-botavatar--paper", state && `is-${state}`, className)}
     style={{ width: size, height: size }} role="img" aria-label={state ? `${name}, ${t(`ds.botState.${state}`)}` : name}>
     {src ? <img src={src} alt="" />
-      : id ? <span className="tb-botavatar-cat"><BotCat id={id} mini still /></span>
+      : id ? <span className="tb-botavatar-cat"><BotCat id={id} mini still bare /></span>
       : <Icon name="bot" size={Math.round(size * 0.55)} />}
     {showDot && <span className="tb-botavatar-dot" aria-hidden="true" />}
   </span>;

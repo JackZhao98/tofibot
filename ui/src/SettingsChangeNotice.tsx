@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApiError, request } from "./api";
 import { useTranslation } from "./i18n";
+import { Notice } from "./ds/Notice/Notice";
 import type { Message } from "./types";
 
 /** The name of a setting in the person's language, from the catalog key the server sent ("chat:botPanel.name"); empty when this build does not have it. */
@@ -29,12 +30,12 @@ export default function SettingsChangeNotice({ notice, fallback, title }: { noti
     }
   }
   const line = label ? t("message.settings_change", { label, old: notice.old_value || t("message.settings_change_empty"), new: notice.new_value || t("message.settings_change_empty") }) : fallback;
-  return <article className="message message-notice" title={title}><div data-settings-change={notice.change_id}>
+  return <article className="message message-notice" title={title}><Notice icon="sliders"><span data-settings-change={notice.change_id}>
     <span>{line}</span>
     {undone ? <span className="settings-change-state"> · {t("message.settings_change_undone")}</span>
-      : notice.revertable && notice.change_id ? <> · <button type="button" disabled={state === "busy"} onClick={() => void undo()}>{t("message.settings_change_undo")}</button></>
+      : notice.revertable && notice.change_id ? <> · <button type="button" className="tb-notice-link" disabled={state === "busy"} onClick={() => void undo()}>{t("message.settings_change_undo")}</button></>
       : null}
     {state === "failed" && <span role="alert" className="settings-change-state"> · {t("message.settings_change_undo_failed")}</span>}
     {state === "stale" && <span role="alert" className="settings-change-state"> · {t("message.settings_change_stale")}</span>}
-  </div></article>;
+  </span></Notice></article>;
 }

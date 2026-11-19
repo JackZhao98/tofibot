@@ -12,7 +12,6 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createFixture } from "./lib/chat-fixture.mjs";
-const blurCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "progressive-blur.css"), "utf8");
 
 const fixture = await createFixture({ engineName: process.env.LIVE_FIXES_ENGINE === "webkit" ? "webkit" : "chromium" });
 // Backdrop blur does not reach screenshots in headless WebKit: the pixel checks run in Chromium, the structural ones in both.
@@ -65,6 +64,10 @@ for (const size of sizes) {
     await page.evaluate(({ WHOLE }) => window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }), { WHOLE: fixture.WHOLE });
     await page.locator(".jump-latest").waitFor();
     await page.waitForTimeout(600);
+    // PLAN R2: at most 5 backdrop-filter layers on the chat screen, the jump button showing (the two bands, the composer field, nothing else).
+    const layers = await page.evaluate(() => { const has = cs => { const v = cs.backdropFilter || cs.webkitBackdropFilter || "none"; return v !== "none"; }; const found = []; for (const el of document.querySelectorAll(".chat-pane, .chat-pane *")) for (const pseudo of [null, "::before", "::after"]) if (has(getComputedStyle(el, pseudo))) found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]}${pseudo ?? ""}`); return found; });
+    report[`blurLayers ${size.name}`] = layers;
+    assert.ok(layers.length <= 5, `${layers.length} backdrop-filter layers in the chat pane (limit 5): ${layers.join(", ")}`);
     const hit = await page.evaluate(() => {
       const pill = document.querySelector(".jump-latest"); const r = pill.getBoundingClientRect();
       const at = (x, y) => { const el = document.elementFromPoint(x, y); return Boolean(el && pill.contains(el)); };
@@ -84,26 +87,34 @@ for (const size of sizes) {
   });
 }
 
-await check("there is no blur or veil above the composer (owner 2026-10-26); the header keeps its blur", async () => {
+await check("both edges of the message pane are ProgressiveBlur bands (owner 2026-11-16); the pane itself is not masked", async () => {
   const { page, context } = await fixture.open({ viewport: { width: 1440, height: 1028 } });
   const info = await page.evaluate(() => {
-    const veil = getComputedStyle(document.querySelector(".composer"), "::before");
     const scroll = getComputedStyle(document.querySelector(".message-scroll"));
-    return { strips: document.querySelectorAll(".edge-blur").length, veilContent: veil.content, veilImage: veil.backgroundImage, mask: scroll.maskImage || scroll.webkitMaskImage || "none", header: getComputedStyle(document.querySelector(".chat-header"), "::before").backdropFilter };
+    const band = edge => { const el = document.querySelector(`.chat-pane > .tb-pblur--${edge}`); if (!el) return null; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el), before = getComputedStyle(el, "::before"), after = getComputedStyle(el, "::after"); const blur = c => parseFloat((c.backdropFilter || c.webkitBackdropFilter || "").replace(/.*blur\(([\d.]+)px\).*/, "$1")) || 0; return { z: cs.zIndex, pointer: cs.pointerEvents, blurs: [blur(before), blur(after)], masks: [before, after].map(c => c.maskImage || c.webkitMaskImage || "none"), top: r.top, bottom: r.bottom, height: r.height }; };
+    const composer = document.querySelector(".composer").getBoundingClientRect(), pane = document.querySelector(".chat-pane").getBoundingClientRect();
+    return { top: band("top"), bottom: band("bottom"), mask: scroll.maskImage || scroll.webkitMaskImage || "none", composerTop: composer.top, paneBottom: pane.bottom, veil: getComputedStyle(document.querySelector(".composer"), "::before").content, ground: Boolean(document.querySelector(".chat-pane > .tb-dots.tb-ground")) };
   });
-  report.noBottomBlur = info;
-  assert.equal(info.strips, 0, "no bottom blur strip is rendered");
-  assert.ok(info.veilContent === "none" || info.veilContent === "normal" || info.veilImage === "none", `no veil above the composer (${info.veilContent} ${info.veilImage})`);
-  assert.equal(info.mask, "none", "the message pane has no bottom fade mask");
-  assert.ok(/blur/.test(info.header), "the header blur stays");
+  report.edges = info;
+  for (const edge of ["top", "bottom"]) {
+    assert.ok(info[edge], `the ${edge} band is rendered`);
+    assert.ok(info[edge].blurs.every(blur => blur > 0) && info[edge].blurs[1] > info[edge].blurs[0], `the ${edge} band has two strengthening blur layers`);
+    assert.ok(info[edge].masks.every(mask => /gradient/.test(mask)), `the ${edge} band fades out through gradient masks`);
+    assert.equal(info[edge].pointer, "none", `the ${edge} band never takes the pointer`);
+  }
+  assert.ok(info.bottom.top <= info.composerTop, "the bottom band reaches up over the composer's top edge");
+  assert.ok(Math.abs(info.bottom.bottom - info.paneBottom) <= 1, "the bottom band sits on the pane's bottom edge");
+  assert.equal(info.mask, "none", "the message pane has no mask");
+  assert.ok(info.veil === "none" || info.veil === "normal", `no veil pseudo-element on the composer (${info.veil})`);
+  assert.ok(info.ground, "the dot ground is its own layer in the pane");
   await context.close();
 });
 
-await check("the header is see-through frosted glass: content runs under it, blurred and visible, with a light tint and a ramp", async () => {
+await check("the top band is see-through frosted glass: content runs under the header, blurred and visible, with a light tint and a ramp", async () => {
   const { page, context } = await fixture.open({ viewport: { width: 1440, height: 1028 } });
   const info = await page.evaluate(() => {
     const header = document.querySelector(".chat-header"), scroller = document.querySelector(".message-scroll");
-    const hs = getComputedStyle(header, "::before"), ha = getComputedStyle(header, "::after");
+    const band = document.querySelector(".chat-pane > .tb-pblur--top"), hs = getComputedStyle(band, "::before"), ha = getComputedStyle(band, "::after");
     const rgba = value => { const m = value.match(/rgba?\(([^)]+)\)/); if (!m) return 0; const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return p.length > 3 ? p[3] : 1; };
     const hr = header.getBoundingClientRect(), sr = scroller.getBoundingClientRect();
     const sheetText = [...document.styleSheets].flatMap(sh => { try { return [...sh.cssRules].map(r => r.cssText); } catch { return []; } }).join("\n");
@@ -150,8 +161,8 @@ await check("the header is see-through frosted glass: content runs under it, blu
 });
 
 await check("scrolling under the blur stays inside the frame budget", async () => {
-  // "off" is the pane as it was: no strip, no header glass, the composer field on its own frosted glass.
-  const OFF = ".chat-header::before,.chat-header::after{display:none!important}.composer-row{-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}";
+  // "off" is the pane without its two bands, the composer field on its own frosted glass.
+  const OFF = ".tb-pblur{display:none!important}.composer-row{-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}";
   const once = async hide => {
     const { page, context } = await fixture.open({ viewport: { width: 1180, height: 820 } });
     if (hide) await page.addStyleTag({ content: OFF });

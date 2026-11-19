@@ -3,9 +3,11 @@
 
 /* Shell and navigation: the web sidebar is solid, never decorative glass. */
 @layer legacy {
-.workspace,.workspace .chat-pane,.workspace .chat-body,.workspace .message-scroll {
+.workspace,.workspace .chat-pane {
   background:var(--bg); color:var(--ink);
 }
+/* The chat body and its scroller are see-through: the pane's own dot ground (ds/Ground) shows behind the messages. */
+.workspace :is(.chat-body,.message-scroll) { color:var(--ink); }
 .workspace .workspace-grid { --sidebar-width:var(--v2-sidebar-width); }
 .workspace .contact-pane {
   background:var(--sunk); border-right:1px solid var(--line-soft);
@@ -91,7 +93,7 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
-/* The chat header (both shells) is chat-header.css + progressive-blur.css: two pills over a light progressive blur. */
+/* The chat header (both shells) is chat-header.css: two pills over the pane's top ProgressiveBlur band. */
 .workspace .chat-identity { gap:8px; padding:4px 8px 4px 2px; border:0; border-radius:12px; background:transparent; }
 .workspace .chat-identity:hover { background:var(--surface-2); }
 .workspace .member-avatar-stack { min-width:40px; }
@@ -111,10 +113,6 @@
 /* The floating composer is reserved once; its own padding provides the gap. */
 /* Keep the latest reply above the cat; older messages may scroll behind it. */
 .workspace .message-list { max-width:var(--v2-chat-width); margin:auto; }
-.workspace .date-divider,.workspace .unread-divider { margin:24px auto; color:var(--muted); font:11px/1.3 var(--mono); }
-.workspace .date-divider::before,.workspace .date-divider::after { background:var(--line-soft); }
-.workspace .unread-divider { color:var(--orange-text); }
-:is(#_,.workspace .unread-divider)::before,:is(#_,.workspace .unread-divider)::after{background:var(--orange)}
 /* Sender-neutral spacing; grouping, metadata and reactions keep their own gaps. */
 .workspace .message { margin-bottom:10px; }
 .workspace .message.message-compact { margin-bottom:6px; }
@@ -179,8 +177,6 @@ html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot
   border-radius:12px; font:var(--type-code);
 }
 .workspace .message-code code,.workspace .message-content pre code { color:inherit; background:transparent; border:0; font-size:inherit; }
-.workspace .message-notice { color:var(--muted); font:11px/1.5 var(--mono); }
-.workspace .message-notice button:hover { background:var(--surface-2); color:var(--ink); }
 .workspace .message-mention { background:var(--pink); color:var(--on-block); border-radius:6px; }
 .workspace .related-message-link { background:var(--surface); border-color:var(--line-soft); color:var(--ink-soft); }
 .workspace .related-message-link:hover { border-color:var(--line); color:var(--ink); }
@@ -314,10 +310,6 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .scheduled-task-recovery summary { color:var(--ink-soft); }
 .workspace .scheduled-task-recovery .error-text { max-height:160px; overflow:auto; font:11px/1.5 var(--mono); }
 .workspace .scheduled-task-recovery button { min-height:34px; margin-top:2px; padding:5px 9px; border:1px solid var(--line-soft); border-radius:8px; }
-.workspace .jump-latest { left:0; right:0; margin-inline:auto; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:40px; height:40px; min-height:40px; padding:0; border:2px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); font:600 12px/1 var(--mono); transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out); }
-.workspace .jump-latest:has(.jump-new-count) { width:fit-content; padding:0 12px; border-radius:999px; }
-.workspace .jump-latest:hover { transform:translate(-1px,-1px); box-shadow:var(--shadow); }
-.workspace .jump-latest:active { transform:translate(2px,3px); box-shadow:none; }
 
 /* Decision, work, and computer surfaces retain their different visual weight. */
 .workspace .scheduled-task-row { margin:4px auto 10px; }
@@ -414,9 +406,6 @@ html:not([data-desktop]) .workspace .conversation-empty{align-content:center;jus
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
 html:not([data-desktop]) .workspace .web-memory-empty strong{margin-top:8px;color:var(--ink);font:700 18px/1.2 var(--display)}
 html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--muted);font:var(--type-meta)}
-html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in var(--m-panel-in) var(--ease-out) both}
-@keyframes web-loading-in{from{opacity:0}}
-@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
 
 /* Browser-mode message actions: a quiet row directly under the message (after its reaction chips), no container: line icons
    in muted ink that darken on hover, the relative time last. It is mounted only for the message the pointer, focus or a tap is on,

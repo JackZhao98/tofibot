@@ -1,3 +1,4 @@
-.tb-divider { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 6px 0; font: 600 11px/1.2 var(--font-mono); letter-spacing: .08em; color: var(--muted); }
+.tb-divider { display: flex; align-items: center; justify-content: center; gap: 12px; margin: var(--divider-gap, 6px) 0; font: 600 11px/1.2 var(--font-mono); letter-spacing: .08em; color: var(--muted); }
+.tb-divider::before, .tb-divider::after { content: none; }
 .tb-divider--unread { color: var(--tomato-text); }
 .tb-divider--unread::before, .tb-divider--unread::after { content: ""; flex: 1; height: 2px; background: radial-gradient(circle, var(--tomato) 1px, transparent 1.3px) 0 0 / 8px 2px repeat-x; }

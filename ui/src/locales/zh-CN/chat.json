@@ -330,11 +330,9 @@
     "load_older": "查看更早消息",
     "loading_messages": "读取消息…",
     "unavailable_retrying": "无法连接服务器，正在重试…",
-    "new_count_other": "{{count}} 条新消息",
     "older_failed": "暂时无法加载更早消息：{{error}}",
     "unread": "未读",
-    "unread_below": "以下为未读消息",
-    "view_latest": "查看最新消息"
+    "unread_below": "以下为未读消息"
   },
   "hover": {
     "copy": "复制",

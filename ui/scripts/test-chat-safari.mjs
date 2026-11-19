@@ -375,7 +375,8 @@ await check("phone: keyboard open hides the perch and returns room to the conver
   await page.waitForTimeout(150);
   const open_ = await measure();
   assert.equal(open_.perch, "none", "perch hidden while the keyboard is up");
-  assert.ok(open_.pad <= 9, `keyboard-open band is ${open_.pad}px beyond the composer (limit 9)`);
+  // PR 3.1: the bottom ProgressiveBlur ramp reaches 40px above the composer, so the last message clears it plus the 8px gap.
+  assert.ok(open_.pad >= 40 && open_.pad <= 49, `keyboard-open band is ${open_.pad}px beyond the composer (want 40 to 49: ramp + gap)`);
   // The message pane runs up under the header's glass, so its top padding is the header's height plus the 8 px of room.
   const headerH = await page.evaluate(() => document.querySelector(".chat-header").getBoundingClientRect().height);
   assert.ok(open_.top - headerH <= 9, `keyboard-open top padding is ${open_.top}px (header ${headerH}px)`);

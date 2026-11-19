@@ -45,7 +45,6 @@ import "./web-sidebar-list.css";
 import "./sidebar-pins.css";
 import "./sidebar-rail.css";
 import "./chat-header.css";
-import "./progressive-blur.css";
 import "./context-card.css";
 import "./ds/legacy-aliases.css";
 import "./forced.css";

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { mountCat, type AvatarConfig, type CatAvatar } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
+import { useBotGround } from "./useBotGround";
+import "./ds/bot-context.css";
+import "./ds/BotAvatar/BotAvatar.css";
 import { directAvatarMotion, type AvatarMotion } from "./avatarMotionDirector";
 
 export type { AvatarMotion } from "./avatarMotionDirector";
@@ -24,7 +27,7 @@ function whenNearViewport(element: Element, callback: () => void) {
   return () => { nearCallbacks.delete(element); nearObserver?.unobserve(element); };
 }
 
-export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
+export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false, bare = false, plain = false }: { id: string; /** The cat in its V2 box with no tile: the working cats by the composer, until PR 4.1 removes them. */ plain?: boolean; /** Only the cat, with no tile: the caller (the kit BotAvatar) draws the ground tile. */ bare?: boolean; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
   const previousMotion = useRef<AvatarMotion>("sleeping");
@@ -32,6 +35,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
   const [near, setNear] = useState(!mini);
   const [storedConfig, setStoredConfig] = useState<AvatarConfig>(() => getBotAvatarConfig(id));
   const appearance = config ?? storedConfig;
+  const ground = useBotGround(id) ?? "tomato";
   const effectiveMotion = motion ?? (animated ? "working" : "sleeping");
   useEffect(() => {
     setStoredConfig(getBotAvatarConfig(id));
@@ -81,5 +85,6 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
       if (controller.current === cat) cat.setAutoplay(false);
     };
   }, [id, appearance.shape, effectiveMotion, motion, mini, near]);
-  return <span className={`avatar ${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
+  if (bare) return <span className="tofi-avatar" ref={host} aria-hidden="true" />;
+  return <span className={`avatar ${plain ? "" : `tb-botavatar tb-bot--${ground} `}${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
 }

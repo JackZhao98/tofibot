@@ -5,6 +5,7 @@ import { Avatar } from "../../ds/Avatar/Avatar";
 import { Button } from "../../ds/Button/Button";
 import { Divider } from "../../ds/Divider/Divider";
 import { JumpButton } from "../../ds/JumpButton/JumpButton";
+import { Notice } from "../../ds/Notice/Notice";
 import { LiveLine } from "../../ds/LiveLine/LiveLine";
 import { Mention, type MentionTone } from "../../ds/Mention/Mention";
 import { ProcessLine, ProcessPad } from "../../ds/ProcessLine/ProcessLine";
@@ -49,6 +50,15 @@ export const conversation: CatalogState[] = [
     </div> },
   { id: "divider", kind: "inline", label: "Divider · date, unread line",
     render: () => <div className="catalog-stack"><Divider>Today · 14:20</Divider><Divider tone="unread">3 new</Divider></div> },
+  { id: "notice-lines", kind: "inline", label: "Notice · text only, one action, the sentence as the action, a failed read",
+    note: "At most one action. Spend reminders, handovers, a command that ended, a read that failed. Never a run's error.",
+    render: () => <div className="catalog-stack">
+      <Notice icon="retry">Resuming from the last checkpoint.</Notice>
+      <Notice icon="alert" action={<Button variant="ghost" size="sm" onClick={noop}>Open usage</Button>}>You have used $52.40 of your $60 monthly limit.</Notice>
+      <Notice icon="bot-handoff"><button type="button" className="tb-notice-link" onClick={noop}>Mochi handed this over to Pip</button></Notice>
+      <Notice icon="history" action={<Button variant="ghost" size="sm" onClick={noop}>View earlier messages</Button>} />
+      <Notice tone="danger" icon="alert" action={<Button variant="ghost" size="sm" onClick={noop}>Retry</Button>}>Couldn't load earlier messages: the server is not answering.</Notice>
+    </div> },
   { id: "progressive-blur", kind: "inline", label: "ProgressiveBlur · bottom and top bands over scrolling text",
     note: "Two layers fade out from the edge; the text stays visible, blurred, as it passes under.",
     render: () => <Dots><div className="catalog-stack" style={{ position: "relative", height: 190, overflow: "hidden" }}>

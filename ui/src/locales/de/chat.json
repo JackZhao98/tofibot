@@ -335,12 +335,9 @@
     "load_older": "Ältere Nachrichten anzeigen",
     "loading_messages": "Nachrichten werden geladen…",
     "unavailable_retrying": "Server nicht erreichbar. Neuer Versuch …",
-    "new_count_one": "{{count}} neue Nachricht",
-    "new_count_other": "{{count}} neue Nachrichten",
     "older_failed": "Ältere Nachrichten konnten nicht geladen werden: {{error}}",
     "unread": "Ungelesen",
-    "unread_below": "Ungelesene Nachrichten ab hier",
-    "view_latest": "Neueste Nachrichten anzeigen"
+    "unread_below": "Ungelesene Nachrichten ab hier"
   },
   "hover": {
     "copy": "Kopieren",

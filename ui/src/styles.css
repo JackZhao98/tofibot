@@ -90,18 +90,12 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .tool-activity-details pre{max-height:160px;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text-soft);font:11px/1.45 ui-monospace,monospace}
 
 .message-scroll{position:relative;min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:34px clamp(16px,5vw,80px) 120px;scroll-behavior:auto}
-.load-older{display:block;margin:0 auto 18px;color:var(--muted);border:0;background:transparent;font-size:12px}
 .inline-state,.conversation-empty{display:grid;place-items:center;min-height:250px;color:var(--muted);font-size:13px;gap:10px}
 .conversation-empty h2{margin:0;color:var(--text);font-size:17px}
 .conversation-empty p{max-width:300px;margin:-1px 0 0;text-align:center;line-height:1.6}
 .message-block,.message{max-width:var(--chat-max);margin-right:auto;margin-left:auto}
 .message{display:flex;align-items:flex-end;width:100%;margin-bottom:16px}
 .message.message-compact{margin-bottom:5px}
-.message-notice{display:flex;justify-content:center;margin:10px auto}
-.message-notice button{padding:3px 7px;color:inherit;border:0;border-radius:6px;background:transparent;font-size:inherit}
-.message-notice button:hover{color:var(--text);background:var(--surface-hover)}
-.message-notice .settings-change-state{color:var(--text-soft)}
-.message-notice [data-settings-change] button{text-decoration:underline;text-underline-offset:2px}
 .message-meta{gap:7px;min-height:23px;margin:0 0 5px}
 .message-meta:empty{display:none}
 .message-meta.compact{min-height:0;height:0;margin:0 0 2px;overflow:hidden}
@@ -132,12 +126,8 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .related-message-link:hover{background:var(--surface-hover);color:var(--text)}
 .related-message-avatars{display:inline-flex;align-items:center;padding-left:2px}.related-message-avatars .avatar{width:20px;height:20px;margin-left:-4px;border:2px solid var(--surface)}.related-message-avatars .avatar:first-child{margin-left:0}.related-message-avatars em{margin-left:2px;font-style:normal}
 .message-user .related-message-link{margin-left:auto}
-.message-notice>div{display:flex;align-items:center;gap:5px}
 .sidebar-custom-section{margin:0}
 .view-only-chat{position:fixed;inset:0;z-index:var(--z-dialog);display:flex;flex-direction:column;animation:modal-enter var(--m-quick) var(--ease-out) both}.view-only-chat-header{display:flex;align-items:center;justify-content:space-between;min-height:68px;padding:12px 28px}.view-only-chat-identity{display:flex;align-items:center;gap:9px;min-width:0}.view-only-chat-identity strong{max-width:24vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.view-only-chat-arrow{font-size:22px}.view-only-chat-avatars{display:flex;align-items:center}.view-only-chat-avatars .avatar{margin-left:-5px}.view-only-chat-avatars .avatar:first-child{margin-left:0}.view-only-chat-avatars em{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;margin-left:-3px;padding:0 5px;font-style:normal}.view-only-chat-body{min-height:0;flex:1;overflow-y:auto;padding:32px clamp(18px,6vw,90px) 110px}.view-only-message-list{display:grid;gap:18px;max-width:var(--chat-max);margin:0 auto}.view-only-message{display:flex;align-items:flex-end;gap:10px}.view-only-message.is-user{justify-content:flex-end}.view-only-message-copy{min-width:0;max-width:min(76%,720px)}.view-only-message-copy small{display:block;margin:0 0 5px}.view-only-message.is-user .view-only-message-copy{text-align:right}.view-only-message-bubble{overflow-wrap:anywhere}.view-only-message[data-focused="true"] .view-only-message-bubble{box-shadow:0 0 0 3px var(--focus-ring)}.view-only-chat-footer{display:flex;align-items:center;justify-content:center;gap:12px;min-height:72px;padding:10px 18px}.view-only-chat-footer .secondary-button{min-height:36px;padding:7px 14px}
-.date-divider,.unread-divider{display:flex;align-items:center;justify-content:center;margin:18px 0}
-.date-divider::before,.date-divider::after{width:28px;height:1px;margin:0 8px;content:""}
-.unread-divider::before,.unread-divider::after{height:1px;flex:1;margin:0 12px;content:""}
 .working-members{display:grid;gap:5px;max-width:var(--chat-max);width:100%;margin:5px auto 14px;padding:0 0 16px;color:var(--muted);font-size:12px}
 .working-member{display:flex;align-items:center;gap:7px}
 .working-member button{display:inline-flex;align-items:center;min-width:0;max-width:100%;padding:0;color:inherit;border:0;background:transparent;text-align:left;font-size:inherit;white-space:normal;overflow-wrap:anywhere}
@@ -145,7 +135,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .work-active{width:fit-content;min-height:30px;gap:10px}
 
 .work-details{margin-left:39px;color:var(--muted);font-size:11px}
-.jump-latest{position:absolute;z-index:var(--z-pill);right:clamp(16px,4vw,32px);bottom:24px;display:inline-flex;align-items:center;gap:6px;padding:9px 13px}
 .typing-cursor{display:inline-block;width:6px;height:15px;margin-left:4px;vertical-align:-2px;background:var(--accent);animation:blink 1s infinite}
 @keyframes blink{50%{opacity:0}
 }
@@ -327,7 +316,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .message{margin-bottom:15px}
 .composer{padding-right:14px;padding-left:14px;padding-bottom:max(13px,env(safe-area-inset-bottom))}
 .composer-tools{min-height:24px}
-.jump-latest{right:15px;bottom:21px}
 .chat-name,.chat-name-pill{max-width:40vw}
 }
 
@@ -350,8 +338,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .message-image{display:block;max-width:100%;max-height:360px;border-radius:8px}
 .extension-bots input,.extension-form .extension-check input{width:auto;margin:0}
 
-.history-error{max-width:var(--chat-max);margin:0 auto 14px;padding:10px;color:var(--danger-text);font-size:12px}
-.history-error button{margin-left:10px;border:0;background:transparent;color:var(--text);text-decoration:underline}
 .detail-pane{max-height:var(--viewport-height,100dvh)}
 
 /* iPadOS pans the visual viewport while its software keyboard is open. The
@@ -388,7 +374,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 @media (pointer:coarse),(any-pointer:coarse){
   .archive-card-actions .secondary-button,.extension-actions button{min-height:44px}
   .computer-detail .secondary-button,.computer-detail .primary-button{min-height:44px;padding:10px 12px}
-  .load-older,.history-error button,.card-actions button,.work-recovery button,.message-notice button,.memory-footer button{min-height:44px;padding:10px 12px}
+  .card-actions button,.work-recovery button,.memory-footer button{min-height:44px;padding:10px 12px}
   .composer-attachments button{width:44px;height:44px;min-height:44px}
   /* iOS Safari zooms the page when a focused field computes below 16px; the zoom also disables the keyboard handler. */
 }
@@ -418,5 +404,4 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 /* A failed workspace refresh floats over the app: it must never push the layout down. */
 .workspace-status.workspace-toast{pointer-events:auto;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);width:max-content}
 /* A failure notice in the conversation is the app speaking, never a Bot reply. */
-.message-list > .error-banner.system-notice{margin:10px 18px;padding:9px 12px;border:1px solid var(--danger);border-radius:12px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--ink);font-size:13px;line-height:1.45}
 }

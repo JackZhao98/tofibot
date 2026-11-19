@@ -335,12 +335,9 @@
     "load_older": "View earlier messages",
     "loading_messages": "Loading messages…",
     "unavailable_retrying": "Can't reach the server. Retrying…",
-    "new_count_one": "{{count}} new message",
-    "new_count_other": "{{count}} new messages",
     "older_failed": "Couldn't load earlier messages: {{error}}",
     "unread": "Unread",
-    "unread_below": "Unread messages below",
-    "view_latest": "View latest messages"
+    "unread_below": "Unread messages below"
   },
   "hover": {
     "copy": "Copy",

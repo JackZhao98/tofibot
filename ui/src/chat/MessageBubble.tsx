@@ -29,6 +29,9 @@ import { useSmoothStreamText } from "../useSmoothStreamText";
 import type { Bot, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary } from "../types";
 import { MOTION, EASE } from "../motion";
 import { Avatar, blockKey, jumpToMessage, messageId, previewText } from "./shared";
+import { Notice } from "../ds/Notice/Notice";
+import { Button } from "../ds/Button/Button";
+import { Divider } from "../ds/Divider/Divider";
 import { ToolActivityList, type ToolDetailState } from "./RunActivity";
 
 // Shown only before the first Bot exists.
@@ -92,12 +95,12 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     return <ScheduledTaskRow message={message} run={run} occurrence={scheduleOccurrence} pending={schedulePending} schedule={schedule} timezone={timezone} onRetry={onRetrySchedule} />;
   }
   if (message.kind === "message_ref" && message.notice) {
-    return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : <span>{localizeMessageRef(message.content)}</span>}</div></article>;
+    return <article className="message message-notice message-reference" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="link">{relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : localizeMessageRef(message.content)}</Notice></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "resume") {
     // Posted by the server when a run continues from a checkpoint; the text is localized here.
     const resumeKey = `message.resume_${message.notice.reason || "continuing"}` as "message.resume_task";
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(resumeKey, message.notice)}</span></div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="retry">{t(resumeKey, message.notice)}</Notice></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "settings_change") {
     // A setting a Bot changed by itself: the line and its Undo are worded in a lazy chunk, in the UI's language.
@@ -106,7 +109,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   if (message.kind === "notice" && message.notice?.type === "spend_alert") {
     // Posted once by the server when the month's spend reaches 80% of the limit; the text is localized here.
     const notice = message.notice;
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value, percent: Math.round(Number(notice.new_value) / Math.max(1, Number(notice.old_value)) * 100) })}</span> <button onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</button></div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="alert" action={<Button variant="ghost" size="sm" onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage#spend"))}>{t("message.spend_alert_open")}</Button>}>{t(notice.reason === "reached" ? "message.spend_alert_reached" : "message.spend_alert", { spend: notice.new_value, limit: notice.old_value, percent: Math.round(Number(notice.new_value) / Math.max(1, Number(notice.old_value)) * 100) })}</Notice></article>;
   }
   if (message.kind === "notice" && message.notice?.type === "command_exit") {
     // Posted by the server when a command a Bot waited on has ended; the text is localized here.
@@ -114,7 +117,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     const label = notice.reason === "interrupted" ? t("message.command_exit_interrupted")
       : notice.reason === "closed" ? t("message.command_exit_closed")
       : notice.exit_code !== undefined ? t("message.command_exit", { code: notice.exit_code }) : t("message.command_exit_unknown");
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{label}</span> {hasComputer && <button onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</button>}</div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="terminal" action={hasComputer ? <Button variant="ghost" size="sm" onClick={() => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: notice.from_bot_id } }))}>{t("message.open_terminal")}</Button> : undefined}>{label}</Notice></article>;
   }
   const assignment = message.kind === "notice" && message.sender_bot_id !== "system" && message.notice &&
     (message.notice.type === "handoff" || message.notice.type === "forward") &&
@@ -128,7 +131,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
       : noticeSender ? t("message.handed_over", { from: noticeSender, to: targetBot.name }) : message.content;
     const showSender = noticeSender && !noticeText.startsWith(noticeSender);
     const content = <>{showSender && <><span>{noticeSender}</span> · </>}{noticeText}</>;
-    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div>{noticeTargetAvailable ? <button onClick={() => onNavigate?.(target)}>{content}</button> : <span>{content}</span>}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+    return <article className="message message-notice" title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="bot-handoff" action={relatedChat && onOpenRelatedChat ? <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} /> : undefined}>{noticeTargetAvailable ? <button className="tb-notice-link" onClick={() => onNavigate?.(target)}>{content}</button> : content}</Notice></article>;
   }
   const isUser = message.role === "user";
   const label = message.kind === "notice" && run?.stop_reason === "approval_expired" ? t("message.system") : isUser ? t("message.you") : sender?.name ?? senderName ?? (message.role === "tool" ? t("message.tool") : "Bot");
@@ -149,7 +152,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   if (assignment) {
     // A delegation is the colleague's brief: the chat shows one handoff line, the brief on request.
     const toName = targetBot?.name ?? t("message.member");
-    return <article className="message message-notice message-assignment" data-run-id={message.run_id} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><div><span>{t("message.handed_over", { from: label, to: toName })}</span>{body.trim() && <details className="assignment-brief"><summary>{t("message.view_brief")}</summary><MessageMarkdown content={body} /></details>}</div></article>;
+    return <article className="message message-notice message-assignment" data-run-id={message.run_id} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}><Notice icon="bot-handoff">{t("message.handed_over", { from: label, to: toName })}{body.trim() && <details className="assignment-brief"><summary>{t("message.view_brief")}</summary><MessageMarkdown content={body} /></details>}</Notice></article>;
   }
   const mention = assignment ? <span className="message-mention"><Avatar label={targetBot?.name ?? t("message.member")} id={message.notice!.to_bot_id} mini /><span>@{targetBot?.name ?? t("message.member")}</span></span> : undefined;
   const inlineMention = mention && targetBot ? <BotIdentityCard bot={targetBot} onMention={onMention ? () => onMention(targetBot) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(targetBot.dm_conversation_id) : undefined}>{mention}</BotIdentityCard> : mention;
@@ -221,8 +224,8 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
   return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
-    {m.dividerLabel !== undefined && <div className="date-divider"><span>{m.dividerLabel}</span></div>}
-    {m.unread && <div className="unread-divider" aria-label={t("history.unread_below")}><span>{t("history.unread")}</span></div>}
+    {m.dividerLabel !== undefined && <Divider className="date-divider">{m.dividerLabel}</Divider>}
+    {m.unread && <Divider tone="unread" className="unread-divider" label={t("history.unread_below")}>{t("history.unread")}</Divider>}
     <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
       <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
         run={m.run} tools={tools}
