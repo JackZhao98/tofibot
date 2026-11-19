@@ -1,7 +1,6 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {request} from "./api";
 import {browserTimezone,timezoneChoices,validTimezone} from "./timezone";
-import "./timezone-settings.css";
 import {useSettingsDraft} from "./settingsDraft";
 import {i18n,syncServerLanguagePreference,useTranslation} from "./i18n";
 type Preferences={timezone:string;timezone_configured:boolean;language?:string;show_activity?:boolean;notify_chats?:boolean;notify_tasks?:boolean;notify_needs_you?:boolean;notify_spend_alerts?:boolean};
