@@ -1,4 +1,4 @@
-.tb-botavatar { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 30%; border: var(--border-1) solid transparent; background: var(--bot); color: var(--on-block); }
+.tb-botavatar { position: relative; place-items: center; flex: none; border-radius: 30%; border: var(--border-1) solid transparent; background: var(--bot); color: var(--on-block); }
 .tb-botavatar img { width: 82%; height: 82%; object-fit: contain; }
 .tb-botavatar--paper { background: var(--surface); }
 /* The procedural cat fills 82% of the tile; its host elements come from BotAvatar.tsx (V2) and must not size themselves. */
@@ -9,4 +9,7 @@
 .tb-botavatar.is-waiting .tb-botavatar-dot { background: var(--grape); }
 .tb-botavatar.is-error .tb-botavatar-dot { background: var(--danger); }
 .tb-botavatar.is-asleep { filter: saturate(.35); opacity: .7; }
-.avatar.tb-botavatar > .tofi-avatar { display: block; width: 82%; height: 82%; }
+.avatar.tb-botavatar > .tofi-avatar { width: 82%; height: 82%; }
+/* Display is a default, not a look: V2 rules that hide or reshape an avatar in its place (a working label's companion, the fourth head
+   of a phone group header) keep winning from @layer legacy. */
+@layer legacy { .tb-botavatar { display: inline-grid; } .avatar.tb-botavatar > .tofi-avatar { display: block; } }

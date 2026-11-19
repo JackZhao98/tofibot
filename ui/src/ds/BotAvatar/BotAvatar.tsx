@@ -36,7 +36,7 @@ export function BotAvatar({ id, name, coat, size = 40, state, src, className }: 
   return <span className={cx("tb-botavatar", ground !== "paper" && `tb-bot--${ground}`, ground === "paper" && "tb-botavatar--paper", state && `is-${state}`, className)}
     style={{ width: size, height: size }} role="img" aria-label={state ? `${name}, ${t(`ds.botState.${state}`)}` : name}>
     {src ? <img src={src} alt="" />
-      : id ? <span className="tb-botavatar-cat"><BotCat id={id} mini still /></span>
+      : id ? <span className="tb-botavatar-cat"><BotCat id={id} mini still bare /></span>
       : <Icon name="bot" size={Math.round(size * 0.55)} />}
     {showDot && <span className="tb-botavatar-dot" aria-hidden="true" />}
   </span>;

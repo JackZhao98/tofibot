@@ -43,7 +43,7 @@
   /* Widgets. The column is a scroll container, so it would clip its cards' shadows at its own edge: it is laid out --widget-bleed-* larger than
      the cards on the left, right and bottom and pads them back in, so the shadows draw in full on every side. It also runs up under the header
      (top 0, padding for the header's height) and sits one layer below it, and the composer's box (which spans under the column and is one layer above it) lets the pointer through its empty padding (below), so cards that scroll up pass under the same progressive blur as the
-     messages (the ProgressiveBlur band, conversation-workspace.css) instead of ending at a hard line. */
+     messages, under the pane's top ProgressiveBlur band (one layer above this column, below the header: conversation-workspace.css), instead of ending at a hard line. */
   .workspace .detail-pane.widget-column {
     display:flex; flex-direction:column; align-items:stretch; gap:0; box-sizing:border-box;
     border:0; background:transparent; box-shadow:none; overflow:hidden auto; overscroll-behavior:contain; animation:none;

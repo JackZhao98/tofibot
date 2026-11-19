@@ -9,3 +9,5 @@
 .tb-notice-link:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); border-radius: var(--radius-xs); }
 .tb-notice-link:disabled { cursor: default; opacity: .6; text-decoration: none; }
 @media (pointer: coarse) { .tb-notice-link { min-height: 44px; padding-inline: 4px; } }
+/* Touch targets: an action in a notice is at least 44px tall on a coarse pointer, as on V2. */
+@media (pointer: coarse) { .tb-notice-action .tb-btn { min-height: 44px; } }

@@ -64,6 +64,10 @@ for (const size of sizes) {
     await page.evaluate(({ WHOLE }) => window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }), { WHOLE: fixture.WHOLE });
     await page.locator(".jump-latest").waitFor();
     await page.waitForTimeout(600);
+    // PLAN R2: at most 5 backdrop-filter layers on the chat screen, the jump button showing (the two bands, the composer field, nothing else).
+    const layers = await page.evaluate(() => { const has = cs => { const v = cs.backdropFilter || cs.webkitBackdropFilter || "none"; return v !== "none"; }; const found = []; for (const el of document.querySelectorAll(".chat-pane, .chat-pane *")) for (const pseudo of [null, "::before", "::after"]) if (has(getComputedStyle(el, pseudo))) found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]}${pseudo ?? ""}`); return found; });
+    report[`blurLayers ${size.name}`] = layers;
+    assert.ok(layers.length <= 5, `${layers.length} backdrop-filter layers in the chat pane (limit 5): ${layers.join(", ")}`);
     const hit = await page.evaluate(() => {
       const pill = document.querySelector(".jump-latest"); const r = pill.getBoundingClientRect();
       const at = (x, y) => { const el = document.elementFromPoint(x, y); return Boolean(el && pill.contains(el)); };

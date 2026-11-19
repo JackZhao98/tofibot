@@ -9,11 +9,11 @@
   background:transparent; border-bottom:0; box-shadow:none; -webkit-backdrop-filter:none; backdrop-filter:none;
 }
 
-/* Identity pill: the composer's glass (conversation-workspace.css .composer-row): --legacy-glass fill, --blur backdrop, --sheen rim, 9% ink border. */
+/* Identity pill: the composer's glass (conversation-workspace.css .composer-row): --legacy-glass fill, a translucent --surface fill (no backdrop layer of its own: the pane's top band already blurs what is under it), --sheen rim, 9% ink border. */
 :root .workspace .chat-identity {
   min-height:44px; padding:4px 16px 4px 5px; gap:9px;
   border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
-  background:var(--legacy-glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
+  background:color-mix(in srgb,var(--surface) 86%,transparent); box-shadow:var(--sheen);
   transition:border-color var(--m-quick) var(--ease-out);
 }
 :root .workspace .chat-identity:hover { border-color:color-mix(in srgb,var(--ink) 18%,transparent); }
@@ -28,7 +28,7 @@
 /* Action pill: one rounded group; the open surface is marked with a lagoon tint. */
 :root .workspace .header-actions {
   gap:2px; padding:3px; border:1px solid color-mix(in srgb,var(--ink) 9%,transparent); border-radius:999px;
-  background:var(--legacy-glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); box-shadow:var(--sheen);
+  background:color-mix(in srgb,var(--surface) 86%,transparent); box-shadow:var(--sheen);
 }
 :root .workspace .header-actions :is(.computer-button,.ghost-button) {
   width:36px; height:36px; min-height:0; min-width:36px; padding:0; border:0; border-radius:50%;

@@ -12,6 +12,9 @@
 .workspace .chat-pane .chat-header > * { pointer-events: auto; }
 /* Edge seals: the top band covers the header and a ramp (height set in ChatPane), the bottom band the composer and a ramp. Both stop at the scrollbar. */
 .workspace .chat-pane { --pblur-inset-right: var(--scroll-bar-w, 0px); }
+/* The top band sits at the chrome layer, one above the widget column and (by coming first in the DOM) below the header, so the cards that
+   scroll up under the header are blurred too, with no layer of their own. */
+.workspace .chat-pane > .tb-pblur--top { --pblur-z: var(--z-chrome); }
 /* Date and unread lines breathe: a marker is a pause in the list. */
 .workspace .message-list { --divider-gap: 22px; }
 /* Back to latest: centred on the message column, above the composer; it moves left with the column when the widgets open. */

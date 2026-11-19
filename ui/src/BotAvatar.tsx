@@ -27,7 +27,7 @@ function whenNearViewport(element: Element, callback: () => void) {
   return () => { nearCallbacks.delete(element); nearObserver?.unobserve(element); };
 }
 
-export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false }: { id: string; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
+export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false, bare = false }: { id: string; /** Only the cat, with no tile: the caller (the kit BotAvatar) draws the ground tile. */ bare?: boolean; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
   const previousMotion = useRef<AvatarMotion>("sleeping");
@@ -85,5 +85,6 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
       if (controller.current === cat) cat.setAutoplay(false);
     };
   }, [id, appearance.shape, effectiveMotion, motion, mini, near]);
+  if (bare) return <span className="tofi-avatar" ref={host} aria-hidden="true" />;
   return <span className={`avatar tb-botavatar tb-bot--${ground} ${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
 }

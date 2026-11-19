@@ -270,8 +270,11 @@ Rules:
   `.tb-notice-link`). The hooks `date-divider`, `unread-divider`, `message-notice`, `history-error`, `load-older` and `system-notice`
   stay as class names for the tests and `senderGroups.ts` and carry no rule. The loading state is the plain spinner (`LoadingCat` is
   gone). `BotAvatar.tsx` (V2) draws the ground tile (`tb-botavatar tb-bot--<ground>`, ground from `useBotGround`) around the cat
-  everywhere; the header cat keeps its motion until PR 3.2. The pane's backdrop layers: the two bands (2 each), the composer field,
-  the header pills and, while shown, the jump button.
+  everywhere (its `display` is a default in `@layer legacy`, so V2 hide rules still win; the kit `ds/BotAvatar` asks it for the bare cat
+  with `bare`); the header cat keeps its motion until PR 3.2. The top band sits at `--z-chrome` (set through `--pblur-z`), above the widget
+  column and, by coming first in the DOM, below the header. The chat pane has exactly 5 backdrop layers (PLAN R2): the two bands (2 each)
+  and the composer field. The header pills and the jump button have a translucent `--surface` fill and no backdrop of their own;
+  `test:live-fixes` fails on a sixth. The keyboard-open padding adds the band's 40px ramp.
 
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.
