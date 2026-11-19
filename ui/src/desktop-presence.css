@@ -240,10 +240,8 @@
 .desktop-floating-shell:not(.is-expanded) .desktop-window-controls{top:10px;left:10px;right:auto;padding:2px;border-radius:999px}
 .desktop-floating-shell:not(.is-expanded) .desktop-window-controls .desktop-control-button{flex-basis:28px;width:28px;height:28px;border-radius:50%}
 /* The mini window's menu: the same surface as the other menus, and the keyboard and screen-reader way to move the window. */
-.pip-menu{box-sizing:border-box;min-width:184px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--float-shadow);color:var(--ink);font:14px/1.3 var(--body);z-index:var(--z-menu)}
-.pip-menu-item{position:relative;display:flex;align-items:center;gap:8px;min-height:34px;padding:7px 28px 7px 10px;border-radius:8px;outline:0;cursor:default;user-select:none}
-.pip-menu-item[data-highlighted]{background:var(--surface-2)}
-.pip-menu-separator{height:1px;margin:5px 4px;background:var(--line)}
+.pip-menu{min-width:184px;max-width:calc(100vw - 24px)}
+.pip-menu-item{position:relative;padding-right:28px}
 .pip-menu-check{position:absolute;right:10px;width:9px;height:5px;border:solid currentColor;border-width:0 0 1.6px 1.6px;transform:translateY(-1px) rotate(-45deg)}
 @media(forced-colors:active){.pip-menu-item[data-highlighted]{outline:1px solid Highlight}}
 /* "Look" from a step row on a window that is already open: the bezel glows once. Paint only; reduced motion skips it. */

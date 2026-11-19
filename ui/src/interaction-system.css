@@ -39,7 +39,6 @@ form[aria-busy=true]{cursor:progress}
 .delete-dialog-submit{background:var(--danger);border:1px solid var(--danger);color:var(--on-danger)}
 .delete-dialog-submit:hover{background:color-mix(in srgb,var(--danger) 86%,var(--ink))}
 .delete-dialog-submit:disabled{opacity:.55;cursor:default}
-.more-menu .delete-menu-action{color:var(--danger-text)}
 .purge-section{margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}
 .purge-section label{display:grid;gap:7px;margin-top:14px;color:var(--text-soft);font-size:12px}
 .purge-button{min-height:40px;margin-top:14px;padding:9px 14px;border:1px solid var(--danger);border-radius:10px;background:transparent;color:var(--danger-text);font-size:13px}
@@ -69,11 +68,6 @@ form[aria-busy=true]{cursor:progress}
 .message-user .message-content a{color:inherit}
 /* Composer and message hierarchy likewise have one visual owner. */
 .composer-hint{font-size:11px}
-.more-menu,.create-menu{min-width:208px}
-.create-menu{min-width:212px}
-.more-menu,.create-menu,.sidebar-context-menu{max-width:calc(100vw - 24px)}
-.more-menu .delete-menu-action:hover,.sidebar-context-menu .delete-menu-action:hover{color:var(--danger-text)}
-#tofi-layers [data-layer="dialog"]{z-index:calc(var(--z-dialog) + 1)}
 @keyframes menu-enter{from{opacity:0}to{opacity:1}}
 @keyframes menu-leave{to{opacity:0}}
 .action-hint{position:fixed;z-index:var(--z-tooltip);max-width:200px;padding:4px 8px;color:var(--tooltip-ink);background:var(--tooltip-bg);box-shadow:none;border-radius:6px;font-size:12px;line-height:16px;pointer-events:none;animation:hint-enter var(--m-quick) var(--ease-out) both}
@@ -136,7 +130,7 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-viewer-status{font-size:12px}.computer-viewer-actions .secondary-button{font-size:12px;padding:6px 8px;min-height:30px;background:transparent;border:0}
 .computer-viewer-actions .secondary-button:hover{background:var(--surface-hover)}
 .computer-tools>summary{font-size:12px;color:var(--muted)}
-.bot-identity-card{position:relative;z-index:var(--z-popover);width:280px;padding:18px;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:18px;box-shadow:var(--float-shadow)}
+.bot-identity-card{position:relative;z-index:var(--z-popover);width:280px;padding:18px}
 .identity-card-anchor{display:inline-flex;border-radius:10px;outline-offset:4px}
 .identity-card-title{display:flex;align-items:center;gap:12px}
 .identity-card-title>div{display:grid;gap:2px;min-width:0}

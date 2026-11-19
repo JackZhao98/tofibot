@@ -82,31 +82,15 @@
   display:grid; place-items:center; width:36px; height:36px; flex:0 0 36px;
   border:1px solid var(--line-soft); border-radius:10px; color:var(--ink-soft); background:transparent;
 }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu {
-  position:relative; z-index:var(--z-menu); width:min(280px,calc(100vw - 24px));
-  padding:8px; border:1px solid var(--glass-edge); border-radius:15px;
-  background:var(--legacy-glass-strong); color:var(--ink); box-shadow:var(--sheen),var(--shadow-sm);
-  -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
-}
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { width:min(280px,calc(100vw - 24px)); padding:8px; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading { display:grid; gap:3px; padding:8px 10px 10px; border-bottom:1px solid var(--line-soft); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading strong { font:600 14px/1.3 var(--display); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-heading small { color:var(--muted); font:10px/1.3 var(--mono); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>button {
-  display:flex; align-items:center; gap:9px; width:100%; min-height:38px;
-  padding:8px 10px; border:0; border-radius:9px; color:var(--ink-soft); background:transparent; text-align:left;
-}
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>button:hover { color:var(--ink); background:var(--surface-2); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.menu-subtrigger { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:8px 10px; border-radius:9px; color:var(--ink-soft); font:14px/1.3 var(--body); cursor:default; outline:0; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.menu-subtrigger>span { flex:1; }
-:is(.workspace,[id="tofi-layers"]) .menu-subtrigger:is(:hover,:focus-visible,[data-highlighted],[data-state="open"]) { color:var(--ink); background:var(--surface-2); }
-:is(.workspace,[id="tofi-layers"]) .menu-subtrigger-chevron { width:7px; height:7px; border:solid currentColor; border-width:0 1.5px 1.5px 0; transform:rotate(-45deg); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-submenu { width:min(210px,calc(100vw - 24px)); max-height:min(70vh,var(--radix-dropdown-menu-content-available-height)); overflow:auto; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-submenu>button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes { display:flex; gap:3px; margin:6px 4px; padding:3px; border:1px solid var(--line-soft); border-radius:10px; background:var(--sunk); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout { color:var(--danger-text); }
 /* The chat header (both shells) is chat-header.css + progressive-blur.css: two pills over a light progressive blur. */
 .workspace .chat-identity { gap:8px; padding:4px 8px 4px 2px; border:0; border-radius:12px; background:transparent; }
 .workspace .chat-identity:hover { background:var(--surface-2); }
@@ -239,11 +223,10 @@ html:not([data-desktop]) .workspace .composer-rich-text { font-size:16px; }
 .workspace .composer-add-wrap>.secondary-button:hover,.workspace .composer-row>.dictation-button:hover { transform:none; box-shadow:none; color:var(--ink); border-color:var(--line); background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button:active,.workspace .composer-row>.dictation-button:active { transform:none; box-shadow:none; background:var(--surface-2); }
 .workspace .composer-add-wrap>.secondary-button[aria-expanded="true"] { border:2px solid var(--yellow); color:var(--ink); }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu { position:relative; z-index:var(--z-menu); width:220px; padding:8px; border:2px solid var(--line); border-radius:16px; background:var(--legacy-glass); box-shadow:var(--shadow-sm); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button { display:flex; align-items:center; gap:12px; width:100%; min-height:40px; margin:0; padding:6px 8px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:hover,:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button:focus-visible { background:var(--surface-2); box-shadow:none; outline:none; }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; color:var(--ink-soft); font:18px/1 var(--body); }
-:is(.workspace,[id="tofi-layers"]) .composer-add-menu kbd { margin-left:auto; color:var(--muted); background:transparent; font:11px/1 var(--mono); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu { width:220px; padding:8px; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button { gap:12px; min-height:40px; margin:0; padding:6px 8px; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; font:18px/1 var(--body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu kbd { margin-left:auto; color:inherit; background:transparent; border:0; opacity:.7; font:11px/1 var(--mono); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu>p { margin:6px 4px 0; padding:9px 2px 3px; border-top:1px solid var(--line-soft); color:var(--muted); font:11px/1.4 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .composer-add-menu.composer-stop-menu { width:auto; min-width:200px; max-width:min(320px,calc(100vw - 32px)); }
 .workspace .composer-row>.send-button {
@@ -411,17 +394,9 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .bot-v2-subtitle { margin:18px 0 16px; }
 .workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--display); }
 .workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--legacy-glass); border:2px solid var(--line); border-radius:16px; box-shadow:var(--sheen),var(--shadow-sm); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-context-menu { padding:6px; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.sidebar-account-menu,.mcp-menu)>button,
 :is(.workspace,[id="tofi-layers"]) .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--body); white-space:normal; overflow-wrap:anywhere; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu)>button:disabled { color:var(--muted); background:transparent; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-context-menu .delete-menu-action { color:var(--danger-text); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
 :is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:var(--selected-bg); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>.sidebar-account-logout:hover { color:var(--danger-text); }
-:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) .delete-menu-action:hover { color:var(--danger-text); }
-@supports not (backdrop-filter:blur(1px)) { :is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); } }
 
 @media (max-width:767px) {
   .workspace .contact-pane { padding-inline:8px; }
@@ -433,8 +408,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
   .workspace .sidebar-account-identity { transition:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  .workspace .composer .composer-row,:is(.workspace,[id="tofi-layers"]) :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
-  :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .workspace .composer .composer-row { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 html:not([data-desktop]) .workspace .conversation-empty{align-content:center;justify-items:center;gap:6px}
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
@@ -498,15 +472,14 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 /* Reduced motion turns every transition into a ~0s one, and the default `transition-property: all` then defers each
    layout change (a speaker-change margin, say) by a frame. The message list changes layout as it renders; it must not. */
 /* Account menu: project links open in a new tab and end with an external-link mark; the browser language carries a grey tag. */
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link { display:flex; align-items:center; gap:9px; width:100%; min-height:38px; padding:8px 10px; border-radius:9px; color:var(--ink-soft); font:14px/1.3 var(--body); text-decoration:none; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link { gap:9px; min-height:38px; padding:8px 10px; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>span { flex:1; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>svg:last-child { color:var(--muted); }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link:hover { color:var(--ink); background:var(--surface-2); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu>a.sidebar-account-link>svg:last-child { opacity:.6; }
 .menu-default-tag { margin-left:8px; color:var(--muted); font:12px/1.3 var(--body); }
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) {
+:root :is(.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) {
   background:var(--legacy-glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
 :root :is(.desktop-window-controls,.desktop-enlarge-hint) { color:var(--ink); }
@@ -515,11 +488,8 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 :root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
-/* Popups (menus, popovers, selects, context menus, hover cards: .tofi-pop, set by the Radix adapters) grow out of the
-   side of their trigger; Radix puts that origin on the popper wrapper. Small dialogs grow from their centre; the big
-   panels (cover, sheet) only fade. One curve and one pair of durations for all of them (owner 2026-11-13). */
-.tofi-pop { transform-origin:var(--radix-popper-transform-origin,center); animation:pop-in var(--m-pop-in) var(--ease-pop) both; }
-.tofi-pop[data-state="closed"] { animation:pop-out var(--m-pop-out) var(--ease-in) both; pointer-events:none; }
+/* Popups (menus, popovers, selects, context menus, hover cards) are the kit's: ds/pop.css. The dialogs below still grow
+   from their centre and the big panels (cover, sheet) only fade, until their surfaces are rebuilt. */
 @keyframes pop-in { from { opacity:0; transform:scale(.96); } }
 @keyframes pop-out { to { opacity:0; transform:scale(.98); } }
 :root :is(.new-group-dialog,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
@@ -532,10 +502,10 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 }
 :root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line-soft); }
 @media (prefers-reduced-motion:reduce) {
-  .tofi-pop[data-state], :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
+  :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.more-menu,.create-menu,.sidebar-context-menu,.mention-menu,.sidebar-account-menu,.mcp-menu,.composer-add-menu,.ui-select-content,.pip-menu,.bot-identity-card,.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 }
 
