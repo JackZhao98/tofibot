@@ -8,7 +8,7 @@ import "./onboarding.css";
 export function FinishSetupChip({ step, onClick, compact }: { step: OnboardingStep; onClick: () => void; compact?: boolean }) {
   const { t } = useTranslation("chat");
   const progress = t("onboarding.progress", { step, total: ONBOARDING_STEPS });
-  return <SidebarRow as="button" className="finish-chip" compact={compact} data-finish-setup="true" aria-label={t("onboarding.chip_aria", { step, total: ONBOARDING_STEPS })} icon="check-circle" status="info" label={t("onboarding.chip_label")} meta={progress} onClick={onClick} />;
+  return <SidebarRow as="button" className="finish-chip" data-hint={t("onboarding.chip_label")} compact={compact} data-finish-setup="true" aria-label={t("onboarding.chip_aria", { step, total: ONBOARDING_STEPS })} icon="check-circle" status="info" label={t("onboarding.chip_label")} meta={progress} onClick={onClick} />;
 }
 
 /** Above the composer when no model exists: why the box is disabled, and one button that reopens setup. */

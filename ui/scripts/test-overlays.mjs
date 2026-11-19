@@ -108,13 +108,13 @@ const MENUS = [
   { name: "new", trigger: ".create-menu-anchor > button", menu: ".create-menu", place: [".create-menu-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 8)]] },
   // The header menu hangs from its own button (owner 2026-11-13): right edges aligned, 6 px below it.
   { name: "more", trigger: ".header-more > button", menu: ".more-menu", place: [".header-more > button", (m, a) => [m.right - a.right, m.top - (a.bottom + 6)]] },
-  { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account", (m, a) => [m.left - a.left, m.bottom - (a.top - 10)]] },
+  { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account-identity", (m, a) => [m.left - a.left, m.bottom - (a.top - 10)]] },
   { name: "attachments", trigger: ".composer-add-wrap > button", menu: ".composer-add-menu", place: [".composer-add-wrap", (m, a) => [m.left - a.left, m.bottom - (a.top - 12)]] },
   { name: "MCP tool permission", trigger: ".mcp-tier-trigger", menu: ".mcp-tier-menu", setup: settingsMcp, place: [".mcp-tier-anchor", (m, a) => [m.right - a.right, m.top - (a.bottom + 6)]] },
 ];
 const COLLAPSED = [
   { name: "new", trigger: ".create-menu-anchor > button", menu: ".create-menu", place: [".create-menu-anchor", (m, a) => [m.left - (a.right + 12), m.top - a.top]] },
-  { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account", (m, a) => [m.left - (a.right + 10), m.bottom - a.bottom]] },
+  { name: "account", trigger: ".sidebar-account-identity", menu: ".sidebar-account-menu", place: [".sidebar-account-identity", (m, a) => [m.left - (a.right + 10), m.bottom - a.bottom]] },
 ];
 async function placed(page, spec) {
   const boxes = await page.evaluate(([menu, anchor]) => [document.querySelector(menu), document.querySelector(anchor)].map(e => e.getBoundingClientRect().toJSON()), [spec.menu, spec.place[0]]);

@@ -80,7 +80,7 @@ try {
     const sidebar = async name => {
       // The list drawer is "closed" by state (.open), not by visibility: visibility only flips after the slide-out transition ends.
       if (width < 600 && await page.locator(".contact-pane.open").count() === 0) await page.getByRole("button", { name: "返回消息列表", exact: true }).click();
-      await page.locator(".conversation-row").filter({ has: page.locator("strong", { hasText: name }) }).click();
+      await page.locator(".conversation-row").filter({ has: page.locator(".contact-name", { hasText: name }) }).click();
     };
     const unavailable = async path => {
       const start = requests.length;

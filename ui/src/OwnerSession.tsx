@@ -158,7 +158,6 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
   const [open, setOpen] = useState(false);
   // Warm the account menu when the dock mounts so the first press draws it at once.
   useEffect(() => { preloadPanel("accountMenu"); }, []);
-  const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common", "settings"]);
   const name = session?.owner?.username ?? "Tofi";
@@ -171,13 +170,12 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
     return () => { alive = false; };
   }, [hosting]);
   const address = hosting !== "self" ? "" : isDesktop ? desktopAddress : window.location.host;
-  const status = connected ? t("account.live_ok") : t("account.live_lost");
-  return <div className={`sidebar-account${!connected ? " is-offline" : ""}`} ref={menu}>
+  return <div className={`sidebar-account${!connected ? " is-offline" : ""}`}>
     {window.tofiDesktop?.appUpdate && <Suspense fallback={null}><AppUpdateButton compact={compact}/></Suspense>}
     <SidebarRow as="button" className="sidebar-account-settings" compact={compact} icon="settings" label={t("common:nav.settings")} data-hint={t("common:nav.settings")} aria-label={t("common:nav.settings")} onClick={onSettings} />
-    <SidebarRow as="button" ref={trigger} className="sidebar-account-identity" compact={compact} aria-label={t("account.menu_label", { name, status })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}
+    <SidebarRow as="button" ref={trigger} className="sidebar-account-identity" compact={compact} aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}
       avatar={<Avatar className="sidebar-account-monogram" name={name} tone="cobalt" size={34} status={connected ? "online" : "offline"} />}
       label={name} meta={!connected ? <span className="sidebar-account-lost">{t("account.live_lost")}</span> : address || undefined} />
-    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onArtifacts={onArtifacts}/></Suspense>}
+    {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} trigger={trigger} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onArtifacts={onArtifacts}/></Suspense>}
   </div>;
 }

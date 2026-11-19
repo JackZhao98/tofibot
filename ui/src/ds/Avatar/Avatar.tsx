@@ -13,6 +13,8 @@ export type AvatarProps = {
   size?: number;
   tone?: AvatarTone;
   status?: Presence;
+  /** A Bot in the group is working: the same teal dot a Bot avatar wears. */
+  working?: boolean;
   className?: string;
 };
 
@@ -23,10 +25,11 @@ function initials(name: string): string {
 }
 
 /** A person: a disc with initials (or a photo) and an optional presence dot. Cats are Bots; use BotAvatar. */
-export function Avatar({ name, src, size = 34, tone = "mustard", status, className }: AvatarProps) {
+export function Avatar({ name, src, size = 34, tone = "mustard", status, working, className }: AvatarProps) {
   const { t } = useTranslation();
   return <span className={cx("tb-avatar", `tb-avatar--${tone}`, className)} style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }} role="img" aria-label={status ? `${name}, ${t(`ds.presence.${status}`)}` : name}>
     {src ? <img src={src} alt="" /> : initials(name)}
     {status && <span className={cx("tb-presence", `is-${status}`)} aria-hidden="true" />}
+    {working && !status && <span className="tb-presence is-working" aria-hidden="true" />}
   </span>;
 }
