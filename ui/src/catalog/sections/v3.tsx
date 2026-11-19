@@ -3,7 +3,7 @@
 import type { CatalogSection } from "../types";
 import { actions } from "./v3-actions";
 import { choices } from "./v3-choices";
-import { conversation } from "./v3-conversation";
+import { chatHeader, conversation } from "./v3-conversation";
 import { files } from "./v3-files";
 import { forms } from "./v3-forms";
 import { identity } from "./v3-identity";
@@ -13,5 +13,5 @@ import { status } from "./v3-status";
 
 export const v3: CatalogSection = {
   id: "v3", number: "V3", title: "V3 components",
-  states: [...actions, ...status, ...forms, ...choices, ...identity, ...conversation, ...settingsKit, ...files, ...overlays],
+  states: [...actions, ...status, ...forms, ...choices, ...identity, ...conversation, ...chatHeader, ...settingsKit, ...files, ...overlays],
 };

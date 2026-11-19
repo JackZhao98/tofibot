@@ -1,0 +1,64 @@
+/* ChatHeader (V3 PR 3.2). No bar: the cat floats in the middle over the pane's progressive blur and moves with the view. */
+.tb-chathead { --cat: 34px; --hl: 0px; --hr: 124px; position: relative; isolation: isolate; container-type: inline-size; display: flex; align-items: center; gap: 8px; min-height: 58px; padding: max(8px, env(safe-area-inset-top)) 10px 8px; box-sizing: border-box; transition: min-height var(--m-base) var(--ease-out); }
+.tb-chathead.has-narrow-menu, .tb-chathead:not(.has-narrow-menu):has(> .tb-chathead-left) { --hl: 56px; }
+@media (min-width: 768px) { .tb-chathead.has-narrow-menu { --hl: 0px; } }
+@media (pointer: coarse) { .tb-chathead { --hr: 152px; } }
+/* A standalone header draws its own two frosted layers; the chat pane has its band already (PLAN R2: at most 5 blur layers). */
+.tb-chathead.has-blur::before, .tb-chathead.has-blur::after { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: calc(100% + var(--pbt-ramp)); pointer-events: none; }
+.tb-chathead.has-blur::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) var(--pbt-tint), transparent), transparent); -webkit-backdrop-filter: blur(var(--pbt-blur-1)); backdrop-filter: blur(var(--pbt-blur-1)); -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%); mask-image: linear-gradient(to bottom, #000 45%, transparent 100%); }
+.tb-chathead.has-blur::after { -webkit-backdrop-filter: blur(var(--pbt-blur-2)); backdrop-filter: blur(var(--pbt-blur-2)); -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 78%); mask-image: linear-gradient(to bottom, #000 20%, transparent 78%); }
+@media (prefers-reduced-transparency: reduce) { .tb-chathead.has-blur::after { display: none; } .tb-chathead.has-blur::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(to bottom, var(--bg) 60%, transparent); } }
+.tb-chathead.is-top { --cat: 64px; min-height: var(--chathead-top-min, 128px); align-items: flex-start; }
+
+/* The pills carry a translucent surface and no backdrop of their own. */
+.tb-chathead-left, .tb-chathead-actions { display: flex; gap: 2px; padding: 3px; border: var(--border-1) solid var(--line); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface) 86%, transparent); transition: opacity var(--m-quick) var(--ease-out); }
+.tb-chathead-actions { margin-left: auto; }
+.tb-chathead :is(.tb-chathead-left, .tb-chathead-actions) .tb-iconbtn { width: 34px; height: 34px; border-radius: var(--radius-pill); }
+.tb-chathead :is(.tb-chathead-left, .tb-chathead-actions) :is([aria-pressed="true"], [aria-expanded="true"]) { background: var(--hover); color: var(--ink); }
+.tb-chathead.has-narrow-menu .tb-chathead-left { display: none; }
+@media (max-width: 767px) { .tb-chathead.has-narrow-menu .tb-chathead-left { display: flex; } }
+.tb-chathead.is-aside .tb-chathead-left { opacity: 0; pointer-events: none; }
+@media (pointer: coarse) { .tb-chathead :is(.tb-chathead-left, .tb-chathead-actions) .tb-iconbtn { width: 44px; height: 44px; } }
+
+.tb-chathead-cat { position: absolute; top: max(8px, env(safe-area-inset-top)); left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); z-index: 1; display: flex; align-items: center; gap: 10px; min-height: 42px; max-width: calc(100% - var(--hl) - var(--chathead-inset, 0px) - var(--hr) - 16px); padding: 0 6px; box-sizing: border-box; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink); font: inherit; cursor: pointer; transition: left var(--m-base) var(--ease-out), transform var(--m-base) var(--ease-out), padding var(--m-base) var(--ease-out); }
+@container (min-width: 560px) { .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); max-width: calc(100% - var(--chathead-inset, 0px) - 2 * max(var(--hl), var(--hr)) - 16px); } }
+.tb-chathead-cat:hover .tb-chathead-title { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.tb-chathead-cat:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-chathead-face { display: inline-flex; align-items: center; flex: none; }
+.tb-chathead-face-i { display: inline-flex; flex: none; }
+.tb-chathead-face-i + .tb-chathead-face-i { margin-left: calc(var(--cat) * -0.3); }
+/* The 更多 trigger and its menu anchor sit in the pill like the other buttons. */
+.tb-chathead-actions .header-more { display: contents; }
+/* The Bot computer: green while it is on; a small still dot marks a Bot driving it. */
+.tb-chathead-actions .tb-iconbtn { position: relative; }
+.tb-chathead-actions .tb-iconbtn.is-on { background: color-mix(in srgb, var(--lime) 24%, transparent); color: var(--lime-text); }
+.tb-chathead-actions .tb-iconbtn.is-on:hover, .tb-chathead-actions .tb-iconbtn.is-on[aria-pressed="true"] { background: color-mix(in srgb, var(--lime) 34%, transparent); }
+.tb-chathead-driven { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--lime-text); box-shadow: 0 0 0 2px var(--surface); }
+@media (forced-colors: active) { .tb-chathead-actions .tb-iconbtn.is-on { border: 1px solid Highlight; } .tb-chathead-driven { background: Highlight; } }
+/* The bare cat: the tile of the kit BotAvatar is taken away and the artwork fills the box. */
+.tb-chathead-face .tb-botavatar { background: transparent; border: 0; border-radius: 0; transition: width var(--m-base) var(--ease-out), height var(--m-base) var(--ease-out); }
+.tb-chathead-face .tb-botavatar-cat { width: 100%; height: 100%; transform-origin: 50% 90%; }
+.tb-chathead-face .tb-botavatar img { width: 100%; height: 100%; }
+.tb-chathead-face .tb-botavatar-dot { right: 0; bottom: 1px; width: 8px; height: 8px; }
+/* The header cat is the one place a Bot moves: thinking sways, working bobs, waiting for you leans in, an error stops
+   still, asleep dims. The dot names the state for anyone who cannot see the motion. */
+.tb-chathead-face .tb-botavatar:is(.is-working, .is-thinking, .is-waiting) .tb-botavatar-dot { animation: tb-breath 2.4s var(--ease-inout) infinite; }
+.tb-chathead-face .tb-botavatar.is-working :is(img, .tb-botavatar-cat) { animation: tb-bob 1.6s var(--ease-inout) infinite; }
+.tb-chathead-face .tb-botavatar.is-thinking :is(img, .tb-botavatar-cat) { animation: tb-sway 2.8s var(--ease-inout) infinite; }
+.tb-chathead-face .tb-botavatar.is-waiting :is(img, .tb-botavatar-cat) { animation: tb-lean 2.2s var(--ease-inout) infinite; }
+@keyframes tb-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes tb-lean { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06) translateY(-1px); } }
+@keyframes tb-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.tb-chathead-name { display: grid; gap: 1px; text-align: left; min-width: 0; }
+.tb-chathead-title { margin: 0; font: 700 16px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-chathead-sub { font: 400 11px/1.3 var(--font-mono); color: var(--muted); white-space: nowrap; }
+.tb-chathead.is-top .tb-chathead-cat { flex-direction: column; gap: 8px; padding: 2px 10px 4px; }
+.tb-chathead.is-top .tb-chathead-name { justify-items: center; text-align: center; }
+.tb-chathead.is-top .tb-chathead-title { font-size: 18px; font-weight: 800; }
+.tb-chathead.is-aside .tb-chathead-cat { left: calc(10px + var(--chathead-inset, 0px)); transform: none; max-width: calc(100% - var(--chathead-inset, 0px) - var(--hr) - 24px); }
+.tb-chathead:not(.is-top) .tb-chathead-sub { display: none; }
+@container (max-width: 340px) { .tb-chathead:not(.is-top) .tb-chathead-name { display: none; } .tb-chathead:not(.is-top) .tb-chathead-cat { padding: 0 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  .tb-chathead, .tb-chathead-cat, .tb-chathead-face .tb-botavatar { transition: none; }
+  .tb-chathead-face .tb-botavatar:is(.is-working, .is-thinking, .is-waiting) :is(.tb-botavatar-cat, img, .tb-botavatar-dot) { animation: none; }
+}

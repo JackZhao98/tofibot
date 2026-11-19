@@ -1,9 +1,9 @@
-import type { ButtonHTMLAttributes, Ref } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Icon, type IconName } from "../Icon/Icon";
 import { cx } from "../cx";
 import "./IconButton.css";
 
-export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "aria-label"> & {
+export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & {
   icon: IconName;
   /** The accessible name and the hover hint. Required. */
   label: string;
@@ -18,8 +18,8 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "chi
 };
 
 /** A square button that holds one icon. Not for the main action of a screen. */
-export function IconButton({ icon, label, variant = "ghost", size = "md", filled, animated, className, type = "button", ...rest }: IconButtonProps) {
+export function IconButton({ icon, label, variant = "ghost", size = "md", filled, animated, className, type = "button", children, ...rest }: IconButtonProps) {
   return <button {...rest} type={type} className={cx("tb-iconbtn", `tb-iconbtn--${variant}`, size === "sm" && "tb-iconbtn--sm", className)} aria-label={label} data-hint={label}>
-    <Icon name={icon} size={size === "sm" ? 16 : 20} variant={filled ? "filled" : "outline"} animated={animated} />
+    <Icon name={icon} size={size === "sm" ? 16 : 20} variant={filled ? "filled" : "outline"} animated={animated} />{children}
   </button>;
 }

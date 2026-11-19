@@ -2,7 +2,10 @@
 // ToolSteps, StepList, TaskCard, ApprovalCard. The work log, the plan and the checklist marks follow S18 to S20, not the frozen spec.
 import { ApprovalCard } from "../../ds/ApprovalCard/ApprovalCard";
 import { Avatar } from "../../ds/Avatar/Avatar";
+import { BotAvatar, type BotAvatarState } from "../../ds/BotAvatar/BotAvatar";
 import { Button } from "../../ds/Button/Button";
+import { ChatHeader, type ChatHeaderPosition } from "../../ds/ChatHeader/ChatHeader";
+import { IconButton } from "../../ds/IconButton/IconButton";
 import { Divider } from "../../ds/Divider/Divider";
 import { JumpButton } from "../../ds/JumpButton/JumpButton";
 import { Notice } from "../../ds/Notice/Notice";
@@ -145,5 +148,39 @@ export const conversation: CatalogState[] = [
       <ApprovalCard title="Send mail to Lin?" facts={[["To", "lin@example.com", true]]} onApprove={noop} onDecline={noop} />
       <ApprovalCard title="Delete 14 files from Downloads?" facts={[["Folder", "/Users/mia/Downloads", true]]} resolved={{ label: "APPROVED", reason: "Moved to Trash", fresh: true }}>These are the PDFs I already filed.</ApprovalCard>
       <ApprovalCard title="Send mail to Lin?" resolved={{ label: "DECLINED", reason: "You said no", declined: true }} />
+    </div> },
+];
+
+const MOCHI = "bot_mochi", MISO = "bot_miso", PIP = "bot_pip";
+const cat = (id: string, name: string, state?: BotAvatarState) => <BotAvatar id={id} name={name} coat="paper" size="var(--cat)" state={state} />;
+const ACTIONS = <><IconButton icon="monitor" label="Bot computer" /><IconButton icon="folder" label="Artifacts" /><IconButton icon="more" label="More actions" /></>;
+const BACK = <IconButton icon="arrow-left" label="Back to the list" />;
+const HEADS: { position: ChatHeaderPosition; title: string; sub?: string; ids: [string, string][] }[] = [
+  { position: "top", title: "Mochi", ids: [[MOCHI, "Mochi"]] },
+  { position: "scrolled", title: "Mochi", ids: [[MOCHI, "Mochi"]] },
+  { position: "aside", title: "Mochi", ids: [[MOCHI, "Mochi"]] },
+];
+const head = (props: Partial<React.ComponentProps<typeof ChatHeader>> & { title: string }) => <div className="catalog-dots" style={{ padding: 0, overflow: "hidden", minHeight: props.position === "top" ? 150 : 76 }}>
+  <ChatHeader blur avatars={[cat(MOCHI, "Mochi")]} actions={ACTIONS} menu={BACK} menuMode="narrow" {...props} />
+</div>;
+
+export const chatHeader: CatalogState[] = [
+  { id: "chathead-positions", kind: "inline", label: "ChatHeader · top, scrolled, aside",
+    note: "The same cat travels between positions; the left pill shows where the list is hidden (390 px). Hover the name for the underline.",
+    render: () => <div className="catalog-stack" style={{ maxWidth: "none", gap: 12 }}>{HEADS.map(h => <div key={h.position}>{head({ title: h.title, position: h.position })}</div>)}</div> },
+  { id: "chathead-group", kind: "inline", label: "ChatHeader · a group of three cats, member count at the top, a long name that ellipsizes",
+    render: () => <div className="catalog-stack" style={{ maxWidth: "none", gap: 12 }}>
+      {head({ title: "Weekly report group", subtitle: "3 members", position: "top", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
+      {head({ title: "Weekly report group", position: "scrolled", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
+      {head({ title: "Weekly report and launch planning with the whole design and finance crew", position: "scrolled", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
+    </div> },
+  { id: "chathead-states", kind: "inline", label: "ChatHeader · cat states: thinking, working, waiting, error, asleep",
+    note: "Thinking sways, working bobs, waiting for you leans in, an error stops still, asleep dims. The dot names the state. Reduced motion holds the pose.",
+    render: () => <div className="catalog-stack" style={{ maxWidth: "none", gap: 12 }}>{(["thinking", "working", "waiting", "error", "asleep"] as const).map(state => <div key={state}>{head({ title: `Mochi · ${state}`, position: "scrolled", avatars: [cat(MOCHI, "Mochi", state)] })}</div>)}</div> },
+  { id: "chathead-phone", kind: "inline", label: "ChatHeader · phone: back pill, three actions, a real name", widths: ["phone"],
+    render: () => <div className="catalog-stack" style={{ maxWidth: "none", gap: 12 }}>
+      {head({ title: "Archivist", position: "scrolled", avatars: [cat(MOCHI, "Archivist", "working")], menuMode: "always" })}
+      {head({ title: "Probe and Scout in the weekly report group", position: "scrolled", avatars: [cat(MOCHI, "Probe"), cat(MISO, "Scout")], menuMode: "always" })}
+      {head({ title: "Mochi", position: "top", menuMode: "always" })}
     </div> },
 ];
