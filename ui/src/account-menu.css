@@ -6,18 +6,4 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > button { width:auto; gap:9px; padding:8px 10px; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-logout { flex:1; }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-theme { justify-content:center; width:38px; margin-left:auto; }
-.workspace .sidebar-account { align-items:center; }
-.workspace .sidebar-app-update[data-state="downloaded"] { color:var(--clay-text); }
-.workspace .sidebar-app-update[data-state="downloading"] svg { animation:account-update-pulse 1.4s var(--ease-inout) infinite alternate; }
-@keyframes account-update-pulse { from { opacity:.45; } to { opacity:1; } }
-.workspace .sidebar-app-update-error { position:absolute; bottom:100%; left:0; padding:8px; background:var(--surface); border-radius:8px; font-size:12px; }
-@media (prefers-reduced-motion:reduce) {
-  .workspace .sidebar-app-update[data-state="downloading"] svg { animation:none; }
-}
-
-.workspace .sidebar-account-identity[aria-expanded="true"] { background:var(--surface-2); }
-@media (min-width:768px) {
-  .workspace .sidebar-collapsed .sidebar-account { flex-wrap:wrap; justify-content:center; }
-  .workspace .sidebar-collapsed .sidebar-account .sidebar-app-update { display:grid; margin-top:4px; }
-}
 }

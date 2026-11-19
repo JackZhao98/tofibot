@@ -5,11 +5,12 @@ import { BrandLogo } from "./BrandLogo";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
 import { arrowOpens, pressToggle } from "./overlays/OverlayHost";
-import { TofiIcon } from "./icons";
 import { hydrateDesktopState, isDesktop, flushDesktopState } from "./desktop";
 import { i18n, useTranslation } from "./i18n";
 import { authRequest, type OwnerSession } from "./ownerAuthApi";
 import { AppUpdateButton } from "./AppUpdateButton";
+import { Avatar } from "./ds/Avatar/Avatar";
+import { SidebarRow } from "./ds/SidebarRow/SidebarRow";
 import "./account-menu.css";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 
@@ -151,7 +152,7 @@ export function useAccountIdentity() {
 
 /** The compact identity dock shares the authenticated session with Settings. */
 
-export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = true }: { onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
+export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = true, compact = false }: { compact?: boolean; onSettings: () => void; onUsage: () => void; onConnection: () => void; onArtifacts: () => void; connected?: boolean }) {
   const { session, logout, hosting } = useContext(SessionContext);
   const [open, setOpen] = useState(false);
   // Warm the account menu when the dock mounts so the first press draws it at once.
@@ -160,7 +161,6 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
   const trigger = useRef<HTMLButtonElement>(null);
   const { t } = useTranslation(["auth", "common", "settings"]);
   const name = session?.owner?.username ?? "Tofi";
-  const initial = Array.from(name)[0]?.toUpperCase() ?? "T";
   // The Mac page is served by a local proxy: ask the app which server it is connected to.
   const [desktopAddress, setDesktopAddress] = useState("");
   useEffect(() => {
@@ -170,13 +170,13 @@ export function SidebarAccount({ onSettings, onUsage, onArtifacts, connected = t
     return () => { alive = false; };
   }, [hosting]);
   const address = hosting !== "self" ? "" : isDesktop ? desktopAddress : window.location.host;
+  const status = connected ? t("account.live_ok") : t("account.live_lost");
   return <div className={`sidebar-account${!connected ? " is-offline" : ""}`} ref={menu}>
-    <button ref={trigger} className="sidebar-account-identity" aria-label={t("account.menu_label", { name, status: connected ? t("account.live_ok") : t("account.live_lost") })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}>
-      <span className="sidebar-account-monogram" aria-hidden="true">{initial}<i key={String(connected)} /></span>
-      <span className="sidebar-account-copy"><strong>{name}</strong>{address && <small>{address}</small>}</span>
-    </button>
-    <AppUpdateButton/>
-    <button className="sidebar-account-settings" aria-label={t("common:nav.settings")} data-hint={t("common:nav.settings")} onClick={onSettings}><TofiIcon name="settings" size={20}/></button>
+    <AppUpdateButton compact={compact}/>
+    <SidebarRow as="button" className="sidebar-account-settings" compact={compact} icon="settings" label={t("common:nav.settings")} data-hint={t("common:nav.settings")} aria-label={t("common:nav.settings")} onClick={onSettings} />
+    <SidebarRow as="button" ref={trigger} className="sidebar-account-identity" compact={compact} aria-label={t("account.menu_label", { name, status })} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} data-hint={t("account.settings_hint", { name })}
+      avatar={<Avatar className="sidebar-account-monogram" name={name} tone="cobalt" size={34} status={connected ? "online" : "offline"} />}
+      label={name} meta={!connected ? <span className="sidebar-account-lost">{t("account.live_lost")}</span> : address || undefined} />
     {open && <Suspense fallback={null}><AccountMenu setOpen={setOpen} name={name} trigger={trigger} menu={menu} session={session} logout={logout} onSettings={onSettings} onUsage={onUsage} onArtifacts={onArtifacts}/></Suspense>}
   </div>;
 }
