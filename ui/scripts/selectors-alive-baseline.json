@@ -32,9 +32,6 @@
     ".desktop-mini-controls",
     ".desktop-mini-open"
   ],
-  "test-live-fixes.mjs": [
-    ".edge-blur"
-  ],
   "test-overlays.mjs": [
     ".send-receipt-tip"
   ],
