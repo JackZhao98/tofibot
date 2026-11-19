@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { mountCat, type AvatarConfig, type CatAvatar } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
+import { useBotGround } from "./useBotGround";
+import "./ds/bot-context.css";
+import "./ds/BotAvatar/BotAvatar.css";
 import { directAvatarMotion, type AvatarMotion } from "./avatarMotionDirector";
 
 export type { AvatarMotion } from "./avatarMotionDirector";
@@ -32,6 +35,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
   const [near, setNear] = useState(!mini);
   const [storedConfig, setStoredConfig] = useState<AvatarConfig>(() => getBotAvatarConfig(id));
   const appearance = config ?? storedConfig;
+  const ground = useBotGround(id) ?? "tomato";
   const effectiveMotion = motion ?? (animated ? "working" : "sleeping");
   useEffect(() => {
     setStoredConfig(getBotAvatarConfig(id));
@@ -81,5 +85,5 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
       if (controller.current === cat) cat.setAutoplay(false);
     };
   }, [id, appearance.shape, effectiveMotion, motion, mini, near]);
-  return <span className={`avatar ${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
+  return <span className={`avatar tb-botavatar tb-bot--${ground} ${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
 }

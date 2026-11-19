@@ -9,3 +9,4 @@
 .tb-botavatar.is-waiting .tb-botavatar-dot { background: var(--grape); }
 .tb-botavatar.is-error .tb-botavatar-dot { background: var(--danger); }
 .tb-botavatar.is-asleep { filter: saturate(.35); opacity: .7; }
+.avatar.tb-botavatar > .tofi-avatar { display: block; width: 82%; height: 82%; }
