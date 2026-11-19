@@ -1,4 +1,4 @@
-.tb-pblur { position: absolute; left: 0; right: var(--pblur-inset-right, 0px); height: 72px; z-index: var(--pblur-z, var(--z-edge-blur)); pointer-events: none; }
+.tb-pblur { position: absolute; left: 0; right: var(--pblur-inset-right, 0px); height: 72px; z-index: var(--z-edge-blur); pointer-events: none; }
 .tb-pblur--top { top: 0; }
 .tb-pblur--bottom { bottom: 0; }
 .tb-pblur::before, .tb-pblur::after { content: ""; position: absolute; inset: 0; }
@@ -16,3 +16,5 @@
   .tb-pblur--top::before { background: linear-gradient(to bottom, var(--bg) 60%, transparent); }
   .tb-pblur--bottom::before { background: linear-gradient(to top, var(--bg) 60%, transparent); }
 }
+/* A top band that must also cover a column laid under the header (the chat pane's widgets): one layer above it. */
+.tb-pblur--chrome { z-index: var(--z-chrome); }

@@ -1,4 +1,4 @@
 .tb-jump { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; color: var(--ink); cursor: pointer; }
 .tb-jump:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 /* No backdrop layer of its own (PLAN R2, at most 5 on the chat screen): it sits on the blurred bottom band, so a translucent fill reads as glass. */
-.tb-jump.tb-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: color-mix(in srgb, var(--surface) 86%, transparent); }
+.tb-jump.tb-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass); }
