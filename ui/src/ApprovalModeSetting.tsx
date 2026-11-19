@@ -9,6 +9,7 @@ import {groupModels, modelName} from "./modelCatalog";
 import {useModelCatalog} from "./useModelCatalog";
 import type {Bot} from "./types";
 import {Select} from "./Select";
+import "./approval-mode.css";
 
 type Top = ApprovalChoice | "bot";
 const modeOf = (bot: Bot): ApprovalChoice => (bot.approval_mode === "auto" ? "auto" : "ask");

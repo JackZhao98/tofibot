@@ -266,7 +266,7 @@ try {
   const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
   await writeFile(join(harness, "index.html"), '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div><div id="tofi-layers"></div><script type="module" src="./main.tsx"></script>');
   await writeFile(join(harness, "main.tsx"), `${styles}
-import '../src/settings/settings-components.css';import '../src/computer-resources.css';import '../src/extensions-system.css';
+import '../src/layout/settings-page.css';import '../src/computer-resources.css';import '../src/extensions-system.css';
 import React,{useEffect,useRef,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {i18nReady} from '../src/i18n';
 import {installFocusModality} from '../src/focusModality';

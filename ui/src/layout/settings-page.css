@@ -10,8 +10,11 @@
   display: block; transform: none; translate: none; scale: none; overflow: hidden;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
 }
-/* The Mac window keeps its drag strip: the page starts under it. */
-html[data-desktop="darwin"] .workspace .detail-pane:has(> .settings-shell) { top: 48px; }
+/* The Mac window has no title bar (hiddenInset): Settings covers all of it, as on the web. Its bar is the window's drag strip (forced.css)
+   and starts right of the traffic lights; the frame below stays centred. In full screen the lights are gone. */
+html[data-desktop="darwin"] .settings-shell { padding-top: 0; gap: 12px; }
+html[data-desktop="darwin"] .settings-bar { width: auto; max-width: none; height: 48px; margin: 0 -16px; padding: 0 16px 0 84px; }
+html[data-desktop="darwin"][data-fullscreen="true"] .settings-bar { padding-left: 16px; }
 .settings-shell {
   --settings-frame-w: calc(var(--settings-rail) + var(--settings-content) + 58px);
   position: relative; box-sizing: border-box; height: 100%; min-height: 0; overflow: hidden;
@@ -21,6 +24,7 @@ html[data-desktop="darwin"] .workspace .detail-pane:has(> .settings-shell) { top
   background-position: calc(var(--dot-step) / 2) calc(var(--dot-step) / 2);
 }
 .settings-bar { flex: none; box-sizing: border-box; width: 100%; max-width: var(--settings-frame-w); margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px; }
+.settings-shell .update-banner { flex: none; box-sizing: border-box; width: 100%; max-width: var(--settings-frame-w); margin: 0 auto; border: var(--border-1) solid var(--line); border-radius: var(--radius-md); }
 .settings-bar-sep { color: var(--muted); font-size: 18px; }
 .settings-bar-title { font: 700 14px/1 var(--font-body); }
 .settings-shell .settings-dismiss { margin-left: auto; }

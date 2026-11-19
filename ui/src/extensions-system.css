@@ -1,5 +1,20 @@
 /* V2 service directory: quiet rows, tactile decisions, one focused setup surface. */
 @layer legacy {
+/* Connections and Skills page rules from settings/settings-components.css and settings-system.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; PR 6.4 takes them out. */
+/* Connections, skills: extension cards are filled rows, not outlined cards. */
+.settings-page-body .extension-panel{margin:0;padding:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.settings-page-body .extension-panel>h2{font-size:16px}
+.settings-page-body .extension-panel>p{font-size:13px;line-height:1.65}
+.settings-page-body .extension-panel .extension-list{display:grid;gap:8px}
+.settings-page-body .extension-panel .extension-card{padding:14px 16px;border:0;border-radius:14px;background:var(--surface-2);box-shadow:none}
+.settings-page-body .extension-panel>.settings-banner{margin-bottom:14px}
+.settings-page-body .detail-content,.settings-page-body .connection-info{padding:0;margin:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.settings-page-body .detail-heading{padding-right:0;padding-left:0}
+.settings-page-body .detail-heading h2{font-size:16px}
+.integration-search input{padding-left:42px;background:var(--surface-2)}
+.integration-grid>:last-child:nth-child(odd){grid-column:1/-1}
+.settings-page-body .extension-form{gap:16px}
+.settings-page-body .extension-actions{align-items:center;gap:10px}
 .extension-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
 .extension-segment{display:flex;gap:4px;padding:4px;border:0;border-radius:12px;background:var(--sunk)}
 .extension-segment button{padding:8px 12px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;transition:background var(--m-base),color var(--m-base)}
@@ -119,21 +134,4 @@ button.mcp-service-open:focus-visible{outline:var(--focus-ring-width) solid var(
   .mcp-tier-trigger{width:100%;justify-content:space-between;min-height:44px}
 }
 .mcp-service-provenance{display:block;margin-top:3px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
-}
-/* Connections and Skills page rules from settings/settings-components.css and settings-system.css (V3 PR 6.1); PR 6.4 takes them out. */
-@layer legacy {
-/* Connections, skills: extension cards are filled rows, not outlined cards. */
-.settings-page-body .extension-panel{margin:0;padding:0;border:0;background:transparent;box-shadow:none;border-radius:0}
-.settings-page-body .extension-panel>h2{font-size:16px}
-.settings-page-body .extension-panel>p{font-size:13px;line-height:1.65}
-.settings-page-body .extension-panel .extension-list{display:grid;gap:8px}
-.settings-page-body .extension-panel .extension-card{padding:14px 16px;border:0;border-radius:14px;background:var(--surface-2);box-shadow:none}
-.settings-page-body .extension-panel>.settings-banner{margin-bottom:14px}
-.settings-page-body .detail-content,.settings-page-body .connection-info{padding:0;margin:0;border:0;background:transparent;box-shadow:none;border-radius:0}
-.settings-page-body .detail-heading{padding-right:0;padding-left:0}
-.settings-page-body .detail-heading h2{font-size:16px}
-.integration-search input{padding-left:42px;background:var(--surface-2)}
-.integration-grid>:last-child:nth-child(odd){grid-column:1/-1}
-.settings-page-body .extension-form{gap:16px}
-.settings-page-body .extension-actions{align-items:center;gap:10px}
 }

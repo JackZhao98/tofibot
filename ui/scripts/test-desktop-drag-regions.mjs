@@ -239,12 +239,27 @@ for (const size of SIZES) {
     const before = await panes();
     await page.goto(`${origin}/settings/${tab}`);
     await page.locator(".settings-tabs").waitFor();
+    await page.locator(".settings-bar .tb-brand").waitFor(); // the real shell, not the skeleton drawn while its code loads
     await check(page, `settings › ${tab}`, size);
-    // Settings floats over the workspace; it must not make the grid open a drawer track (2026-11-05: the chat shrank by 336 px on desktop).
+    // Settings is a full page over the workspace; it must not make the grid open a drawer track (2026-11-05: the chat shrank by 336 px on desktop).
     const after = await panes();
     assert.equal(after, before, `${size.width}x${size.height} settings › ${tab}: the sidebar and chat keep their place (${before} -> ${after})`);
-    const win = await page.evaluate(() => { const b = document.querySelector(".detail-pane:has(.settings-tabs)").getBoundingClientRect(); return { w: b.width / innerWidth, h: b.height / innerHeight, left: b.left, top: b.top }; });
-    assert.ok(win.w <= 0.885 && win.h <= 0.865 && win.left >= 48 && win.top >= 40, `${size.width}x${size.height} settings › ${tab}: the window sits inside the viewport, clear of the traffic lights (${JSON.stringify(win)})`);
+    // V3 PR 6.1: the page covers the whole window, the chat header, sidebar brand and Bot chip included, and brings its own drag strip.
+    const win = await page.evaluate(() => {
+      const b = document.querySelector(".detail-pane:has(> .settings-shell)").getBoundingClientRect();
+      const bar = document.querySelector(".settings-bar");
+      const barBox = bar.getBoundingClientRect();
+      const region = el => getComputedStyle(el).getPropertyValue("-webkit-app-region");
+      const close = document.querySelector(".settings-bar button");
+      const brand = bar.querySelector(".tb-brand").getBoundingClientRect();
+      const covered = [[100, 20], [30, 60], [innerWidth / 2, 20], [innerWidth - 100, 24]].map(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".settings-shell")));
+      return { w: b.width / innerWidth, h: b.height / innerHeight, left: b.left, top: b.top, barRegion: region(bar), barHeight: Math.round(barBox.height), barTop: Math.round(barBox.top), closeRegion: region(close), brandLeft: Math.round(brand.left), covered };
+    });
+    assert.ok(win.w === 1 && win.h === 1 && win.left === 0 && win.top === 0, `${size.width}x${size.height} settings › ${tab}: the page covers the whole window (${JSON.stringify(win)})`);
+    assert.deepEqual(win.covered, [true, true, true, true], `${size.width}x${size.height} settings › ${tab}: nothing of the workspace shows above the page (${JSON.stringify(win)})`);
+    assert.equal(win.barRegion, "drag", `${size.width}x${size.height} settings › ${tab}: the bar is the drag strip`);
+    assert.equal(win.closeRegion, "no-drag", `${size.width}x${size.height} settings › ${tab}: the way back stays clickable`);
+    assert.ok(win.barTop === 0 && win.barHeight === 48 && win.brandLeft >= 78, `${size.width}x${size.height} settings › ${tab}: the strip is 48px high and the logo starts clear of the traffic lights (${JSON.stringify(win)})`);
     await page.close();
   }
 }

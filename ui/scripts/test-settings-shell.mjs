@@ -87,7 +87,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><div style={{position:"relative",zIndex:200}}><UpdateBanner/></div><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace">{closed&&<UpdateBanner/>}<div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -732,12 +732,21 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await settle(page);
     assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "AI Models");
     assert.equal(await page.locator('.settings-page-body[data-page="models"]').isVisible(), true);
-    // The chosen link scrolls into view: Usage is past the fold of the strip.
-    await page.locator('.settings-tabs [data-tab="usage"]').scrollIntoViewIfNeeded();
-    await page.locator('.settings-tabs [data-tab="usage"]').click();
-    await settle(page);
-    const inView = await page.locator('.settings-tabs [data-tab="usage"]').evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; });
-    assert.equal(inView, true, "the chosen link is inside the screen");
+    // The shell scrolls the chosen link into view by itself. No test code scrolls the strip: System sits past the fold, so a page opened on it,
+    // and then deep links that land on a link left of it and one right of it, must each leave their link inside the screen.
+    const onSystem = await open({tab: "advanced"}, {width: 390, height: 844});
+    await settle(onSystem.page);
+    assert.equal(await onSystem.page.locator(".settings-tabs").evaluate(element => element.scrollLeft > 0), true, "opened on System: the strip has scrolled");
+    assert.equal(await onSystem.page.locator('.settings-tabs [data-tab="advanced"]').evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; }), true, "opened on System: its link is on screen");
+    await onSystem.page.evaluate(() => window.dispatchEvent(new Event("tofi:open-permissions")));
+    await settle(onSystem.page);
+    await onSystem.page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "permissions");
+    assert.equal(await onSystem.page.locator('.settings-tabs [data-tab="permissions"]').evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; }), true, "a deep link to Permissions brings its link back on screen");
+    await onSystem.page.evaluate(() => window.dispatchEvent(new Event("tofi:open-computer-settings")));
+    await onSystem.page.waitForFunction(() => document.querySelector('.settings-tabs [aria-current="page"]')?.dataset.tab === "computer");
+    await settle(onSystem.page);
+    assert.equal(await onSystem.page.locator('.settings-tabs [data-tab="computer"]').evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; }), true, "a deep link to Environments brings its link on screen");
+    await onSystem.close();
     // A desktop-style deep link opens the page directly.
     await page.evaluate(() => window.dispatchEvent(new Event("tofi:open-tool-settings")));
     await settle(page);
@@ -1558,6 +1567,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await admin.page.locator(banner).waitFor({timeout: 15000});
     const text = (await admin.page.locator(banner).innerText()).replace(/\s+/g, " ");
     assert.match(text, /Tofi v0\.1\.1 is available\. Run sudo tofi update on the server\./);
+    // The workspace hides its own notice while Settings is open and the page shows it: one notice, on the page, topmost where it is drawn.
+    assert.equal(await admin.page.locator(banner).count(), 1, "one update notice");
+    assert.equal(await admin.page.locator(`.settings-shell ${banner}`).count(), 1, "the notice sits on the Settings page, not under it");
+    assert.equal(await admin.page.locator(banner).evaluate(element => { const box = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)); }), true, "and nothing covers it");
     assert.equal(await admin.page.locator(`${banner} a`).getAttribute("href"), "https://github.com/example/tofibot/releases/tag/v0.1.1");
     assert.equal(await admin.page.locator(`${banner} a`).textContent(), "What's new");
     // Dismissal persists for that version across a reload...

@@ -16,6 +16,7 @@ import {SETTINGS_SECTIONS} from "./settings/sections";
 import {useSavedFlash} from "./settings/components";
 import {useTranslation} from "./i18n";
 import {ConfirmDialog} from "./overlays/ModalDialog";
+import {UpdateBanner} from "./UpdateNotice";
 import "./layout/settings-page.css";
 
 export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"devices"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources"|"admin-design";
@@ -120,6 +121,8 @@ export function SettingsShell({tab:requestedTab,onTab,onClose,renderPage,entry,r
    <span className="settings-bar-title">{t("shell.title")}</span>
    <Button className="settings-dismiss" variant="secondary" size="sm" icon="arrow-left" onClick={()=>navigate("close")}>{t("shell.close")}</Button>
   </header>
+  {/* The update notice moves onto the page while Settings is open (the workspace hides its own), so it is never under the page. */}
+  <UpdateBanner/>
   <ShellFrame
    hooks={{root:"settings-frame",nav:"settings-tabs",group:"settings-nav-group",linkLabel:"settings-nav-label",badge:"settings-count is-honey",head:"settings-page-heading",headText:"settings-page-title",actions:"settings-header-actions",main:"settings-content"}}
    groups={railGroups} active={selected.id} onNavigate={id=>navigate(id as SettingsTab)} navLabel={t("shell.category")}

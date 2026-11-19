@@ -114,7 +114,3 @@
 @keyframes admin-push{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.admin-detail{animation:none}}
 }
-/* From settings/settings-components.css (V3 PR 6.1). */
-@layer legacy {
-.admin-accounts{max-width:none}
-}

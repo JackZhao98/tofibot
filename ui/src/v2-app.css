@@ -3,6 +3,13 @@
 
 /* Shell and navigation: the web sidebar is solid, never decorative glass. */
 @layer legacy {
+/* The small modal sheet from settings/settings-components.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; goes with its last caller (PR 9.1 at the latest). */
+/* Sheet (small modal form). Skill access used it before decision 0058; keep it for the next sheet. */
+.sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.sheet{display:flex;flex-direction:column;gap:14px;box-sizing:border-box;width:min(440px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:20px;background:var(--surface);color:var(--ink);border:var(--legacy-edge-bold-w) solid var(--line);border-radius:22px;box-shadow:var(--shadow);outline:none}
+.sheet>h3{margin:0;font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
+.sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+@media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 .workspace,.workspace .chat-pane {
   background:var(--bg); color:var(--ink);
 }
@@ -443,14 +450,4 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 @media (prefers-reduced-transparency:reduce) {
   :root :is(.context-card,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
-}
-
-/* The small modal sheet from settings/settings-components.css (V3 PR 6.1); goes with its last caller (PR 9.1 at the latest). */
-@layer legacy {
-/* Sheet (small modal form). Skill access used it before decision 0058; keep it for the next sheet. */
-.sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-.sheet{display:flex;flex-direction:column;gap:14px;box-sizing:border-box;width:min(440px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:20px;background:var(--surface);color:var(--ink);border:var(--legacy-edge-bold-w) solid var(--line);border-radius:22px;box-shadow:var(--shadow);outline:none}
-.sheet>h3{margin:0;font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
-.sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
-@media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 }
