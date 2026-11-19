@@ -2,3 +2,5 @@
 .tb-jump:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 /* No backdrop layer of its own (PLAN R2, at most 5 on the chat screen): it sits on the blurred bottom band, so a translucent fill reads as glass. */
 .tb-jump.tb-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass); }
+/* Over message text the translucent fill lets the words show through, so the chat uses a solid one. */
+.tb-jump.tb-jump--solid { background: var(--surface); }
