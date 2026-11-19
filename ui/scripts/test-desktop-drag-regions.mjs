@@ -35,7 +35,9 @@ let checked = 0;
 
 async function open(size) {
   const page = await browser.newPage({ viewport: size });
-  const state = { info: { kind: "firecracker", state: "hibernated", workspace_root: "/workspace", browser: "Google Chrome", hibernation: true }, requests: [] };
+  // Sixty short messages: the list scrolls, so the chat header can be at its start or scrolled (an empty list has no start mark).
+  const messages = Array.from({ length: 60 }, (_, i) => ({ id: `m${i}`, conversation_id: "conv-synthetic", seq: i + 1, role: i % 2 ? "assistant" : "user", sender_bot_id: i % 2 ? "bot-synthetic" : undefined, content: `Synthetic line ${i + 1}`, created_at: new Date(Date.UTC(2026, 9, 13, 10, i)).toISOString() }));
+  const state = { info: { kind: "firecracker", state: "hibernated", workspace_root: "/workspace", browser: "Google Chrome", hibernation: true }, requests: [], messages };
   await installStubs(page, state);
   await page.route("**/api/**", async route => {
     const path = new URL(route.request().url()).pathname;
@@ -148,9 +150,10 @@ for (const size of SIZES) {
   await check(page, "collapsed conversation", size);
   // V3 PR 3.2 (PageChatHeader): at the start of a conversation the cat is big and hangs below the title row; once the list scrolls
   // it is the small cat on the row. The centre-line rule is for that second position.
+  // The header must be the scrolled one after the list scrolls; if it is not, the wait below throws and the centre-line rule never runs on a
+  // header that is still at the top.
   await page.locator(".message-scroll").evaluate(el => { el.scrollTop = el.scrollHeight; });
-  await page.locator(".tb-chathead.is-scrolled").waitFor({ timeout: 3000 }).catch(() => {});
-  const headerAtTop = await page.locator(".tb-chathead.is-top").count() > 0;
+  await page.locator(".tb-chathead.is-scrolled").waitFor({ timeout: 5000 });
   const collapsed = await page.evaluate(() => ({
     controls: [...document.querySelectorAll(".sidebar-top button")].filter(el => el.getBoundingClientRect().width).map(el => {
       const box = el.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
@@ -166,7 +169,7 @@ for (const size of SIZES) {
   const lastRight = Math.max(...collapsed.controls.map(box => box.right));
   const controlMiddle = (collapsed.controls[0].top + collapsed.controls[0].bottom) / 2;
   assert.ok(collapsed.identity.left >= lastRight, `the chat title starts after the rail buttons (${collapsed.identity.left} >= ${lastRight})`);
-  if (!headerAtTop) assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
+  assert.ok(Math.abs(collapsed.identity.middle - controlMiddle) <= 6, `the chat title shares the buttons' centre line (${collapsed.identity.middle} vs ${controlMiddle})`);
   if (!narrow) {
     await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
     await page.locator(".workspace-grid:not(.sidebar-collapsed)").waitFor();

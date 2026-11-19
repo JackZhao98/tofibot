@@ -49,10 +49,13 @@
 @keyframes tb-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 @keyframes tb-lean { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06) translateY(-1px); } }
 @keyframes tb-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-.tb-chathead-name { display: grid; gap: 1px; text-align: left; min-width: 0; }
-.tb-chathead-title { margin: 0; font: 700 16px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-chathead-name { display: grid; gap: 1px; text-align: left; min-width: 0; max-width: 100%; }
+.tb-chathead-title { margin: 0; max-width: 100%; font: 700 16px/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-chathead-sub { font: 400 11px/1.3 var(--font-mono); color: var(--muted); white-space: nowrap; }
-.tb-chathead.is-top .tb-chathead-cat { flex-direction: column; gap: 8px; padding: 2px 10px 4px; }
+.tb-chathead.is-top .tb-chathead-cat { flex-direction: column; align-items: stretch; gap: 8px; padding: 2px 10px 4px; }
+.tb-chathead.is-top .tb-chathead-face { align-self: center; }
+/* A group of three cats is smaller at the top so the row fits a phone. */
+.tb-chathead.is-top:has(.tb-chathead-face-i + .tb-chathead-face-i) { --cat: 48px; }
 .tb-chathead.is-top .tb-chathead-name { justify-items: center; text-align: center; }
 .tb-chathead.is-top .tb-chathead-title { font-size: 18px; font-weight: 800; }
 .tb-chathead.is-aside .tb-chathead-cat { left: calc(10px + var(--chathead-inset, 0px)); transform: none; max-width: calc(100% - var(--chathead-inset, 0px) - var(--hr) - 24px); }

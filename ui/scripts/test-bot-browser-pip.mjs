@@ -6,6 +6,15 @@ import {pathToFileURL} from 'node:url';
 import {openUiModules} from './ui-modules.mjs';
 import {installStubs, startUi, launch, ui} from './computer-window-fixture.mjs';
 
+// V3 PR 3.2: the header has one computer button. One source toggles directly; several open a menu of sources.
+async function pickSource(page, selector) {
+  const direct = page.locator(`.header-actions ${selector}`);
+  if (await direct.count()) { await direct.click(); return; }
+  await page.locator('.header-actions .computer-button[aria-haspopup="menu"]').click();
+  await page.locator(`.source-menu ${selector}`).click();
+}
+
+
 export const source = (id = 'mac-synthetic') => ({computer_id: id, kind: 'mac_browser', label_key: 'browser.source', supported: true, enabled: true, share_frames: true, state: 'idle', code: null, connection_epoch: '11111111-1111-4111-8111-111111111111', session_epoch: '22222222-2222-4222-8222-222222222222', target_id: '33333333-3333-4333-8333-333333333333', viewport_epoch: 1, activity: null});
 
 // Dev StrictMode replays mount effects. Snapshot only once one live stream remains.
@@ -39,7 +48,7 @@ export async function exerciseBrowserEntry(browser, origin, checkControls) {
       };
     });
     await page.goto(origin);
-    await page.locator('[data-browser-toggle="mac-synthetic"]').click();
+    await pickSource(page, '[data-browser-toggle="mac-synthetic"]');
     await page.locator('[data-browser-source="mac-synthetic"]').waitFor();
     assert.match(await page.locator('.bot-browser-panel .desktop-chin').innerText(), /Your Mac · Bot browser/);
     const mounted = await mountedStreamCounts(page, '__streamRequests');
@@ -54,12 +63,12 @@ export async function exerciseBrowserEntry(browser, origin, checkControls) {
     await page.locator('.bot-browser-panel .desktop-window-controls button').nth(1).click();
     await page.waitForFunction(() => !document.querySelector('.desktop-floating-shell.is-expanded'));
     if (vm) {
-      await page.locator('[data-computer-toggle]').click();
+      await pickSource(page, '[data-computer-toggle]');
       await page.waitForFunction(() => !document.querySelector('.bot-browser-panel'));
       await page.waitForFunction(baseline => window.__aborts === baseline.aborts + 1 && window.__streamRequests.length === baseline.requests, mounted);
       await page.locator('.desktop-floating-shell').waitFor();
     }
-    await page.locator('[data-browser-toggle="mac-second"]').click();
+    await pickSource(page, '[data-browser-toggle="mac-second"]');
     await page.locator('[data-browser-source="mac-second"]').waitFor();
     await page.waitForFunction(baseline => {
       const first = '/api/computers/mac-synthetic/browser/stream';
@@ -198,6 +207,7 @@ import React,{Profiler,useState} from 'react';import {createRoot} from 'react-do
 import {i18nReady} from '../src/i18n';import {BotBrowserVideo} from '../src/BotBrowserVideo';
 import {BotBrowserPanel} from '../src/BotBrowserPanel';import {FloatingDesktop} from '../src/FloatingDesktop';
 import '../src/desktop-system.css';import '../src/v2-foundations.css';import '../src/ds/legacy-aliases.css';
+
 function Probe(){const [s,S]=useState((window as any).__source);const [v,V]=useState(true);const [big,B]=useState(false);const [open,O]=useState(true);
 (window as any).__setSource=S;(window as any).__visible=V;(window as any).__close=()=>O(false);
 return <div className="workspace">{open&&(location.search.includes('shell')?<FloatingDesktop small={!big} expanded={big} onClose={()=>O(false)}><BotBrowserPanel source={s} expanded={big} onClose={()=>O(false)} onExpand={()=>B(!big)}/></FloatingDesktop>:<Profiler id="video" onRender={()=>{(window as any).__commits++}}><BotBrowserVideo source={s} visible={v} onStatus={S}/></Profiler>)}</div>}

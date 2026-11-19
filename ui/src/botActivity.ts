@@ -48,17 +48,3 @@ export function activeBotRuns(runs: Run[], drafts: StreamDraft[], activities: To
   }
   return [...live.values()];
 }
-
-export type CatState = "thinking" | "working" | "waiting" | "error" | "asleep";
-
-/** What the header cat shows for one Bot in one conversation. Waiting on a person beats work, work beats a failed last run,
- *  and a Bot that has been quiet for a while is asleep. Nothing: awake and idle. `live` is `activeBotRuns(...)`. */
-export function botCatState(botId: string, conversationId: string, runs: Run[], live: Run[], activities: ToolActivity[], asleep: boolean): CatState | undefined {
-  const mine = (run: Run) => run.bot_id === botId && run.conversation_id === conversationId;
-  if (runs.some(run => mine(run) && run.status === "waiting")) return "waiting";
-  if (live.some(mine)) return activities.some(activity => activity.bot_id === botId && activity.conversation_id === conversationId && (activity.status === "running" || activity.status === "queued")) ? "working" : "thinking";
-  const last = runs.filter(run => mine(run) && ["done", "failed", "cancelled", "interrupted"].includes(run.status))
-    .reduce<Run | undefined>((latest, run) => !latest || run.updated_at >= latest.updated_at ? run : latest, undefined);
-  if (last?.status === "failed") return "error";
-  return asleep ? "asleep" : undefined;
-}

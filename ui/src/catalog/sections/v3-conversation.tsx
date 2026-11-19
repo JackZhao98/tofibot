@@ -171,6 +171,7 @@ export const chatHeader: CatalogState[] = [
   { id: "chathead-group", kind: "inline", label: "ChatHeader · a group of three cats, member count at the top, a long name that ellipsizes",
     render: () => <div className="catalog-stack" style={{ maxWidth: "none", gap: 12 }}>
       {head({ title: "Weekly report group", subtitle: "3 members", position: "top", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
+      {head({ title: "Weekly report and launch planning with the whole design and finance crew", subtitle: "3 members", position: "top", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
       {head({ title: "Weekly report group", position: "scrolled", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
       {head({ title: "Weekly report and launch planning with the whole design and finance crew", position: "scrolled", avatars: [cat(MOCHI, "Mochi"), cat(MISO, "Miso"), cat(PIP, "Pip")] })}
     </div> },

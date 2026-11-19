@@ -167,14 +167,20 @@ export interface ChatPaneProps {
 export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, active, routeUnavailable, t, setMobileList, onboardingState, createNewBot, newBotBusy, newBotError, runs, botById, loadedId, loadingMessages, taskAnnouncements, viewport, expiryFinishing, runStarts, activityView, computerLook, messageListRef, onMessageListPointerOver, onMessageListPointerLeave, onMessageListFocus, onMessageListBlur, onMessageListKeyDown, jumpLatest, historyError, loadOlder, loadingOlder, hasMore, questions, mailDrafts, snapshotError, refreshTaskStatus, setSnapshotError, conversationItems, greeting, timelineFrom, taskView, placementsAt, renderPlacement, ownedBy, timezone, refreshConversations, ownerAnchors, runById, toolTimeline, foldedProgress, ownedRunIDs, keepActivityRun, toolSummaryAnchors, terminalToolSummaries, toolSummaryErrorAnchors, toolSummaryState, toolSummaryLoadingAnchors, loadedToolActivities, drafts, messageById, quoteTimeline, quoteIndexById, messageRecordIDs, runHasActivity, runsForMessage, lastReplySeq, knownBotNames, arrivalIDs, streamedIDs, streamConnected, traceRunFor, toolDetailState, activeRunIds, scheduleOccurrences, scheduleCardPending, scheduleMetadata, conversations, bots, canRetrySend, showActivity, revealedRuns, botNames, reactionMenu, placementDraws, rowHandlers, draftStream, activeBot, messages, updateComposerDraft, openSidebarId, loadToolDetails, pendingRuns, error, proxyChallenged, openCoverPanel, taskItems, openTasks, conversationMotion, toolActivities, runSignals, stepRunIds, setRuns, setError, avatarMention, composerDrafts, send, config, connectModel, composerDraftReady }: ChatPaneProps) {
   const [topMark, setTopMark] = useState<HTMLElement | null>(null);
   const [atTop, setAtTop] = useState(true);
-  // The mark at the head of the list says where the view is; scroll position is never read per frame (PLAN 8.1).
+  const ready = !!active && loadedId === active.id && !loadingMessages;
+  const hasMark = conversationItems.length > 0;
+  // The mark at the head of the list says where the view is; scroll position is never read per frame (PLAN 8.1). While a conversation
+  // opens the previous position holds; once its messages are in, a fresh observer reports where the list really sits. The switch lies
+  // 64px below the header: content that comes within reach of the big cat's name ends the top position. An empty list has no mark.
   useEffect(() => {
+    if (!ready) return;
     const root = viewport.scrollRef.current;
-    if (!topMark || !root) return;
-    const watch = new IntersectionObserver(([entry]) => setAtTop(entry.isIntersecting), { root, rootMargin: "-58px 0px 0px 0px" });
+    if (!hasMark || !topMark || !root) { setAtTop(true); return; }
+    const height = root.closest(".chat-pane")?.querySelector(".chat-header")?.getBoundingClientRect().height ?? 58;
+    const watch = new IntersectionObserver(([entry]) => setAtTop(entry.isIntersecting), { root, rootMargin: `-${Math.round(height) + 64}px 0px 0px 0px` });
     watch.observe(topMark);
     return () => watch.disconnect();
-  }, [topMark, viewport.scrollRef]);
+  }, [ready, active?.id, hasMark, topMark, viewport.scrollRef]);
   return (
     <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
@@ -183,7 +189,7 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
             {header(atTop)}
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             <div className="chat-body">
-              <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}><div className="chat-top-mark" ref={setTopMark} aria-hidden="true" />
+              <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>{hasMark && <div className="chat-top-mark" ref={setTopMark} aria-hidden="true" />}
                 <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error" action={<Button variant="ghost" size="sm" onClick={viewport.retryBoundary}>{t("common:action.retry")}</Button>}>{t("history.boundary_failed")}</Notice>}
                   {historyError && !viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error history-error-older" action={<Button variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</Button>}>{t("history.older_failed", { error: historyError })}</Notice>}

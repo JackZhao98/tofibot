@@ -175,6 +175,8 @@ export type AppOptions = {
   /** A pending approval card in Mochi's chat. */
   approval?: boolean;
   /** "none": the server has no computer backend (no header button, no Computer widget, Settings explains the options). */
+  /** Paired Macs this Bot can look at (the header's computer button opens a menu when there is more than one source). */
+  macs?: number;
   computer?: "ready" | "starting" | "hibernated" | "resuming" | "desktop-starting" | "none";
   /** "none": no connections are set up (Bot settings > Tools shows the empty line and the link to Settings). */
   connections?: "none";
@@ -226,7 +228,7 @@ export function workspace(options: AppOptions): Synthetic {
   return (url, init) => {
     const p = url.pathname;
     const method = init?.method ?? "GET";
-    if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-00000000ca7a", auth: { mode: "none" } });
+    if (p === "/api/server-info") return json({ service: "tofi", protocol_version: 1, instance_id: "00000000-0000-4000-8000-00000000ca7a", auth: { mode: "none" }, ...(options.macs ? { bot_browser: { version: 1, upload: "websocket-json", view: "ndjson-jpeg" } } : {}) });
     if (p === "/api/preferences") return json({ timezone: "UTC", timezone_configured: true, language: localStorage.getItem("tofi.language") ?? "en", show_activity: options.runs === "tools" || Boolean(options.timeline) });
     if (options.challenge && conversationReads > 1) return new Promise<Response>(() => {});
     // A refresh after the first load fails across the board, as when the server goes away (one failing read alone is
@@ -303,6 +305,7 @@ export function workspace(options: AppOptions): Synthetic {
     if (p === "/api/storage") return json({ version: 1, measured_at: "2026-10-27T10:00:00Z", server_bytes: 1610612736, files_bytes: 1395864371, database_bytes: 214748365, physical_files_bytes: 1395864371, pending_copy_count: 0, classes: [{ class: "uploads", bytes: 644245094, objects: 12, billable: true }, { class: "published", bytes: 751619277, objects: 4, billable: true }, { class: "generated", bytes: 0, objects: 0, billable: true }, { class: "outbox", bytes: 0, objects: 0, billable: true }, { class: "mirror", bytes: 0, objects: 0, billable: true }, { class: "bot_files", bytes: 0, objects: 0, billable: true }, { class: "conversations", bytes: 104857600, objects: 300, billable: false }, { class: "db", bytes: 214748365, objects: 0, billable: true }], limit_bytes: 10737418240, remaining_bytes: 9126805504, over_limit: false, computer: null, by_bot: [], by_conversation: [] });
     if (options.computer === "none" && (p === "/api/computers/firecracker/info" || p === "/api/computers/firecracker/actions" || p === "/api/computer/desktop-ownership")) return json({ error: { code: "not_configured", message: "computer VM is not configured" } }, 404);
     if (p === "/api/environments") return json(options.computer === "none" ? { environments: [], add: { e2b: true, mac: true, vm_command: "sudo tofi computer add kvm" }, e2b: null } : { environments: [{ id: "firecracker", kind: "vm", name: "", state: options.computer === "starting" || options.computer === "resuming" ? options.computer : options.computer === "hibernated" ? "asleep" : "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["retry", "configure"] }, { id: "e2b", kind: "e2b", name: "", state: "preparing", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"] }, { id: "mac_catalog", kind: "mac", name: "Studio MacBook", state: "online", platform: "darwin", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"] }], add: { e2b: false, mac: true, vm_command: "" }, e2b: { configured: true, key_hint: "e2b_…a1b2", phase: "preparing", error_code: "", error: "" } });
+    if (options.macs && p === "/api/browser-sources") return json({ v: 1, sources: Array.from({ length: options.macs }, (_, i) => ({ computer_id: `mac-${i + 1}`, kind: "mac_browser", label_key: "browser.source", supported: true, enabled: true, share_frames: true, state: "idle", code: null, connection_epoch: "11111111-1111-4111-8111-111111111111", session_epoch: "22222222-2222-4222-8222-222222222222", target_id: "33333333-3333-4333-8333-333333333333", viewport_epoch: 1, activity: null })) });
     if (p === "/api/computers/firecracker/info") return json({ kind: "firecracker", state: options.computer === "starting" || options.computer === "hibernated" || options.computer === "resuming" ? options.computer : "ready", phase: options.computer === "starting" ? "booting" : undefined, desktop_starting: options.computer === "desktop-starting" || undefined });
     if (p === "/api/computers/firecracker/actions") return json({ ok: true, result: String(init?.body ?? "").includes("desktop.control.acquire") ? { control_id: "ctl_catalog" } : { image_url: screen() } });
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
