@@ -48,21 +48,6 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
-/* The chat header (both shells) is chat-header.css: two pills over the pane's top ProgressiveBlur band. */
-.workspace .chat-identity { gap:8px; padding:4px 8px 4px 2px; border:0; border-radius:12px; background:transparent; }
-.workspace .chat-identity:hover { background:var(--surface-2); }
-.workspace .member-avatar-stack { min-width:40px; }
-.workspace .member-avatar-stack .avatar { width:38px; height:38px; flex-basis:38px; border:0; margin-left:-8px; border-radius:12px; }
-.workspace .member-avatar-stack .avatar:first-child { margin-left:0; }
-.workspace .chat-title h1 { color:var(--ink); font:600 17px/1.25 var(--display); }
-.workspace .chat-name-pill small { color:var(--muted); font:10px/1.3 var(--mono); }
-.workspace .header-actions :is(.computer-button,.ghost-button) {
-  width:38px; height:38px; min-width:38px; border:1px solid var(--line-soft);
-  border-radius:11px; background:var(--surface-2); color:var(--ink-soft);
-}
-.workspace .header-actions :is(.computer-button,.ghost-button):hover,
-.workspace .header-actions [aria-pressed="true"] { color:var(--ink); border-color:var(--line); background:var(--surface); }
-.workspace .header-actions .computer-button.is-ready { color:var(--green-text); }
 /* Room under the last message: composer + a 24px margin + a gap (--composer-height follows the composer, App.tsx). The one rule for both shells. */
 .workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 24px + 20px); }
 /* The floating composer is reserved once; its own padding provides the gap. */

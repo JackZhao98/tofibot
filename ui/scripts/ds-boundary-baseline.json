@@ -23,9 +23,6 @@
   "bot-tools.css": {
     "bridgeUse": 2
   },
-  "chat-header.css": {
-    "bridgeUse": 10
-  },
   "computer-credentials.css": {
     "bridgeUse": 7
   },
@@ -225,7 +222,7 @@
     "bridgeUse": 20
   },
   "v2-app.css": {
-    "bridgeUse": 55,
+    "bridgeUse": 52,
     "webFork": 24
   },
   "v2-foundations.css": {

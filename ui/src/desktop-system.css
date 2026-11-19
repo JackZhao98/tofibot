@@ -6,7 +6,7 @@ html[data-desktop="darwin"] .contact-pane{background:var(--c-sidebar-bg);padding
 html[data-desktop="darwin"] .chat-pane{background:var(--bg)}
 /* A window does not rubber-band: lists scroll inside themselves (overscroll-behavior:contain on each list). */
 html[data-desktop] body{overscroll-behavior:none}
-/* The chat header looks the same as on the web (chat-header.css); on macOS its own strip (.chat-header-drag, first child) moves the window.
+/* The chat header looks the same as on the web (ds/ChatHeader); on macOS its own strip (.chat-header-drag, first child) moves the window.
    The header itself has no app-region: app-region is inherited, so a layer laid out after the buttons would inherit drag and cover them all
    again (rc.4: no header button could be clicked). */
 html[data-desktop="darwin"] .chat-header{user-select:none}
@@ -113,9 +113,8 @@ html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto}
   html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid.sidebar-collapsed .contact-pane .sidebar-top .create-menu-anchor { left:80px; }
 
   /* The chat header follows: 8 px after the card, 8 px after the capsule. Its drag strip starts after the capsule. */
-  html[data-desktop="darwin"] .workspace .chat-header { padding-left:8px; transition:padding-left var(--m-panel-in) var(--ease-out); }
-  html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { padding-left:206px; }
-  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { padding-left:136px; }
+  html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { --chathead-inset:206px; }
+  html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header { --chathead-inset:136px; }
   html[data-desktop="darwin"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header > .chat-header-drag { left:200px; }
   html[data-desktop="darwin"][data-fullscreen="true"] .workspace .workspace-grid:is(.sidebar-collapsed,.mac-narrow) .chat-header > .chat-header-drag { left:130px; }
 
