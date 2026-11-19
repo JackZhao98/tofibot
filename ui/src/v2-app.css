@@ -5,7 +5,7 @@
 @layer legacy {
 /* The small modal sheet from settings/settings-components.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; goes with its last caller (PR 9.1 at the latest). */
 /* Sheet (small modal form). Skill access used it before decision 0058; keep it for the next sheet. */
-.sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:var(--scrim)}
 .sheet{display:flex;flex-direction:column;gap:14px;box-sizing:border-box;width:min(440px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:20px;background:var(--surface);color:var(--ink);border:var(--legacy-edge-bold-w) solid var(--line);border-radius:22px;box-shadow:var(--shadow);outline:none}
 .sheet>h3{margin:0;font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
 .sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}

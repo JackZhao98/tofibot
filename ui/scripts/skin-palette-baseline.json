@@ -1,7 +1,4 @@
 {
-  "account-menu.css": {
-    "blur": 2
-  },
   "approval-card.css": {
     "color": 2
   },
@@ -33,7 +30,7 @@
     "blur": 2
   },
   "interaction-system.css": {
-    "blur": 4
+    "blur": 2
   },
   "message-attachment.css": {
     "blur": 2
@@ -49,12 +46,6 @@
   },
   "provider-settings.css": {
     "font": 2
-  },
-  "settings-system.css": {
-    "blur": 4
-  },
-  "settings/settings-components.css": {
-    "blur": 2
   },
   "styles.css": {
     "font": 5
