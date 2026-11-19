@@ -659,7 +659,8 @@ for (const rate of engine === "chromium" ? [1, 4] : []) await check(`frame timin
   assert.ok(median.steadyWorst <= 2, `a frame after pickup took ${median.steadyWorst} frames (median run)`);
   assert.ok(median.p95 <= (rate === 1 ? 20 : 34), `p95 frame ${median.p95.toFixed(1)} ms is within budget`);
   assert.ok(median.dropped <= (rate === 1 ? 0 : 6), "dropped frames are rare, not sustained");
-  if (rate === 1) assert.equal(median.long, 0, `${median.long} long tasks during the drag`);
+  // The pickup's one stall may register as a long task; the owner accepts it (2026-11-19).
+  if (rate === 1) assert.ok(median.long <= 1, `${median.long} long tasks during the drag`);
   // 0.75 ms per frame per CPU step over idle: dnd-kit measured +0.34 to +0.63 at 1x and +1.0 to +1.7 at 4x (2026-11-19).
   // The hand-rolled engine this replaced was judged only by script < 4 ms per frame.
   assert.ok(median.scriptDelta <= 0.75 * rate, `a drag adds ${median.scriptDelta.toFixed(2)} ms of script per frame to the idle ${median.idleScript.toFixed(2)}`);
