@@ -4,9 +4,9 @@ import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import { useBotGround } from "./useBotGround";
 import "./ds/bot-context.css";
 import "./ds/BotAvatar/BotAvatar.css";
-import { directAvatarMotion, type AvatarMotion } from "./avatarMotionDirector";
 
-export type { AvatarMotion } from "./avatarMotionDirector";
+/** A cat is drawn once, awake or asleep. Nothing here moves: the header cat moves with CSS (ds/ChatHeader). */
+export type AvatarMotion = "sleeping" | "awake" | "working";
 
 /** One observer for every small avatar: a cat is built only once its slot is near the viewport, so opening a long group mounts a screenful, not the history. */
 let nearObserver: IntersectionObserver | undefined;
@@ -27,16 +27,15 @@ function whenNearViewport(element: Element, callback: () => void) {
   return () => { nearCallbacks.delete(element); nearObserver?.unobserve(element); };
 }
 
-export function BotAvatar({ id, mini = false, animated = false, motion, config, still = false, bare = false, plain = false }: { id: string; /** The cat in its V2 box with no tile: the working cats by the composer, until PR 4.1 removes them. */ plain?: boolean; /** Only the cat, with no tile: the caller (the kit BotAvatar) draws the ground tile. */ bare?: boolean; mini?: boolean; animated?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
+export function BotAvatar({ id, mini = false, motion, config, still = false, bare = false, plain = false }: { id: string; /** The cat in its V2 box with no tile: the working cats by the composer, until PR 4.1 removes them. */ plain?: boolean; /** Only the cat, with no tile: the caller (the kit BotAvatar) draws the ground tile. */ bare?: boolean; mini?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
-  const previousMotion = useRef<AvatarMotion>("sleeping");
-  const mountedAppearance = useRef<AvatarConfig | null>(null);
+    const mountedAppearance = useRef<AvatarConfig | null>(null);
   const [near, setNear] = useState(!mini);
   const [storedConfig, setStoredConfig] = useState<AvatarConfig>(() => getBotAvatarConfig(id));
   const appearance = config ?? storedConfig;
   const ground = useBotGround(id) ?? "tomato";
-  const effectiveMotion = motion ?? (animated ? "working" : "sleeping");
+  const effectiveMotion = motion ?? "sleeping";
   useEffect(() => {
     setStoredConfig(getBotAvatarConfig(id));
     return subscribeBotAvatar(id, setStoredConfig);
@@ -47,7 +46,7 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
   }, [mini, near]);
   useEffect(() => {
     if (!host.current || !near) return;
-    const cat = mountCat(host.current, { ...appearance, initialState: still ? "awake" : "asleep", life: !still && !(mini && motion === undefined) });
+    const cat = mountCat(host.current, { ...appearance, initialState: effectiveMotion === "sleeping" && !still ? "asleep" : "awake", life: false });
     mountedAppearance.current = appearance;
     controller.current = cat;
     return () => { cat.destroy(); controller.current = null; };
@@ -61,30 +60,10 @@ export function BotAvatar({ id, mini = false, animated = false, motion, config, 
     controller.current?.setAppearance(appearance);
   }, [appearance]);
   useEffect(() => {
-    const cat = controller.current;
-    if (!cat || still) return;
-    let cancelled = false;
-    let timer: number | undefined;
-    let finishPause: (() => void) | undefined;
-    const pause = (ms: number) => new Promise<void>((resolve) => {
-      if (cancelled) { resolve(); return; }
-      finishPause = resolve;
-      timer = window.setTimeout(() => { timer = undefined; finishPause = undefined; resolve(); }, ms);
-    });
-    const from = previousMotion.current;
-    previousMotion.current = effectiveMotion;
-    // Tiny message/mention avatars keep breathing but do not each start their
-    // own random gesture director. The sidebar, work area and preview opt in.
-    const allowAutoplay = motion !== undefined && !mini;
-    void directAvatarMotion(cat, from, effectiveMotion, () => !cancelled,
-      pause, Math.random, allowAutoplay);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      finishPause?.();
-      if (controller.current === cat) cat.setAutoplay(false);
-    };
-  }, [id, appearance.shape, effectiveMotion, motion, mini, near]);
+    // A Bot that falls asleep or wakes changes its resting pose in place.
+    if (still) return;
+    controller.current?.pose(effectiveMotion === "sleeping" ? { o: 0, k: 1 } : { o: 1, k: 0 });
+  }, [effectiveMotion, still, near]);
   if (bare) return <span className="tofi-avatar" ref={host} aria-hidden="true" />;
   return <span className={`avatar ${plain ? "" : `tb-botavatar tb-bot--${ground} `}${mini ? "mini" : ""}`} aria-hidden="true"><span className="tofi-avatar" ref={host} /></span>;
 }
