@@ -44,7 +44,7 @@ for (const engine of [chromium, webkit]) {
       });
       await page.goto("https://workspace.example.test:8443");
       await page.locator(".sidebar-account-identity").waitFor();
-      const address = page.locator(".sidebar-account-copy small");
+      const address = page.locator(".sidebar-account-identity .tb-srow-meta");
       if (hosting === "self" && native === "web") {
         assert.equal(await address.innerText(), "workspace.example.test:8443");
       } else {
@@ -53,7 +53,11 @@ for (const engine of [chromium, webkit]) {
       assert.equal(await page.locator(".sidebar-app-update").count(), 0);
       const avatar = await page.locator(".sidebar-account-monogram").boundingBox();
       const settings = await page.locator(".sidebar-account-settings:not(.sidebar-app-update)").boundingBox();
-      assert.ok(Math.abs(avatar.y + avatar.height / 2 - settings.y - settings.height / 2) < 1, "settings and avatar are vertically centered");
+      // V3 PR 5.1 (PageChat): Settings and the account are two full-width rows, Settings above, the avatar on the lead column of its row.
+      const identity = await page.locator(".sidebar-account-identity").boundingBox();
+      assert.ok(settings.y + settings.height <= identity.y + 0.5, "the Settings row is above the account row");
+      assert.ok(Math.abs(settings.width - identity.width) < 1, "both rows are as wide as the sidebar");
+      assert.ok(avatar.y >= identity.y && avatar.y + avatar.height <= identity.y + identity.height, "the avatar sits in the account row");
       await page.locator(".sidebar-account-identity").click();
       const menu = page.locator('.sidebar-account-menu:not(.sidebar-account-submenu)');
       await menu.waitFor();

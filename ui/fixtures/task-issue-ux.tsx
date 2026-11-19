@@ -9,7 +9,7 @@ import "../src/conversation-workspace.css";
 import "../src/v2-foundations.css";
 import "../src/v2-app.css";
 import "../src/web-tool-steps.css";
-import "../src/web-sidebar-list.css";
+import "../src/workspace/sidebar.css";
 import "../src/chat-header.css";
 import "../src/context-card.css";
 import "../src/ds/legacy-aliases.css";

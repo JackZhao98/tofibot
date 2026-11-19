@@ -1,10 +1,10 @@
-/* Group avatar: up to four cat heads, each a circle with a surface-coloured ring so overlaps read cleanly. */
+/* Group avatar: up to four cat heads, each a circle with a surface-coloured ring so overlaps read cleanly.
+   Only the message avatars (chat/shared.tsx) and the archive list (ArchivePanel.tsx) draw it now; the sidebar rows use the
+   kit's initials Avatar (V3 PR 5.1). It leaves with the last of them (3.x, 5.6). */
 @layer legacy {
 .group-heads { position:relative; display:block; width:100%; height:100%; }
 .group-head { position:absolute; left:var(--head-l); top:var(--head-t); width:var(--head-s); height:var(--head-s); overflow:hidden; border-radius:50%; background:var(--surface-2); box-shadow:0 0 0 1.5px var(--surface); }
 .group-head-cat { position:absolute; display:block; }
 .group-heads .group-head-cat > .avatar, .group-heads .group-head-cat .tofi-avatar { display:block; width:100%; height:100%; }
 .archive-group-mark { width:34px; height:34px; background:transparent; }
-
-.workspace .conversation-row>.group-avatar, .workspace .conversation-row.active>.group-avatar, .pin-tile .avatar.pin-tile-group { background:transparent; }
 }

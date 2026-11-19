@@ -6,7 +6,6 @@ form[aria-busy=true]{cursor:progress}
 }
 @layer legacy {
 .workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line-soft) transparent}
-.workspace .contact-row:focus-visible{outline-offset:-3px}
 /* V2 controls live in v2-foundations.css, not a second generic rule set. */
 .search-box:has(:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px}
 .search-box input:focus-visible,.composer-row textarea:focus-visible{outline:none}
@@ -17,15 +16,7 @@ form[aria-busy=true]{cursor:progress}
 .tofi-avatar>svg{display:block;width:100%;height:100%}
 
 .workspace-grid{--sidebar-width:272px;grid-template-columns:var(--sidebar-width) minmax(0,1fr);transition:grid-template-columns var(--m-panel-in) var(--ease-out)}
-.sidebar-toggle{color:var(--muted)}
-/* Time belongs beside the name, not in a column stealing preview width. */
-.conversation-row{position:relative}
-.conversation-row:has(.conversation-time:not(:empty)) .contact-copy strong{padding-right:46px}
-.conversation-time{position:absolute;right:10px;top:15px;max-width:44px;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:20px;padding:0;margin:0;font-variant-numeric:tabular-nums}
 .contact-section{overflow-x:hidden}
-.section-label{font-size:12px;line-height:20px;padding:16px 10px 6px}
-.contact-section>.section-label:first-child{padding-top:0}
-.section-label>span{font-weight:500}
 .archive-entry{font-size:12px;color:var(--muted)}
 .purge-section{margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}
 .purge-section label{display:grid;gap:7px;margin-top:14px;color:var(--text-soft);font-size:12px}
@@ -33,7 +24,6 @@ form[aria-busy=true]{cursor:progress}
 .purge-button:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 10%,transparent)}
 .purge-button:disabled{opacity:.45;cursor:default}
 .sidebar-footer{border-top:0;padding:10px 6px 0}
-.sidebar-settings-button{min-height:40px;padding:8px 10px;font-size:13px}
 /* Chat header, timeline and bubbles are owned by v2-app.css. */
 .scheduled-task-row{max-width:var(--chat-max);margin:8px auto 16px;color:var(--muted);font-size:12px}
 .scheduled-task-row details{border-radius:10px;background:var(--surface-soft)}
@@ -79,7 +69,7 @@ form[aria-busy=true]{cursor:progress}
 }
 @media(min-width:768px) and (max-width:1023px){.workspace-grid{--sidebar-width:232px}}
 @media(max-width:767px){
- .sidebar-toggle{display:none}.chat-header{padding:8px 12px;min-height:60px}.contact-pane{padding:16px 12px}
+ .sidebar-toggle-slot{display:none}.chat-header{padding:8px 12px;min-height:60px}.contact-pane{padding:16px 12px}
  .detail-pane:has(.settings-tabs){border-radius:0}.appearance-setting{padding:24px 16px}
  .top-icon-button,.icon-button,.ghost-button,.computer-button{width:40px;height:40px;min-width:40px}
 }
@@ -135,9 +125,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 
 /* The avatar is the product's visual signature; let it read in the list. */
 .contact-pane{padding-inline:6px}
-.contact-row{gap:8px;padding-inline:8px}
-.conversation-row>.avatar{width:48px;height:48px;flex-basis:48px}
-.contact-row .contact-copy{min-width:0}
 
 
 @media(max-width:767px){
@@ -146,8 +133,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
   .member-avatar-stack{min-width:38px}
   .member-avatar-stack .avatar{width:36px;height:36px}
   .contact-pane{padding-inline:8px}
-  .contact-row{padding-inline:4px}
-  .conversation-row>.avatar{width:46px;height:46px;flex-basis:46px}
 }
 .group-avatar,.user-avatar{background:var(--surface-hover);color:var(--text-soft)}
 .back-button{color:var(--text);background:transparent;border-radius:50%}.back-button:hover{background:var(--surface-hover)}
@@ -212,9 +197,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
   .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){
-  .workspace .contact-row.active,.workspace .settings-tabs button.selected{background:Highlight;color:HighlightText}
-  .workspace .contact-row.active :is(strong,small,time){color:HighlightText}
-  .workspace .contact-row.active>.conversation-status{background:HighlightText;color:Highlight}
+  .workspace .settings-tabs button.selected{background:Highlight;color:HighlightText}
   .workspace ::selection{background:Highlight;color:HighlightText}
 }
 

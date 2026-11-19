@@ -99,9 +99,9 @@ async function open({ reduced = false, viewport = { width: 1180, height: 820 }, 
 }
 
 const names = page => page.locator(".contact-section .conversation-row .contact-name").allInnerTexts();
-const pinnedNames = page => page.locator(".pin-tile .pin-tile-name").allInnerTexts();
+const pinnedNames = page => page.locator(".pin-tile .contact-name").allInnerTexts();
 const rowFor = (page, name) => page.locator(".conversation-row").filter({ has: page.locator(".contact-name", { hasText: name }) }).first();
-const tileFor = (page, name) => page.locator(".pin-tile").filter({ has: page.locator(".pin-tile-name", { hasText: name }) }).first();
+const tileFor = (page, name) => page.locator(".pin-tile").filter({ has: page.locator(".contact-name", { hasText: name }) }).first();
 const centre = async locator => { const b = await locator.boundingBox(); assert.ok(b, "element has a box"); return { x: b.x + b.width / 2, y: b.y + b.height / 2, box: b }; };
 async function until(check, what, timeout = 5000) {
   const stop = Date.now() + timeout;
@@ -244,7 +244,7 @@ await check("the drop zone exists only while a row is dragged", async () => {
   await context.close();
 });
 
-await check("dropping on the zone pins: large tile with the cat and the name, row leaves the list", async () => {
+await check("dropping on the zone pins: the row joins the pinned group with its cat and name, and leaves the list", async () => {
   const { page, context, puts } = await open();
   const from = await centre(rowFor(page, "Cat 02"));
   await page.mouse.move(from.x, from.y);
@@ -261,10 +261,11 @@ await check("dropping on the zone pins: large tile with the cat and the name, ro
   assert.deepEqual(await pinnedNames(page), ["Cat 02"]);
   assert.ok(!(await names(page)).includes("Cat 02"), "no duplicate row");
   const tile = tileFor(page, "Cat 02");
-  const art = await tile.locator(".avatar").boundingBox();
-  assert.ok(art.width >= 60 && art.height >= 60, `avatar is large (${art.width}x${art.height})`);
-  assert.ok(await tile.locator(".avatar svg").count() > 0, "the cat is drawn");
-  assert.ok(art.height > (await rowFor(page, "Cat 00").locator(".avatar").boundingBox()).height + 10, "bigger than the row avatar");
+  // V3 PR 5.1 (PageChat): a pinned place is a row of the same size under the Pinned eyebrow, not a large tile.
+  const art = await tile.locator(".tb-botavatar").boundingBox();
+  assert.ok(await tile.locator(".tb-botavatar svg").count() > 0, "the cat is drawn");
+  assert.ok(Math.abs(art.height - (await rowFor(page, "Cat 00").locator(".tb-botavatar").boundingBox()).height) < 1, "the same avatar size as a list row");
+  assert.equal(await page.locator(".pin-dock > .tb-eyebrow").count(), 1, "the pinned group has its eyebrow");
   assert.equal(await tile.getAttribute("aria-label"), "Cat 02");
   if (shots) await page.screenshot({ path: join(shots, "pinned-one.png") });
   await tile.click();
@@ -461,17 +462,16 @@ await check("the context menu pins and unpins, for rows and tiles", async () => 
   await context.close();
 });
 
-await check("a pinned group shows the group mark (member heads), not a full cat", async () => {
+await check("a pinned group shows the group initials, not a cat", async () => {
   const { page, context } = await open();
   await rowFor(page, "Synthetic Group").scrollIntoViewIfNeeded();
   await rowFor(page, "Synthetic Group").click({ button: "right" });
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
-  await page.locator(".pin-tile-group").waitFor();
+  await page.locator(".pin-tile .tb-avatar").waitFor();
   assert.deepEqual(await pinnedNames(page), ["Synthetic Group"]);
-  // The group mark is a cluster of static heads (GroupAvatar); no cat is drawn outside it.
-  await page.locator(".pin-tile-group .group-head").first().waitFor();
-  assert.equal(await page.locator(".pin-tile-group .group-head").count() > 0, true, "the group draws member heads");
-  assert.equal(await page.locator(".pin-tile .tofi-avatar").evaluateAll(nodes => nodes.filter(node => !node.closest(".pin-tile-group")).length), 0, "no full cat for a group");
+  // A group is an initials disc in the kit Avatar (V3 PR 5.1, PageChat); no cat is drawn for it.
+  assert.equal(await page.locator(".pin-tile .tb-avatar").innerText(), "SG", "the group draws its initials");
+  assert.equal(await page.locator(".pin-tile .tofi-avatar").count(), 0, "no cat for a group");
   await context.close();
 });
 
@@ -502,7 +502,7 @@ await check("keyboard: Alt+Arrow moves a tile and focus stays, the move is annou
   await page.keyboard.press("Alt+ArrowLeft");
   await until(() => puts.length === 3, "tile move saved");
   assert.deepEqual(await pinnedNames(page), ["Cat 06", "Cat 05"]);
-  assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".pin-tile-name")?.textContent), "Cat 06");
+  assert.equal(await page.evaluate(() => document.activeElement?.querySelector(".contact-name")?.textContent), "Cat 06");
   assert.match(await live(page), /Cat 06 moved to position 1 of 2/);
   await context.close();
 });
@@ -529,7 +529,7 @@ await check("announcements: lift, pin and unpin are spoken", async () => {
   await context.close();
 });
 
-await check("a pressed tile shows the app's press feedback; reduced motion keeps the colour change but no movement", async () => {
+await check("a pressed pinned row takes the kit press fill and does not move, with or without reduced motion", async () => {
   for (const reduced of [false, true]) {
     const { page, context } = await open({ reduced });
     await rowFor(page, "Cat 02").click({ button: "right" });
@@ -547,9 +547,9 @@ await check("a pressed tile shows the app's press feedback; reduced motion keeps
     if (shots) await page.screenshot({ path: join(shots, reduced ? "dock-press-reduced.png" : "dock-press.png"), clip: { x: Math.max(0, at.x - 90), y: Math.max(0, at.y - 80), width: 180, height: 160 } });
     await page.mouse.up();
     assert.notEqual(down.background, rest.background, "the pressed tile changes its surface");
-    assert.equal(down.shadow, "none", "the press drops the shadow, as a row does");
-    if (reduced) assert.ok(down.transform === "none" || down.transform === rest.transform, `no movement under reduced motion (${down.transform})`);
-    else assert.notEqual(down.transform, rest.transform, `the tile moves when pressed (${down.transform})`);
+    assert.equal(down.shadow, "none", "no shadow on a pressed row");
+    // The V2 push (translate and scale) is gone: the kit row only takes its pressed fill.
+    assert.ok(down.transform === "none" || down.transform === rest.transform, `no movement (${down.transform})`);
     await context.close();
   }
 });

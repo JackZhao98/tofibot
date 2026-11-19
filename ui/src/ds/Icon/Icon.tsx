@@ -11,10 +11,12 @@ export type IconProps = {
   variant?: "outline" | "filled";
   /** Only when the icon carries meaning alone; otherwise it is hidden from screen readers. */
   title?: string;
+  /** Icon motion (the one motion exception for the plus, V3 PLAN 8.3); off under reduced motion. */
+  animated?: boolean;
   className?: string;
 };
 
 /** One icon of Tofi Rounded Icons, drawn inline so it takes the text colour. The stroke is fixed at 1.8. */
-export function Icon({ name, size = 20, variant = "outline", title, className }: IconProps) {
-  return <TofiIcon name={name} size={size} variant={variant} title={title} className={cx("tb-icon", className)} />;
+export function Icon({ name, size = 20, variant = "outline", title, animated, className }: IconProps) {
+  return <TofiIcon name={name} size={size} variant={variant} title={title} animated={animated} className={cx("tb-icon", className)} />;
 }

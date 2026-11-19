@@ -39,13 +39,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 
 .contact-section{display:flex;min-height:0;flex:1;flex-direction:column;margin:0;overflow-y:auto;overscroll-behavior:contain}
 .sidebar-footer{margin-top:auto}
-.section-label{display:flex;justify-content:space-between;padding:0 9px 7px}
 .archive-entry{padding:0;color:var(--muted);font-size:11px;letter-spacing:0}
-.contact-row{width:100%;display:flex;align-items:center;gap:10px;min-height:60px;margin-bottom:2px;padding:8px 9px;text-align:left}
-.contact-copy{min-width:0;flex:1;display:grid;gap:3px}
-.contact-copy strong,.contact-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.contact-copy strong,.contact-copy small{min-width:0}
-.conversation-time{align-self:flex-start;padding-top:2px;white-space:nowrap}
 .empty-copy,.panel-empty{padding:8px 9px;color:var(--muted);font-size:12px;line-height:1.55}
 
 .avatar{width:36px;height:36px;display:inline-grid;place-items:center;flex:0 0 auto}
@@ -362,8 +356,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
   button:disabled{color:GrayText;background:Canvas}
   .primary-button,.send-button{color:ButtonFace;background:ButtonText;border:1px solid ButtonText;forced-color-adjust:none}
   .secondary-button,.icon-button,.top-icon-button,.computer-button,.back-button{color:ButtonText;background:ButtonFace;border:1px solid ButtonText}
-  .contact-row.active,.settings-tabs button.selected{color:HighlightText;background:Highlight;box-shadow:none;forced-color-adjust:none}
-  .contact-row.active .contact-copy strong,.contact-row.active .contact-copy small,.contact-row.active .conversation-time{color:HighlightText}
+  .settings-tabs button.selected{color:HighlightText;background:Highlight;box-shadow:none;forced-color-adjust:none}
   .message-user .message-content{color:ButtonFace;background:ButtonText}
   .message-bot .message-content{color:CanvasText;background:Canvas;border:1px solid ButtonText}
   .detail-backdrop{background:Canvas}

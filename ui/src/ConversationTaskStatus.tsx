@@ -1,6 +1,5 @@
 import type { Conversation } from "./types";
 import { i18n } from "./i18n";
-import "./conversation-task-status.css";
 
 type TaskState = NonNullable<Conversation["task_state"]>;
 

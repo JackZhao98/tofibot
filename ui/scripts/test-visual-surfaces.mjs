@@ -9,9 +9,11 @@ test("overlapping surfaces share tinted glass and paired backdrop filters", () =
   // Locate the material rule by its declarations, rather than lazy component file order.
   const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".sheet,") && body.includes("background:var(--legacy-glass)"));
   assert.ok(material, "one shared surface recipe exists");
-  for (const name of ["sidebar-account-menu", "more-menu", "mention-menu", "composer-add-menu", "ui-select-content", "cover-window", "sheet", "search-palette", "desktop-window-controls"]) {
+  for (const name of ["cover-window", "sheet", "search-palette", "desktop-window-controls"]) {
     assert.ok(material[1].includes(`.${name}`), `${name} uses the shared material`);
   }
+  // Menus, popovers and the Select list are on the kit's glass since PRs 2.2 and 2.3.
+  for (const file of ["overlays/RadixOverlays.tsx", "SelectRadix.tsx"]) assert.match(read(file), /\btb-glass\b/, `${file} uses the kit glass`);
   assert.match(material[2], /-webkit-backdrop-filter:var\(--blur\)/);
   assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--blur\)/);
   // The material is a skin role now (V3 PLAN 7.6): the bridge points the V2 glass names at --glass-strong, and the blur at --glass-blur.
@@ -44,9 +46,9 @@ test("popup keyframes fade in place without corner origins or translation", () =
 test("native title row controls clear traffic lights and use no-drag hit targets", () => {
   const css = read("desktop-system.css");
   // Option C (owner 2026-11-14): the toggle sits at 78 px inside the card (86 px in the window), after the lights at 22 px.
-  assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor\) \{[^}]*left:78px/);
+  assert.match(css, /\.sidebar-top :is\(\.sidebar-toggle-slot,\.sidebar-logo-expand,\.search-slot,\.create-menu-anchor\) \{[^}]*left:78px/);
   // Every app-region declaration lives in forced.css since PR 0.3, so the no-drag hole is read there.
-  assert.match(read("forced.css"), /\.sidebar-top :is\(\.sidebar-toggle,\.sidebar-logo-expand,\.search-trigger,\.create-menu-anchor>\.icon-button\)\{-webkit-app-region:no-drag\}/);
+  assert.match(read("forced.css"), /\.sidebar-top :is\(\.sidebar-toggle-slot,\.sidebar-logo-expand,\.search-slot,\.create-menu-anchor\)\{-webkit-app-region:no-drag\}/);
   // Collapsed or narrow: the header drag layer starts after the capsule.
   assert.match(css, /:is\(\.sidebar-collapsed,\.mac-narrow\) \.chat-header > \.chat-header-drag \{ left:200px/);
 });

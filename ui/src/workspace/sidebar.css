@@ -1,0 +1,98 @@
+/* The app sidebar (V3 PR 5.1). The rows, the eyebrows, the buttons and the update banner are the kit's (SidebarRow, IconButton,
+   Banner, Avatar) and the kit owns how they look, including the lead-only rail row and the lifted row; this sheet is only the
+   layout around them, and today's drag frame. The Mac card and its title row are placed in desktop-system.css.
+   Drag and drop is untouched until PR 5.2 (dnd-kit): the glide and the drop frame at the end are that engine's styles. */
+@layer legacy {
+/* The list. */
+.workspace .contact-section { margin-inline: -6px; padding-inline: 6px; overflow-x: hidden; overflow-anchor: none; }
+.workspace .contact-section .tb-srow { flex: none; margin-bottom: 2px; -webkit-touch-callout: none; }
+.workspace .sidebar-eyebrow { padding: 14px 10px 6px; }
+.workspace .contact-section > .sidebar-eyebrow:first-child { padding-top: 2px; }
+.workspace .pin-dock > .sidebar-eyebrow { padding-top: 2px; }
+.workspace .pin-frame:not([data-empty]) + .sidebar-eyebrow { padding-top: 16px; }
+.workspace .contact-row .contact-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* The footer: the update banner, then Settings and the account as two rows. */
+.workspace .sidebar-footer { padding: 10px 0 0; border-top: var(--border-1) solid var(--line); }
+.workspace .sidebar-account { position: relative; display: grid; gap: 2px; }
+.workspace .sidebar-app-update-banner { margin: 0 0 10px; }
+.workspace .sidebar-app-update-action { display: flex; margin-top: 8px; }
+.workspace .finish-chip { margin: 0 0 8px; }
+.workspace .sidebar-account-lost { color: var(--danger-text); }
+
+/* The collapse toggle is a desktop control: a phone has no rail. */
+@media (max-width: 767px) { .workspace .sidebar-toggle-slot { display: none; } }
+
+/* Narrow list (the phone): the empty workspace hero is behind the list, so the list offers the first step itself. */
+.workspace .empty-copy > p { margin: 0; }
+.workspace .sidebar-empty-create { display: none; }
+@media (max-width: 767px) { .workspace .sidebar-empty-create { display: inline-flex; margin-top: 14px; } }
+@media (max-width: 700px) { .workspace .sidebar-footer { padding-bottom: max(0px, env(safe-area-inset-bottom)); } }
+
+/* The collapsed rail (72 px): rows are their lead (SidebarRow `compact`), the name is the hint. The Mac card has its own capsule
+   (desktop-system.css) and wins these by specificity, as it did before. */
+@media (min-width: 768px) {
+  .workspace .workspace-grid.sidebar-collapsed { --sidebar-width: var(--sidebar-collapsed); }
+  .workspace .sidebar-collapsed { --rail-item-w: 52px; --rail-item-h: 48px; }
+  .workspace .sidebar-collapsed .contact-pane { padding-inline: 10px; overflow: visible; }
+  .workspace .sidebar-collapsed .sidebar-eyebrow { display: none; }
+  .workspace .sidebar-collapsed .contact-section { margin-inline: -10px; padding-inline: 10px; align-items: center; scrollbar-width: none; }
+  .workspace .sidebar-collapsed .contact-section::-webkit-scrollbar { display: none; }
+  .workspace .sidebar-collapsed .contact-section > :is(.pin-frame, .sidebar-custom-section) { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .workspace .sidebar-collapsed .pin-dock { display: flex; flex-direction: column; align-items: center; }
+  .workspace .sidebar-collapsed .pin-frame { padding: 0; border-width: 0; margin-inline: 0; }
+  .workspace .sidebar-collapsed .pin-frame[data-dnd="row"] { border-width: 2px; }
+  .workspace .sidebar-collapsed .pin-frame:not([data-empty]) { padding-bottom: 6px; margin-bottom: 6px; }
+  .workspace .sidebar-collapsed .pin-frame-hint { display: none; }
+
+  /* Top: the expand control (the logo), search and new, on one axis. */
+  .workspace .sidebar-collapsed .sidebar-top { flex-direction: column; align-items: center; gap: 8px; margin: 0 0 14px; min-height: 0; }
+  .workspace .sidebar-collapsed .sidebar-actions,
+  .workspace .sidebar-collapsed .create-menu-anchor { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .workspace .sidebar-collapsed .create-menu-anchor { position: static; }
+  .workspace .sidebar-collapsed .sidebar-logo-expand { position: relative; display: grid; place-items: center; width: var(--rail-item-w); height: var(--rail-item-h); padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-soft); }
+  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo { width: 34px; gap: 0; }
+  .workspace .sidebar-collapsed .sidebar-logo-expand .brand-logo img { width: 34px; height: 34px; }
+  .workspace .sidebar-collapsed .brand-logo > span { display: none; }
+  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover, :focus-visible) { background: var(--hover); color: var(--ink); }
+  .workspace .sidebar-collapsed :is(.sidebar-logo-art, .sidebar-logo-arrow) { grid-area: 1/1; transition: opacity var(--m-press) var(--ease-out), transform var(--m-base) var(--ease-out); }
+  .workspace .sidebar-collapsed .sidebar-logo-arrow { opacity: 0; transform: scale(.78); }
+  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover, :focus-visible) .sidebar-logo-art { opacity: 0; transform: scale(.78); }
+  .workspace .sidebar-collapsed .sidebar-logo-expand:is(:hover, :focus-visible) .sidebar-logo-arrow { opacity: 1; transform: scale(1); }
+
+  /* Bottom: the account's lead on the same axis. */
+  .workspace .sidebar-collapsed .sidebar-footer { border-top: 0; padding: 10px 0 0; display: grid; justify-items: center; }
+  .workspace .sidebar-collapsed .sidebar-account { justify-items: center; }
+  .workspace .sidebar-collapsed .finish-chip { margin-bottom: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace .sidebar-collapsed :is(.sidebar-logo-art, .sidebar-logo-arrow) { transition: none; }
+}
+
+/* Drag and drop (the engine is useSidebarDnd.ts, until PR 5.2): the glide and the drop frame. The engine moves elements with
+   transforms only; this gives those transforms their glide (motion tokens). The lifted look is the kit's (`is-dnd-dragging`). */
+.workspace .contact-section .dnd-live:not(.is-dnd-dragging) { transition: transform var(--m-quick) var(--ease-out); }
+.workspace .contact-section [data-dnd-id].is-dnd-dragging { position: relative; z-index: var(--z-drag); cursor: grabbing; will-change: transform; transition: none; pointer-events: none; }
+.workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling { pointer-events: auto; transition: transform var(--m-panel-in) var(--ease-settle), box-shadow var(--m-panel-in) var(--ease-settle); }
+/* The dropped element keeps the drag layer while it flies to its slot (the engine adds the class for the flight). */
+.workspace .contact-section [data-dnd-id].is-dnd-landing { position: relative; z-index: var(--z-drag); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .workspace .contact-section .dnd-live, .workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling { transition: none; }
+}
+
+/* Drop zone: the pinned area itself. One frame wraps the pinned rows (empty, one row high, when nothing is pinned), first in the
+   list under the search bar. The border is always there (transparent) so opening it moves no row; a dragged row turns it dashed and
+   shows the hint inside it, which pushes the rows below down (the engine glides them). Nothing sits over it: only the dragged row
+   (--z-drag) is above. */
+.pin-frame { border: 2px solid transparent; border-radius: var(--radius-md); padding: 0; margin-inline: -2px; transition: border-color var(--m-quick) var(--ease-out), background-color var(--m-quick) var(--ease-out); }
+.pin-frame[data-empty] { display: none; }
+.pin-frame-hint { display: none; justify-items: center; gap: 2px; padding: 4px 0 10px; color: var(--muted); }
+.pin-frame[data-dnd="row"] { margin-bottom: 8px; border-style: dashed; border-color: var(--line); background: var(--sunk); }
+.pin-frame[data-dnd="row"][data-empty] { display: grid; align-content: center; min-height: 112px; }
+.pin-frame[data-dnd="row"] .pin-frame-hint { display: grid; animation: pin-zone-in var(--m-quick) var(--ease-out); }
+.pin-frame[data-dnd="row"][data-dnd-over="pin"] { border-color: var(--tomato); background: color-mix(in srgb, var(--tomato) 14%, var(--sunk)); }
+@keyframes pin-zone-in { from { opacity: 0; transform: translateY(-6px); } }
+.pin-frame-hint strong { font: 600 14px/1.3 var(--font-display); color: var(--ink); }
+.pin-frame-hint small { font: 12px/1.35 var(--font-body); }
+@media (prefers-reduced-motion: reduce) { .pin-frame, .pin-frame-hint { animation: none; transition: none; } }
+}

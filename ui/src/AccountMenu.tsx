@@ -8,7 +8,7 @@ import { chooseLanguage } from "./saveLanguage";
 import type { OwnerSession } from "./ownerAuthApi";
 
 /** The sidebar account menu body; kept out of the entry chunk. */
-export function AccountMenu({ setOpen, name, trigger, menu, session, logout, onSettings, onUsage, onArtifacts }: { setOpen: (open: boolean) => void; name: string; trigger: RefObject<HTMLButtonElement | null>; menu: RefObject<HTMLDivElement | null>; session: OwnerSession | null; logout: () => Promise<void>; onSettings: () => void; onUsage: () => void; onArtifacts: () => void; }) {
+export function AccountMenu({ setOpen, name, trigger, session, logout, onSettings, onUsage, onArtifacts }: { setOpen: (open: boolean) => void; name: string; trigger: RefObject<HTMLButtonElement | null>; session: OwnerSession | null; logout: () => Promise<void>; onSettings: () => void; onUsage: () => void; onArtifacts: () => void; }) {
   const appearance = useAppearance();
   const { preference: language } = useLanguage();
   const browserLanguage = matchLanguage(typeof navigator === "undefined" ? [] : navigator.languages ?? [navigator.language]) ?? "en";
@@ -17,7 +17,7 @@ export function AccountMenu({ setOpen, name, trigger, menu, session, logout, onS
   const { t } = useTranslation(["auth", "common", "settings"]);
   const pickLanguage = (next: LanguagePreference) => { setError(""); void chooseLanguage(next, t("settings:language.save_failed")).then(setError); };
   const navigate = (action: () => void) => { setOpen(false); action(); };
-  return <OverlayMenu open onOpenChange={setOpen} className="sidebar-account-menu" label={name} trigger={trigger} anchor={menu} sideOffset={10} {...(menu.current?.closest(".sidebar-collapsed") ? { side: "right", align: "end" } : { side: "top" })}>
+  return <OverlayMenu open onOpenChange={setOpen} className="sidebar-account-menu" label={name} trigger={trigger} anchor={trigger} sideOffset={10} {...(trigger.current?.closest(".sidebar-collapsed") ? { side: "right", align: "end" } : { side: "top" })}>
       <div className="sidebar-account-menu-heading"><strong>{name}</strong></div>
       <button onClick={() => navigate(onSettings)}><TofiIcon name="settings" size={16}/>{t("common:nav.settings")}</button>
       <button onClick={() => navigate(onUsage)}><TofiIcon name="activity" size={16}/>{t("common:nav.usage")}</button>

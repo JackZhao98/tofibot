@@ -9,4 +9,5 @@
 .tb-presence { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; border: var(--border-2) solid var(--bg); }
 .tb-presence.is-online { background: var(--lime); }
 .tb-presence.is-away { background: var(--mustard); }
+.tb-presence.is-working { background: var(--teal); }
 .tb-presence.is-offline { background: var(--muted); }

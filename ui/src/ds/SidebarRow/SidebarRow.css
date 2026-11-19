@@ -1,8 +1,11 @@
-.tb-srow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; box-sizing: border-box; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; }
+.tb-srow { width: 100%; font: inherit; text-align: left; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; box-sizing: border-box; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; }
 .tb-srow:hover { background: var(--c-srow-hover); }
+.tb-srow:active { background: var(--c-srow-hover); }
 .tb-srow:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 /* The selected row keeps its bold ink edge on every platform (S2); only its fill follows the material. */
-.tb-srow.is-active { background: var(--c-srow-active-bg); border: var(--c-srow-active-outline); padding: 5px 9px; }
+.tb-srow.is-active, .tb-srow.is-active:active { background: var(--c-srow-active-bg); border: var(--c-srow-active-outline); padding: 5px 9px; }
+/* The Mac sidebar stays transparent over native vibrancy (S13); an unfocused window dims the selected fill. */
+html[data-desktop="darwin"][data-window-focused="false"] .tb-srow.is-active { background: color-mix(in srgb, var(--c-srow-active-bg) 85%, transparent); }
 .tb-srow-lead { flex: none; display: grid; place-items: center; }
 .tb-srow-icon { width: 34px; height: 34px; color: var(--ink-soft); }
 .tb-srow.is-active .tb-srow-icon { color: var(--tomato-text); }
@@ -10,4 +13,17 @@
 .tb-srow-label { font: 600 14px/1.35 var(--font-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-srow.is-unread .tb-srow-label { font-weight: 800; }
 .tb-srow-meta { font: 400 12px/1.35 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-srow > .tb-badge { flex: none; padding: 0 4px; }
 .tb-count { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; font: 600 11px/1 var(--font-mono); border-radius: var(--radius-pill); background: var(--mustard); color: var(--on-block); border: var(--border-1) solid transparent; }
+/* The drag lift of today's engine (PR 5.2 swaps it for dnd-kit): a held row is a card, and the rows around it do not light up. */
+.tb-srow.is-dnd-dragging { background: var(--surface); box-shadow: var(--shadow); }
+.tb-srow.dnd-live:not(.is-dnd-dragging):hover { background: transparent; }
+/* Lead only, for the collapsed rail (72 px, from tablet width up): the name is the hint and one status sits on the lead's corner. */
+@media (min-width: 768px) {
+  .tb-srow--lead { position: relative; width: 52px; height: 48px; min-height: 0; padding: 0; gap: 0; justify-content: center; }
+  .tb-srow--lead.is-active, .tb-srow--lead.is-active:active { padding: 0; }
+  .tb-srow--lead .tb-srow-main { display: none; }
+  .tb-srow--lead > .tb-count, .tb-srow--lead > .tb-badge { position: absolute; top: 2px; right: 2px; pointer-events: none; }
+  .tb-srow--lead > .tb-badge { height: 18px; min-width: 18px; justify-content: center; }
+  .tb-srow--lead .tb-srow-icon { width: 36px; height: 36px; }
+}

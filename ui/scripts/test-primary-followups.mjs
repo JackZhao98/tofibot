@@ -27,6 +27,7 @@ import {ApiError,api} from '../src/api';
 import {TimezoneProvider} from '../src/UserTimezone';
 import {DeleteConversationDialog} from '../src/DeleteConversationDialog';
 import {PrimaryBadge} from '../src/PrimaryAssistant';
+import {SidebarRow} from '../src/ds/SidebarRow/SidebarRow';
 import {ReassignPrimaryDialog} from '../src/ReassignPrimaryDialog';
 import {FollowupsSettings} from '../src/FollowupsSettings';
 const query=new URLSearchParams(location.search);
@@ -50,7 +51,7 @@ function Hide(){
  const bot=bots.find((b:any)=>b.id==='bot_research');
  return bot?<ReassignPrimaryDialog bot={bot} bots={bots} onClose={()=>{(window as any).__closed=true}} onConfirm={async id=>{(window as any).__hidden={successor:id}}}/>:null;
 }
-function Badge(){return <div className="workspace"><div className="contact-copy"><strong><span className="contact-name">A very long Bot name that has to be truncated before the tag</span><PrimaryBadge/></strong></div></div>}
+function Badge(){return <div className="workspace"><SidebarRow as="button" label={<><span className="contact-name">A very long Bot name that has to be truncated before the tag</span><PrimaryBadge/></>}/></div>}
 const scenes:Record<string,()=>JSX.Element|null>={followups:Followups,delete:Delete,hide:Hide,badge:Badge};
 const Scene=scenes[scene];
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><Scene/></TimezoneProvider>));
@@ -191,7 +192,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const t = await open({scene: "badge"}, {width: 260, height: 200});
     await t.page.locator(".primary-badge").waitFor({timeout: 15000});
     const report = await t.page.evaluate(() => {
-      const badge = document.querySelector(".primary-badge").getBoundingClientRect(), row = document.querySelector(".contact-copy").getBoundingClientRect(), name = document.querySelector(".contact-name");
+      const badge = document.querySelector(".primary-badge").getBoundingClientRect(), row = document.querySelector(".tb-srow-main").getBoundingClientRect(), name = document.querySelector(".contact-name");
       return {badgeRight: badge.right, rowRight: row.right, truncated: name.scrollWidth > name.clientWidth, text: document.querySelector(".primary-badge").textContent};
     });
     assert.equal(report.text, "Primary");

@@ -22,7 +22,6 @@ import { useOwnerSession } from "../OwnerSession";
 import { desktopState, updateDesktopState, isDesktop, type DesktopCommand } from "../desktop";
 import { useUserTimezone } from "../UserTimezone";
 import { browserNotifier, type DeliveryItem } from "../attentionNotifier";
-import { dateInTimezone, dateTimeFormat } from "../timezone";
 import "../MessageAttachment";
 import { FilePreviewHost } from "../FileViewer";
 import "../MessageReactions";
@@ -60,9 +59,9 @@ import { occurrenceRootKey } from "../scheduleOccurrences";
 import { useScheduleOccurrences } from "../useScheduleOccurrences";
 import { useScheduleMetadata } from "../useScheduleMetadata";
 import { TofiIcon as Icon } from "../icons";
-import { intlLocale } from "../i18n/format";
 import "../BrandLogo";
-import { PinTile } from "../PinnedDock";
+import { SidebarRow } from "../ds/SidebarRow/SidebarRow";
+import { RowLead, rowStatus } from "./SidebarRows";
 import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "../sidebarOrder";
 import { useSidebarDnd, type DndAnnounce, type DndCommit } from "../useSidebarDnd";
 import { usePhoneSwipeBack } from "../usePhoneSwipeBack";
@@ -104,7 +103,7 @@ import { closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterCo
 import { useSurfaceEscape } from "../useSurfaceEscape";
 import type { SurfaceCtx } from "../SurfaceViews";
 import { traceUnderReply } from "../workTraceLayout";
-import { Avatar, SenderHead, blockKey, jumpToMessage, messageId, previewText } from "../chat/shared";
+import { SenderHead, blockKey, jumpToMessage, messageId, previewText } from "../chat/shared";
 import { setFocusToggleOfRun, type RunSignal, type ToolDetailState } from "../chat/RunActivity";
 import { MessageBubble, localizeMessageRef, type RowHandlers } from "../chat/MessageBubble";
 import { type ComposerAttachment, type ComposerDraft } from "../chat/Composer";
@@ -226,12 +225,6 @@ function keepJump(id: string, root: () => HTMLElement | null) {
     if (Date.now() - start < 1500) window.setTimeout(tick, 100);
   };
   window.setTimeout(tick, 100);
-}
-function formatListTime(value: string, timeZone: string) {
-  const date = new Date(value);
-  const now = new Date();
-  if (dateInTimezone(value, timeZone) === dateInTimezone(now.toISOString(), timeZone)) return dateTimeFormat(intlLocale(), { hour: "2-digit", minute: "2-digit", timeZone }).format(date);
-  return dateTimeFormat(intlLocale(), { month: "numeric", day: "numeric", timeZone }).format(date);
 }
 /** The server pings every 15s; this much silence on a stream means the link died without closing. */
 const STREAM_STALE_MS = 30_000;
@@ -540,6 +533,9 @@ export function Workspace() {
   }, [historyVersion]);
   // The phone push and panel openings are the frames that matter most; the cats' idle breathing waits them out.
   useEffect(() => { holdAvatarLife(320); }, [mobileList, anyOpen]);
+  // The row menu is its own chunk: fetch it once the workspace has mounted, so the first right click finds it here. Not React.lazy: a revealed Suspense boundary is held for about 300 ms.
+  const [menus, setMenus] = useState<typeof import("./SidebarRowMenu") | null>(null);
+  useEffect(() => { void import("./SidebarRowMenu").then(setMenus); }, []);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activityNow, setActivityNow] = useState(() => Date.now());
   const [lastUserActivity, setLastUserActivity] = useState<Record<string, number>>({});
@@ -2062,62 +2058,30 @@ export function Workspace() {
     setSidebarContextMenu(null);
   }
 
-  function moveToSection(conversation: Conversation) {
-    const name = window.prompt(t("sidebar.move_to_section"), sidebarLayout.sections[conversation.id] ?? "");
-    if (name === null) return;
-    const nextName = name.trim();
-    setSidebarLayout((current) => {
-      const sections = { ...current.sections };
-      if (nextName) sections[conversation.id] = nextName;
-      else delete sections[conversation.id];
-      return { ...current, sections };
-    });
-    setSidebarContextMenu(null);
-  }
-
-  async function markUnread(conversation: Conversation) {
-    const seq = Math.max(0, (conversation.last_message?.seq ?? 1) - 1);
-    try {
-      await api.markUnread(conversation.id, seq);
-      setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, read_seq: seq, unread_count: Math.max(1, item.unread_count ?? 0) } : item));
-    } catch (cause) { setError(errorText(cause)); }
-    setSidebarContextMenu(null);
-  }
+  // The prompt and the request of the row menu live in its own chunk (SidebarRowMenu.tsx); these only write the state.
+  const setSection = (id: string, name: string) => setSidebarLayout(current => { const sections = { ...current.sections }; if (name) sections[id] = name; else delete sections[id]; return { ...current, sections }; });
+  const markUnread = (id: string, seq: number) => api.markUnread(id, seq).then(() => setConversations(current => current.map(item => item.id === id ? { ...item, read_seq: seq, unread_count: Math.max(1, item.unread_count ?? 0) } : item)));
 
   async function makePrimary(botId: string) {
     try { await api.setPrimaryAssistant(botId); await refreshIndex(); setError(""); }
     catch (cause) { setError(errorText(cause)); }
   }
 
-  async function hideConversation(conversation: Conversation) {
+  async function setArchived(conversation: Conversation, archived: boolean) {
     try {
-      if (conversation.kind === "dm") {
-        const bot = botByConversationId.get(conversation.id);
-        if (!bot) throw new Error(t("error.bot_missing"));
-        if (bot.is_primary && otherActiveBots(bots, bot.id).length > 0) { rememberDialogOpener(); setSidebarContextMenu(null); setHidePrimaryTarget(bot); return; }
-        await api.setBotArchived(bot.id, true);
-      } else {
-        await api.setConversationArchived(conversation.id, true);
-      }
-      setSidebarContextMenu(null);
-      await refreshIndex();
-    } catch (cause) { setError(errorText(cause)); }
-  }
-
-  async function restoreConversation(conversation: Conversation) {
-    try {
-      if (conversation.kind === "dm") {
-        const bot = botByConversationId.get(conversation.id);
-        if (!bot) throw new Error(t("error.bot_missing"));
-        await api.setBotArchived(bot.id, false);
-      } else await api.setConversationArchived(conversation.id, false);
+      const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
+      if (conversation.kind === "dm" && !bot) throw new Error(t("error.bot_missing"));
+      if (archived && bot?.is_primary && otherActiveBots(bots, bot.id).length > 0) { rememberDialogOpener(); setSidebarContextMenu(null); setHidePrimaryTarget(bot); return; }
+      await (bot ? api.setBotArchived(bot.id, archived) : api.setConversationArchived(conversation.id, archived));
       setSidebarContextMenu(null);
       await refreshIndex();
     } catch (cause) { setError(errorText(cause)); }
   }
 
   function conversationMotion(conversation: Conversation, botId?: string): AvatarMotion {
-    if (!botId || (conversation.kind === "group" && botId === conversation.id)) return "sleeping";
+    if (!botId) return "sleeping";
+    // A group has no Bot of its own: it works when any member does.
+    if (conversation.kind === "group" && botId === conversation.id) return conversation.working_bot_ids?.length || (conversation.id === activeId && activeBotRuns(runs, Object.values(drafts), toolActivities).length) ? "working" : "sleeping";
     const working = conversation.id === activeId
       ? activeBotRuns(runs, Object.values(drafts), toolActivities).some(run => run.bot_id === botId) || (conversation.working_bot_ids ?? []).includes(botId)
       : (conversation.working_bot_ids ?? []).includes(botId);
@@ -2243,7 +2207,8 @@ export function Workspace() {
     return [run.id, issue ? [issue.title, ...issue.facts, ...issue.secondary.filter(cause => cause !== i18n.t("tasks:secondary.records_incomplete"))].join(" ") : [taskPhaseLabel(input), approved].filter(Boolean).join(" ")];
   }));
 
-  function conversationRow(conversation: Conversation, draggable = false) {
+  /** One conversation as a kit SidebarRow. `zone` is the drag engine's: list rows follow recency, pinned rows take a manual order. */
+  function conversationRow(conversation: Conversation, draggable = false, pinned = false) {
     const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
     const preview = previewText(conversation.last_message?.kind === "message_ref" ? localizeMessageRef(conversation.last_message.content) : conversation.last_message?.content?.trim() || "");
     const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
@@ -2251,33 +2216,22 @@ export function Workspace() {
     const task = conversation.task_state;
     const unread = conversation.unread_count ?? 0;
     const indicator = rowIndicator(task, unread, motion === "working");
-    return <button key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={draggable ? conversation.id : undefined} data-dnd-zone={draggable ? "list" : undefined} aria-keyshortcuts={draggable ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
-      aria-label={[conversation.name, task ? taskStateLabel(task) : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
-      className={`contact-row conversation-row ${activeId === conversation.id ? "active" : ""}`} data-unread={unread > 0 ? "" : undefined}
+    const dnd = draggable || pinned;
+    return <SidebarRow as="button" key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={dnd ? conversation.id : undefined} data-dnd-zone={dnd ? (pinned ? "dock" : "list") : undefined} aria-keyshortcuts={dnd ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
+      aria-label={[conversation.name, task ? taskStateLabel(task) : "", indicator === "working" && !task ? t("sidebar.working") : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
+      className={pinned ? "contact-row pin-tile" : "contact-row conversation-row"} compact={sidebarFolded} active={activeId === conversation.id} unread={unread > 0} data-unread={unread > 0 ? "" : undefined}
       onClick={() => focusTask(conversation)}
       onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
       onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
       onPointerDown={() => prefetchConversation(conversation.id)}
-      onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}>
-      <Avatar label={conversation.name} id={botId} group={conversation.kind === "group"} members={conversation.bot_ids} motion={motion} />
-      <span className="contact-copy"><strong><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</strong><small>{preview}</small></span>
-      <time className="conversation-time">{conversation.last_message ? formatListTime(conversation.last_message.created_at, timezone) : ""}</time>
-      {indicator && <span className="conversation-status" data-status={indicator} aria-label={indicator === "unread" ? t("sidebar.unread", { count: unread }) : indicator === "working" ? t("sidebar.working") : task ? taskStateLabel(task) : undefined}>{indicator === "unread" ? Math.min(unread, 99) : null}</span>}
-    </button>;
+      onContextMenu={(event) => { event.preventDefault(); setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY }); }}
+      avatar={<RowLead name={conversation.name} botId={botId} group={conversation.kind === "group"} working={indicator === "working"} />}
+      label={<><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</>}
+      meta={preview}
+      {...rowStatus(indicator, unread)} />;
   }
 
-  function pinTile(conversation: Conversation) {
-    const bot = conversation.kind === "dm" ? botByConversationId.get(conversation.id) : undefined;
-    const botId = conversation.kind === "dm" ? bot?.id || conversation.bot_id || conversation.bot_ids[0] || conversation.id : conversation.id;
-    const motion = conversationMotion(conversation, bot?.id || conversation.bot_id || botId);
-    const task = conversation.task_state;
-    const unread = conversation.unread_count ?? 0;
-    return <PinTile key={conversation.id}
-      tile={{ id: conversation.id, name: conversation.name, avatarId: botId, group: conversation.kind === "group", members: conversation.bot_ids, motion, active: activeId === conversation.id, unread, indicator: rowIndicator(task, unread, motion === "working"),
-        label: [conversation.name, task ? taskStateLabel(task) : "", unread ? t("sidebar.unread", { count: unread }) : ""].filter(Boolean).join(t("sidebar.label_separator")), unreadLabel: t("sidebar.unread", { count: unread }), workingLabel: t("sidebar.working") }}
-      onOpen={() => focusTask(conversation)} onWarm={() => prefetchConversation(conversation.id)}
-      onMenu={event => setSidebarContextMenu({ conversation, x: event.clientX, y: event.clientY })} />;
-  }
+  function pinTile(conversation: Conversation) { return conversationRow(conversation, true, true); }
 
   async function deleteConversation(target: DeleteTarget, successorId?: string) {
     try {
@@ -2470,20 +2424,9 @@ export function Workspace() {
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="computer-preparing" role="status"><strong>{computerInfo.guest_outdated_required ? t("computer.outdated_required") : computerInfo.error_code === "org_resource_missing" ? t("computer.org_missing") : computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error && !computerInfo.guest_outdated_required ? ` · ${computerInfo.error}` : ""}</span>{computerInfo.guest_outdated_required ? <button className="secondary-button" onClick={() => openSettings("computer")}>{t("computer.open_environments")}</button> : (computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarFolded ? " sidebar-collapsed" : ""}${macNarrow ? " mac-narrow" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         {macNarrow && narrowSidebarOpen && <div className="sidebar-scrim" aria-hidden="true" onClick={() => setNarrowSidebarOpen(false)} />}
-        <Sidebar mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} sidebarFolded={sidebarFolded} t={t} setSidebarFolded={setSidebarFolded} setSearchOpen={setSearchOpen} createMenuRef={createMenuRef} createMenuTriggerRef={createMenuTriggerRef} setCreateMenuOpen={setCreateMenuOpen} createMenuOpen={createMenuOpen} botImportRef={botImportRef} importBotPackage={importBotPackage} showCreateMenu={showCreateMenu} newBotBusy={newBotBusy} createNewBot={createNewBot} openCoverPanel={openCoverPanel} botImportBusy={botImportBusy} newBotError={newBotError} botImportError={botImportError} sidebarListRef={sidebarListRef} pinnedConversations={pinnedConversations} pinTile={pinTile} customSidebarSections={customSidebarSections} conversationRow={conversationRow} defaultSidebarConversations={defaultSidebarConversations} sidebarDndEnabled={sidebarDndEnabled} sidebarLiveRef={sidebarLiveRef} onboardingState={onboardingState} visibleSidebarConversations={visibleSidebarConversations} bots={bots} conversations={conversations} modelReady={modelReady} setOnboardingForced={setOnboardingForced} linkConnected={linkConnected} setPortabilityBotID={setPortabilityBotID} setPortabilityFile={setPortabilityFile} openSettings={openSettings} setUsageBotId={setUsageBotId} setArtifactsMode={setArtifactsMode} />
+        <Sidebar CreateMenu={menus?.CreateMenu} mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} sidebarFolded={sidebarFolded} t={t} setSidebarFolded={setSidebarFolded} setSearchOpen={setSearchOpen} createMenuRef={createMenuRef} createMenuTriggerRef={createMenuTriggerRef} setCreateMenuOpen={setCreateMenuOpen} createMenuOpen={createMenuOpen} botImportRef={botImportRef} importBotPackage={importBotPackage} showCreateMenu={showCreateMenu} newBotBusy={newBotBusy} createNewBot={createNewBot} openCoverPanel={openCoverPanel} botImportBusy={botImportBusy} newBotError={newBotError} botImportError={botImportError} sidebarListRef={sidebarListRef} pinnedConversations={pinnedConversations} pinTile={pinTile} customSidebarSections={customSidebarSections} conversationRow={conversationRow} defaultSidebarConversations={defaultSidebarConversations} sidebarDndEnabled={sidebarDndEnabled} sidebarLiveRef={sidebarLiveRef} onboardingState={onboardingState} visibleSidebarConversations={visibleSidebarConversations} bots={bots} conversations={conversations} modelReady={modelReady} setOnboardingForced={setOnboardingForced} linkConnected={linkConnected} setPortabilityBotID={setPortabilityBotID} setPortabilityFile={setPortabilityFile} openSettings={openSettings} setUsageBotId={setUsageBotId} setArtifactsMode={setArtifactsMode} />
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
-        <SlotView slot={sidebarMenuSlot}>{menu => <OverlayMenu open onOpenChange={open => { if (!open) setSidebarContextMenu(null); }} className="sidebar-context-menu" label={menu.conversation.name} point={menu} key={`${menu.conversation.id}:${menu.x}:${menu.y}`}>
-          <button onClick={() => togglePinned(menu.conversation)}><Icon name="pin" size={17} />{menu.conversation.pinned ? t("sidebar.unpin") : t("sidebar.pin")}</button>
-          <button onClick={() => moveToSection(menu.conversation)}><Icon name="plus" size={17} />{t("sidebar.move_to_section")}</button>
-          {!menu.conversation.archived && <button onClick={() => void markUnread(menu.conversation)}><Icon name="bell" size={17} />{t("sidebar.mark_unread")}</button>}
-          <div className="tb-menu-sep" role="separator" />
-          {menu.conversation.kind === "dm" && <button onClick={() => { selectConversation(menu.conversation.id); setMobileList(false); openCoverPanel("bot-settings"); setSidebarContextMenu(null); }}><Icon name="edit" size={17} />{t("sidebar.rename_bot")}</button>}
-          {menu.conversation.kind === "dm" && !menu.conversation.archived && botByConversationId.get(menu.conversation.id) && !botByConversationId.get(menu.conversation.id)?.is_primary && <button onClick={() => { const target = botByConversationId.get(menu.conversation.id); setSidebarContextMenu(null); if (target) void makePrimary(target.id); }}><Icon name="star" size={17} />{t("primary.make")}</button>}
-          <button onClick={() => { void copyConversationLink(menu.conversation); setSidebarContextMenu(null); }}><Icon name="copy" size={17} />{t("sidebar.copy_link")}</button>
-          <button onClick={() => { void navigator.clipboard?.writeText(menu.conversation.id); setSidebarContextMenu(null); }}><Icon name="copy" size={17} />{t("sidebar.copy_id")}</button>
-          <button onClick={() => void (menu.conversation.archived ? restoreConversation(menu.conversation) : hideConversation(menu.conversation))}><Icon name="eye-off" size={17} />{menu.conversation.archived ? t("sidebar.show") : t("sidebar.hide")}</button>
-          <button className="delete-menu-action is-danger" onClick={() => { confirmDelete(menu.conversation); setSidebarContextMenu(null); }}><Icon name="trash" size={17} />{t("sidebar.delete")}</button>
-        </OverlayMenu>}</SlotView>
+        <SlotView slot={sidebarMenuSlot}>{menu => menus && <menus.default menu={menu} t={t} bot={botByConversationId.get(menu.conversation.id)} a={{ close: () => setSidebarContextMenu(null), togglePinned, sections: sidebarLayout.sections, setSection, markUnread, fail: (cause: unknown) => setError(errorText(cause)), openBotSettings: c => { selectConversation(c.id); setMobileList(false); openCoverPanel("bot-settings"); setSidebarContextMenu(null); }, makePrimary, copyLink: copyConversationLink, archive: setArchived, confirmDelete }} />}</SlotView>
 
         <ChatPane header={active ? <ChatHeader chatHeaderRef={chatHeaderRef} setMobileList={setMobileList} t={t} active={active} columnMode={columnMode} toggleWidgetId={toggleWidgetId} openCoverPanel={openCoverPanel} botById={botById} conversationMotion={conversationMotion} nativePanel={nativePanel} browserT={browserT} computerButton={computerButton} artifactsOn={artifactsOn} setArtifactsMode={setArtifactsMode} sidebarId={sidebarId} toggleSidebarId={toggleSidebarId} headerMenuTriggerRef={headerMenuTriggerRef} headerMenuOpen={headerMenuOpen} setHeaderMenuOpen={setHeaderMenuOpen} desktopBot={desktopBot} openTerminalSurface={openTerminalSurface} openSidebarId={openSidebarId} openWidgetId={openWidgetId} copyConversationLink={copyConversationLink} confirmDelete={confirmDelete} /> : null} mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} active={active} routeUnavailable={routeUnavailable} t={t} setMobileList={setMobileList} onboardingState={onboardingState} createNewBot={createNewBot} newBotBusy={newBotBusy} newBotError={newBotError} runs={runs} botById={botById} loadedId={loadedId} loadingMessages={loadingMessages} taskAnnouncements={taskAnnouncements} viewport={viewport} expiryFinishing={expiryFinishing} runStarts={runStarts} activityView={activityView} computerLook={computerLook} messageListRef={messageListRef} onMessageListPointerOver={onMessageListPointerOver} onMessageListPointerLeave={onMessageListPointerLeave} onMessageListFocus={onMessageListFocus} onMessageListBlur={onMessageListBlur} onMessageListKeyDown={onMessageListKeyDown} jumpLatest={jumpLatest} historyError={historyError} loadOlder={loadOlder} loadingOlder={loadingOlder} hasMore={hasMore} questions={questions} mailDrafts={mailDrafts} snapshotError={snapshotError} refreshTaskStatus={refreshTaskStatus} setSnapshotError={setSnapshotError} conversationItems={conversationItems} greeting={greeting} timelineFrom={timelineFrom} taskView={taskView} placementsAt={placementsAt} renderPlacement={renderPlacement} ownedBy={ownedBy} timezone={timezone} refreshConversations={refreshConversations} ownerAnchors={ownerAnchors} runById={runById} toolTimeline={toolTimeline} foldedProgress={foldedProgress} ownedRunIDs={ownedRunIDs} keepActivityRun={keepActivityRun} toolSummaryAnchors={toolSummaryAnchors} terminalToolSummaries={terminalToolSummaries} toolSummaryErrorAnchors={toolSummaryErrorAnchors} toolSummaryState={toolSummaryState} toolSummaryLoadingAnchors={toolSummaryLoadingAnchors} loadedToolActivities={loadedToolActivities} drafts={drafts} messageById={messageById} quoteTimeline={quoteTimeline} quoteIndexById={quoteIndexById} messageRecordIDs={messageRecordIDs} runHasActivity={runHasActivity} runsForMessage={runsForMessage} lastReplySeq={lastReplySeq} knownBotNames={knownBotNames} arrivalIDs={arrivalIDs} streamedIDs={streamedIDs} streamConnected={streamConnected} traceRunFor={traceRunFor} toolDetailState={toolDetailState} activeRunIds={activeRunIds} scheduleOccurrences={scheduleOccurrences} scheduleCardPending={scheduleCardPending} scheduleMetadata={scheduleMetadata} conversations={conversations} bots={bots} canRetrySend={canRetrySend} showActivity={showActivity} revealedRuns={revealedRuns} botNames={botNames} reactionMenu={reactionMenu} placementDraws={placementDraws} rowHandlers={rowHandlers} draftStream={draftStream} activeBot={activeBot} messages={messages} updateComposerDraft={updateComposerDraft} openSidebarId={openSidebarId} loadToolDetails={loadToolDetails} pendingRuns={pendingRuns} error={error} proxyChallenged={proxyChallenged} openCoverPanel={openCoverPanel} taskItems={taskItems} openTasks={openTasks} conversationMotion={conversationMotion} toolActivities={toolActivities} runSignals={runSignals} stepRunIds={stepRunIds} setRuns={setRuns} setError={setError} avatarMention={avatarMention} composerDrafts={composerDrafts} send={send} config={config} connectModel={connectModel} composerDraftReady={composerDraftReady} />
 
