@@ -2,7 +2,7 @@
 //  1. Separate production bundle: design-system.html exists; no product source imports src/catalog;
 //     the separate build preserves every workspace file byte-for-byte and cannot leak synthetic code into it.
 //  2. It is components.md made visible: one section per numbered component section (1-23), same numbers.
-//  3. Browser (Chromium, Vite dev server, synthetic data only): every state at every width it declares opens without a
+//  3. Browser (Chromium, the production design-system.html built in step 1 and served as built, synthetic data only; one frame, the late lazy chunk, runs on a Vite dev server): every state at every width it declares opens without a
 //     page error or a failed drive step, in light and (at 1280 px) dark; no /api request ever reaches the network; each
 //     overlay is the topmost element at its own centre; the keyboard closes (and, where declared, reopens) it; the
 //     origin's real localStorage is never written.
@@ -44,6 +44,8 @@ const { build } = await import("vite");
 // vite build sets NODE_ENV=production for the whole process; the dev server below must start as development again.
 const nodeEnv = process.env.NODE_ENV;
 const outDir = mkdtempSync(join(tmpdir(), "tofi-catalog-dist-"));
+// The browser checks below serve this very build; it goes away when the process ends.
+process.on("exit", () => rmSync(outDir, { recursive: true, force: true }));
 try {
   const steps = pkg.scripts.build.split("&&").map(step => step.trim()).filter(step => /^vite build\b/.test(step));
   if (!steps.length) fail(`package.json "build" runs no vite build: ${pkg.scripts.build}`);
@@ -74,7 +76,6 @@ try {
   if (!carrying.length && workspaceFiles && separateFiles.includes("design-system.html")) pass(`separate Design System bundle; ${workspaceFiles.size} workspace files preserved byte-for-byte`);
 
 } finally {
-  rmSync(outDir, { recursive: true, force: true });
   if (nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = nodeEnv;
 }
 
@@ -83,11 +84,21 @@ if (process.argv.includes("--build-only")) finish();
 // ---- 2 and 3. browser
 if (!process.env.PLAYWRIGHT_MODULE) { fail("PLAYWRIGHT_MODULE is not set: the browser checks cannot run"); finish(); }
 const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE).href);
-const { createServer } = await import("vite");
-const { default: react } = await import("@vitejs/plugin-react");
-const server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
-await server.listen();
+// The build from step 1b, served as built: no per-module transforms. mpa: an unknown path is a 404, never index.html.
+const { preview } = await import("vite");
+const server = await preview({ configFile: false, root: ui, appType: "mpa", build: { outDir }, preview: { host: "127.0.0.1", port: 0 }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
+// One frame stays on a Vite dev server, started when the jobs are known: "the lazy chunk arrives late" delays the chunk
+// BotDesktopPanel and its own stylesheet desktop-presence.css. Only the dev graph has them as separate files; in the build
+// that sheet is part of the eager design-system.css, so the same race cannot be set up there.
+let dev;
+const devOrigin = () => dev ??= (async () => {
+  const { createServer } = await import("vite");
+  const { default: react } = await import("@vitejs/plugin-react");
+  const devServer = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
+  await devServer.listen();
+  return { server: devServer, origin: `http://127.0.0.1:${devServer.httpServer.address().port}` };
+})();
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
 const shots = process.env.CATALOG_SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
@@ -108,7 +119,7 @@ try {
   const shell = await context.newPage();
   const shellErrors = [];
   shell.on("pageerror", error => shellErrors.push(error.message));
-  await shell.goto(`${origin}/catalog.html`);
+  await shell.goto(`${origin}/design-system.html`);
   await shell.waitForFunction(() => Array.isArray(window.__catalog), null, { timeout: LOAD_MS });
   const index = await shell.evaluate(() => window.__catalog);
   await shell.locator("iframe[data-catalog-frame]").first().waitFor({ timeout: LOAD_MS });
@@ -142,6 +153,7 @@ try {
   const small = index.find(section => section.id === "computer")?.states.find(state => state.id === "small");
   if (small && (!only || only.includes("computer")) && (!onlyStates || onlyStates.includes("small"))) jobs.push({ section: index.find(section => section.id === "computer"), state: small, width: "desktop", theme: "light", lateChunk: true });
 
+  if (jobs.some(job => job.lateChunk)) devOrigin().catch(() => {});
   let checkedProbes = 0, checkedKeys = 0;
   async function run(job) {
     const { section, state, width, theme, lateChunk } = job;
@@ -157,7 +169,7 @@ try {
     const query = new URLSearchParams({ frame: section.id, theme, lng: "en" });
     if (state) query.set("state", state.id);
     try {
-      await page.goto(`${origin}/catalog.html?${query}`);
+      await page.goto(lateChunk ? `${(await devOrigin()).origin}/catalog.html?${query}` : `${origin}/design-system.html?${query}`);
       await page.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
       const error = await page.evaluate(() => document.documentElement.dataset.catalogError ?? "");
       if (error) fail(`${name}: ${error}`);
@@ -218,7 +230,7 @@ try {
 
   // A frame in another language: the catalog shows the product's own catalogs.
   const zh = await context.newPage();
-  await zh.goto(`${origin}/catalog.html?frame=settings&theme=light&lng=zh-CN`);
+  await zh.goto(`${origin}/design-system.html?frame=settings&theme=light&lng=zh-CN`);
   await zh.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
   if (await zh.evaluate(() => document.documentElement.lang) !== "zh-CN") fail("a frame with lng=zh-CN did not switch the product language"); else pass("frames render in the chosen language");
   await zh.close();
@@ -227,7 +239,7 @@ try {
   if (!only || only.includes("settings")) for (const reduced of [false, true]) {
     const waiting = await context.newPage();
     await waiting.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
-    await waiting.goto(`${origin}/catalog.html?frame=settings&theme=light&lng=en&state=connection-waiting-loopback`);
+    await waiting.goto(`${origin}/design-system.html?frame=settings&theme=light&lng=en&state=connection-waiting-loopback`);
     await waiting.waitForFunction(() => document.documentElement.dataset.catalogReady === "1", null, { timeout: LOAD_MS });
     const cue = await waiting.evaluate(() => {
       const button = document.querySelector('.mcp-service[data-kind="waiting"] [data-pending]');
@@ -249,7 +261,8 @@ try {
   await context.close();
 } finally {
   await browser.close();
-  await server.close();
+  await new Promise(done => server.httpServer.close(done));
+  if (dev) await (await dev.catch(() => null))?.server.close();
 }
 finish();
 
