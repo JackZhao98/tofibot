@@ -27,7 +27,9 @@
   },
   "shell": {
     "group": {
-      "admin": "管理"
+      "you": "你",
+      "organization": "组织",
+      "server": "服务器"
     },
     "page": {
       "general": {
@@ -109,11 +111,6 @@
       "role": {
         "admin": "管理员",
         "member": "成员"
-      }
-    },
-    "hint": {
-      "computer": {
-        "none": "暂无"
       }
     },
     "tag": {

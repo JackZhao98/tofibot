@@ -6,6 +6,7 @@ import {useTranslation} from "./i18n";
 import {formatDateTime} from "./i18n/format";
 import { Select } from "./Select";
 import {SettingsRow,SettingsSwitch} from "./settings/components";
+import "./bot-inspector.css";
 type ToolDefinition={name:string;description:string;parameters:Record<string,unknown>};
 type Preview={system_prompt:string;tools:ToolDefinition[];last_run_tools?:ToolDefinition[];last_run_at?:string};
 export function BotInspector({botId,conversationId,tools=false}:{botId:string;conversationId?:string;tools?:boolean}){

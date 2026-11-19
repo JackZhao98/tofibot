@@ -103,7 +103,7 @@
     "bridgeUse": 1
   },
   "interaction-system.css": {
-    "bridgeUse": 17
+    "bridgeUse": 16
   },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
@@ -185,20 +185,11 @@
     "rootToken": 1,
     "webFork": 4
   },
-  "settings-system.css": {
-    "bridgeUse": 16
-  },
   "settings/automation.css": {
     "bridgeUse": 4
   },
   "settings/help-and-feedback.css": {
     "bridgeUse": 1
-  },
-  "settings/section-jump.css": {
-    "bridgeUse": 2
-  },
-  "settings/settings-components.css": {
-    "bridgeUse": 16
   },
   "settings/spend-cap.css": {
     "bridgeUse": 1

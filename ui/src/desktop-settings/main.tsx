@@ -6,14 +6,13 @@ import { MacSettingsPage } from "./MacSettingsPage";
 import "../skin/fonts.css";
 import "../styles.css";
 import "../interaction-system.css";
-import "../settings-system.css";
 import "../desktop-system.css";
 
 import "../conversation-workspace.css";
 import "../v2-foundations.css";
 import "../v2-app.css";
 import "../sender-groups.css";
-import "../settings/settings-components.css";
+import "../layout/settings-page.css";
 import "../web-tool-steps.css";
 import "../web-mention.css";
 import "../web-file-drop.css";

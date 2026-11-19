@@ -34,18 +34,20 @@ try {
   // The AI models row is a select with three choices (own, provided, provided_only), not a segmented control.
   const aiTrigger = scope => scope.locator('[data-capability="ai_models"] .ui-select-trigger');
 
-  // ---- 1. The Administration group: its own group after System, three pages, admin only.
+  // ---- 1. The account pages: in Organization, after Usage; admin only.
   {
     stub.reset();
     const {page, close} = await open({tab: "admin-groups"});
-    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"]);
-    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources", "admin-design"], "Administration: accounts, groups, resources, and the design system");
-    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="admin"] .settings-nav-label', items => items.map(item => item.textContent)), ["Accounts", "Groups", "Organization resources", "Design system"]);
-    assert.equal(await page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts left System");
+    // V3 PR 6.1 (owner Q2): the account pages are Organization pages, Design system is a Server page.
+    assert.deepEqual(await page.$$eval(".settings-tabs .tb-settings-grouplabel", items => items.map(item => item.textContent)), ["You", "Organization", "Server"]);
+    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="organization"] button[data-tab]', items => items.map(item => item.dataset.tab)).then(tabs => tabs.filter(id => id.startsWith("admin"))), ["admin", "admin-groups", "admin-resources"], "Organization: accounts, groups, resources after the usual pages");
+    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="server"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["advanced", "admin-design"], "Server: System and the design system");
+    assert.deepEqual(await page.$$eval('.settings-tabs [data-group="organization"] [data-tab^="admin"] .settings-nav-label', items => items.map(item => item.textContent)), ["Accounts", "Groups", "Organization resources"]);
+    assert.equal(await page.locator('.settings-tabs [data-group="server"] [data-tab="admin"]').count(), 0, "Accounts left System");
     await body(page, "admin-groups").locator(".ag-item").first().waitFor();
     assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Groups");
     await close();
-    console.log("PASS navigation: Administration is its own group with Accounts, Groups and Organization resources");
+    console.log("PASS navigation: Accounts, Groups and Organization resources are Organization pages, Design system is in Server");
   }
 
   // ---- 2. The list and the editor: built-in badges, counts, a row per capability, Self-serve read-only, Provided editable.
@@ -338,7 +340,7 @@ try {
     stub.reset({members: {acct_two: "provided"}});
     const phone = await open({tab: "admin-groups"}, {width: 390, height: 844, theme, touch: true});
     const {page} = phone;
-    await page.locator('.settings-mhome [data-tab="admin-groups"]').click().catch(() => {});
+    await page.locator('.settings-tabs [data-tab="admin-groups"]').click().catch(() => {});
     const pane = body(page, "admin-groups");
     await pane.locator(".ag-item").first().waitFor();
     assert.equal(await pane.locator(".ag-editor").isVisible(), false, "the list comes first on a phone");
@@ -348,15 +350,15 @@ try {
     assert.equal(await pane.locator(".ag-back").isVisible(), true);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 0, `the editor fits the phone (overflow ${overflow}px)`);
-    const tooSmall = await pane.locator("button:visible:not([role=radio])").evaluateAll(buttons => buttons.filter(button => { const box = button.getBoundingClientRect(); return box.height < 36; }).map(button => button.textContent.trim()));
-    assert.deepEqual(tooSmall, [], "buttons are at least 36px tall (the shared Segmented control keeps its own size)");
+    const tooSmall = await pane.locator("button:visible:not([role=radio], .tb-select)").evaluateAll(buttons => buttons.filter(button => { const box = button.getBoundingClientRect(); return box.height < 36; }).map(button => button.textContent.trim()));
+    assert.deepEqual(tooSmall, [], "buttons are at least 36px tall (the shared Segmented control and the kit Select keep their own size; the Select is 44px on a coarse pointer, ds/Select/Select.css)");
     await shot(page, `groups-editor-${theme}-390`);
     await pane.locator(".ag-back").click();
     await pane.locator(".ag-side").waitFor();
     await phone.close();
     // Accounts on a phone: the menu sits under the row, the bar is visible.
     const accounts = await open({tab: "admin"}, {width: 390, height: 844, theme, touch: true});
-    await accounts.page.locator('.settings-mhome [data-tab="admin"]').click().catch(() => {});
+    await accounts.page.locator('.settings-tabs [data-tab="admin"]').click().catch(() => {});
     const list = body(accounts.page, "admin");
     await list.locator(".admin-row").first().waitFor();
     await list.locator('[data-select="acct_two"]').check();

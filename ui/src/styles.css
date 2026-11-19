@@ -155,7 +155,7 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .detail-pane{display:none;visibility:hidden;pointer-events:none;border-left:1px solid var(--line);overflow-y:auto}
 .detail-pane.visible{display:block;visibility:visible;pointer-events:auto}
 .detail-backdrop{display:none;position:fixed;z-index:calc(var(--z-panel) - 1);inset:0;width:100%;height:100%;padding:0;border:0;cursor:default}
-@media(min-width:1121px){.workspace-grid:has(.detail-pane.visible:not(.widget-column)):not(:has(.settings-tabs)){grid-template-columns:260px minmax(0,1fr) 336px}
+@media(min-width:1121px){.workspace-grid:has(.detail-pane.visible:not(.widget-column)):not(:has(.settings-shell)){grid-template-columns:260px minmax(0,1fr) 336px}
 }
 .detail-content{padding:24px 21px}
 .archive-list{display:grid;gap:9px;margin-top:18px}
@@ -356,7 +356,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
   button:disabled{color:GrayText;background:Canvas}
   .primary-button,.send-button{color:ButtonFace;background:ButtonText;border:1px solid ButtonText;forced-color-adjust:none}
   .secondary-button,.icon-button,.top-icon-button,.computer-button,.back-button{color:ButtonText;background:ButtonFace;border:1px solid ButtonText}
-  .settings-tabs button.selected{color:HighlightText;background:Highlight;box-shadow:none;forced-color-adjust:none}
   .message-user .message-content{color:ButtonFace;background:ButtonText}
   .message-bot .message-content{color:CanvasText;background:Canvas;border:1px solid ButtonText}
   .detail-backdrop{background:Canvas}

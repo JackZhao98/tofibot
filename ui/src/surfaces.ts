@@ -3,14 +3,17 @@
  *
  * - widgets: small live blocks inside the chat, to the right of the messages. One of each, in the person's own order (default WIDGET_ORDER), any may be folded.
  * - sidebar: one heavy working view in a real grid track at the window edge. A second one replaces the first.
- * - cover: an exclusive full-window panel (settings and the like). While it is open the widgets and the sidebar are
+ * - cover: an exclusive full-window panel (Bot settings and the like). While it is open the widgets and the sidebar are
  *   hidden, not closed: closing the cover brings them back as they were.
+ * - page: Settings, a full page of its own (V3 PR 6.1). It is not a cover: it has no window frame and no dim plate. It is exclusive
+ *   in the same way (nothing else is open while it is), and Escape reaches it before everything else.
  *
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
 export type WidgetId = "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
 export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage";
-export type CoverId = "settings" | "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
+export type PageId = "settings";
+export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 
 /**
  * The default order, top to bottom. It never depends on which widget was opened first. It is also the stable order the column draws its
@@ -37,21 +40,23 @@ export type Surfaces = {
   folded: WidgetId[];
   sidebar: { id: SidebarId; expanded: boolean } | null;
   cover: CoverId | null;
+  /** The full page that is open (Settings), if any. Exclusive: opening anything else closes it. */
+  page: PageId | null;
   /** Opening something that is already open bumps `n`: the surface scrolls into view and takes focus. */
   focus: { id: string | null; n: number };
 };
 
-export const emptySurfaces = (): Surfaces => ({ widgets: [], order: [...WIDGET_ORDER], folded: [], sidebar: null, cover: null, focus: { id: null, n: 0 } });
+export const emptySurfaces = (): Surfaces => ({ widgets: [], order: [...WIDGET_ORDER], folded: [], sidebar: null, cover: null, page: null, focus: { id: null, n: 0 } });
 
 /** True when nothing is open at all. */
-export const isEmpty = (s: Surfaces) => !s.widgets.length && !s.sidebar && !s.cover;
+export const isEmpty = (s: Surfaces) => !s.widgets.length && !s.sidebar && !s.cover && !s.page;
 
 const inOrder = (ids: readonly WidgetId[], s: Surfaces) => sortWidgets(ids, s.order);
 const bump = (s: Surfaces, id: string): Surfaces["focus"] => ({ id, n: s.focus.n + 1 });
 
 /** Opens (or unfolds and refocuses) a widget. A cover that was open closes: the person asked for something in the chat. */
 export const openWidget = (s: Surfaces, id: WidgetId): Surfaces => ({
-  ...s, widgets: inOrder([...s.widgets, id], s), folded: s.folded.filter(item => item !== id), cover: null, focus: bump(s, id),
+  ...s, widgets: inOrder([...s.widgets, id], s), folded: s.folded.filter(item => item !== id), cover: null, page: null, focus: bump(s, id),
 });
 
 /** A widget that opens by itself (the first file, the Bot taking the computer): no focus move, and an open cover stays. */
@@ -72,7 +77,7 @@ export const setWidgetFolded = (s: Surfaces, id: WidgetId, folded: boolean): Sur
 
 /** Opens a sidebar view. Another one already open is replaced and keeps the track's width (expanded or not). */
 export const openSidebar = (s: Surfaces, id: SidebarId): Surfaces => ({
-  ...s, sidebar: { id, expanded: s.sidebar?.expanded ?? false }, cover: null, focus: bump(s, id),
+  ...s, sidebar: { id, expanded: s.sidebar?.expanded ?? false }, cover: null, page: null, focus: bump(s, id),
 });
 
 export const closeSidebar = (s: Surfaces): Surfaces => s.sidebar ? { ...s, sidebar: null } : s;
@@ -82,9 +87,14 @@ export const toggleSidebar = (s: Surfaces, id: SidebarId): Surfaces => s.sidebar
 export const toggleSidebarExpanded = (s: Surfaces): Surfaces => s.sidebar ? { ...s, sidebar: { ...s.sidebar, expanded: !s.sidebar.expanded } } : s;
 
 /** Opens a cover. Covers do not stack: another one is replaced. Widgets and sidebar stay as they are, hidden. */
-export const openCover = (s: Surfaces, id: CoverId): Surfaces => ({ ...s, cover: id, focus: bump(s, id) });
+export const openCover = (s: Surfaces, id: CoverId): Surfaces => ({ ...s, cover: id, page: null, focus: bump(s, id) });
 
-export const closeCover = (s: Surfaces): Surfaces => s.cover ? { ...s, cover: null } : s;
+/** Closes whatever exclusive layer is open, a cover or the Settings page: callers that mean "leave this panel" need not know which. */
+export const closeCover = (s: Surfaces): Surfaces => s.cover || s.page ? { ...s, cover: null, page: null } : s;
+
+/** Opens a full page. Like a cover it replaces the other exclusive layer; widgets and sidebar stay as they are, hidden. */
+export const openPage = (s: Surfaces, id: PageId): Surfaces => ({ ...s, page: id, cover: null, focus: bump(s, id) });
+
 
 export const closeAll = (s: Surfaces): Surfaces => isEmpty(s) ? s : { ...emptySurfaces(), order: s.order, focus: s.focus };
 
@@ -122,16 +132,19 @@ export function spaceFoldTarget(s: Surfaces, o: { skip?: ReadonlySet<WidgetId>; 
 
 /** What one Escape closes (section 7 of the design, after native dialogs and Radix layers, which claim the key themselves). */
 export type EscapeTarget =
+  | { layer: "page"; id: PageId }
   | { layer: "computer-big" }
   | { layer: "cover"; id: CoverId }
   | { layer: "sidebar"; id: SidebarId }
   | { layer: "widget"; id: WidgetId };
 
 /**
- * The order of `useSurfaceEscape`: the big computer window steps back to compact, then the cover, then the sidebar, then the widgets
+ * The order of `useSurfaceEscape`: the Settings page first (it covers everything, the big computer window included, and asks about
+ * unsaved edits itself), then the big computer window steps back to compact, then the cover, then the sidebar, then the widgets
  * from the bottom up (Artifacts, Members, and the computer last: it is the live one).
  */
 export function escapeTarget(s: Surfaces, o: { bigComputer?: boolean } = {}): EscapeTarget | null {
+  if (s.page) return { layer: "page", id: s.page };
   if (o.bigComputer && s.widgets.includes("computer")) return { layer: "computer-big" };
   if (s.cover) return { layer: "cover", id: s.cover };
   if (s.sidebar) return { layer: "sidebar", id: s.sidebar.id };
@@ -170,5 +183,5 @@ export const forgetWidgets = (memory: WidgetsByConversation, id: string): void =
  */
 export function enterConversation(s: Surfaces, memory: WidgetsByConversation, id: string | null): Surfaces {
   const memo = id ? memory.get(id) : undefined;
-  return { ...s, widgets: sortWidgets(memo?.widgets ?? [], s.order), folded: memo?.folded ?? [], cover: null };
+  return { ...s, widgets: sortWidgets(memo?.widgets ?? [], s.order), folded: memo?.folded ?? [], cover: null, page: null };
 }

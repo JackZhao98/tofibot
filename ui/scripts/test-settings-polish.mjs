@@ -86,7 +86,7 @@ function auditPage(opts) {
   const nativeButton = reference("button");
   const CARD_BORDERED = el => {
     const s = style(el);
-    if (el.matches("button, input, select, textarea, li, a, dd, dt, .segmented, .status-badge, .settings-count, .detail-pane")) return false; // the window frame is not a card (the rail sits 10px inside it)
+    if (el.matches("button, input, select, textarea, li, a, dd, dt, .segmented, .status-badge, .settings-count, .detail-pane, .tb-settings")) return false; // the page frame is not a card (the rail sits 10px inside it)
     if (parseFloat(s.borderLeftWidth) < 1 || s.borderLeftStyle === "none") return false;
     if (parseFloat(s.borderTopLeftRadius) < 8) return false;
     const r = el.getBoundingClientRect();
@@ -178,7 +178,7 @@ function auditPage(opts) {
 
   // ---- clipped inner scroll boxes: a scrollable element inside a card must show all of its content
   for (const el of document.querySelectorAll("*")) {
-    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .settings-mhome, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
+    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
     if (!/auto|scroll/.test(style(el).overflowY) || !cardOf(el)) continue;
     if (el.scrollHeight > el.clientHeight + 2) add("clipped-scroll", el, `scrollHeight ${el.scrollHeight}px > clientHeight ${el.clientHeight}px`);
   }
@@ -261,7 +261,7 @@ function Fixture(){
  const [file,setFile]=useState<File|undefined>(undefined);
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace">{closed&&<UpdateBanner/>}<div className="workspace-grid"><button type="button" className="detail-backdrop" aria-label="Close"/><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" portabilityFile={file} onPortabilityFileConsumed={()=>setFile(undefined)} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);

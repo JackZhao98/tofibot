@@ -1,6 +1,5 @@
 import { startTransition, useEffect, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon } from "./icons";
 import { DesktopPlaceholder } from "./DesktopPlaceholder";
 
 /**
@@ -220,16 +219,19 @@ export function AfterPaint({ fallback, children }: { fallback: ReactNode; childr
   return <>{ready ? children : fallback}</>;
 }
 
-/** Settings frame drawn before its code arrives. It carries .settings-tabs so the pane takes the modal geometry from the first frame. */
+/** Settings page drawn before its code arrives: the bar, the frame and the title, in the shell's own class names so the first frame already has the page's geometry (layout/settings-page.css). */
 export function SettingsSkeleton({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation("settings");
-  return <div className="settings-shell settings-shell-skeleton" data-view="home" aria-busy="true">
-    <nav className="settings-tabs" aria-label={t("shell.category")} />
-    <div className="settings-mhome">
-      <header className="settings-mbar"><span aria-hidden="true" /><h2>{t("shell.title")}</h2><button className="settings-dismiss" aria-label={t("shell.close")} onClick={onClose}><Icon name="close" size={20} /></button></header>
-    </div>
-    <div className="settings-content">
-      <header className="settings-page-heading"><div className="settings-page-title"><h2>{t("shell.title")}</h2></div></header>
+  return <div className="settings-shell settings-shell-skeleton" aria-busy="true">
+    <header className="settings-bar">
+      <span className="settings-bar-title">{t("shell.title")}</span>
+      <button type="button" className="settings-dismiss" onClick={onClose}>{t("shell.close")}</button>
+    </header>
+    <div className="settings-frame">
+      <nav className="settings-tabs" aria-label={t("shell.category")} />
+      <div className="settings-content">
+        <header className="settings-page-heading"><div className="settings-page-title"><h2>{t("shell.title")}</h2></div></header>
+      </div>
     </div>
   </div>;
 }

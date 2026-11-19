@@ -9,6 +9,7 @@ import { BootDissolve } from "../BootScreen";
 import { ProxyChallengeSlot } from "../ProxyChallengeSlot";
 import { TimezoneProvider } from "../UserTimezone";
 import { useLanguage } from "../i18n";
+import { isLanguage } from "../i18n/languages";
 import { installFocusModality } from "../focusModality";
 import { setSynthetic, frameParams } from "./sandbox";
 import { isolated, workspace } from "./world";
@@ -82,10 +83,20 @@ export function mountFrame(section: CatalogSection) {
   const ready: Ready = error => {
     if (error) errors.push(error);
     if (--pending > 0) return;
-    if (errors.length) html.dataset.catalogError = errors.join("\n");
-    html.dataset.catalogReady = "1";
-    report();
+    // Ready means the frame shows its own language too: i18n loads a catalog before it sets <html lang>, which can come
+    // after the last state has rendered.
+    void languageApplied().then(() => {
+      if (errors.length) html.dataset.catalogError = errors.join("\n");
+      html.dataset.catalogReady = "1";
+      report();
+    });
   };
+  const languageApplied = () => new Promise<void>(resolve => {
+    const wanted = frameParams.language;
+    if (!isLanguage(wanted) || html.lang === wanted) { resolve(); return; }
+    const watch = new MutationObserver(() => { if (html.lang === wanted) { watch.disconnect(); resolve(); } });
+    watch.observe(html, { attributes: true, attributeFilter: ["lang"] });
+  });
   const report = () => parent.postMessage({ catalog: "height", section: section.id, state: frameParams.state, height: document.documentElement.scrollHeight, error: html.dataset.catalogError ?? "" }, location.origin);
   new ResizeObserver(report).observe(document.body);
 

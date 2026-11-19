@@ -22,6 +22,8 @@ html[data-desktop="darwin"] .workspace .chat-header > .chat-header-drag{-webkit-
 html[data-desktop="darwin"] .chat-header button,html[data-desktop="darwin"] .chat-header input{-webkit-app-region:no-drag}
 html[data-desktop="darwin"] :is(dialog,[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-radix-popper-content-wrapper],.computer-detail.is-expanded,.desktop-floating-shell.is-small,.detail-pane.visible,.sidebar-pane,.widget-slot[data-dragging],.web-row[data-dragging]){-webkit-app-region:no-drag}
 html[data-desktop="darwin"] .native-titlebar{-webkit-app-region:drag}
+html[data-desktop="darwin"] .settings-bar{-webkit-app-region:drag}
+html[data-desktop="darwin"] .settings-bar button{-webkit-app-region:no-drag}
 html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag}
 html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
 .bot-browser-panel, .bot-browser-panel .desktop-window-controls, .bot-browser-panel button{-webkit-app-region:no-drag}

@@ -153,7 +153,7 @@ try {
       return { page: document.documentElement.scrollWidth - innerWidth, body: body.scrollWidth - body.clientWidth, bad };
     });
     assert.ok(overflow.page <= 0 && overflow.body <= 0 && overflow.bad.length === 0, `${lang}: 390px overflow ${JSON.stringify(overflow)}`);
-    const small = await page.evaluate(() => [...document.querySelectorAll(".mac-settings button, .mac-settings a.secondary-button, .mac-settings input:not([type=checkbox])")].filter(el => { const r = el.getBoundingClientRect(); return r.height > 0 && r.height < 43.5; }).map(el => el.textContent.trim()));
+    const small = await page.evaluate(() => [...document.querySelectorAll(".mac-settings button, .mac-settings a.secondary-button, .mac-settings input:not([type=checkbox])")].filter(el => { const r = el.getBoundingClientRect(); const target = el.matches(".tb-switch") ? parseFloat(getComputedStyle(el, "::before").height) : r.height; return r.height > 0 && !(target >= 43.5); }).map(el => el.getAttribute("aria-label") || el.textContent.trim() || el.className));
     assert.deepEqual(small, [], `${lang}: controls under 44px tall at 390`);
     if (shots && (lang === "en" || lang === "ja")) await page.screenshot({ path: join(shots, `mac-settings-390-${lang}.png`), fullPage: true });
     await context.close();

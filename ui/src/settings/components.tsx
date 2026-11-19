@@ -7,7 +7,7 @@ import { Switch } from "../ds/Switch/Switch";
 import {TofiIcon} from "../icons";
 import {useTranslation} from "../i18n";
 import { Disclosure } from "../InteractionPrimitives";
-import "./settings-components.css";
+import "../layout/settings-page.css";
 
 /** Section: a 16px display heading, an optional count or hint, an optional description. */
 export function SettingsSection({title, hint, description, children, className = "", id: sectionId}: {title?: ReactNode; hint?: ReactNode; description?: ReactNode; children: ReactNode; className?: string; /** A stable id a link can scroll to (`data-section`; the ids are listed in settings/sections.ts). */ id?: string}) {

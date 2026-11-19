@@ -1,5 +1,7 @@
 /* Artifact panels: what the Bots produced, as a grid of thumbnails and file tiles. Loaded with ArtifactsPanel only. */
 @layer legacy {
+/* The uploads switch row from settings-system.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; PR 5.7 takes it out. */
+.debug-toggle{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}.debug-toggle small{display:block;color:var(--muted);font-size:12px;margin-top:6px}
 .workspace .detail-content.artifacts-panel { min-width: 0; color: var(--ink); }
 .workspace .detail-content.artifacts-panel > .detail-heading { padding-bottom: 16px; border-bottom: 1px solid var(--line-soft); }
 .workspace .detail-content.artifacts-panel > .detail-heading h2 { overflow-wrap: anywhere; color: var(--ink); font: 600 21px/1.3 var(--display); }

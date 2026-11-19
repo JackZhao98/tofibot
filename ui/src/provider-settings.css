@@ -1,4 +1,16 @@
 @layer legacy {
+/* Models page rules from settings/settings-components.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; PR 6.3 takes them out. */
+/* Models: providers as rows of one group. */
+.settings-card.provider-list{display:grid;gap:0;padding:0}
+.settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
+.settings-card>.provider-card+.provider-card{border-top:1px solid var(--line)}
+.provider-card .codex-status{padding:0;border:0;border-radius:0;background:transparent;color:var(--muted);font:12px/1.5 var(--body)}
+.provider-card .codex-status .status-dot{display:none}
+.model-fields-rows{margin:0;min-width:0}
+.model-fields-rows .field-note{margin:8px 0 0}
+.provider-key-form{display:grid}
+.provider-key-form>:is(.primary-button,.st-button){justify-self:end}
+@media(max-width:700px){.provider-card-head .settings-tag{display:none}}
 .model-providers{min-width:0;margin:0 0 30px}
 .model-providers-heading h3{margin:0;color:var(--ink);font:600 15px/1.5 var(--body)}
 .model-providers-heading .settings-description{margin:6px 0 16px}
