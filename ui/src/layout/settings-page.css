@@ -1,0 +1,212 @@
+/* Settings, a full page (V3 PR 6.1, PLAN S14). The page is the whole window: the dot ground, a bar with the logo and the way back,
+   then one frame that is as wide as its parts (rail 232 + content 760 + 58), centred. The frame itself is ds/SettingsShell (unlayered,
+   so it wins over every rule here); this sheet places it. Everything is in @layer legacy: the parts that pages place (sections,
+   cards, rows, banners, status, fields, subpages) are still adjusted by the pages' own legacy sheets and by the Mac settings pages
+   until PR 6.2 to 6.9 rebuild them, and test:css-layers allows no unlayered product sheet outside ds/. */
+@layer legacy {
+/* The page. The aside the workspace renders is its wrapper: the shell fills it, whatever the aside's width rules say. */
+.workspace .detail-pane:has(> .settings-shell) {
+  position: fixed; z-index: var(--z-dialog); inset: 0; width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0;
+  display: block; transform: none; translate: none; scale: none; overflow: hidden;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+/* The Mac window keeps its drag strip: the page starts under it. */
+html[data-desktop="darwin"] .workspace .detail-pane:has(> .settings-shell) { top: 48px; }
+.settings-shell {
+  --settings-frame-w: calc(var(--settings-rail) + var(--settings-content) + 58px);
+  position: relative; box-sizing: border-box; height: 100%; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 16px; padding: 16px 16px 24px;
+  background-color: var(--bg); color: var(--ink); font-family: var(--font-body);
+  background-image: var(--dot-grid); background-size: var(--dot-step) var(--dot-step);
+  background-position: calc(var(--dot-step) / 2) calc(var(--dot-step) / 2);
+}
+.settings-bar { flex: none; box-sizing: border-box; width: 100%; max-width: var(--settings-frame-w); margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 4px; }
+.settings-bar-sep { color: var(--muted); font-size: 18px; }
+.settings-bar-title { font: 700 14px/1 var(--font-body); }
+.settings-shell .settings-dismiss { margin-left: auto; }
+.settings-shell .settings-frame { flex: 1; height: auto; min-height: 0; width: 100%; max-width: var(--settings-frame-w); margin: 0 auto; }
+/* The content column: each visited page is one scrolling body (kept mounted, hidden while another shows). */
+.settings-content .settings-page-body { padding: 24px 28px 40px; }
+.settings-content .settings-page-body[hidden] { display: none; }
+.settings-content .settings-page-body:not([hidden]) { animation: settings-page-in var(--m-quick) var(--ease-out) both; }
+@keyframes settings-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.settings-content .settings-page-body > :not(.st-wide):not(.settings-stack), .settings-content .settings-page-body .settings-stack > :not(.st-wide) { max-width: var(--settings-content); }
+.settings-save-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 28px; border-top: var(--border-1) solid var(--line); background: var(--surface); color: var(--ink-soft); font: 400 13px/1.4 var(--font-body); }
+.settings-save-bar > span { margin-right: auto; }
+.settings-count { font-family: var(--font-body); }
+/* The frame before the shell's code arrives (lazyPanels.tsx SettingsSkeleton): the same geometry, nothing in it. */
+.settings-shell-skeleton .settings-frame { display: grid; grid-template-columns: var(--settings-rail) minmax(0, 1fr); background: var(--bg); border: var(--border-1) solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.settings-shell-skeleton .settings-tabs { background: var(--surface-2); border-right: var(--border-1) solid var(--line); }
+.settings-shell-skeleton .settings-page-heading { padding: 22px 28px 18px; border-bottom: var(--border-1) solid var(--line); background: var(--surface); }
+.settings-shell-skeleton .settings-page-title h2 { margin: 4px 0 0; font: 700 26px/1.1 var(--font-display); }
+.settings-shell-skeleton .settings-dismiss { min-height: 32px; padding: 0 12px; border: var(--border-1) solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: 600 13px/1 var(--font-body); }
+/* A link that names a section scrolls to it and frames it once (settings/sectionJump.ts sets and clears the attribute). */
+:is(.workspace, .settings-page-body) [data-section][data-jump-target] { outline: 2px solid var(--teal); outline-offset: 6px; border-radius: var(--radius-md); animation: tb-flash 1.6s var(--ease-out) forwards; }
+@media (prefers-reduced-motion: reduce) { :is(.workspace, .settings-page-body) [data-section][data-jump-target] { animation: none; } }
+@media (max-width: 700px) {
+  .settings-shell { gap: 8px; padding: 8px 8px 12px; }
+  .settings-bar { padding: 2px 4px; }
+  .settings-shell .settings-dismiss { min-height: 44px; }
+  .settings-content .settings-page-body { padding: 16px 12px 28px; }
+  .settings-save-bar { padding: 12px 16px; flex-wrap: wrap; }
+  .settings-save-bar > span { flex-basis: 100%; }
+}
+/* Reduced motion: forced.css stops every transition and animation inside .settings-shell. */
+
+/* Parts that pages place. */
+/* The body of a settings page, also the Mac settings pages': one scroll container, the column at most 760 wide (the shell's own
+   rule above), 16px at the edges on a phone. */
+.settings-page-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px 28px 40px;scrollbar-gutter:stable;color:var(--ink);container-type:inline-size}
+.settings-stack{display:grid;gap:24px;align-content:start;min-width:0}
+/* A block a link can scroll to (SectionAnchor) is a plain grid item: it must not widen its track. */
+.settings-anchor{min-width:0}
+/* Section: a title, then its group. */
+.settings-sec{margin:0;min-width:0}
+.settings-sec-head{display:flex;align-items:baseline;gap:8px;margin:0 0 12px}
+.settings-sec-head h4{margin:0;color:var(--ink);font:700 17px/1.2 var(--font-display)}
+.settings-sec-hint{color:var(--muted);font:600 13px/1.4 var(--body)}
+.settings-sec-desc{margin:-6px 0 12px;max-width:60ch;color:var(--muted);font:12.5px/1.5 var(--body)}
+/* Group (settings-card): a hairline card on the surface; rows are divided by a hairline inside the padding. */
+.settings-card{min-width:0;margin:0;padding:0 16px;border:var(--border-1) solid var(--line);border-radius:var(--radius-md);background:var(--surface)}
+.settings-card>*+*{border-top:var(--border-1) solid var(--line)}
+.settings-row-v2{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;box-sizing:border-box;padding:12px 0}
+.settings-row-copy{flex:1;min-width:0}
+.settings-page-body .settings-row-copy label,.settings-row-copy strong{display:block;gap:0;margin:0;color:var(--ink);font:600 14px/1.4 var(--body)}
+.settings-row-copy p{margin:2px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.settings-row-control{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:60%;min-width:0}
+.settings-row-status{flex:none}
+.settings-row-value{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font:13px/1.4 var(--body)}
+/* A subpage row: the whole row opens it; grey value and a chevron on the right. */
+button.settings-row-v2.is-link{width:100%;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+button.settings-row-v2.is-link>svg{flex:none;color:var(--muted)}
+button.settings-row-v2.is-link:hover .settings-row-copy strong{color:var(--ink)}
+button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:10px}
+.settings-card-note{margin:0;padding:12px 0;color:var(--muted);font:12.5px/1.6 var(--body);overflow-wrap:anywhere}
+.settings-card.settings-flush,.settings-card.storage-card,.settings-card.portability-card{padding:0}
+.settings-card.portability-card>.settings-row-v2,.settings-card.settings-flush>.settings-row-v2{padding-left:16px;padding-right:16px}
+.settings-card.settings-flush>*{margin:0;padding:12px 16px;border:0;border-radius:0;background:transparent}
+.settings-row-control :is(input:not([type="checkbox"],[type="radio"]),select){width:240px;max-width:100%}
+@media(max-width:700px){
+  .settings-row-v2:not(.is-inline){flex-direction:column;align-items:stretch;gap:10px}
+  .settings-row-v2:not(.is-inline) .settings-row-control{max-width:none;justify-content:flex-start}
+  .settings-row-v2:not(.is-inline) .settings-row-control :is(input:not([type="checkbox"],[type="radio"]),select,.ui-select-trigger){width:100%;max-width:none}
+  .settings-row-v2.is-inline .settings-row-control{max-width:60%}
+}
+/* Status: a 7px dot and a word. Solid green = fine, solid honey = needs you, hollow = off, red = failed. */
+.status-badge{display:inline-flex;align-items:center;gap:6px;flex:none;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
+.status-dot{display:block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status-badge.is-ok .status-dot{background:var(--lime)}
+.status-badge.is-need .status-dot{background:var(--mustard)}
+.status-badge.is-bad{color:var(--danger-text)}
+.status-badge.is-bad .status-dot{background:var(--danger)}
+.status-badge.is-asleep .status-dot{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
+.status-badge.is-testing .status-dot{background:var(--teal)}
+
+.st-switch-wrap{display:inline-flex;align-items:center;gap:8px;flex:none}
+/* "Saved" beside the control that saved: 1.5 s, reserved width so nothing jumps. */
+.settings-saved{min-width:0;color:var(--muted);font:12.5px/1.4 var(--body);white-space:nowrap}
+.settings-saved:empty{display:none}
+/* Changed value: honey text, no pill. */
+.st-changed{color:var(--mustard-text);font:12.5px/1.5 var(--body)}
+.st-link{padding:0;border:0;background:transparent;color:var(--ink-soft);font:500 13px/1.4 var(--body);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--ink-soft) 35%,transparent);text-underline-offset:3px}
+.st-link:hover:not(:disabled){color:var(--ink)}
+.st-link:disabled{opacity:.5;cursor:not-allowed}
+.st-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:4px}
+/* Buttons: .st-button and .mcp-button are drawn by ds/legacy-aliases.css (PR 2.1); the .settings-shell rules below keep the settings size. */
+.settings-shell .primary-button{min-height:36px;padding:0 16px;border-radius:10px;font:600 13.5px/1 var(--font-display)}
+/* In-place confirm (ConfirmAction): the trigger is quiet danger text; the confirming step is the filled red one, still without outline or hard shadow. */
+.settings-shell .danger-link{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}
+.settings-shell .danger-link:not(:disabled):hover{background:color-mix(in srgb,var(--danger) 8%,var(--surface))}
+.settings-ghost-button{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:32px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft);font:600 13px/1 var(--body)}
+.settings-ghost-button:hover:not(:disabled){background:var(--surface);color:var(--ink)}
+.settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+/* Phones: every tap target is 44px (the prefix outranks the component rules that load later). */
+@media(max-width:700px){
+  .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
+  .settings-shell .settings-row-control button.ui-select-trigger,.settings-shell .settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
+}
+/* Fields: a title above, the kit's pressed-in control look (ds/control.css), 40px. Not inside a group. */
+.settings-page-body label,.model-fields label{display:grid;gap:6px;margin:0 0 16px;color:var(--muted);font:600 13px/1.4 var(--body)}
+.settings-page-body label>:is(input,select,textarea){margin-top:0}
+.settings-page-body :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="file"]),textarea,select){width:100%;min-height:40px;box-sizing:border-box;padding:9px 12px;border:var(--border-1) solid var(--edge);border-radius:var(--radius-sm);background:var(--sunk);box-shadow:var(--field-inset);color:var(--ink);font:14px/1.5 var(--body);transform:none}
+.settings-page-body textarea{min-height:88px}
+.settings-page-body :is(input:not([type="checkbox"],[type="radio"]),textarea,select):focus-visible{background:var(--surface);box-shadow:var(--shadow-sm);transform:none;outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.settings-page-body :is(input,textarea,select)[aria-invalid="true"]{border-color:var(--danger)}
+.settings-page-body :is(input,select,textarea):disabled{background:var(--surface-soft);color:var(--muted);cursor:not-allowed;opacity:.7}
+.settings-page-body select{appearance:none;-webkit-appearance:none;padding-right:34px;text-overflow:ellipsis;white-space:nowrap;background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.settings-page-body .field-note{margin:6px 0 0;color:var(--muted);font:12.5px/1.5 var(--body);overflow-wrap:anywhere}
+.settings-page-body small{font-size:12.5px}
+.settings-page-body code{font-size:12.5px}
+.settings-page-body .muted{font-size:13px;line-height:1.65}
+.settings-page-body a:not([class]){color:var(--ink);text-decoration-color:var(--yellow);text-underline-offset:3px}
+.settings-page-body input[type="file"]::file-selector-button{margin-right:10px;padding:6px 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--ink);font:600 13px/1 var(--body)}
+
+/* The Select is the kit's (ds/control.css, ds/Select); this only fits its width: compact in a row, full in a form. */
+.settings-row-control button.ui-select-trigger,.settings-page-body button.ui-select-trigger[data-size="sm"]{width:auto;min-width:0;max-width:240px}
+/* Banner: only for an error or something you must do; one per page, at the top. Tinted, never outlined. */
+.settings-banner{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:14px;background:var(--surface-2);min-width:0}
+.settings-banner>svg{flex:none;margin-top:1px}
+.settings-banner-copy{flex:1;min-width:0}
+.settings-banner-copy strong{display:block;color:var(--ink);font:600 14px/1.4 var(--body);overflow-wrap:anywhere}
+.settings-banner-copy p{margin:2px 0 0;color:var(--ink-soft);font:13px/1.5 var(--body)}
+.settings-banner.is-error{background:color-mix(in srgb,var(--danger) 10%,var(--surface))}
+.settings-banner.is-error>svg{color:var(--danger-text)}
+.settings-banner.is-warn{background:color-mix(in srgb,var(--mustard) 14%,var(--surface))}
+.settings-banner.is-warn>svg{color:var(--mustard-text)}
+.settings-banner.is-info>svg{color:var(--teal-text)}
+.settings-banner-action{align-self:center}
+.settings-banner-more{margin-top:6px;padding:0;border:0;background:transparent;color:var(--muted);font:500 12.5px/1.4 var(--body);text-decoration:underline;text-underline-offset:3px}
+.settings-banner-details{margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--sunk);color:var(--ink-soft);font:12px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:700px){.settings-banner{flex-wrap:wrap}.settings-banner-action{margin-left:30px}.settings-banner-copy{flex:1 1 calc(100% - 32px)}}
+/* Danger zone: an ordinary section, last on the page. Names and descriptions are ordinary ink; only the button text is red. */
+.danger-zone .purge-section{display:grid;gap:8px;margin:0;padding:0}
+.danger-zone .purge-section :is(h3,p){margin:0;color:var(--ink);font:500 14px/1.4 var(--body)}
+.danger-zone .purge-section :is(.settings-description,.field-note){color:var(--muted);font:12.5px/1.5 var(--body)}
+.danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
+.purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
+.purge-button{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--st-lift);color:var(--danger-text);font:600 13px/1 var(--body)}
+.purge-button:disabled{opacity:.5;cursor:not-allowed}
+.purge-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+/* Subpage: back, title, optional actions. */
+.st-subpage{display:grid;gap:20px;min-width:0}
+.st-subpage-head{display:flex;align-items:center;gap:10px;min-width:0}
+.st-subpage-back{display:grid;place-items:center;flex:none;width:32px;height:32px;margin-left:-8px;border:0;border-radius:9px;background:transparent;color:var(--ink-soft)}
+.st-subpage-back:hover{background:var(--surface-2);color:var(--ink)}
+.st-subpage-back:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.st-subpage-title{flex:1;min-width:0}
+.st-subpage-title h3{margin:0;color:var(--ink);font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
+.st-subpage-title p{margin:2px 0 0;color:var(--muted);font:12.5px/1.4 var(--body)}
+
+/* File picker: a quiet button, the chosen file as a chip, a drop zone that is only a filled block. */
+.file-picker{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;min-width:0;padding:14px 16px;border-radius:14px;background:var(--surface-2);transition:background-color var(--m-press)}
+.file-picker.is-dragging{background:var(--sunk)}
+.file-picker-hint{color:var(--muted);font:12.5px/1.4 var(--body)}
+.file-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%;padding:4px 10px;border-radius:999px;background:var(--surface);color:var(--ink);font:12.5px/1.4 var(--mono)}
+.file-chip>svg{flex:none;color:var(--muted)}
+.file-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-shell .primary-badge{min-height:0;padding:1px 8px;border:0;background:var(--surface);font:500 12px/1.4 var(--body);letter-spacing:0;text-transform:none}
+/* Help text never drops below 12px. */
+.settings-page-body :is(.error-text,.settings-feedback){font-size:12px;line-height:1.55}
+.settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
+.status-badge,.settings-count{font-family:var(--body)}
+.settings-page-body :is(input[type="checkbox"],input[type="radio"]):checked{box-shadow:none}
+
+/* Folded group (a line with a count; the rows open under it) and its rows. */
+.st-fold>*+*{border-top:1px solid var(--line)}
+.st-fold>.settings-row-v2:not(.is-link),.st-fold>.settings-sec{padding-left:0;padding-right:0}
+.st-fold>.settings-sec{margin:0}
+/* Admin › Design system: the catalog fills the page below its "open in a new tab" link. */
+.design-system-page{display:flex;flex-direction:column;height:100%;min-height:0;gap:var(--space-2)}
+.design-system-page iframe{flex:1;width:100%;min-height:0;border:0}
+.settings-section{margin-bottom:30px}.settings-section h3{margin:0;color:var(--ink);font:600 15px/1.4 var(--body)}.settings-description{font-size:13px;color:var(--muted);margin:6px 0 22px;line-height:1.65}
+.settings-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;row-gap:10px}
+.settings-row>div{min-width:0}
+.settings-form-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:22px}.settings-form-footer>span,.settings-feedback{font-size:12px;color:var(--muted)}
+.settings-tag{display:inline-block;padding:2px 6px;font-size:10px;letter-spacing:.03em;border-radius:5px;background:color-mix(in srgb,var(--ink) 6%,transparent);color:var(--muted)}
+/* The unsaved-changes question (a Radix alert dialog). */
+/* Radix AlertDialog since migration step 3; width/height/max-height/overflow keep the sizing the native <dialog> had. */
+.settings-leave-overlay{position:fixed;inset:0;z-index:var(--z-dialog);background:var(--scrim);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.settings-leave-dialog{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:fit-content;height:fit-content;margin:0;max-width:min(440px,calc(100vw - 32px));max-height:calc(100% - 6px - 2em);overflow:auto;padding:24px;border:2px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.settings-leave-dialog h3{margin:0 0 10px;font:600 18px/1.3 var(--font-display)}.settings-leave-dialog p{margin:0 0 22px;color:var(--ink-soft);font:13px/1.6 var(--body)}
+.settings-leave-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.settings-leave-dialog button:focus-visible,.settings-save-bar button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+}

@@ -5,7 +5,6 @@ import { ConfirmAction } from "../../ConfirmAction";
 import { AppearancePicker, Disclosure } from "../../InteractionPrimitives";
 import { i18n } from "../../i18n";
 import "../../extensions-system.css";
-import "../../settings/section-jump.css";
 import "../../connections/connections.css";
 import { brandIcons } from "../../brandIcons";
 import { ServiceMark } from "../../ServiceMark";
@@ -355,8 +354,17 @@ export const settings: CatalogSection = {
     connectDialog("robinhood", "Robinhood (loopback-only redirect): the route line explains why", { view: "preset", preset: integrationCatalog.find(item => item.id === "robinhood")! }),
     connectDialog("custom", "Custom connector", { view: "custom" }),
     connectDialog("package", "Local package", { view: "package" }),
-    { id: "shell", kind: "app", label: "Settings window", note: "the real settings shell, opened from the gear beside the account",
+    { id: "shell", kind: "app", label: "Settings page, General", note: "the full page (dot ground, bar, rail with You / Organization / Server, head row), opened from the gear beside the account",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell", keyboard: { close: "Escape" },
       drive: async step => { await openSettings(step); } },
+    { id: "shell-environments", kind: "app", label: "Settings page, Environments (an Organization page)", note: "the group name above the title follows the rail",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
+      drive: async step => { await openSettings(step); await step.click('.settings-tabs [data-tab="computer"]'); await step.find('.settings-page-body[data-page="computer"]'); await step.wait(300); } },
+    { id: "shell-narrow", kind: "app", label: "Settings page, 700 px and narrower: the rail is one row of links", note: "the chosen link scrolls into view; the group names are gone",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell", widths: ["phone"],
+      drive: async step => { await openSettings(step); await step.click('.settings-tabs [data-tab="usage"]'); await step.find('.settings-page-body[data-page="usage"]'); await step.wait(300); } },
+    { id: "shell-unsaved", kind: "app", label: "Settings page, unsaved changes: the save bar under the page", note: "the Models default-model draft; Save and Discard sit in the bar, the head row says Saved after Save",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
+      drive: async step => { await openSettings(step); await step.click('.settings-tabs [data-tab="models"]'); await step.find('.settings-page-body[data-page="models"] .segmented button'); await step.click('.settings-page-body[data-page="models"] .segmented button:not([aria-checked="true"])'); await step.find(".settings-save-bar"); await step.wait(300); } },
   ],
 };

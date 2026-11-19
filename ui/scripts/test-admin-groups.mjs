@@ -338,7 +338,7 @@ try {
     stub.reset({members: {acct_two: "provided"}});
     const phone = await open({tab: "admin-groups"}, {width: 390, height: 844, theme, touch: true});
     const {page} = phone;
-    await page.locator('.settings-mhome [data-tab="admin-groups"]').click().catch(() => {});
+    await page.locator('.settings-tabs [data-tab="admin-groups"]').click().catch(() => {});
     const pane = body(page, "admin-groups");
     await pane.locator(".ag-item").first().waitFor();
     assert.equal(await pane.locator(".ag-editor").isVisible(), false, "the list comes first on a phone");
@@ -356,7 +356,7 @@ try {
     await phone.close();
     // Accounts on a phone: the menu sits under the row, the bar is visible.
     const accounts = await open({tab: "admin"}, {width: 390, height: 844, theme, touch: true});
-    await accounts.page.locator('.settings-mhome [data-tab="admin"]').click().catch(() => {});
+    await accounts.page.locator('.settings-tabs [data-tab="admin"]').click().catch(() => {});
     const list = body(accounts.page, "admin");
     await list.locator(".admin-row").first().waitFor();
     await list.locator('[data-select="acct_two"]').check();

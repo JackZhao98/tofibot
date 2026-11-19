@@ -86,7 +86,7 @@ function auditPage(opts) {
   const nativeButton = reference("button");
   const CARD_BORDERED = el => {
     const s = style(el);
-    if (el.matches("button, input, select, textarea, li, a, dd, dt, .segmented, .status-badge, .settings-count, .detail-pane")) return false; // the window frame is not a card (the rail sits 10px inside it)
+    if (el.matches("button, input, select, textarea, li, a, dd, dt, .segmented, .status-badge, .settings-count, .detail-pane, .tb-settings")) return false; // the page frame is not a card (the rail sits 10px inside it)
     if (parseFloat(s.borderLeftWidth) < 1 || s.borderLeftStyle === "none") return false;
     if (parseFloat(s.borderTopLeftRadius) < 8) return false;
     const r = el.getBoundingClientRect();
@@ -178,7 +178,7 @@ function auditPage(opts) {
 
   // ---- clipped inner scroll boxes: a scrollable element inside a card must show all of its content
   for (const el of document.querySelectorAll("*")) {
-    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .settings-mhome, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
+    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
     if (!/auto|scroll/.test(style(el).overflowY) || !cardOf(el)) continue;
     if (el.scrollHeight > el.clientHeight + 2) add("clipped-scroll", el, `scrollHeight ${el.scrollHeight}px > clientHeight ${el.clientHeight}px`);
   }

@@ -27,7 +27,9 @@
   },
   "shell": {
     "group": {
-      "admin": "관리"
+      "you": "나",
+      "organization": "조직",
+      "server": "서버"
     },
     "page": {
       "general": {
@@ -109,11 +111,6 @@
       "role": {
         "admin": "관리자",
         "member": "멤버"
-      }
-    },
-    "hint": {
-      "computer": {
-        "none": "없음"
       }
     },
     "tag": {

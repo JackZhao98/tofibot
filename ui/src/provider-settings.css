@@ -67,3 +67,20 @@
 .provider-card .provider-key-form{margin-top:12px}
 .provider-choices.provider-actions{margin:0;gap:8px}
 }
+/* Models page rules from settings/settings-components.css (V3 PR 6.1); PR 6.3 takes them out. */
+@layer legacy {
+/* Models: providers as rows of one group. */
+.model-providers{margin:0}
+.settings-card.provider-list{display:grid;gap:0;padding:0}
+.settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
+.settings-card>.provider-card+.provider-card{border-top:1px solid var(--line)}
+.provider-card-head{margin:0 0 10px}
+.provider-card-marks{display:flex;align-items:center;gap:8px;flex:none}
+.provider-card .codex-status{margin:0 0 12px;padding:0;border:0;border-radius:0;background:transparent;color:var(--muted);font:12px/1.5 var(--body)}
+.provider-card .codex-status .status-dot{display:none}
+.model-fields-rows{margin:0;min-width:0}
+.model-fields-rows .field-note{margin:8px 0 0}
+.provider-key-form{display:grid}
+.provider-key-form>:is(.primary-button,.st-button){justify-self:end}
+@media(max-width:700px){.provider-card-head .settings-tag{display:none}}
+}

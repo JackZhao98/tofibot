@@ -1,0 +1,35 @@
+/* SettingsShell: the framed settings card (V3 PLAN S14): a rail of grouped links beside a head row and the content. The page
+   around it (the dot ground, the bar, the frame's width) is layout/settings-page.css. Unlayered, skin roles only. */
+.tb-settings { display: grid; grid-template-columns: var(--settings-rail) minmax(0, 1fr); min-height: 0; min-width: 0; height: 100%; background: var(--bg); border: var(--border-1) solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.tb-settings-rail { min-height: 0; overflow-y: auto; border-right: var(--border-1) solid var(--line); background: var(--surface-2); padding: 14px 10px; display: grid; align-content: start; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.tb-settings-group { display: grid; gap: 2px; }
+.tb-settings-grouplabel { padding: 0 10px 4px; font: 600 10px/1.2 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.tb-settings-link { appearance: none; width: 100%; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border: var(--border-1) solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--ink-soft); text-align: left; font: 600 14px/1.2 var(--font-body); cursor: pointer; }
+.tb-settings-linklabel { flex: 1; min-width: 0; overflow-wrap: normal; word-break: normal; }
+.tb-settings-link:hover { background: var(--hover); color: var(--ink); }
+.tb-settings-link.is-active { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.tb-settings-link.is-active .tb-icon { color: var(--tomato-text); }
+.tb-settings-link:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
+.tb-settings-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.tb-settings-head { flex: none; display: flex; align-items: flex-end; gap: 12px 16px; padding: 22px 28px 18px; border-bottom: var(--border-1) solid var(--line); background: var(--surface); }
+.tb-settings-headtext { flex: 1; min-width: 0; }
+.tb-settings-title { margin: 4px 0 0; font: 700 26px/1.1 var(--font-display); letter-spacing: -.015em; overflow-wrap: anywhere; }
+.tb-settings-tag { margin-left: 10px; color: var(--muted); font: 500 12.5px/1.4 var(--font-body); letter-spacing: 0; vertical-align: middle; }
+.tb-settings-status { flex: none; color: var(--muted); font: 500 13px/1.4 var(--font-body); white-space: nowrap; }
+.tb-settings-status:empty { display: none; }
+.tb-settings-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.tb-settings-actions:empty { display: none; }
+.tb-settings-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+@media (max-width: 700px) {
+  .tb-settings { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); border-radius: var(--radius-md); }
+  .tb-settings-rail { border-right: 0; border-bottom: var(--border-1) solid var(--line); display: flex; align-items: center; gap: 4px; overflow: auto hidden; padding: 8px 10px; scrollbar-width: none; }
+  .tb-settings-rail::-webkit-scrollbar { display: none; }
+  .tb-settings-group { display: flex; flex: none; gap: 4px; }
+  .tb-settings-grouplabel { display: none; }
+  .tb-settings-link { flex: none; width: auto; white-space: nowrap; min-height: 44px; }
+  .tb-settings-linklabel { flex: none; }
+  .tb-settings-head { flex-wrap: wrap; align-items: center; padding: 16px 16px 14px; }
+  .tb-settings-title { font-size: 22px; }
+  .tb-settings-status { order: 3; flex-basis: 100%; white-space: normal; }
+}
+@media (forced-colors: active) { .tb-settings-link.is-active { outline: 2px solid Highlight; } }

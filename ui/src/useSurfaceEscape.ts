@@ -8,10 +8,12 @@ import { escapeTarget, type EscapeTarget, type Surfaces, type WidgetId } from ".
  *  1. a native top-layer `<dialog>` (the image lightbox, the file preview): the browser closes it, this hook does nothing;
  *  2. a Radix layer (menu, popover, `ModalDialog`, `ConfirmDialog`, and the covers, which are `ModalDialog`s): it claims the key with
  *     `preventDefault`, so this hook sees `defaultPrevented` (or `[data-tofi-modal]`) and does nothing;
- *  3. the big computer window steps back to the compact one (a phone sheet has no compact form and closes);
- *  4. the cover, when it is not a Radix dialog of its own (Settings): its own close, which asks first when something is unsaved;
- *  5. the sidebar;
- *  6. the widgets from the bottom up: Artifacts, Members, and the computer last.
+ *  3. the Settings page (V3 PR 6.1: a full page, not a cover): its own close, which asks first when something is unsaved. It covers
+ *     the whole window, so it comes before the big computer window under it;
+ *  4. the big computer window steps back to the compact one (a phone sheet has no compact form and closes);
+ *  5. the cover (a Radix dialog: it took the key in step 2, so this step only guards a cover that is already leaving);
+ *  6. the sidebar;
+ *  7. the widgets from the bottom up: Artifacts, Members, and the computer last.
  *
  * A surface that is saving (`aria-busy`, not a loading skeleton) is not closed by Escape. Step 3 listens in the capture phase: the remote screen's keyboard
  * receiver stops the keys it forwards from bubbling, and Escape must still step the window back. Every other step is the bubble phase,
@@ -26,7 +28,7 @@ export function useSurfaceEscape({ surfaces, bigComputer, phoneSheet, shrinkComp
   shrinkComputer: () => void;
   closeWidget: (id: WidgetId) => void;
   closeSidebar: () => void;
-  /** Settings is a cover that is not a Radix dialog: it owns its unsaved-changes question. */
+  /** The Settings page owns its unsaved-changes question. */
   closeSettings: () => void;
 }) {
   const live = useRef({ bigComputer, phoneSheet, shrinkComputer, closeWidget, closeSidebar, closeSettings });
@@ -38,14 +40,14 @@ export function useSurfaceEscape({ surfaces, bigComputer, phoneSheet, shrinkComp
     const busy = () => Boolean(document.querySelector(`.widget-column ${saving}, .sidebar-pane ${saving}, .detail-pane ${saving}`));
     const run = (event: KeyboardEvent, target: EscapeTarget) => {
       const act = live.current;
-      // Every cover but Settings is a Radix dialog that took the key before this ran; one that is already leaving takes nothing.
-      if (target.layer === "cover" && target.id !== "settings") return;
+      // A cover is a Radix dialog that took the key before this ran; one that is already leaving takes nothing.
+      if (target.layer === "cover") return;
       // A surface that is still loading is not closed from under the person (Settings answers at once: its frame is the loading state).
       const dismissibleRead = target.layer === "sidebar" && (target.id === "memory" || target.id === "usage") || target.layer === "widget" && target.id === "usage";
-      if (!dismissibleRead && target.layer !== "cover" && target.layer !== "computer-big" && busy()) return;
+      if (!dismissibleRead && target.layer !== "page" && target.layer !== "computer-big" && busy()) return;
       event.preventDefault();
       if (target.layer === "computer-big") { if (act.phoneSheet) act.closeWidget("computer"); else act.shrinkComputer(); event.stopPropagation(); }
-      else if (target.layer === "cover") act.closeSettings();
+      else if (target.layer === "page") act.closeSettings();
       else if (target.layer === "sidebar") act.closeSidebar();
       else act.closeWidget(target.id);
     };

@@ -15,3 +15,5 @@
 .tb-breath { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: tb-breath 2.4s var(--ease-inout) infinite; }
 @keyframes tb-breath { 0%, 100% { transform: scale(.8); opacity: .55; } 50% { transform: scale(1.1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .tb-breath { animation: none; } }
+/* A section reached by a link frames itself once (Settings sections, and the other places a link lands on a block). */
+@keyframes tb-flash { 0%, 45% { outline-color: var(--teal); } 100% { outline-color: transparent; } }

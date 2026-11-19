@@ -32,8 +32,9 @@ const catalogs = {};
 for (const lang of LANGS) catalogs[lang] = JSON.parse(await readFile(join(ui, "src/locales", lang, "settings.json"), "utf8"));
 for (const lang of LANGS) {
   const shell = catalogs[lang].shell;
-  // Only Administration keeps a heading; the other clusters are spacing.
-  assert.deepEqual(Object.keys(shell.group).sort(), ["admin"], `${lang}: shell.group keys`);
+  // The rail groups are You, Organization and Server (V3 PLAN section 11, owner Q2).
+  assert.deepEqual(Object.keys(shell.group).sort(), ["organization", "server", "you"], `${lang}: shell.group keys`);
+  for (const key of ["you", "organization", "server"]) assert.ok(shell.group[key], `${lang}: group ${key} has a name`);
   assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "devices", "admin", "admin-groups", "admin-resources", "admin-design"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
@@ -50,7 +51,7 @@ for (const lang of LANGS) {
     if (lang !== "en") assert.notEqual(catalogs[lang].dictation.model[id].hint, catalogs.en.dictation.model[id].hint, `${lang}: dictation hint is an English copy`);
   }
 }
-console.log(`PASS catalogs: ${LANGS.length} locales have the Administration heading, 14 page names, descriptions of at most 70 characters, dictation copy`);
+console.log(`PASS catalogs: ${LANGS.length} locales have the three rail group names, 14 page names, descriptions of at most 70 characters, dictation copy`);
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, {recursive: true});
@@ -86,7 +87,7 @@ function Fixture(){
  const openSettings=(next:SettingsTab,view:SettingsView='page')=>{setTab(next);setEntry(current=>({seq:current.seq+1,view}))};
  useEffect(()=>subscribeSettingsDeepLinks(next=>openSettings(next)),[]);
  useEffect(()=>{(window as any).__closed=closed},[closed]);
- return <div className="workspace"><UpdateBanner/><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
+ return <div className="workspace"><div style={{position:"relative",zIndex:200}}><UpdateBanner/></div><div className="workspace-grid"><aside className="detail-pane visible" role="dialog" aria-modal="true">{!closed&&<SettingsShell tab={tab} onTab={setTab} onClose={()=>setClosed(true)} entry={entry} refreshToken={0} renderPage={page=><SettingsPages page={page} bots={bots} timezone="America/Los_Angeles" usageBotId="" portabilityBotID="" onPortabilityFileConsumed={()=>{}} appearance={appearance} extensionRefresh={0} openTab={next=>openSettings(next)} slots={{codexRefresh:0,onCodexConfigured:()=>{},providersRefresh:0,onProvidersConfigured:()=>{},legacyArchive:null}}/>}/>}</aside></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
 `);
@@ -484,11 +485,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, close} = await open({admin: "0"});
     assert.deepEqual(await railTabs(page), [...TABS, "admin-design"], "single-account owner sees Design system after the eight pages");
-    // Only Administration has a heading; General stays the first rail item.
-    assert.deepEqual(await page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"]);
+    // The rail has three groups, You, Organization and Server; General stays the first rail item.
+    assert.deepEqual(await page.$$eval(".settings-tabs .tb-settings-grouplabel", items => items.map(item => item.textContent)), ["You", "Organization", "Server"]);
     assert.equal(await page.locator(".settings-account-card").count(), 0, "the account card at the top of the rail is gone");
     assert.equal(await page.locator('.settings-tabs [data-tab="general"]').count(), 1);
-    assert.equal(await page.locator(".settings-tabs").evaluate(element => element.offsetWidth), 216, "rail is 216px wide (layout width: the window may still be scaling in)");
+    assert.equal(await page.locator(".settings-tabs").evaluate(element => element.offsetWidth), 232, "rail is 232px wide (V3.0) (layout width: the window may still be scaling in)");
     assert.equal(await page.locator("#settings-category").count(), 0, "no category select");
     const icons = await page.$$eval(".settings-tabs .settings-nav-group button[data-tab]", buttons => buttons.map(button => button.querySelector("svg").dataset.tofiIcon));
     assert.equal(new Set(icons).size, icons.length, "no two tabs share an icon");
@@ -519,13 +520,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await page.locator('.settings-tabs [data-tab="devices"]').count(), 0, "Other devices has no rail item: it is part of Environments");
     await close();
     const personal = await open({admin: "0", personal: "1"});
-    assert.deepEqual(await railTabs(personal.page), [...TABS, "admin-design"], "personal computers on: still no Other devices item");
+    assert.deepEqual(await railTabs(personal.page), [...TABS, "admin-design"], "personal computers on: still no Other devices item (Design system follows System in Server)");
     await personal.close();
     const admin = await open({admin: "1"});
-    assert.deepEqual(await railTabs(admin.page), [...TABS, "admin", "admin-groups", "admin-resources", "admin-design"], "the Administration group appears for a multi-account admin");
-    assert.deepEqual(await admin.page.$$eval(".settings-tabs .settings-nav-group>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading, after System");
-    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="admin"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["admin", "admin-groups", "admin-resources", "admin-design"]);
-    assert.equal(await admin.page.locator('.settings-tabs [data-group="system"] [data-tab="admin"]').count(), 0, "Accounts no longer sits in System");
+    assert.deepEqual(await railTabs(admin.page), ["general", "models", "connections", "skills", "permissions", "computer", "usage", "admin", "admin-groups", "admin-resources", "advanced", "admin-design"], "the account pages join Organization for a multi-account admin; Design system joins Server");
+    assert.deepEqual(await admin.page.$$eval(".settings-tabs .tb-settings-grouplabel", items => items.map(item => item.textContent)), ["You", "Organization", "Server"], "three groups, one word each");
+    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="organization"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["models", "connections", "skills", "permissions", "computer", "usage", "admin", "admin-groups", "admin-resources"]);
+    assert.deepEqual(await admin.page.$$eval('.settings-tabs [data-group="server"] button[data-tab]', items => items.map(item => item.dataset.tab)), ["advanced", "admin-design"]);
+    assert.equal(await admin.page.locator('.settings-tabs [data-group="server"] [data-tab="admin"]').count(), 0, "Accounts is an Organization page");
     const adminIcon = await admin.page.locator('.settings-tabs [data-tab="admin"] svg').getAttribute("data-tofi-icon");
     assert.equal(adminIcon, ICONS.admin);
     await admin.page.locator('.settings-tabs [data-tab="admin-design"]').click();
@@ -711,38 +713,38 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log("PASS permissions: bulk Auto / Ask before edits write every Bot and lock the list, Per Bot unlocks it without caching, own mode per Bot, reviewer model picker, 390px");
   }
 
-  // ---- 4. Mobile: no select, home list -> Models page -> back -> home.
+  // ---- 4. Narrow (700 px and less): the rail is one row of links above the page (V3 PR 6.1); no list that pushes the page in.
   {
     const {page, close} = await open({}, {width: 390, height: 844});
     assert.equal(await page.locator("#settings-category").count(), 0, "no #settings-category on mobile");
     await settle(page);
-    assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "home");
-    assert.equal(await page.locator(".settings-mhome").isVisible(), true);
-    assert.equal(await page.locator(".settings-content").evaluate(element => getComputedStyle(element).visibility), "hidden", "page is parked off-screen on the home list");
-    assert.equal(await page.locator('.settings-mhome [data-tab="general"]').count(), 1, "the phone list reaches General without an account card");
-    assert.equal(await page.locator(".settings-maccount").count(), 0);
-    const hints = await page.$$eval(".settings-mhome .settings-mrow", rows => Object.fromEntries(rows.map(row => [row.dataset.tab, row.querySelector(".settings-mhint")?.textContent ?? ""])));
-    assert.equal(hints.models, "Codex", "Models hint is the provider of the global model");
-    assert.equal(hints.computer, "2", "Environments hint is the number of environments");
-    assert.equal(hints.usage, "", "Usage has no hint in Phase 1");
-    assert.deepEqual(await page.$$eval(".settings-mhome .settings-mgroup>p", items => items.map(item => item.textContent)), ["Administration"], "only Administration keeps a heading on the phone list");
-    await page.locator('.settings-mhome [data-tab="models"]').click();
+    assert.equal(await page.locator(".settings-shell[data-view]").count(), 0, "no list/page view state: the phone list and its back button are gone");
+    const rail = await page.locator(".settings-tabs").evaluate(element => { const box = element.getBoundingClientRect(); const style = getComputedStyle(element); return {flexDirection: style.display, overflowX: style.overflowX, scrolls: element.scrollWidth > element.clientWidth, width: Math.round(box.width), top: Math.round(box.top)}; });
+    assert.equal(rail.scrolls, true, "the links do not fit one screen: the row scrolls sideways");
+    assert.ok(rail.width <= 390, `the rail is not wider than the screen (${rail.width})`);
+    assert.equal(await page.locator('.settings-tabs [data-tab="general"]').count(), 1, "the strip reaches General without an account card");
+    assert.equal(await page.locator(".settings-tabs .tb-settings-grouplabel").evaluateAll(items => items.every(item => getComputedStyle(item).display === "none")), true, "the group names are hidden in the strip");
+    assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "General");
+    assert.equal(await page.locator('.settings-page-body[data-page="general"]').isVisible(), true, "the page shows at once, no list first");
+    const tap = await page.locator('.settings-tabs [data-tab="models"]').evaluate(element => element.getBoundingClientRect().height);
+    assert.ok(tap >= 44, `a link in the strip is at least 44px high (${tap})`);
+    await page.locator('.settings-tabs [data-tab="models"]').click();
     await settle(page);
-    assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
     assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "AI Models");
-    assert.equal(await page.locator(".settings-content").evaluate(element => Math.round(element.getBoundingClientRect().x)), 0, "the page has pushed in");
     assert.equal(await page.locator('.settings-page-body[data-page="models"]').isVisible(), true);
-    await page.locator(".settings-back").click();
+    // The chosen link scrolls into view: Usage is past the fold of the strip.
+    await page.locator('.settings-tabs [data-tab="usage"]').scrollIntoViewIfNeeded();
+    await page.locator('.settings-tabs [data-tab="usage"]').click();
     await settle(page);
-    assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "home");
-    assert.equal(await page.locator(".settings-mhome").evaluate(element => Math.round(element.getBoundingClientRect().x)), 0);
+    const inView = await page.locator('.settings-tabs [data-tab="usage"]').evaluate(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= window.innerWidth; });
+    assert.equal(inView, true, "the chosen link is inside the screen");
     // A desktop-style deep link opens the page directly.
     await page.evaluate(() => window.dispatchEvent(new Event("tofi:open-tool-settings")));
     await settle(page);
-    assert.equal(await page.locator(".settings-shell").getAttribute("data-view"), "page");
     assert.equal((await page.locator(".settings-content .settings-page-title h2").textContent()).trim(), "Connections");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     await close();
-    console.log("PASS mobile: no select; home list -> Models -> back -> home; hints; deep link lands on its page");
+    console.log("PASS narrow: the rail is a row of links, the page shows at once, 44px links, the chosen link comes into view, deep link lands on its page");
   }
 
   // ---- 5. prefers-reduced-motion: nothing runs on page switch. (And the same probe sees motion when allowed.)
@@ -783,9 +785,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
     for (const text of ["Verbindungen", "Berechtigungen", "Umgebungen"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
-    assert.equal(Math.round(rail), 216, "rail is 216px wide");
+    assert.equal(Math.round(rail), 232, "rail is 232px wide (V3.0)");
     await close();
-    console.log("PASS german: Verbindungen, Berechtigungen and Umgebungen fit the 216px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Umgebungen fit the 232px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -822,7 +824,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Remove asks first and writes once.
     await row(page, "research-assistant").getByRole("button", {name: "Remove"}).click();
     assert.equal(libWrites.some(entry => entry.startsWith("DELETE")), false, "Remove asks before it writes");
-    await row(page, "research-assistant").getByRole("button", {name: /^Remove$/}).last().click();
+    await page.getByRole("alertdialog").getByRole("button", {name: "Remove", exact: true}).click();
     await page.waitForFunction(() => !document.querySelector('[data-skill="research-assistant"]'));
     assert.deepEqual(libWrites.filter(entry => entry.startsWith("DELETE")), ["DELETE /api/extensions/skills/research-assistant"]);
     // One-click add from a starter template: no form, one POST, and the row appears (a template is a normal skill).
@@ -958,7 +960,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   // ---- 7c. Admin console: list, detail, role, disk, password, deactivation and the delete flow (stubbed API).
   {
-    const adminTab = (page, mobile) => mobile ? page.locator('.settings-mhome [data-tab="admin"]').click() : Promise.resolve();
+    const adminTab = (page, mobile) => mobile ? page.locator('.settings-tabs [data-tab="admin"]').click() : Promise.resolve();
     const openAdmin = async (params = {}, size = {}) => {
       resetAdmin();
       const view = await open({admin: "1", tab: "admin", ...params}, size);
@@ -1287,7 +1289,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await view.close();
     }
     const phone = await open({}, {width: 390, height: 844});
-    await phone.page.locator('.settings-mhome [data-tab="usage"]').click();
+    await phone.page.locator('.settings-tabs [data-tab="usage"]').click();
     await phone.page.locator(".storage-card").waitFor();
     assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
     await phone.close();
@@ -1342,7 +1344,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
       resetAdmin();
       const view = await open({admin: "1", tab: "admin"}, {...size, theme});
-      if (size.width < 700) await view.page.locator('.settings-mhome [data-tab="admin"]').click();
+      if (size.width < 700) await view.page.locator('.settings-tabs [data-tab="admin"]').click();
       const body = view.page.locator('.settings-page-body[data-page="admin"]');
       await body.locator(".admin-row").first().waitFor({timeout: 15000});
       const shot = async name => { await view.page.waitForTimeout(450); await view.page.screenshot({path: join(dir, `admin-${label}-${theme}-${name}.png`)}); count++; };
@@ -1382,14 +1384,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log(`PASS admin screenshots: ${count} saved to ${dir}`);
   }
 
-  // ---- 7e. Visual language (settings-simplify P0): a quiet window. No container inside is outlined (V3 controls have their own edge,
-  // so buttons, select triggers and the segmented control do not count), nothing is hard-shadowed, at most one primary button per view; header 56px with a 20px title and no line; content column at most 640px.
+  // ---- 7e. Visual language (V3 PR 6.1, the settings mock): a head row with a 26px title and a hairline under it; a section is a hairline card, so
+  // an outlined container is allowed now; nothing is hard-shadowed, at most one primary button per view; the content column is at most 760px (--settings-content).
   {
     const {page, close} = await open({admin: "1"}, {reduced: true});
     await page.waitForTimeout(600);
-    const head = await page.locator(".settings-page-heading").evaluate(element => { const h2 = element.querySelector("h2"); return {height: element.offsetHeight, line: getComputedStyle(element).borderBottomWidth, title: getComputedStyle(h2).fontSize}; });
-    assert.deepEqual(head, {height: 56, line: "0px", title: "20px"}, "page header: 56px, no bottom line, 20px title");
-    assert.equal(await page.locator(".settings-nav-group>p").count(), 1, "one heading in the rail (Administration)");
+    const head = await page.locator(".settings-page-heading").evaluate(element => { const h2 = element.querySelector("h2"); return {line: getComputedStyle(element).borderBottomWidth, title: getComputedStyle(h2).fontSize, eyebrow: element.querySelector(".tb-eyebrow")?.textContent}; });
+    assert.deepEqual(head, {line: "1px", title: "26px", eyebrow: "You"}, "head row: group name over a 26px title, a hairline under it");
+    assert.equal(await page.locator(".settings-tabs .tb-settings-grouplabel").count(), 3, "three group names in the rail");
     const inspect = id => page.locator(`.settings-page-body[data-page="${id}"]`).evaluate(body => {
       const visible = node => { const rect = node.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; };
       const all = [...body.querySelectorAll("*")].filter(visible);
@@ -1407,10 +1409,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
       await page.waitForTimeout(500);
       const report = await inspect(id);
-      assert.deepEqual(report.bordered, [], `${id}: no bordered container`);
       assert.deepEqual(report.hard, [], `${id}: no hard shadow`);
       assert.equal(report.primaries, 0, `${id}: no add or submit action, so no primary button`);
-      assert.ok(report.column <= 640.5, `${id}: content column is at most 640px (saw ${report.column})`);
+      assert.ok(report.column <= 760.5, `${id}: content column is at most 760px (saw ${report.column})`);
     }
     // Switch: 46x26 Radix switch (the V3 kit Switch), button role, saved in place. Measured before the admin pages,
     // where a rail click on General did not switch the page in this test (open question in the PR).
@@ -1433,7 +1434,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const id of ["computer", "models", "advanced", "permissions", "usage"]) assert.equal(primaries[id], 0, `${id}: no primary button`);
     // A phone column is 16px from the edge and nothing is wider than the viewport.
     await close();
-    console.log("PASS visual language: 56px header, 20px title, no group headings but Administration, 640px column, no bordered container or hard shadow on General and System, at most one primary per view, 46x26 switch");
+    console.log("PASS visual language: head row with a 26px title and a hairline, three rail groups, 760px column, no hard shadow on General and System, at most one primary per view, 46x26 switch");
   }
 
   // ---- 7h. Behavior (settings-simplify P1, Q1 = C + A): a subpage of System with the real 39 items, 8 common rows and five folded groups;
@@ -1531,11 +1532,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await desktop.close();
       const mobile = await open({admin: "1"}, {width: 390, height: 844, theme});
       await mobile.page.waitForTimeout(900);
-      await mobile.page.screenshot({path: join(shots, `mobile-${theme}-home.png`)});
+      await mobile.page.screenshot({path: join(shots, `mobile-${theme}-rail.png`)});
       count++;
       for (const id of ALL) {
-        await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
-        await mobile.page.locator(`.settings-mhome [data-tab="${id}"]`).first().click();
+        await mobile.page.locator(`.settings-tabs [data-tab="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
+        await mobile.page.locator(`.settings-tabs [data-tab="${id}"]`).first().click();
         await mobile.page.waitForFunction(tab => (document.querySelector(`.settings-page-body[data-page="${tab}"]`)?.innerText ?? "").trim().length > 20 || Boolean(document.querySelector(`.settings-page-body[data-page="${tab}"] iframe`)), id);
         await mobile.page.waitForTimeout(id === "usage" ? 1800 : 1000);
         await mobile.page.screenshot({path: join(shots, `mobile-${theme}-${id}.png`)});
@@ -1543,8 +1544,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         // No page scrolls sideways at 390px.
         const sideways = await mobile.page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll(".settings-page-body:not([hidden])")].some(element => element.scrollWidth > element.clientWidth + 1));
         assert.equal(sideways, false, `${theme} ${id}: no horizontal scroll at 390px`);
-        await mobile.page.locator(".settings-back").click();
-        await settle(mobile.page);
       }
       await mobile.close();
     }
@@ -1723,7 +1722,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await pending.close();
     // No horizontal scroll at 390px.
     const narrow = await open({admin: "1", tab: "admin"}, {width: 390, height: 844});
-    await narrow.page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
+    await narrow.page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
     await narrow.page.locator(".version-card").waitFor({timeout: 15000});
     await narrow.page.waitForTimeout(500);
     assert.equal(await narrow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
@@ -1809,7 +1808,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
       // 390 px: the progress and the dialog fit.
       const narrowFlow = await open({admin: "1", host: "1", tab: "admin"}, {width: 390, height: 844});
-      await narrowFlow.page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
+      await narrowFlow.page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
       await narrowFlow.page.locator(".version-card").waitFor({timeout: 15000});
       assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the Update row at 390px");
       await narrowFlow.page.locator(".version-card").getByRole("button", {name: "Update to v0.1.1"}).click();
@@ -1844,7 +1843,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
         const {page, close} = await open({admin: "1", tab: "admin", auto: "patch"}, {...size, theme});
         await page.locator(banner).waitFor({timeout: 15000});
-        if (label === "390") await page.locator(".settings-mhome [data-tab=\"admin\"]").click().catch(() => {});
+        if (label === "390") await page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
         await page.locator(".version-card").waitFor({timeout: 15000});
         await page.waitForTimeout(900);
         await page.screenshot({path: join(dir, `update-${label}-${theme}.png`)}); count++;

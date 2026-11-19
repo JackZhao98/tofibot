@@ -127,7 +127,7 @@ function ModelsPage({slots}:SettingsPagesProps){
  // A connected OpenAI method is what makes Dictation available, so the section follows the provider cards.
  const changed=()=>setVersion(current=>current+1);
  const showDictation=Boolean(dictation.value?.configured)||Boolean(dictation.error&&!dictation.value);
- // One column: the Settings window (at most 1180 px, --window-w) leaves the page too narrow for Dictation beside the providers.
+ // One column: the settings content column (760 px, --settings-content) is too narrow for Dictation beside the providers.
  return <div className="settings-stack">
   <SectionAnchor id="providers"><ModelProviders refreshToken={slots.providersRefresh} codexRefresh={slots.codexRefresh} onConfigured={()=>{slots.onProvidersConfigured();changed()}} onCodexConfigured={()=>{slots.onCodexConfigured();changed()}}/></SectionAnchor>
   <SectionAnchor id="defaults"><ModelDefaults/></SectionAnchor>

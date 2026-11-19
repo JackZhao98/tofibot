@@ -144,3 +144,7 @@
 .bs-link { display:inline-flex; align-items:center; gap:4px; align-self:flex-start; min-height:32px; padding:0 2px; border:0; background:none; color:var(--ink-soft); font:var(--type-meta); }
 .bs-link:hover { color:var(--ink); }
 }
+/* Bot inspector rules from settings-system.css (V3 PR 6.1); PR 5.8 takes them out. */
+@layer legacy {
+.bot-inspector{margin-top:24px;padding-top:16px}.bot-inspector>summary{font-size:13px;color:var(--ink-soft);}.inspector-body{padding-top:14px;min-width:0}.inspector-caption{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)}.prompt-preview,.debug-tools pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7;max-height:340px;overflow:auto;padding:14px;background:var(--surface-soft);border-radius:10px}.debug-tools{margin-top:16px}.debug-tools>details{padding:12px 0}.debug-tools summary{font-size:12px;}.debug-tools p{font-size:12px;color:var(--muted);line-height:1.6}
+}

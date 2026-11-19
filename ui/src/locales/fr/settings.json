@@ -27,7 +27,9 @@
   },
   "shell": {
     "group": {
-      "admin": "Administration"
+      "you": "Vous",
+      "organization": "Organisation",
+      "server": "Serveur"
     },
     "page": {
       "general": {
@@ -109,11 +111,6 @@
       "role": {
         "admin": "Admin",
         "member": "Membre"
-      }
-    },
-    "hint": {
-      "computer": {
-        "none": "Aucun"
       }
     },
     "tag": {

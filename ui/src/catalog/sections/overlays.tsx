@@ -69,7 +69,7 @@ export const dialogs: CatalogSection = {
       drive: async step => { await step.click(".related-message-link"); await step.find(".view-only-chat"); await step.wait(300); } },
     ...([1, 2, 3] as const).map(initialStep => ({ id: `onboarding-${initialStep}`, kind: "overlay" as const, label: `First-run setup, step ${initialStep}`, probe: ".onb-sheet",
       render: () => <Onboarding initialStep={initialStep} modelConfigured={initialStep === 3} bot={initialStep === 3 ? bot("bot_mochi") : undefined} onProgress={noop} onModelChanged={async () => {}} onBot={noop} onSkip={noop} onFinish={noop} /> })),
-    { id: "settings-modal", kind: "app", label: "Settings window", note: "the detail pane as a modal; see also section 17", app: DM, probe: ".settings-shell", keyboard: { close: "Escape" },
+    { id: "settings-modal", kind: "app", label: "Settings page", note: "the full page, no longer a window; see also section 17", app: DM, probe: ".settings-shell", keyboard: { close: "Escape" },
       drive: async step => { await openSettings(step); } },
     { id: "panel-modal", kind: "app", label: "Bot settings cover (narrow)", note: "on a phone the cover is the whole screen", app: DM, widths: ["phone"], probe: ".cover-window",
       drive: async step => { await step.click(".chat-identity"); await step.wait(500); } },

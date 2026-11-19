@@ -12,7 +12,7 @@ const output = await mkdtemp(join(tmpdir(), "tofi-surfaces-"));
 try {
   await promisify(execFile)(join(root, "node_modules/.bin/tsc"), ["src/surfaces.ts", "--ignoreConfig", "--target", "ES2022", "--module", "ES2022", "--moduleResolution", "Bundler", "--outDir", output, "--skipLibCheck", "--pretty", "false"], { cwd: root });
   const S = await import(pathToFileURL(join(output, "surfaces.js")));
-  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, closeCover, closeAll, escapeTarget, isEmpty, WIDGET_ORDER, stashWidgets, suppressedRunsOf, forgetWidgets, enterConversation, moveWidget, normalizeWidgetOrder, sortWidgets, spaceFoldTarget } = S;
+  const { emptySurfaces: empty, openWidget, closeWidget, toggleWidget, foldWidget, openSidebar, closeSidebar, toggleSidebar, toggleSidebarExpanded, autoOpenWidget, setWidgetFolded, openCover, openPage, closeCover, closeAll, escapeTarget, isEmpty, WIDGET_ORDER, stashWidgets, suppressedRunsOf, forgetWidgets, enterConversation, moveWidget, normalizeWidgetOrder, sortWidgets, spaceFoldTarget } = S;
   const shape = s => ({ widgets: s.widgets, folded: s.folded, sidebar: s.sidebar, cover: s.cover });
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
@@ -45,10 +45,11 @@ try {
   assert.deepEqual(openWidget(closeWidget(state, "computer"), "computer").folded, [], "a reopened widget is not folded");
 
   // Automatic opening and folding: no focus move, a cover stays, nothing else changes, and a no-op is the same object.
-  state = run(s => openWidget(s, "members"), s => openCover(s, "settings"));
+  state = run(s => openWidget(s, "members"), s => openCover(s, "bot-settings"));
   const auto = autoOpenWidget(state, "computer");
   assert.deepEqual(auto.widgets, ["computer", "members"], "an automatic open keeps the fixed order");
-  assert.equal(auto.cover, "settings", "an open cover stays");
+  assert.equal(auto.cover, "bot-settings", "an open cover stays");
+  assert.equal(autoOpenWidget(run(s => openPage(s, "settings")), "computer").page, "settings", "the Settings page stays when a widget opens by itself");
   assert.deepEqual(auto.focus, state.focus, "an automatic open does not bump focus");
   assert.equal(autoOpenWidget(auto, "computer"), auto, "already open: same object");
   assert.equal(setWidgetFolded(idle, "computer", true), idle, "a closed widget cannot be folded");
@@ -93,9 +94,9 @@ try {
   assert.equal(isEmpty(cleared), true);
   assert.equal(isEmpty(state), false);
 
-  // Escape order (section 7, after native dialogs and Radix layers, which the hook leaves to themselves): the big computer steps back to
-  // compact, then the cover, then the sidebar, then the widgets from the bottom up (Artifacts, Members, Computer).
-  const everything = () => run(s => openWidget(s, "computer"), s => openWidget(s, "members"), s => openWidget(s, "artifacts"), s => openSidebar(s, "memory"), s => openCover(s, "settings"));
+  // Escape order (section 7, after native dialogs and Radix layers, which the hook leaves to themselves): the Settings page (a full page, not a cover),
+  // then the big computer steps back to compact, then the cover, then the sidebar, then the widgets from the bottom up (Artifacts, Members, Computer).
+  const everything = () => run(s => openWidget(s, "computer"), s => openWidget(s, "members"), s => openWidget(s, "artifacts"), s => openSidebar(s, "memory"), s => openPage(s, "settings"));
   const walk = (start, options) => {
     let current = start;
     const seen = [];
@@ -103,17 +104,28 @@ try {
       const target = escapeTarget(current, options);
       if (!target) break;
       seen.push(target.layer === "computer-big" ? "computer-big" : `${target.layer}:${target.id}`);
-      current = target.layer === "computer-big" ? options.afterBig(current) : target.layer === "cover" ? closeCover(current) : target.layer === "sidebar" ? closeSidebar(current) : closeWidget(current, target.id);
+      current = target.layer === "computer-big" ? options.afterBig(current) : target.layer === "cover" || target.layer === "page" ? closeCover(current) : target.layer === "sidebar" ? closeSidebar(current) : closeWidget(current, target.id);
     }
     return seen;
   };
-  assert.deepEqual(walk(everything(), {}), ["cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"]);
+  assert.deepEqual(walk(everything(), {}), ["page:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"]);
   const afterBig = { bigComputer: true, afterBig: current => { afterBig.bigComputer = false; return current; } };
-  assert.deepEqual(walk(everything(), afterBig), ["computer-big", "cover:settings", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"], "big computer, cover, sidebar, then widgets bottom-up");
+  assert.deepEqual(walk(everything(), afterBig), ["page:settings", "computer-big", "sidebar:memory", "widget:artifacts", "widget:members", "widget:computer"], "the Settings page first (it covers the big computer), then the big computer, sidebar, then widgets bottom-up");
   assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks"), s => openWidget(s, "computer")), { bigComputer: true }), { layer: "computer-big" });
   assert.deepEqual(escapeTarget(run(s => openSidebar(s, "tasks")), { bigComputer: true }), { layer: "sidebar", id: "tasks" }, "a big computer that is not an open widget is not a target");
   assert.deepEqual(escapeTarget(run(s => openWidget(s, "members"), s => openWidget(s, "computer"))), { layer: "widget", id: "members" }, "the Bot computer is last");
   assert.equal(escapeTarget(idle), null);
+  // The Settings page is exclusive like a cover: anything else that opens, or a conversation that is entered, closes it; closeCover leaves it too.
+  const onPage = run(s => openWidget(s, "members"), s => openPage(s, "settings"));
+  assert.equal(onPage.page, "settings");
+  assert.equal(onPage.cover, null);
+  assert.equal(openCover(onPage, "bot-settings").page, null, "a cover replaces the page");
+  assert.equal(openPage(openCover(onPage, "bot-settings"), "settings").cover, null, "the page replaces a cover");
+  assert.equal(openWidget(onPage, "artifacts").page, null);
+  assert.equal(openSidebar(onPage, "tasks").page, null);
+  assert.equal(closeCover(onPage).page, null);
+  assert.equal(isEmpty(openPage(idle, "settings")), false);
+  assert.equal(isEmpty(closeAll(onPage)), true);
 
   // Widgets are remembered per conversation; the sidebar stays and re-scopes; a cover closes; suppressed runs outlive the widgets.
   const memory = new Map();

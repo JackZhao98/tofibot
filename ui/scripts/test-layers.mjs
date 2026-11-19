@@ -168,9 +168,9 @@ await check("overlays stacked on one point paint in the order of the scale, the 
   await page.evaluate(STACK => {
     for (const [name, parent, html] of STACK) { document.querySelector(parent).insertAdjacentHTML("beforeend", html); document.querySelector(parent).lastElementChild.dataset.probe = name; }
     const pane = document.querySelector(".detail-pane");
-    pane.className = "detail-pane visible"; // the settings window: .workspace .detail-pane:has(.settings-tabs)
+    pane.className = "detail-pane visible"; // the settings page: .workspace .detail-pane:has(> .settings-shell)
     pane.removeAttribute("inert"); // inert while no panel is open, and inert boxes are not hit-tested
-    pane.insertAdjacentHTML("beforeend", '<div class="settings-tabs"></div>');
+    pane.insertAdjacentHTML("beforeend", '<div class="settings-shell"></div>');
     pane.dataset.probe = "settings";
   }, STACK);
   await page.waitForTimeout(400); // reduced motion still runs a 0.01 ms transition on every property

@@ -2,7 +2,6 @@
  * Scrolls to a section by its stable id and flashes it once with `data-jump-target` (the search palette's pattern, not a class,
  * because React rewrites className). The page may still be loading when the link arrives, so it looks for up to about a second.
  */
-import "./section-jump.css";
 
 const FLASH_MS = 1700;
 const MAX_FRAMES = 90;

@@ -52,8 +52,6 @@ form[aria-busy=true]{cursor:progress}
 @keyframes drawer-enter{from{opacity:0}to{opacity:1}}
 @keyframes drawer-leave{to{opacity:0}}
 .detail-backdrop{background:var(--scrim);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:hint-enter var(--m-base) var(--ease-out) both}
-.detail-pane:has(.settings-tabs){border-radius:22px;box-shadow:var(--float-shadow);animation:modal-enter var(--m-quick) var(--ease-out) both}
-.detail-pane.surface-exiting:has(.settings-tabs){animation:modal-leave var(--m-instant) var(--ease-settle) both}
 /* Dialogs appear at their final position with a short fade. */
 @keyframes modal-enter{from{opacity:0}to{opacity:1}}
 @keyframes modal-leave{to{opacity:0}}
@@ -64,13 +62,13 @@ form[aria-busy=true]{cursor:progress}
 .appearance-setting p{margin:4px 0 18px;color:var(--muted);font-size:12px}
 @media(min-width:1280px){
  /* The widget column lives inside the chat area and owns no grid track (context-card.css); only the drawer reserves this one. */
- .workspace-grid:has(.detail-pane.visible:not(.widget-column)):not(:has(.settings-tabs)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 340px}
+ .workspace-grid:has(.detail-pane.visible:not(.widget-column)):not(:has(.settings-shell)){grid-template-columns:var(--sidebar-width) minmax(0,1fr) 340px}
  .workspace-grid:has(.computer-detail.is-expanded){grid-template-columns:var(--sidebar-width) minmax(0,1fr)}
 }
 @media(min-width:768px) and (max-width:1023px){.workspace-grid{--sidebar-width:232px}}
 @media(max-width:767px){
  .sidebar-toggle-slot{display:none}.chat-header{padding:8px 12px;min-height:60px}.contact-pane{padding:16px 12px}
- .detail-pane:has(.settings-tabs){border-radius:0}.appearance-setting{padding:24px 16px}
+ .appearance-setting{padding:24px 16px}
  .top-icon-button,.icon-button,.ghost-button,.computer-button{width:40px;height:40px;min-width:40px}
 }
 :root[data-theme="dark"] .message-code,:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .codex-status,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .schedule-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-soft);border-color:var(--line);color:var(--text)}
@@ -197,7 +195,6 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
   .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){
-  .workspace .settings-tabs button.selected{background:Highlight;color:HighlightText}
   .workspace ::selection{background:Highlight;color:HighlightText}
 }
 

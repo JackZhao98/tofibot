@@ -349,14 +349,13 @@
       },
       {
         "id": "layout",
-        "note": "Layout widths. --settings-rail keeps the V2 216px (V3.0: 232px) until PR 6.1; see changes.",
+        "note": "Layout widths. The settings rail is 232px (V3.0), taken in PR 6.1 with the full-page settings.",
         "tokens": {
           "chat-max": "760px",
           "sidebar-width": "272px",
           "sidebar-collapsed": "72px",
-          "settings-rail": "216px",
+          "settings-rail": "232px",
           "settings-content": "760px",
-          "window-w": "min(1180px,calc(100vw - 48px),88vw)",
           "window-w-cover": "min(880px,calc(100vw - 48px),88vw)",
           "window-w-cover-wide": "min(1080px,calc(100vw - 48px),88vw)",
           "window-h": "min(760px,calc(100dvh - 48px),86dvh)"
@@ -494,12 +493,6 @@
         "mark-strike-2"
       ],
       "note": "Bug in the V3.0 vendor copy: the light theme carried the dark theme's pale strike colour (#cfc8bb), so a struck line was nearly invisible on paper. Light is the spec's #403932 at .62 (bundle.css, the pen marks block); dark keeps #cfc8bb."
-    },
-    {
-      "names": [
-        "settings-rail"
-      ],
-      "note": "Kept at 216px, the V2 width. V3.0 draws 232px. Decided at the flip (PR 1.1): the rail does not move until PR 6.1 rebuilds the settings page and takes 232."
     },
     {
       "names": [
