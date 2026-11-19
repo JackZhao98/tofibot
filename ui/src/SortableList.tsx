@@ -427,7 +427,8 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
 
   return <SidebarDndShared.Provider value={shared}>
     <DndContext sensors={sensors} collisionDetection={collision} modifiers={[keepUnderPointer]}
-      autoScroll={isReduced() ? false : { threshold: { x: 0, y: 0.1 }, layoutShiftCompensation: false }}
+      // One scroll step per frame (the default is one per 5 ms, three paints a frame), at the same speed.
+      autoScroll={isReduced() ? false : { threshold: { x: 0, y: 0.1 }, interval: 16, acceleration: 32, layoutShiftCompensation: false }}
       accessibility={{ container: layerRoot(), screenReaderInstructions: { draggable: "" }, announcements: { onDragStart: () => undefined, onDragOver: () => undefined, onDragEnd: () => undefined, onDragCancel: () => undefined } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={event => end(event)} onDragCancel={() => end(null)}>
       {children}
