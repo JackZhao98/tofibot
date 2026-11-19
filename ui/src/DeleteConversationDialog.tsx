@@ -1,6 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
-import { DialogShell } from "./DialogShell";
+import { Button } from "./ds/Button/Button";
+import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
+import { ModalDialog } from "./overlays/ModalDialog";
 import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
@@ -19,8 +21,6 @@ export function DeleteConversationDialog({ target, bots = [], onDelete, onClose,
   const [successor, setSuccessor] = useState("");
   const [impact, setImpact] = useState<TaskImpact | null>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  const headingId = useId();
-  const descriptionId = useId();
   const candidates = bots.filter(bot => !bot.archived && bot.id !== target.id);
   // Deleting the Primary Assistant never leaves the role empty while another Bot exists.
   const needsSuccessor = target.kind === "bot" && Boolean(target.isPrimary) && candidates.length > 0;
@@ -43,18 +43,22 @@ export function DeleteConversationDialog({ target, bots = [], onDelete, onClose,
   }
 
   const label = target.kind === "bot" ? t("header.delete_bot") : t("header.delete_group");
-  return <DialogShell busy={busy} onClose={onClose} headingId={headingId} descriptionId={descriptionId} initialFocus={cancel} returnFocus={returnFocus}>
-    <div className="delete-dialog-identity">{target.kind === "bot" ? <BotAvatar id={target.id} mini /> : <TofiIcon name="group" size={26} />}<span>{target.name}</span></div>
-    <h2 id={headingId}>{target.kind === "bot" ? t("deleteDialog.title_bot") : t("deleteDialog.title_group")}</h2>
-    <p id={descriptionId}>{target.kind === "bot" ? t("deleteDialog.body_bot") : t("deleteDialog.body_group")}</p>
-    <p className="delete-dialog-note">{target.kind === "bot" ? t(hasComputer ? "deleteDialog.note_bot" : "deleteDialog.note_bot_no_computer") : t(hasComputer ? "deleteDialog.note_group" : "deleteDialog.note_group_no_computer")}</p>
-    {impact && impact.given_tasks + impact.held_tasks + impact.open_waits > 0 && <div className="delete-dialog-note" role="status">
-      {impact.given_tasks > 0 && <p>{t("deleteDialog.impact_given", { count: impact.given_tasks })}</p>}
-      {impact.held_tasks > 0 && <p>{t("deleteDialog.impact_held", { count: impact.held_tasks })}</p>}
-      {impact.open_waits > 0 && <p>{t("deleteDialog.impact_waits", { count: impact.open_waits })}</p>}
-    </div>}
-    {needsSuccessor && <><p className="delete-dialog-primary">{t("primary.delete_notice")}</p><PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} /></>}
-    {error && <p className="error-text" role="alert">{error}</p>}
-    <div className="delete-dialog-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</button><button type="button" className="delete-dialog-submit" disabled={busy || (needsSuccessor && !successor)} onClick={() => void remove()}>{busy ? t("deleteDialog.deleting") : error ? t("deleteDialog.retry") : label}</button></div>
-  </DialogShell>;
+  return <ModalDialog onClose={onClose} locked={busy} overlayClassName={DIALOG_SCRIM} initialFocus={cancel} returnFocus={returnFocus}>
+    <Dialog className="delete-dialog" tone="danger" busy={busy} title={target.kind === "bot" ? t("deleteDialog.title_bot") : t("deleteDialog.title_group")}
+      actions={<>
+        <Button ref={cancel} variant="secondary" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</Button>
+        <Button variant="danger" className="delete-dialog-submit" busy={busy} disabled={busy || (needsSuccessor && !successor)} onClick={() => void remove()}>{busy ? t("deleteDialog.deleting") : error ? t("deleteDialog.retry") : label}</Button>
+      </>}>
+      <div className="tb-dialog-target">{target.kind === "bot" ? <BotAvatar id={target.id} mini /> : <TofiIcon name="group" size={26} />}<span>{target.name}</span></div>
+      <p>{target.kind === "bot" ? t("deleteDialog.body_bot") : t("deleteDialog.body_group")}</p>
+      <p className="tb-dialog-note">{target.kind === "bot" ? t(hasComputer ? "deleteDialog.note_bot" : "deleteDialog.note_bot_no_computer") : t(hasComputer ? "deleteDialog.note_group" : "deleteDialog.note_group_no_computer")}</p>
+      {impact && impact.given_tasks + impact.held_tasks + impact.open_waits > 0 && <div className="tb-dialog-note" role="status">
+        {impact.given_tasks > 0 && <p>{t("deleteDialog.impact_given", { count: impact.given_tasks })}</p>}
+        {impact.held_tasks > 0 && <p>{t("deleteDialog.impact_held", { count: impact.held_tasks })}</p>}
+        {impact.open_waits > 0 && <p>{t("deleteDialog.impact_waits", { count: impact.open_waits })}</p>}
+      </div>}
+      {needsSuccessor && <><p className="delete-dialog-primary">{t("primary.delete_notice")}</p><PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} /></>}
+      {error && <p className="error-text" role="alert">{error}</p>}
+    </Dialog>
+  </ModalDialog>;
 }

@@ -153,7 +153,7 @@ const STACK = [
   ["hint", "#tofi-layers", '<div class="action-hint" role="tooltip">h</div>', "tooltip"],
   ["toast", ".workspace", '<div class="stream-status workspace-status workspace-toast" role="alert">t</div>', "toast"],
   ["sheet", "#tofi-layers", '<div class="sheet-overlay">s</div>', "dialog+1"],
-  ["delete", "#tofi-layers", '<div class="delete-dialog-overlay">d</div>', "dialog"],
+  ["delete", "#tofi-layers", '<div class="tb-scrim tb-scrim--modal">d</div>', "dialog"],
   ["onboarding", "#tofi-layers", '<div class="onb-scrim">o</div>', "dialog"],
   ["leave", "#tofi-layers", '<div class="settings-leave-overlay">l</div>', "dialog"],
   ["restart", "#tofi-layers", '<div class="resource-restart-overlay">r</div>', "dialog"],

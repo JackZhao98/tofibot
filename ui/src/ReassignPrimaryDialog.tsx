@@ -1,6 +1,8 @@
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { BotAvatar } from "./BotAvatar";
-import { DialogShell } from "./DialogShell";
+import { Button } from "./ds/Button/Button";
+import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
+import { ModalDialog } from "./overlays/ModalDialog";
 import { useTranslation } from "./i18n";
 import { otherActiveBots, PrimarySuccessorSelect } from "./PrimaryAssistant";
 import type { Bot } from "./types";
@@ -15,8 +17,6 @@ export function ReassignPrimaryDialog({ bot, bots, onConfirm, onClose, returnFoc
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const cancel = useRef<HTMLButtonElement>(null);
-  const headingId = useId();
-  const descriptionId = useId();
   const candidates = otherActiveBots(bots, bot.id);
   async function confirm() {
     if (busy || !successor) return;
@@ -25,12 +25,16 @@ export function ReassignPrimaryDialog({ bot, bots, onConfirm, onClose, returnFoc
     catch (cause) { setError(cause instanceof Error ? cause.message : t("primary.hide_failed")); }
     finally { setBusy(false); }
   }
-  return <DialogShell busy={busy} onClose={onClose} headingId={headingId} descriptionId={descriptionId} initialFocus={cancel} returnFocus={returnFocus}>
-    <div className="delete-dialog-identity"><BotAvatar id={bot.id} mini /><span>{bot.name}</span></div>
-    <h2 id={headingId}>{t("primary.hide_title")}</h2>
-    <p id={descriptionId}>{t("primary.hide_body")}</p>
-    <PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} />
-    {error && <p className="error-text" role="alert">{error}</p>}
-    <div className="delete-dialog-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</button><button type="button" className="primary-button" disabled={busy || !successor} onClick={() => void confirm()}>{busy ? t("primary.working") : t("primary.hide_confirm")}</button></div>
-  </DialogShell>;
+  return <ModalDialog onClose={onClose} locked={busy} overlayClassName={DIALOG_SCRIM} initialFocus={cancel} returnFocus={returnFocus}>
+    <Dialog className="delete-dialog" role="alertdialog" busy={busy} title={t("primary.hide_title")}
+      actions={<>
+        <Button ref={cancel} variant="secondary" disabled={busy} onClick={onClose}>{t("deleteDialog.cancel")}</Button>
+        <Button variant="primary" busy={busy} disabled={busy || !successor} onClick={() => void confirm()}>{busy ? t("primary.working") : t("primary.hide_confirm")}</Button>
+      </>}>
+      <div className="tb-dialog-target"><BotAvatar id={bot.id} mini /><span>{bot.name}</span></div>
+      <p>{t("primary.hide_body")}</p>
+      <PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} />
+      {error && <p className="error-text" role="alert">{error}</p>}
+    </Dialog>
+  </ModalDialog>;
 }

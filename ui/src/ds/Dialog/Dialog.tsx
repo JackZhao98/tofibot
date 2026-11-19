@@ -6,6 +6,10 @@ import { cx } from "../cx";
 import "../shared.css";
 import "./Dialog.css";
 
+/** The scrim class for the product: the whole window, behind the dialog, above everything but toasts and hints. Pass it to
+ *  ModalDialog as `overlayClassName`. */
+export const DIALOG_SCRIM = "tb-scrim tb-scrim--modal";
+
 export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   /** A question or a plain statement of the action, naming the target. */
   title: ReactNode;
@@ -31,9 +35,10 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
 export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, busy, scrim = false, className, children, ref, ...rest }: DialogProps) {
   const { t } = useTranslation();
   const titleId = useId(), bodyId = useId();
-  const labelled = rest["aria-label"] === undefined && rest["aria-labelledby"] === undefined;
+  // The Dialog names itself from its title and describes itself from its body. Radix Dialog.Content passes ids of a Title and a
+  // Description we do not render, so what arrives in `rest` is replaced here.
   const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, className)} role={rest.role ?? (tone === "danger" ? "alertdialog" : "dialog")}
-    aria-labelledby={labelled ? titleId : rest["aria-labelledby"]} aria-describedby={children ? rest["aria-describedby"] ?? bodyId : undefined} aria-busy={busy || undefined}>
+    aria-labelledby={rest["aria-label"] === undefined ? titleId : undefined} aria-describedby={children ? bodyId : undefined} aria-busy={busy || undefined}>
     <header className="tb-dialog-head">
       {tone === "danger" ? <span className="tb-dialog-mark"><Icon name="alert" size={20} /></span> : null}
       <h2 id={titleId} className="tb-dialog-title">{title}</h2>

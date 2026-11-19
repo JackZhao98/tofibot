@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Icon, type IconName } from "../Icon/Icon";
 import { cx } from "../cx";
 import "./Button.css";
@@ -11,6 +11,8 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
   icon?: IconName;
   iconAfter?: IconName;
   busy?: boolean;
+  /** The button element, for a caller that moves focus to it. */
+  ref?: Ref<HTMLButtonElement>;
   children?: ReactNode;
 };
 
