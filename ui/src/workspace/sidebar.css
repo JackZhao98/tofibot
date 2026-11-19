@@ -1,7 +1,7 @@
 /* The app sidebar (V3 PR 5.1). The rows, the eyebrows, the buttons and the update banner are the kit's (SidebarRow, IconButton,
    Banner, Avatar) and the kit owns how they look, including the lead-only rail row and the lifted row; this sheet is only the
-   layout around them, and today's drag frame. The Mac card and its title row are placed in desktop-system.css.
-   Drag and drop is untouched until PR 5.2 (dnd-kit): the glide and the drop frame at the end are that engine's styles. */
+   layout around them, and the drag frame. The Mac card and its title row are placed in desktop-system.css.
+   Drag and drop is dnd-kit's (SortableList.tsx): the glide and the drop frame at the end are its styles. */
 @layer legacy {
 /* The list. */
 .workspace .contact-section { margin-inline: -6px; padding-inline: 6px; overflow-x: hidden; overflow-anchor: none; }
@@ -69,20 +69,19 @@
   .workspace .sidebar-collapsed :is(.sidebar-logo-art, .sidebar-logo-arrow) { transition: none; }
 }
 
-/* Drag and drop (the engine is useSidebarDnd.ts, until PR 5.2): the glide and the drop frame. The engine moves elements with
-   transforms only; this gives those transforms their glide (motion tokens). The lifted look is the kit's (`is-dnd-dragging`). */
+/* Drag and drop (SortableList.tsx, dnd-kit): the glide and the lift. The library moves the dragged row and the pinned rows with transforms;
+   this gives those transforms their glide (motion tokens). The lifted look is the kit's (`is-dnd-dragging`). */
 .workspace .contact-section .dnd-live:not(.is-dnd-dragging) { transition: transform var(--m-quick) var(--ease-out); }
 .workspace .contact-section [data-dnd-id].is-dnd-dragging { position: relative; z-index: var(--z-drag); cursor: grabbing; will-change: transform; transition: none; pointer-events: none; }
-.workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling { pointer-events: auto; transition: transform var(--m-panel-in) var(--ease-settle), box-shadow var(--m-panel-in) var(--ease-settle); }
-/* The dropped element keeps the drag layer while it flies to its slot (the engine adds the class for the flight). */
+/* The dropped element keeps the drag layer while it flies to its slot (SortableList adds the class for the flight). */
 .workspace .contact-section [data-dnd-id].is-dnd-landing { position: relative; z-index: var(--z-drag); pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
-  .workspace .contact-section .dnd-live, .workspace .contact-section [data-dnd-id].is-dnd-dragging.is-dnd-settling { transition: none; }
+  .workspace .contact-section .dnd-live { transition: none; }
 }
 
 /* Drop zone: the pinned area itself. One frame wraps the pinned rows (empty, one row high, when nothing is pinned), first in the
    list under the search bar. The border is always there (transparent) so opening it moves no row; a dragged row turns it dashed and
-   shows the hint inside it, which pushes the rows below down (the engine glides them). Nothing sits over it: only the dragged row
+   shows the hint inside it, which pushes the rows below down (SortableList glides them). Nothing sits over it: only the dragged row
    (--z-drag) is above. */
 .pin-frame { border: 2px solid transparent; border-radius: var(--radius-md); padding: 0; margin-inline: -2px; transition: border-color var(--m-quick) var(--ease-out), background-color var(--m-quick) var(--ease-out); }
 .pin-frame[data-empty] { display: none; }

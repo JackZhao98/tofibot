@@ -4,7 +4,7 @@ import {ConfirmAction} from "./ConfirmAction";
 import {ServiceMark} from "./ServiceMark";
 import {TofiIcon} from "./icons";
 import {SortableList, SortableStatus, useSortableItem} from "./SortableList";
-import {GripGlyph} from "./widgetGrip";
+import { GripGlyph } from "./GripGlyph";
 import {useTranslation} from "./i18n";
 import {Banner, SettingsCard, SettingsSection, SettingsSwitch, StatusBadge, type BadgeState} from "./settings/components";
 import type {WebSourceEntry, WebToolsView} from "./types";
