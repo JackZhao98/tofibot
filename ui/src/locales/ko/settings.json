@@ -1011,7 +1011,10 @@
     "unconfirmed": "지금은 확인할 수 없음",
     "memory_session": "키체인을 사용할 수 없습니다. 이번 로그인은 App이 열려 있는 동안에만 유지되며, 다시 시작하면 다시 로그인해야 합니다.",
     "switch_server": "서버 변경",
-    "local_entry": "로컬 앱 주소: {{origin}}. 원격 주소와 연결 방식은 앱의 서버 설정에서 확인하세요."
+    "local_entry": "로컬 앱 주소: {{origin}}. 원격 주소와 연결 방식은 앱의 서버 설정에서 확인하세요.",
+    "copy": "주소 복사",
+    "copied": "복사됨",
+    "copy_failed": "복사하지 못했습니다. 주소를 선택해 복사하세요."
   },
   "auto_review": {
     "saved": "이 계정의 AutoReview 설정을 저장했습니다.",
@@ -1785,7 +1788,8 @@
     "notifications": "알림",
     "summary_all_on": "모두 켜짐",
     "summary_all_off": "모두 꺼짐",
-    "summary_some": "{{total}}개 중 {{on}}개 켜짐"
+    "summary_some": "{{total}}개 중 {{on}}개 켜짐",
+    "summary_attention": "확인 필요"
   },
   "approval": {
     "label": "이 계정의 승인 모드",

@@ -1011,7 +1011,10 @@
     "unconfirmed": "現在確認できません",
     "memory_session": "キーチェーンを使用できません。今回のログインは App を開いている間だけ有効で、再起動後は再度ログインが必要です。",
     "switch_server": "サーバーを切り替える",
-    "local_entry": "ローカルアプリのアドレス：{{origin}}。リモートアドレスと接続方法は、アプリのサーバー設定で確認してください。"
+    "local_entry": "ローカルアプリのアドレス：{{origin}}。リモートアドレスと接続方法は、アプリのサーバー設定で確認してください。",
+    "copy": "アドレスをコピー",
+    "copied": "コピーしました",
+    "copy_failed": "コピーできませんでした。アドレスを選択してコピーしてください。"
   },
   "auto_review": {
     "saved": "このアカウントの AutoReview 設定を保存しました。",
@@ -1785,7 +1788,8 @@
     "notifications": "通知",
     "summary_all_on": "すべてオン",
     "summary_all_off": "すべてオフ",
-    "summary_some": "{{total}} 件中 {{on}} 件オン"
+    "summary_some": "{{total}} 件中 {{on}} 件オン",
+    "summary_attention": "要確認"
   },
   "approval": {
     "label": "このアカウントの承認モード",

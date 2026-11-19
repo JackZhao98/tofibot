@@ -1011,7 +1011,10 @@
     "unconfirmed": "暫時無法確認",
     "memory_session": "暫時無法使用鑰匙圈。這次登入只在 App 開啟期間有效，重新啟動後需要重新登入。",
     "switch_server": "切換伺服器",
-    "local_entry": "本機用戶端入口：{{origin}}。遠端位址和連線方式請在用戶端的伺服器設定中查看。"
+    "local_entry": "本機用戶端入口：{{origin}}。遠端位址和連線方式請在用戶端的伺服器設定中查看。",
+    "copy": "複製位址",
+    "copied": "已複製",
+    "copy_failed": "無法複製。請選取位址後手動複製。"
   },
   "auto_review": {
     "saved": "已儲存此帳號的 AutoReview 設定。",
@@ -1785,7 +1788,8 @@
     "notifications": "通知",
     "summary_all_on": "全部開啟",
     "summary_all_off": "全部關閉",
-    "summary_some": "{{total}} 項中 {{on}} 項開啟"
+    "summary_some": "{{total}} 項中 {{on}} 項開啟",
+    "summary_attention": "需要處理"
   },
   "approval": {
     "label": "此帳號的核准模式",

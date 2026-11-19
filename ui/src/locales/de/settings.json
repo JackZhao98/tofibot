@@ -1021,7 +1021,10 @@
     "unconfirmed": "Gerade nicht bestätigbar",
     "memory_session": "Der Schlüsselbund ist nicht verfügbar. Diese Anmeldung gilt nur, solange die App geöffnet ist; nach einem Neustart musst du dich erneut anmelden.",
     "switch_server": "Server wechseln",
-    "local_entry": "Lokale App-Adresse: {{origin}}. Remote-Adresse und Verbindungsart findest du in den Servereinstellungen der App."
+    "local_entry": "Lokale App-Adresse: {{origin}}. Remote-Adresse und Verbindungsart findest du in den Servereinstellungen der App.",
+    "copy": "Adresse kopieren",
+    "copied": "Kopiert",
+    "copy_failed": "Kopieren fehlgeschlagen. Markiere die Adresse und kopiere sie."
   },
   "auto_review": {
     "saved": "AutoReview-Einstellungen für dieses Konto gespeichert.",
@@ -1800,7 +1803,8 @@
     "notifications": "Benachrichtigungen",
     "summary_all_on": "Alle an",
     "summary_all_off": "Alle aus",
-    "summary_some": "{{on}} von {{total}} an"
+    "summary_some": "{{on}} von {{total}} an",
+    "summary_attention": "Prüfen nötig"
   },
   "approval": {
     "label": "Freigabemodus für dieses Konto",

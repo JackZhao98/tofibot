@@ -1021,7 +1021,10 @@
     "unconfirmed": "Can't confirm right now",
     "memory_session": "Keychain isn't available. This sign-in lasts only while the app is open; you'll need to sign in again after a restart.",
     "switch_server": "Switch server",
-    "local_entry": "Local app address: {{origin}}. See the remote address and connection type in the app's server settings."
+    "local_entry": "Local app address: {{origin}}. See the remote address and connection type in the app's server settings.",
+    "copy": "Copy address",
+    "copied": "Copied",
+    "copy_failed": "Couldn't copy. Select the address and copy it."
   },
   "auto_review": {
     "saved": "Saved AutoReview settings for this account.",
@@ -1800,7 +1803,8 @@
     "notifications": "Notifications",
     "summary_all_on": "All on",
     "summary_all_off": "All off",
-    "summary_some": "{{on}} of {{total}} on"
+    "summary_some": "{{on}} of {{total}} on",
+    "summary_attention": "Needs attention"
   },
   "approval": {
     "label": "Approval mode for this account",

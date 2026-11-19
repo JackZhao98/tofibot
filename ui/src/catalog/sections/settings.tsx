@@ -8,6 +8,8 @@ import { OwnerAccount, SignOut } from "../../OwnerAccount";
 import { ExpandRow } from "../../settings/ExpandRow";
 import { SettingsRow as KitRow } from "../../ds/SettingsRow/SettingsRow";
 import deSettings from "../../locales/de/settings.json";
+import deChat from "../../locales/de/chat.json";
+import { AddressField } from "../../ConnectionInfo";
 import { SessionContext } from "../../OwnerSession";
 import { SettingsSection as KitSection } from "../../ds/SettingsSection/SettingsSection";
 import { i18n } from "../../i18n";
@@ -165,10 +167,11 @@ function GermanGeneral() {
     </KitSection>
     <KitSection title={de.general.chat}>
       <KitRow label={de.general.activity_title}><SettingsSwitch label={de.general.activity_title} checked={on} onChange={setOn} /></KitRow>
-      <ExpandRow defaultOpen label={de.chats.notifications} summary={de.chats.summary_some.replace("{{on}}", "3").replace("{{total}}", "4")}>
+      <ExpandRow label={de.chats.notifications} summary={de.chats.summary_attention} attention>
         {[de.chats.task_notifications, de.chats.chat_notifications, de.chats.needs_you_notifications, de.chats.spend_alert_notifications].map(label => <KitRow key={label} label={label}><SettingsSwitch label={label} checked={on} onChange={setOn} /></KitRow>)}
       </ExpandRow>
-      <ExpandRow label={de.connection.server_address} summary="https://tofi-heimserver.example.net" mono><KitRow label={de.connection.title} hint={de.connection.mode_browser.replace("{{protocol}}", "HTTPS")}><span /></KitRow></ExpandRow>
+      <p className="gen-note gen-note--danger" role="status">{deChat.notifications.off}</p>
+      <ExpandRow defaultOpen label={de.connection.server_address} summary="https://tofi-heimserver.example.net" mono><KitRow label={de.connection.title} hint={de.connection.mode_browser.replace("{{protocol}}", "HTTPS")}><span /></KitRow><KitRow fill label={de.connection.server_address}><AddressField address="https://tofi-heimserver.example.net" copyable /></KitRow></ExpandRow>
     </KitSection>
   </div>;
 }
@@ -395,6 +398,9 @@ export const settings: CatalogSection = {
     { id: "shell-general-open", kind: "app", label: "Settings page, General with Notifications and Server address open", note: "both folded rows open under their line; the chevron turns, the rows are the kit's",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
       drive: async step => { await openSettings(step); await step.click('[data-setting="notifications"] .gen-expand-toggle'); await step.click('[data-setting="server-address"] .gen-expand-toggle'); await step.find('[data-setting="notify-chats"]'); await step.wait(400); } },
+    { id: "shell-general-blocked", kind: "app", label: "Settings page, General with the browser's notification permission refused", note: "the folded row says Needs attention and the reason is under it, without opening the row",
+      app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
+      drive: async step => { Object.defineProperty(window.Notification, "permission", { configurable: true, get: () => "denied" }); await openSettings(step); await step.find('[data-setting="notify-blocked"]'); await step.wait(400); } },
     { id: "general-de", kind: "inline", label: "General in German: the longest labels, open Notifications", note: "the German catalog text on the same parts; nothing spills or truncates at 390 px", render: () => <GermanGeneral /> },
     { id: "general-account", kind: "inline", label: "General › Account and Sign out", note: "name beside a blue disc, email in mono, role; the Sign out button under the sections",
       render: () => <AccountSample /> },

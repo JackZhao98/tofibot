@@ -1031,7 +1031,10 @@
     "unconfirmed": "Confirmation impossible pour le moment",
     "memory_session": "Le trousseau est indisponible. Cette connexion n’est valable que tant que l’app reste ouverte ; vous devrez vous reconnecter après un redémarrage.",
     "switch_server": "Changer de serveur",
-    "local_entry": "Adresse locale de l’application : {{origin}}. L’adresse distante et le type de connexion se trouvent dans les réglages serveur de l’application."
+    "local_entry": "Adresse locale de l’application : {{origin}}. L’adresse distante et le type de connexion se trouvent dans les réglages serveur de l’application.",
+    "copy": "Copier l’adresse",
+    "copied": "Copié",
+    "copy_failed": "Copie impossible. Sélectionnez l’adresse et copiez-la."
   },
   "auto_review": {
     "saved": "Réglages AutoReview de ce compte enregistrés.",
@@ -1815,7 +1818,8 @@
     "notifications": "Notifications",
     "summary_all_on": "Tout activé",
     "summary_all_off": "Tout désactivé",
-    "summary_some": "{{on}} sur {{total}} activées"
+    "summary_some": "{{on}} sur {{total}} activées",
+    "summary_attention": "À vérifier"
   },
   "approval": {
     "label": "Mode d’approbation de ce compte",

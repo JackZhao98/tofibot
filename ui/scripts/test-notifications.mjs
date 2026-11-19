@@ -35,9 +35,10 @@ import {i18n,i18nReady,setLanguage} from '../src/i18n';
 import {ChatsSettings} from '../src/ChatsSettings';
 import {TimezoneProvider} from '../src/UserTimezone';
 import {browserNotifier} from '../src/attentionNotifier';
+import {revealSection} from '../src/settings/subpages';
 const query=new URLSearchParams(location.search);
 const w=window as any;
-w.__opened=[];w.__active=null;
+w.__opened=[];w.__active=null;w.__reveal=revealSection;
 w.__notifier=browserNotifier({
   watching:(id:string)=>document.visibilityState==='visible'&&id===w.__active,
   t:(key:string,options?:any)=>i18n.t(key as never,options as never) as unknown as string,
@@ -52,13 +53,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
   const state = {};
   const reset = () => Object.assign(state, {
-    requests: [], delivery: true, queue: [], tail: 5, prefs: {notify_chats: true, notify_tasks: true, notify_needs_you: true, notify_spend_alerts: true}, putBodies: [],
+    requests: [], delivery: true, queue: [], tail: 5, prefs: {notify_chats: true, notify_tasks: true, notify_needs_you: true, notify_spend_alerts: true}, putBodies: [], prefsDelay: 0,
   });
   reset();
   const ago = ms => new Date(Date.now() - ms).toISOString();
   const item = (id, kind, conv, extra = {}) => ({id, kind, detail: "", conversation_id: conv, bot_id: "bot-1", message_seq: id, count: 1, quiet: false, title: `Chat ${conv}`, bot_name: "Ada", preview: `preview ${id}`, created_at: ago(2000), ...extra});
 
-  async function open(params = {}, {width = 1100, height = 900, bridge = null, permission = "granted"} = {}) {
+  async function open(params = {}, {width = 1100, height = 900, bridge = null, permission = "granted", expand = true} = {}) {
     const context = await browser.newContext({viewport: {width, height}, reducedMotion: "reduce", locale: "en-US"});
     await context.addInitScript(({bridgeStatus, permission}) => {
       window.__notices = [];
@@ -96,6 +97,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const json = (data, status = 200) => route.fulfill({status, contentType: "application/json", body: JSON.stringify(data)});
       if (url.pathname === "/api/preferences") {
         if (request.method() === "PUT") { state.putBodies.push(body); Object.assign(state.prefs, body); }
+        else if (state.prefsDelay) await new Promise(resolve => setTimeout(resolve, state.prefsDelay));
         return json({timezone: "America/Los_Angeles", timezone_configured: true, ...state.prefs});
       }
       if (url.pathname === "/api/server-info") return json(state.delivery ? {service: "tofi", notifications: {delivery: 1, max_wait: 25}} : {service: "tofi"});
@@ -108,8 +110,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       return json({}, 404);
     });
     await page.goto(`${origin}/${fixture.split("/").pop()}/index.html?${new URLSearchParams(params)}`);
-    await page.locator(".settings-page-body [data-setting='notifications'] .gen-expand-toggle").click();
-    await page.locator(".settings-page-body [data-setting='notify-chats']").waitFor();
+    await page.locator(".settings-page-body [data-setting='notifications']").waitFor();
+    if (expand) await page.locator(".settings-page-body [data-setting='notifications'] .gen-expand-toggle").click();
+    if (expand) await page.locator(".settings-page-body [data-setting='notify-chats']").waitFor();
     return {page, context, errors, close: () => context.close()};
   }
   const feedRequests = () => state.requests.filter(line => line.includes("/api/notifications"));
@@ -224,6 +227,65 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await t.page.locator("[data-setting='notify-chats'] [role=switch]").isChecked(), true, "the others stay");
     await t.close();
     console.log("PASS four account switches default on and save on their own");
+  }
+
+  // ---- 4b. The row is folded; its summary, its problems and the deep link.
+  const summaryOf = page => page.locator("[data-setting='notifications'] .gen-expand-summary");
+  const summaryIs = (page, pattern) => page.waitForFunction(source => new RegExp(source).test(document.querySelector("[data-setting='notifications'] .gen-expand-summary")?.textContent ?? ""), pattern.source);
+  reset();
+  {
+    const t = await open({}, {expand: false});
+    assert.equal(await t.page.locator("[data-setting='notify-chats']").count(), 0, "Notifications is folded by default");
+    assert.equal(await t.page.locator("[data-setting='notifications'] .gen-expand-toggle").getAttribute("aria-expanded"), "false");
+    await summaryIs(t.page, /^All on$/);
+    await t.page.locator("[data-setting='notifications'] .gen-expand-toggle").click();
+    await t.page.locator("[data-setting='notify-needs_you'] [role=switch]").click();
+    await summaryIs(t.page, /^3 of 4 on$/);
+    for (const key of ["tasks", "chats", "spend_alerts"]) await t.page.locator(`[data-setting='notify-${key}'] [role=switch]`).click();
+    await summaryIs(t.page, /^All off$/);
+    await t.close();
+    console.log("PASS notifications: folded by default, the summary follows the switches");
+  }
+  reset(); state.prefsDelay = 600;
+  {
+    const t = await open({}, {expand: false});
+    assert.equal(await summaryOf(t.page).count(), 0, "no summary before the preferences have loaded");
+    await summaryIs(t.page, /^All on$/);
+    await t.close();
+    state.prefsDelay = 0;
+    console.log("PASS notifications: no claim before the preferences load");
+  }
+  reset();
+  {
+    const t = await open({}, {expand: false, permission: "denied"});
+    await t.page.locator("[data-setting='notify-blocked']").waitFor();
+    assert.equal(await t.page.locator("[data-setting='notify-chats']").count(), 0, "the row is still folded");
+    await summaryIs(t.page, /^Needs attention$/);
+    await t.close();
+    console.log("PASS notifications: a blocked browser permission shows without opening the row");
+  }
+  reset();
+  {
+    const t = await open({}, {expand: false, bridge: status("on")});
+    await summaryIs(t.page, /^All on$/);
+    await t.page.evaluate(next => window.__setBridgeStatus(next), {...status("off"), settings: {enabled: false, content: true, openAtLogin: false}});
+    await summaryIs(t.page, /^4 of 5 on$/);
+    await t.page.evaluate(next => window.__setBridgeStatus(next), status("offline"));
+    await summaryIs(t.page, /^Needs attention$/);
+    assert.match(await t.page.locator("[data-setting='notify-device-attention']").innerText(), /Can't reach the server/);
+    assert.equal(await t.page.locator("[data-setting='notify-device-enabled']").count(), 0, "the device rows are folded too");
+    await t.close();
+    console.log("PASS notifications: the Mac switch counts, and a device problem shows without opening the row");
+  }
+  reset();
+  {
+    const t = await open({}, {expand: false});
+    assert.equal(await t.page.locator("[data-setting='notify-chats']").count(), 0);
+    await t.page.evaluate(() => window.__reveal("general", "chats"));
+    await t.page.locator("[data-setting='notify-chats'] [role=switch]").waitFor();
+    assert.equal(await t.page.locator("[data-setting='notifications'] .gen-expand-toggle").getAttribute("aria-expanded"), "true");
+    await t.close();
+    console.log("PASS notifications: a link to the Chats section opens the row");
   }
 
   // ---- 5. Seven languages, two widths.
