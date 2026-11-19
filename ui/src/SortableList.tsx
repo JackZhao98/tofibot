@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useSyncExternalStore, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MutableRefObject, type ReactNode, type RefObject } from "react";
-import { createPortal } from "react-dom";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MutableRefObject, type ReactNode, type RefObject } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { closestCenter, DndContext, KeyboardCode, type CollisionDetection, type DragEndEvent, type DragStartEvent, KeyboardSensor, type Modifier, MouseSensor, TouchSensor, useDraggable, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
@@ -100,6 +100,8 @@ export function useSortableItem(id: string, disabled: boolean, moveStep: (step: 
 export type DndAnnounce = { kind: "lift" | "move" | "pin" | "unpin"; id: string; pos: number; total: number };
 export type DndCommit = { pinned: string[]; list: string[] };
 export type SidebarDndOptions = {
+  /** False while the rail is folded: the rows stay as they are, nothing starts a drag. */
+  enabled: boolean;
   scrollRef: RefObject<HTMLElement | null>;
   /** Draggable ids as currently displayed: the pinned rows in order, and the plain list rows in order. */
   getIds: () => { pinned: string[]; list: string[] };
@@ -136,6 +138,25 @@ class RowMouseSensor extends MouseSensor {
     return true;
   } }] as typeof MouseSensor.activators;
 }
+
+/** The library renders once per pointer event; a mouse reports faster than frames are drawn, so once a drag is running the moves are applied one
+ *  per frame (the last one wins). Before the drag starts they pass straight through, so the activation rules see every event. */
+function coalesceMoves(Sensor: { prototype: object }) {
+  const proto = Sensor.prototype as Record<string, (...args: unknown[]) => void> & { activated?: boolean; latest?: Event; frame?: number };
+  const move = proto.handleMove, end = proto.handleEnd, cancel = proto.handleCancel;
+  proto.handleMove = function (this: typeof proto, event: unknown) {
+    if (!this.activated) return move.call(this, event);
+    if ((event as Event).cancelable) (event as Event).preventDefault();
+    this.latest = event as Event;
+    if (!this.frame) this.frame = requestAnimationFrame(() => { this.frame = 0; move.call(this, this.latest); });
+  };
+  const stop = (original: (...args: unknown[]) => void) => function (this: typeof proto, event: unknown) { cancelAnimationFrame(this.frame ?? 0); this.frame = 0; return original.call(this, event); };
+  proto.handleEnd = stop(end);
+  proto.handleCancel = stop(cancel);
+}
+class RowTouchSensor extends TouchSensor {}
+coalesceMoves(RowMouseSensor);
+coalesceMoves(RowTouchSensor);
 
 /** Viewport tops of the list's visible children: what the eye sees before the layout changes under it. */
 function flowTops(scroller: HTMLElement, skip: Array<Element | null>) {
@@ -181,6 +202,34 @@ function land(el: HTMLElement, flight: Flight) {
 type Shared = { live: MutableRefObject<SidebarDndOptions>; settle: MutableRefObject<Map<HTMLElement, number> | null>; refresh: () => void };
 const SidebarDndShared = createContext<Shared | null>(null);
 
+/** A list row has no hooks of its own (sixty hook sets would all render on every pointer move): the row that is pressed gets this, which
+ *  registers its element with the library, hands it the press that is under way and moves it with the library's transform. */
+function ListProxy({ id, el, press }: { id: string; el: HTMLElement; press: MouseEvent | TouchEvent }) {
+  const draggable = useDraggable({ id });
+  const { setNodeRef, listeners, transform, isDragging } = draggable;
+  const wasDragging = useRef(false);
+  useLayoutEffect(() => {
+    setNodeRef(el);
+    const start = ("touches" in press ? listeners?.onTouchStart : listeners?.onMouseDown) as ((event: { nativeEvent: Event }) => void) | undefined;
+    start?.({ nativeEvent: press });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [el, press]);
+  useLayoutEffect(() => {
+    if (isDragging && transform) {
+      el.classList.add("is-dnd-dragging");
+      el.style.transform = `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${LIFT})`;
+    } else if (wasDragging.current) {
+      el.classList.remove("is-dnd-dragging");
+      el.style.transform = "";
+      const flight = flights.get(id);
+      // A row that was pinned is gone by now (a tile took its place); one that stays flies back to its slot.
+      if (flight && el.isConnected) { flights.delete(id); if (!isReduced()) land(el, flight); }
+    }
+    wasDragging.current = isDragging;
+  });
+  return null;
+}
+
 export function SidebarSortable({ options, children }: { options: SidebarDndOptions; children: ReactNode }) {
   const live = useRef(options);
   live.current = options;
@@ -189,25 +238,30 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
   const shared = useMemo<Shared>(() => ({ live, settle, refresh }), []);
   const sensors = useSensors(
     useSensor(RowMouseSensor, { activationConstraint: { distance: MOUSE_SLOP } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: LONG_PRESS_MS, tolerance: TOUCH_SLOP } }),
+    useSensor(RowTouchSensor, { activationConstraint: { delay: LONG_PRESS_MS, tolerance: TOUCH_SLOP } }),
   );
   const drag = useRef<{ id: string; source: Zone; touch: boolean; startX: number; startY: number; shift: number } | null>(null);
   const pointer = useRef({ x: 0, y: 0 });
   const swallowUntil = useRef(0);
+  const [pressed, setPressed] = useState<{ id: string; el: HTMLElement; press: MouseEvent | TouchEvent } | null>(null);
   const scroller = () => live.current.scrollRef.current;
   const zoneEl = () => scroller()?.querySelector<HTMLElement>("[data-dnd-dropzone]") ?? null;
   const zoneOf = (id: string): Zone | null => { const { pinned, list } = live.current.getIds(); return pinned.includes(id) ? "dock" : list.includes(id) ? "list" : null; };
 
   /** Where the pointer is: a list row is over the pinned area when it is in the frame or above the list; a pinned row has left the dock below it. */
+  const edges = useRef<{ listTop: number; frameBottom: number; dockBottom: number; scroll: number } | null>(null);
+  const measureEdges = (list: HTMLElement) => ({
+    listTop: list.getBoundingClientRect().top, scroll: list.scrollTop,
+    frameBottom: zoneEl()?.getBoundingClientRect().bottom ?? 0, dockBottom: list.querySelector("[data-dnd-dock]")?.getBoundingClientRect().bottom ?? 0,
+  });
   const aim = (x: number, y: number, source: Zone): { zone: Zone; over: "pin" | "" } => {
     const list = scroller();
     if (!list) return { zone: source, over: "" };
-    if (source === "list") {
-      const frame = zoneEl();
-      return y < list.getBoundingClientRect().top || (frame && y < frame.getBoundingClientRect().bottom) ? { zone: "dock", over: "pin" } : { zone: "list", over: "" };
-    }
-    const dock = list.querySelector("[data-dnd-dock]");
-    return y <= (dock ? dock.getBoundingClientRect().bottom : 0) + 12 ? { zone: "dock", over: "" } : { zone: "list", over: "" };
+    // Edges are measured once, when the drag starts, and moved by the scroll since: no layout is read on a pointer move.
+    const e = edges.current ?? measureEdges(list);
+    const gone = list.scrollTop - e.scroll;
+    if (source === "list") return y < e.listTop || y < e.frameBottom - gone ? { zone: "dock", over: "pin" } : { zone: "list", over: "" };
+    return y <= e.dockBottom - gone + 12 ? { zone: "dock", over: "" } : { zone: "list", over: "" };
   };
   // Only pinned rows take part in collisions: a list row is never "over" another row, and a pinned row below the dock is over nothing.
   const collision: CollisionDetection = args => {
@@ -237,6 +291,24 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     const swallowClick = (event: MouseEvent) => { if (performance.now() < swallowUntil.current) { event.preventDefault(); event.stopPropagation(); } };
     // A long press fires the native menu on some phones; the press owns that gesture.
     const holdMenu = (event: Event) => { if (drag.current?.touch) { event.preventDefault(); event.stopPropagation(); } };
+    // A press on a list row hands it to the library (see ListProxy); pinned rows have their own hooks.
+    const arm = (event: MouseEvent | TouchEvent) => {
+      if (!live.current.enabled || drag.current || ("button" in event && (event.button !== 0 || event.ctrlKey))) return;
+      const row = (event.target as Element).closest<HTMLElement>('[data-dnd-zone="list"]');
+      if (row?.dataset.dndId && list?.contains(row)) flushSync(() => setPressed({ id: row.dataset.dndId!, el: row, press: event }));
+    };
+    // Menu key and Shift+F10 open the row's menu (some platforms send no contextmenu event for them).
+    const menuKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+      const row = (event.target as Element).closest<HTMLElement>("[data-dnd-id]");
+      if (!row || !list?.contains(row)) return;
+      const r = row.getBoundingClientRect();
+      event.preventDefault();
+      live.current.onMenu(row.dataset.dndId!, r.left + Math.min(40, r.width / 2), r.top + r.height / 2);
+    };
+    list?.addEventListener("mousedown", arm, true);
+    list?.addEventListener("touchstart", arm, { capture: true, passive: true });
+    list?.addEventListener("keydown", menuKey);
     document.addEventListener("keydown", claimEscape, true);
     window.addEventListener("click", swallowClick, true);
     list?.addEventListener("contextmenu", holdMenu, true);
@@ -247,6 +319,9 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
       document.removeEventListener("keydown", claimEscape, true);
       window.removeEventListener("click", swallowClick, true);
       list?.removeEventListener("contextmenu", holdMenu, true);
+      list?.removeEventListener("mousedown", arm, true);
+      list?.removeEventListener("touchstart", arm, true);
+      list?.removeEventListener("keydown", menuKey);
       document.documentElement.removeAttribute("data-sortable-dragging");
       zoneEl()?.removeAttribute("data-dnd");
     };
@@ -258,6 +333,13 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     const tops = settle.current;
     settle.current = null;
     if (tops) glideFrom(tops);
+    // A pinned row dropped into the list is a plain row now: no hook of its own to fly it in, so it is done here.
+    flights.forEach((flight, id) => {
+      const el = nodeOf(scroller(), id);
+      if (!el) return;
+      flights.delete(id);
+      if (performance.now() - flight.at < 800 && !isReduced()) land(el, flight);
+    });
   });
 
   const stopTracking = () => { window.removeEventListener("mousemove", track); window.removeEventListener("touchmove", track); };
@@ -283,6 +365,9 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
       shift = rectTop(el) - before;
       glideFrom(seen);
     } else zone?.setAttribute("data-dnd", "tile");
+    // Every row is "live" for the glide and the hover rule, as long as the drag lasts (one pass, not one render per row).
+    list.querySelectorAll('[data-dnd-id]').forEach(row => row.classList.add("dnd-live"));
+    edges.current = measureEdges(list);
     drag.current = { id, source, touch, startX: start.clientX, startY: start.clientY, shift };
     try { navigator.vibrate?.(8); } catch { /* haptics are optional */ }
     const ids = live.current.getIds()[source === "dock" ? "pinned" : "list"];
@@ -304,12 +389,14 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     const list = scroller(), zone = zoneEl();
     if (!current || !list) return;
     const { id, source } = current;
+    list.querySelectorAll('[data-dnd-zone="list"]').forEach(row => row.classList.remove("dnd-live"));
     swallowUntil.current = performance.now() + (current.touch ? 400 : 60);
     const el = nodeOf(list, id);
     const rect = el?.getBoundingClientRect();
     const seen = flowTops(list, [el, zone]);
     // Where the pointer is is read while the pinned area is still open.
     const where = aim(pointer.current.x, pointer.current.y, source);
+    edges.current = null;
     // The pinned area closes before the new order renders, so the landing is measured in the final layout.
     zone?.removeAttribute("data-dnd-over");
     zone?.removeAttribute("data-dnd");
@@ -344,6 +431,7 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
       accessibility={{ container: layerRoot(), screenReaderInstructions: { draggable: "" }, announcements: { onDragStart: () => undefined, onDragOver: () => undefined, onDragEnd: () => undefined, onDragCancel: () => undefined } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={event => end(event)} onDragCancel={() => end(null)}>
       {children}
+      {pressed && <ListProxy key={pressed.press.timeStamp} id={pressed.id} el={pressed.el} press={pressed.press} />}
     </DndContext>
   </SidebarDndShared.Provider>;
 }
@@ -365,16 +453,10 @@ function useLanding(id: string, node: RefObject<HTMLElement | null>) {
   });
 }
 
-/** Menu key and Shift+F10 open the row's menu (some platforms send no contextmenu event for them); Alt+Arrow moves a pinned row. */
+/** Alt+Arrow moves a pinned row. */
 function useRowKeys(id: string, zone: Zone, shared: Shared, disabled: boolean) {
   return useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
     const { live } = shared;
-    if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
-      const r = event.currentTarget.getBoundingClientRect();
-      event.preventDefault();
-      live.current.onMenu(id, r.left + Math.min(40, r.width / 2), r.top + r.height / 2);
-      return;
-    }
     const step = ({ ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 } as Record<string, number>)[event.key];
     // List rows follow recency; only pinned rows take a manual order.
     if (disabled || zone !== "dock" || !step || !event.altKey || event.ctrlKey || event.metaKey) return;
@@ -411,10 +493,4 @@ export function SidebarDockRow({ id, disabled = false, render }: { id: string; d
   const reduced = useSyncExternalStore(watchReduced, isReduced, () => false);
   const sortable = useSortable({ id, disabled, animateLayoutChanges: noLayoutAnimation, transition: { duration: reduced ? 0 : MOTION.base, easing: EASE.settle } });
   return useBind(id, "dock", disabled, { ...sortable, transition: reduced ? "none" : sortable.transition ?? undefined }, render);
-}
-
-/** A list row: draggable only, it never moves among the rows. */
-export function SidebarListRow({ id, disabled = false, render }: { id: string; disabled?: boolean; render: (bind: RowBind) => ReactNode }) {
-  const draggable = useDraggable({ id, disabled });
-  return useBind(id, "list", disabled, { ...draggable, transition: undefined }, render);
 }
