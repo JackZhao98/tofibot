@@ -9,7 +9,7 @@ import { isDesktop } from "../desktop";
 import { dateInTimezone } from "../timezone";
 import { GreetingSetup, QuestionCard, PlanDock } from "../lazyPanels";
 import { TofiIcon as Icon } from "../icons";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { type AvatarMotion } from "../BotAvatar";
 import { CATS, EmptyCat, EmptyState } from "../EmptyCat";
 import { receiptFor } from "../sendReceipts";
@@ -51,7 +51,8 @@ import { dateTimeFormat } from "../timezone";
 import { intlLocale } from "../i18n/format";
 
 export interface ChatPaneProps {
-  header: React.ReactNode;
+  /** The header, told whether the list is at its start (the cat is big there). */
+  header: (atTop: boolean) => React.ReactNode;
   mobileList: boolean;
   modalPanelOpen: boolean;
   desktopExpanded: boolean;
@@ -164,15 +165,25 @@ export interface ChatPaneProps {
 }
 
 export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, active, routeUnavailable, t, setMobileList, onboardingState, createNewBot, newBotBusy, newBotError, runs, botById, loadedId, loadingMessages, taskAnnouncements, viewport, expiryFinishing, runStarts, activityView, computerLook, messageListRef, onMessageListPointerOver, onMessageListPointerLeave, onMessageListFocus, onMessageListBlur, onMessageListKeyDown, jumpLatest, historyError, loadOlder, loadingOlder, hasMore, questions, mailDrafts, snapshotError, refreshTaskStatus, setSnapshotError, conversationItems, greeting, timelineFrom, taskView, placementsAt, renderPlacement, ownedBy, timezone, refreshConversations, ownerAnchors, runById, toolTimeline, foldedProgress, ownedRunIDs, keepActivityRun, toolSummaryAnchors, terminalToolSummaries, toolSummaryErrorAnchors, toolSummaryState, toolSummaryLoadingAnchors, loadedToolActivities, drafts, messageById, quoteTimeline, quoteIndexById, messageRecordIDs, runHasActivity, runsForMessage, lastReplySeq, knownBotNames, arrivalIDs, streamedIDs, streamConnected, traceRunFor, toolDetailState, activeRunIds, scheduleOccurrences, scheduleCardPending, scheduleMetadata, conversations, bots, canRetrySend, showActivity, revealedRuns, botNames, reactionMenu, placementDraws, rowHandlers, draftStream, activeBot, messages, updateComposerDraft, openSidebarId, loadToolDetails, pendingRuns, error, proxyChallenged, openCoverPanel, taskItems, openTasks, conversationMotion, toolActivities, runSignals, stepRunIds, setRuns, setError, avatarMention, composerDrafts, send, config, connectModel, composerDraftReady }: ChatPaneProps) {
+  const [topMark, setTopMark] = useState<HTMLElement | null>(null);
+  const [atTop, setAtTop] = useState(true);
+  // The mark at the head of the list says where the view is; scroll position is never read per frame (PLAN 8.1).
+  useEffect(() => {
+    const root = viewport.scrollRef.current;
+    if (!topMark || !root) return;
+    const watch = new IntersectionObserver(([entry]) => setAtTop(entry.isIntersecting), { root, rootMargin: "-58px 0px 0px 0px" });
+    watch.observe(topMark);
+    return () => watch.disconnect();
+  }, [topMark, viewport.scrollRef]);
   return (
-    <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
+    <main className={`chat-pane${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
             <Ground />
             <ProgressiveBlur edge="top" above height="calc(var(--chat-header-height, 64px) + 30px)" />
-            {header}
+            {header(atTop)}
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             <div className="chat-body">
-              <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}>
+              <div className="message-scroll" ref={viewport.scrollRef} onScroll={viewport.onScroll}><div className="chat-top-mark" ref={setTopMark} aria-hidden="true" />
                 <ExpiryFinishingContext.Provider value={expiryFinishing}><RunStartContext.Provider value={runStarts}><ActivityViewContext.Provider value={activityView}><ComputerLookContext.Provider value={computerLook}><div className={`message-list${viewport.unpositioned ? " is-positioning" : ""}`} ref={messageListRef} onPointerOver={isDesktop ? undefined : onMessageListPointerOver} onPointerLeave={isDesktop ? undefined : onMessageListPointerLeave} onFocus={isDesktop ? undefined : onMessageListFocus} onBlur={isDesktop ? undefined : onMessageListBlur} onKeyDown={isDesktop ? undefined : onMessageListKeyDown}>
                   {viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error" action={<Button variant="ghost" size="sm" onClick={viewport.retryBoundary}>{t("common:action.retry")}</Button>}>{t("history.boundary_failed")}</Notice>}
                   {historyError && !viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error history-error-older" action={<Button variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</Button>}>{t("history.older_failed", { error: historyError })}</Notice>}

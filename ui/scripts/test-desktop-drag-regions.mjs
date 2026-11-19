@@ -107,7 +107,7 @@ async function blocked(page) {
     const header = document.querySelector(".chat-header");
     let headerDrag = null;
     if (header && header.getBoundingClientRect().width) {
-      const h = header.getBoundingClientRect(), title = header.querySelector(".chat-title").getBoundingClientRect(), actions = header.querySelector(".header-actions").getBoundingClientRect();
+      const h = header.getBoundingClientRect(), title = header.querySelector(".chat-identity").getBoundingClientRect(), actions = header.querySelector(".header-actions").getBoundingClientRect();
       const y = h.top + h.height / 2;
       headerDrag = { middle: inDrag((title.right + actions.left) / 2, y), below: inDrag((title.right + actions.left) / 2, h.bottom + 12) };
     }
