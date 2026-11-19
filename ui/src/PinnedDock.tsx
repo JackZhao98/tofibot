@@ -4,7 +4,7 @@ import { TofiIcon as Icon } from "./icons";
 /**
  * The pinned area is the drop target. This frame wraps the pinned group (or stands empty in its place when nothing is
  * pinned), directly under the search bar and above every row. It is plain at rest; while a row is dragged it gets the dashed
- * outline and the hint inside it, and lights up while the row hovers over it. It is hit-tested by the drag hook, never in the
+ * outline and the hint inside it, and lights up while the row hovers over it. It is hit-tested by SortableList, never in the
  * tab order, and nothing is layered over it: the rows are below it in the flow, and the dragged row is the only thing above.
  */
 export function PinDropZone({ label, hint, children }: { label: string; hint: string; children?: ReactNode }) {

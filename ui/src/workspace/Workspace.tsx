@@ -64,9 +64,9 @@ import "../BrandLogo";
 import { SidebarRow } from "../ds/SidebarRow/SidebarRow";
 import { RowLead, rowStatus } from "./SidebarRows";
 import { applyLayout, keepLocalLayout, listOrder, pinnedOf, type SidebarIds } from "../sidebarOrder";
-import { useSidebarDnd, type DndAnnounce, type DndCommit } from "../useSidebarDnd";
+import type { DndAnnounce, DndCommit, RowBind, SidebarDndOptions } from "../SortableList";
 import { usePhoneSwipeBack } from "../usePhoneSwipeBack";
-import { lazy, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, lazy, startTransition, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { errorText } from "../errorText";
 import { api, ApiError, openConversationEvents, openWorkspaceEvents, request } from "../api";
@@ -1201,13 +1201,22 @@ export function Workspace() {
     const key = event.kind === "lift" ? "sidebar.dnd_lift" : event.kind === "pin" ? "sidebar.dnd_pinned" : event.kind === "unpin" ? "sidebar.dnd_unpinned" : "sidebar.dnd_moved";
     setSidebarAnnouncement(t(key, { name, pos: event.pos, total: event.total }));
   };
-  useSidebarDnd({
-    scrollRef: sidebarListRef, enabled: sidebarDndEnabled, signature: `${sidebarIdsRef.current.pinned.join(",")}|${sidebarIdsRef.current.list.join(",")}`, skipFlip: sidebarSkipFlip,
+  // Drag and drop is the library's chunk, fetched in idle time once the workspace has content; until then rows are plain, clickable buttons.
+  const [sortable, setSortable] = useState<typeof import("../SortableList") | null>(null);
+  useEffect(() => {
+    if (loading || sortable) return;
+    const idle = (window as { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    const load = () => void import("../SortableList").then(setSortable);
+    const handle = idle ? idle(load, { timeout: 1200 }) : window.setTimeout(load, 400);
+    return () => { if (idle) (window as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(handle); else window.clearTimeout(handle); };
+  }, [loading, sortable]);
+  const sidebarDnd: SidebarDndOptions = {
+    scrollRef: sidebarListRef,
     getIds: () => sidebarIdsRef.current,
-    onCommit: next => commitSidebarLayout(layoutFromDrop(next)),
+    onCommit: next => { sidebarSkipFlip.current = true; commitSidebarLayout(layoutFromDrop(next)); },
     onMenu: (id, x, y) => { const conversation = conversations.find(item => item.id === id); if (conversation) setSidebarContextMenu({ conversation, x, y }); },
     onAnnounce: announceSidebar,
-  });
+  };
   // Runs with a tool call in flight: only those have a step the Stop menu can interrupt.
   const stepRunIds = useMemo(() => toolActivities.filter(item => item.status === "running").map(item => item.run_id), [toolActivities]);
   const runById = useMemo(() => new Map(runs.map((run) => [run.id, run])), [runs]);
@@ -2221,9 +2230,9 @@ export function Workspace() {
     const unread = conversation.unread_count ?? 0;
     const indicator = rowIndicator(task, unread, motion === "working");
     const dnd = draggable || pinned;
-    return <SidebarRow as="button" key={conversation.id} data-sidebar-flip={conversation.id} data-dnd-id={dnd ? conversation.id : undefined} data-dnd-zone={dnd ? (pinned ? "dock" : "list") : undefined} aria-keyshortcuts={dnd ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
+    const draw = (bind?: RowBind) => <SidebarRow as="button" {...bind} data-sidebar-flip={conversation.id} data-dnd-id={dnd ? conversation.id : undefined} data-dnd-zone={dnd ? (pinned ? "dock" : "list") : undefined} aria-keyshortcuts={dnd ? "Alt+ArrowUp Alt+ArrowDown" : undefined} data-hint={sidebarFolded ? conversation.name : undefined}
       aria-label={[conversation.name, task ? taskStateLabel(task) : "", indicator === "working" && !task ? t("sidebar.working") : "", conversation.unread_count ? t("sidebar.unread", { count: conversation.unread_count }) : ""].filter(Boolean).join(t("sidebar.label_separator"))}
-      className={pinned ? "contact-row pin-tile" : "contact-row conversation-row"} compact={sidebarFolded} active={activeId === conversation.id} unread={unread > 0} data-unread={unread > 0 ? "" : undefined}
+      className={`${pinned ? "contact-row pin-tile" : "contact-row conversation-row"}${bind?.className ? ` ${bind.className}` : ""}`} compact={sidebarFolded} active={activeId === conversation.id} unread={unread > 0} data-unread={unread > 0 ? "" : undefined}
       onClick={() => focusTask(conversation)}
       onPointerEnter={event => { if (event.pointerType === "mouse") { window.clearTimeout(prefetchTimer.current); prefetchTimer.current = window.setTimeout(() => prefetchConversation(conversation.id), 80); } }}
       onPointerLeave={() => window.clearTimeout(prefetchTimer.current)}
@@ -2233,6 +2242,9 @@ export function Workspace() {
       label={<><span className="contact-name">{conversation.name}</span>{bot?.is_primary && <PrimaryBadge />}</>}
       meta={preview}
       {...rowStatus(indicator, unread)} />;
+    // Once the drag chunk is here a movable row is wrapped by it; before, the same row is drawn plain.
+    if (!dnd || !sortable || !sidebarDndEnabled) return <Fragment key={conversation.id}>{draw()}</Fragment>;
+    return pinned ? <sortable.SidebarDockRow key={conversation.id} id={conversation.id} render={draw} /> : <sortable.SidebarListRow key={conversation.id} id={conversation.id} render={draw} />;
   }
 
   function pinTile(conversation: Conversation) { return conversationRow(conversation, true, true); }
@@ -2434,7 +2446,7 @@ export function Workspace() {
       {computerInfo && ((computerInfo.state !== "ready" && computerInfo.state !== "hibernated" && computerInfo.state !== "hibernating") || computerHealthAlert(computerInfo.health)) && !computerShown && <div className="computer-preparing" role="status"><strong>{computerInfo.guest_outdated_required ? t("computer.outdated_required") : computerInfo.error_code === "org_resource_missing" ? t("computer.org_missing") : computerInfo.health?.state === "unresponsive" ? t("computer.health_unresponsive") : computerInfo.health?.state === "restarting" ? t("computer.health_restarting") : computerInfo.state === "starting" ? t("computer.starting") : computerInfo.state === "resuming" ? t("computer.resuming") : computerInfo.state === "error" ? t("computer.failed") : computerInfo.state === "stopped" ? t("computer.stopped") : t("computer.unavailable")}</strong><span>{(computerInfo.state === "starting" || computerInfo.state === "resuming") && computerInfo.phase ? ` · ${computerPhaseKeys[computerInfo.phase] ? t(computerPhaseKeys[computerInfo.phase]) : computerInfo.phase}` : ""}{computerInfo.error && !computerInfo.guest_outdated_required ? ` · ${computerInfo.error}` : ""}</span>{computerInfo.guest_outdated_required ? <button className="secondary-button" onClick={() => openSettings("computer")}>{t("computer.open_environments")}</button> : (computerInfo.state === "error" || computerInfo.state === "stopped" || computerInfo.health?.state === "unresponsive") && <button className="secondary-button" onClick={() => void api.computerRetry().then(() => api.computerInfo()).then(setComputerInfo).catch(cause => setError(errorText(cause)))}>{t("common:action.retry")}</button>}</div>}
       <div className="native-titlebar" aria-hidden="true" /><ActionHints /><div className={`workspace-grid${sidebarFolded ? " sidebar-collapsed" : ""}${macNarrow ? " mac-narrow" : ""}${contextPanelOpen ? " context-open" : ""}${columnMode && surfaces.sidebar ? " sidebar-open" : ""}${nativePanel.open ? " native-panel-open" : ""}${columnMode && sidebarExpandedShown ? " sidebar-expanded" : ""}${cover ? " cover-open" : ""}`}>
         {macNarrow && narrowSidebarOpen && <div className="sidebar-scrim" aria-hidden="true" onClick={() => setNarrowSidebarOpen(false)} />}
-        <Sidebar CreateMenu={menus?.CreateMenu} mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} sidebarFolded={sidebarFolded} t={t} setSidebarFolded={setSidebarFolded} setSearchOpen={setSearchOpen} createMenuRef={createMenuRef} createMenuTriggerRef={createMenuTriggerRef} setCreateMenuOpen={setCreateMenuOpen} createMenuOpen={createMenuOpen} botImportRef={botImportRef} importBotPackage={importBotPackage} showCreateMenu={showCreateMenu} newBotBusy={newBotBusy} createNewBot={createNewBot} openCoverPanel={openCoverPanel} botImportBusy={botImportBusy} newBotError={newBotError} botImportError={botImportError} sidebarListRef={sidebarListRef} pinnedConversations={pinnedConversations} pinTile={pinTile} customSidebarSections={customSidebarSections} conversationRow={conversationRow} defaultSidebarConversations={defaultSidebarConversations} sidebarDndEnabled={sidebarDndEnabled} sidebarLiveRef={sidebarLiveRef} onboardingState={onboardingState} visibleSidebarConversations={visibleSidebarConversations} bots={bots} conversations={conversations} modelReady={modelReady} setOnboardingForced={setOnboardingForced} linkConnected={linkConnected} setPortabilityBotID={setPortabilityBotID} setPortabilityFile={setPortabilityFile} openSettings={openSettings} setUsageBotId={setUsageBotId} setArtifactsMode={setArtifactsMode} />
+        <Sidebar CreateMenu={menus?.CreateMenu} sortable={sortable} sidebarDnd={sidebarDnd} mobileList={mobileList} modalPanelOpen={modalPanelOpen} desktopExpanded={desktopExpanded} sidebarFolded={sidebarFolded} t={t} setSidebarFolded={setSidebarFolded} setSearchOpen={setSearchOpen} createMenuRef={createMenuRef} createMenuTriggerRef={createMenuTriggerRef} setCreateMenuOpen={setCreateMenuOpen} createMenuOpen={createMenuOpen} botImportRef={botImportRef} importBotPackage={importBotPackage} showCreateMenu={showCreateMenu} newBotBusy={newBotBusy} createNewBot={createNewBot} openCoverPanel={openCoverPanel} botImportBusy={botImportBusy} newBotError={newBotError} botImportError={botImportError} sidebarListRef={sidebarListRef} pinnedConversations={pinnedConversations} pinTile={pinTile} customSidebarSections={customSidebarSections} conversationRow={conversationRow} defaultSidebarConversations={defaultSidebarConversations} sidebarDndEnabled={sidebarDndEnabled} sidebarLiveRef={sidebarLiveRef} onboardingState={onboardingState} visibleSidebarConversations={visibleSidebarConversations} bots={bots} conversations={conversations} modelReady={modelReady} setOnboardingForced={setOnboardingForced} linkConnected={linkConnected} setPortabilityBotID={setPortabilityBotID} setPortabilityFile={setPortabilityFile} openSettings={openSettings} setUsageBotId={setUsageBotId} setArtifactsMode={setArtifactsMode} />
         {onboardingState === "sheet" && onboarding && <Suspense fallback={null}><Onboarding initialStep={onboardingForced ?? resumeStep(onboarding, modelReady)} modelConfigured={modelReady} bot={bots.find((item) => !item.archived)} onProgress={saveOnboarding} onModelChanged={refreshConfig} onBot={adoptOnboardingBot} onSkip={() => { saveOnboarding({ skipped: true }); setOnboardingForced(null); }} onFinish={finishOnboarding} /></Suspense>}
         <SlotView slot={sidebarMenuSlot}>{menu => menus && <menus.default menu={menu} t={t} bot={botByConversationId.get(menu.conversation.id)} a={{ close: () => setSidebarContextMenu(null), togglePinned, sections: sidebarLayout.sections, setSection, markUnread, fail: (cause: unknown) => setError(errorText(cause)), openBotSettings: c => { selectConversation(c.id); setMobileList(false); openCoverPanel("bot-settings"); setSidebarContextMenu(null); }, makePrimary, copyLink: copyConversationLink, archive: setArchived, confirmDelete }} />}</SlotView>
 

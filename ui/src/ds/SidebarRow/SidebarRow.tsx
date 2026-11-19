@@ -26,7 +26,7 @@ export type SidebarRowProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "chi
 };
 
 /** A conversation or place in the sidebar. Reads only the `--c-srow-*` roles, so the Mac material (a transparent sidebar) and the
- *  web ground both come from the skin. Dragging arrives in PR 5.2. */
+ *  web ground both come from the skin. Dragging is SortableList's (dnd-kit). */
 export function SidebarRow({ label, meta, avatar, icon, active, unread, count, status, as = "a", compact, className, href = "#", ...rest }: SidebarRowProps) {
   const Tag = as as "a";
   const own = as === "button" ? { type: "button" as const } : { href };

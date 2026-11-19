@@ -15,7 +15,7 @@ html[data-desktop="darwin"][data-window-focused="false"] .tb-srow.is-active { ba
 .tb-srow-meta { font: 400 12px/1.35 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-srow > .tb-badge { flex: none; padding: 0 4px; }
 .tb-count { min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: inline-grid; place-items: center; font: 600 11px/1 var(--font-mono); border-radius: var(--radius-pill); background: var(--mustard); color: var(--on-block); border: var(--border-1) solid transparent; }
-/* The drag lift of today's engine (PR 5.2 swaps it for dnd-kit): a held row is a card, and the rows around it do not light up. */
+/* The drag lift (SortableList.tsx, dnd-kit): a held row is a card, and the rows around it do not light up. */
 .tb-srow.is-dnd-dragging { background: var(--surface); box-shadow: var(--shadow); }
 .tb-srow.dnd-live:not(.is-dnd-dragging):hover { background: transparent; }
 /* Lead only, for the collapsed rail (72 px, from tablet width up): the name is the hint and one status sits on the lead's corner. */
