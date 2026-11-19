@@ -12,7 +12,6 @@ import { TofiIcon as Icon } from "../icons";
 import { Suspense } from "react";
 import { type AvatarMotion } from "../BotAvatar";
 import { CATS, EmptyCat, EmptyState } from "../EmptyCat";
-import { LoadingCat } from "../motion/legacy/LoadingCat";
 import { receiptFor } from "../sendReceipts";
 import { mergeRunUpdates } from "../runMerge";
 import { DraftStream } from "../draftStream";
@@ -178,7 +177,7 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                   {historyError && !viewport.boundaryError && <Notice tone="danger" icon="alert" className="history-error history-error-older" action={<Button variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.retrying") : t("common:action.retry")}</Button>}>{t("history.older_failed", { error: historyError })}</Notice>}
                   {hasMore && <Notice icon="history" className="load-older-row" action={<Button variant="ghost" size="sm" className="load-older" onClick={() => void loadOlder()} disabled={loadingOlder}>{loadingOlder ? t("action.loading") : t("history.load_older")}</Button>} />}
                   {(questions.error || mailDrafts.error || snapshotError) && <div className="task-state-read-error"><span>{i18n.t("tasks:issue.status_unavailable")}</span><button type="button" className="text-button" onClick={() => void refreshTaskStatus().catch(() => setSnapshotError("read_unavailable"))}>{i18n.t("tasks:issue.action.refresh_status")}</button></div>}
-                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className={`inline-state${isDesktop ? "" : " web-loading-state"}`}>{isDesktop ? <div className="spinner" /> : <LoadingCat size={34} />}{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
+                  {snapshotError && loadedId !== active.id && !loadingMessages ? <div className="inline-state" role="status" data-snapshot-unavailable="true"><div className="spinner" />{t("history.unavailable_retrying")}</div> : loadingMessages ? <DelayedFeedback key={`loading-${active.id}`}><div className="inline-state"><div className="spinner" />{t("history.loading_messages")}</div></DelayedFeedback> : loadedId !== active.id ? null : conversationItems.length === 0 ? greeting.stage === "setup" ? <GreetingSetup /> : greeting.stage === "typing" ? null :
                     <EmptyState name="conversation" className="conversation-empty" look={CATS.mochi} pose="curious" size={84}><h2>{t("empty.start_chat")}</h2><p>{t("empty.start_chat_body")}</p></EmptyState> :
                     conversationItems.map((item, index) => {
                       if (index < timelineFrom) return null;

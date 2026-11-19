@@ -77,7 +77,6 @@ import "../OnboardingChrome";
 import "../EmptyCat";
 import { useGreetingPlayback } from "../onboardingGreeting";
 import { onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "../onboardingFlow";
-import "../motion/legacy/LoadingCat";
 import { flipList } from "../motion/legacy/flip";
 import { flySentMessage } from "../sendFlight";
 import "../FileTile";

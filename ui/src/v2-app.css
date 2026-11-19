@@ -406,9 +406,6 @@ html:not([data-desktop]) .workspace .conversation-empty{align-content:center;jus
 html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items:center;align-content:center;gap:4px;min-height:214px;background:var(--dots);border:1px solid var(--line-soft);border-radius:16px;text-align:center}
 html:not([data-desktop]) .workspace .web-memory-empty strong{margin-top:8px;color:var(--ink);font:700 18px/1.2 var(--display)}
 html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--muted);font:var(--type-meta)}
-html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-block:16px;align-content:center;justify-items:center;gap:8px;animation:web-loading-in var(--m-panel-in) var(--ease-out) both}
-@keyframes web-loading-in{from{opacity:0}}
-@media(prefers-reduced-motion:reduce){html:not([data-desktop]) .workspace .web-loading-state{animation:none}}
 
 /* Browser-mode message actions: a quiet row directly under the message (after its reaction chips), no container: line icons
    in muted ink that darken on hover, the relative time last. It is mounted only for the message the pointer, focus or a tap is on,
