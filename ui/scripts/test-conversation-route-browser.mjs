@@ -161,21 +161,10 @@ try {
     await record("unavailable-recovery-by-sidebar");
 
     // The sidebar view is the one surface the address carries: a direct link opens it, a switch keeps it (and the address), and a link
-    // without it has none. The column sidebar is for wide browser windows; the native desktop shell and narrow windows draw the same
-    // view as a drawer (.detail-pane.context-panel) over the chat, so there the address must open that drawer.
-    if (width >= 1100 && native) {
-      await page.goto(`${origin}/b/${two.id}?side=memory`);
-      await chat(`/b/${two.id}?side=memory`, two.name);
-      await page.locator(".detail-pane.context-panel.visible").waitFor();
-      assert.equal(await page.locator(".sidebar-pane").count(), 0, "the native shell draws the sidebar as a drawer, not a column");
-      await page.goto(`${origin}/b/${one.id}?side=nonsense`);
-      await chat(`/b/${one.id}?side=nonsense`, one.name);
-      assert.equal(await page.locator(".detail-pane.context-panel").count(), 0, "an unknown ?side= opens nothing");
-      await page.goto(`${origin}/b/${one.id}`);
-      await chat(`/b/${one.id}`, one.name);
-      await record("side-param-opens-sidebar-drawer-native");
-    }
-    if (width >= 1100 && !native) {
+    // without it has none. A window of 1100 px or more draws it as the column at the window edge, in a browser and in the native
+    // desktop shell alike (columnMode is `!compactViewport`, not `!isDesktop`: 5a39e821, AGENTS.md "One sidebar"); narrower
+    // windows draw the same view as a drawer.
+    if (width >= 1100) {
       await page.goto(`${origin}/b/${two.id}?side=memory`);
       await chat(`/b/${two.id}?side=memory`, two.name);
       await page.locator(".sidebar-pane").waitFor();
@@ -192,7 +181,10 @@ try {
       await record("side-param-opens-sidebar-and-follows-a-switch");
     }
 
-    // Real assistant message causes the existing notification path to refresh.
+    // Real assistant message reaches the web outlet (attentionNotifier.ts). The outlet starts at the tail of the server's
+    // delivery view (contracts/notifications-delivery.md, tail=1): a row written before that first read is history and is
+    // never shown. Wait until this document has taken its tail, then write the message, so it is news and not history.
+    await page.waitForFunction(() => performance.getEntriesByType("resource").some(entry => entry.name.includes("/api/notifications?view=delivery&tail=1")));
     await page.request.post(origin + "/acceptance/notification");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await page.waitForFunction(() => window.routeNotifications.some(notice => notice.title.endsWith("Two")));
