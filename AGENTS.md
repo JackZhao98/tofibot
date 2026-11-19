@@ -735,7 +735,7 @@ Tabs (`@radix-ui/react-tabs`), segmented choices (`react-radio-group`), switches
   (`ui/src/MessageHoverActions.tsx`, Toolbar + DismissableLayer) and the tool-step drawer and run-context toggle in the message
   list (`App.tsx`, Collapsible). Dialogs, menus, popovers and the Settings controls stay in lazy chunks. The entry may grow
   for a better library, up to 371,712 B gzip in total (D82); change `EAGER_GZIP_BUDGET` and record it in D82. The budget is
-  335 KB (owner 2026-11-18, for the V3 split of `App.tsx`).
+  340 KB (owner 2026-11-19, for the V3 tracks; it was 335 KB from 2026-11-18). P9 lowers it again as the V2 code goes.
 - `Disclosure` and `AppearancePicker` are in `ui/src/InteractionPrimitives.tsx` (lazy chunks only).
 - Collapsible content is the kit `CollapsibleContent` (`ui/src/ds/Collapsible`; it adds `tb-collapsible`, and `collapsible-content`
   stays as a hook with no rule) and holds one child element: a keyframed grid row, 0fr to 1fr. Do not use CSS transitions or `--radix-collapsible-content-height` with Radix Collapsible:
