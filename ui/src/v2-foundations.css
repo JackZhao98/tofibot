@@ -9,7 +9,6 @@
   font:600 13px/1.2 var(--display);
 }
 .danger-link:not(:disabled):hover { background:color-mix(in srgb,var(--danger) 10%,transparent); }
-.inline-confirmation .danger-link { color:var(--on-danger); background:var(--danger); border-color:var(--line); box-shadow:var(--shadow-sm); }
 .danger-link:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 :is(.icon-button,.top-icon-button,.close-button):focus-visible {
   outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px;
