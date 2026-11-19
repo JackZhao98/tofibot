@@ -1,7 +1,6 @@
-import { TofiIcon } from "./icons";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Hint } from "./ds/Hint/Hint";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "./i18n";
 import { layerRoot, topLayerDialog } from "./layers";
 import { applySkin, devSkin } from "./skin/skin";
 
@@ -101,5 +100,5 @@ export function ActionHints() {
     window.addEventListener("scroll", scrolled, true);
     return () => { hide(); document.removeEventListener("pointerover", show); document.removeEventListener("pointerout", leave); document.removeEventListener("focusin", show); document.removeEventListener("focusout", hide); document.removeEventListener("pointerdown", hide); document.removeEventListener("keydown", hide); window.removeEventListener("scroll", scrolled, true); };
   }, []);
-  return hint ? createPortal(<div className={`action-hint${hint.tone ? ` is-${hint.tone}` : ""}`} role="tooltip" style={{ left: hint.x, top: hint.y, transform: hint.side ? "translate(0, -50%)" : `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</div>, hint.host) : null;
+  return hint ? createPortal(<Hint className="action-hint" tone={hint.tone === "quiet" ? "quiet" : undefined} style={{ left: hint.x, top: hint.y, transform: hint.side ? "translate(0, -50%)" : `translate(-50%, ${hint.above ? "-100%" : "0"})` }}>{hint.text}</Hint>, hint.host) : null;
 }

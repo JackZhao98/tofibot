@@ -1,4 +1,4 @@
-.tb-toast { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px 8px 14px; border-radius: var(--radius-md); font: 500 14px/1.4 var(--font-body); color: var(--ink); max-width: 440px; }
+.tb-toast { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px 8px 14px; border-radius: var(--radius-md); font: 500 14px/1.4 var(--font-body); color: var(--ink); max-width: min(440px, calc(100vw - 32px)); }
 .tb-toast--error > .tb-icon { color: var(--danger-text); }
 .tb-toast--done > .tb-icon { color: var(--lime-text); }
 .tb-toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
