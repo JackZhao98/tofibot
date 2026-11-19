@@ -479,13 +479,13 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) {
+:root :is(.context-card,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) {
   background:var(--legacy-glass); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
 :root :is(.desktop-window-controls,.desktop-enlarge-hint) { color:var(--ink); }
 :root :is(.desktop-window-controls) button { color:var(--ink); }
 :root :is(.desktop-window-controls) button:hover { background:var(--surface-2); }
-:root :is(.delete-dialog-overlay,.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
+:root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
 }
 /* Popups (menus, popovers, selects, context menus, hover cards) are the kit's: ds/pop.css. The dialogs below still grow
@@ -505,7 +505,7 @@ html:not([data-desktop]) .workspace .web-loading-state{min-height:96px;padding-b
   :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.context-card,.delete-dialog,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.context-card,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-window-controls,.desktop-presence-actor,.desktop-enlarge-hint) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 }
 

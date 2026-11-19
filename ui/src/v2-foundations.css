@@ -3,14 +3,6 @@
 
 /* Buttons: .primary-button, .secondary-button and .text-button are drawn by ds/legacy-aliases.css (PR 2.1). */
 @layer legacy {
-.delete-dialog-submit {
-  min-height:42px; border:var(--legacy-edge-w) solid var(--line); border-radius:12px;
-  background:var(--danger); color:var(--on-danger); box-shadow:var(--shadow-sm);
-  font:600 14px/1.2 var(--display);
-}
-.delete-dialog-submit:not(:disabled):hover { transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--hard-ink); background:var(--danger); }
-.delete-dialog-submit:not(:disabled):active { transform:translate(2px,3px); box-shadow:none; }
-.delete-dialog-submit:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; }
 .danger-link {
   min-height:36px; padding:7px 12px; border:var(--legacy-edge-w) solid var(--danger);
   border-radius:12px; color:var(--danger-text); background:transparent; box-shadow:none;
@@ -131,7 +123,7 @@ p > .text-button:where(:not(.approval-manage)):active:not(:disabled), div.error-
   border-radius:16px; box-shadow:none; color:var(--ink-soft);
 }
 :root[data-theme] :is(.archive-card,.memory-card,.schedule-card,.extension-card,.verification-card) strong { color:var(--ink); }
-.delete-dialog,.terminal-confirm>div {
+.terminal-confirm>div {
   border:var(--legacy-edge-bold-w) solid var(--line); border-radius:var(--r-lg);
   background:var(--surface); box-shadow:var(--shadow); color:var(--ink);
 }
