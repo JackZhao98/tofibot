@@ -1,9 +1,10 @@
 /* The Bot card: the top widget of the column (PLAN section 11, 2026-11-19). The cat sits on the card's top edge, half over it; the fold under it
    is what grows (Motion animates its height, 280 in / 180 out) and pushes the other widgets down. Loads with the surfaceViews chunk. */
 
+@layer legacy {
 /* The slot of the Bot card: no gap row of its own (the fold carries it), no rise, and an exit that Motion drives, not the legacy row collapse. */
-.widget-slot.bot-slot { display: block; padding-bottom: 0; animation: none; }
-.widget-slot.bot-slot[data-leaving] { opacity: 1; clip-path: none; transition: none; padding-bottom: 0; }
+.workspace .widget-slot.bot-slot { display: block; padding-bottom: 0; animation: none; }
+.workspace .widget-slot.bot-slot[data-leaving] { opacity: 1; clip-path: none; transition: none; padding-bottom: 0; }
 
 /* The cat flies in from the header, which is outside the column and clips it. While the Bot card is in the column the column's box spans the
    whole chat area (the content stays where it was: width and left padding grow by the same amount; the pointer already passes through its
@@ -48,4 +49,5 @@
 @media (prefers-reduced-motion: reduce) {
   .bot-card :is(.bot-card-name, .bot-card-role), .bot-card-row, .bot-card-advanced { transition: none; }
   .bot-card-status .bot-card-dot { animation: none; }
+}
 }
