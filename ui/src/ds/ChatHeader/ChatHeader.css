@@ -71,10 +71,15 @@
 .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); flex-direction: row; gap: 0; padding: 0; min-height: var(--cat); border-radius: 50%; }
 @container (min-width: 560px) { .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); } }
 .tb-chathead.is-bare.is-away .tb-chathead-cat { pointer-events: none; }
-.tb-chathead-halo { position: absolute; left: 50%; top: 50%; width: calc(var(--cat) * 2); height: calc(var(--cat) * 2); margin: calc(var(--cat) * -1) 0 0 calc(var(--cat) * -1); z-index: -1; pointer-events: none; border-radius: 50%;
-  -webkit-backdrop-filter: blur(var(--pbt-blur-2)); backdrop-filter: blur(var(--pbt-blur-2));
-  -webkit-mask-image: radial-gradient(circle closest-side, #000 55%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 55%, transparent 100%);
+.tb-chathead-halo { position: absolute; left: 50%; top: 50%; width: calc(var(--cat) * 1.6); height: calc(var(--cat) * 1.6); margin: calc(var(--cat) * -0.8) 0 0 calc(var(--cat) * -0.8); z-index: -1; pointer-events: none; background: none; box-shadow: none; border: 0;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  /* Pure blur: a radial fade (full to 35%, nothing at the edge) intersected with the half below the cat's centre line. No tint, no edge. */
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 35%, transparent 100%), linear-gradient(to bottom, transparent 50%, #000 50%); -webkit-mask-composite: source-in;
+  mask-image: radial-gradient(circle closest-side, #000 35%, transparent 100%), linear-gradient(to bottom, transparent 50%, #000 50%); mask-composite: intersect;
   transition: opacity var(--m-quick) var(--ease-out); }
+/* The drawing fills about three quarters of its square (room for a tail and ears); in the header and in the Bot card the cat's visible body is scaled up to fill
+   the box, on the inner drawing so the state loops on the host keep their own pivot. */
+.tb-chathead-face .tofi-avatar { display: block; width: 100%; height: 100%; scale: 1.28; translate: -4.5% 0.5%; transform-origin: 50% 50%; }
 .tb-chathead.is-away .tb-chathead-halo { opacity: 0; }
 @media (prefers-reduced-transparency: reduce) { .tb-chathead-halo { display: none; } }
 @media (prefers-reduced-motion: reduce) {

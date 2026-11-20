@@ -58,4 +58,4 @@ export function SourceMenu({ entries, label, trigger, setOpen }: { entries: Comp
 }
 
 export { botCatState } from "./botCatState";
-export { CatTravel } from "../catMotion";
+export { CatTravel, CAT_TRAVEL_OUT } from "../catMotion";

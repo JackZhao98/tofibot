@@ -6,10 +6,8 @@
 .workspace .widget-slot.bot-slot { display: block; padding-bottom: 0; animation: none; }
 .workspace .widget-slot.bot-slot[data-leaving] { opacity: 1; clip-path: none; transition: none; padding-bottom: 0; }
 
-/* The cat flies in from the header, which is outside the column and clips it. While the Bot card is in the column the column's box spans the
-   whole chat area (the content stays where it was: width and left padding grow by the same amount; the pointer already passes through its
-   empty part) so the cat is not cut on its way. While it flies the column is one layer above the header, so the cat is not under the band. */
-.workspace .detail-pane.widget-column:has(.bot-slot) { width: 100%; padding-left: calc(100% - (var(--widget-w) + var(--widget-bleed-l) + var(--widget-bleed-r)) + 2px + var(--widget-bleed-l)); transition: none; }
+/* While the cat flies in the column is one layer above the header, so the cat is not under the top blur band. (The column box already spans the
+   chat area: context-card.css.) */
 .workspace .detail-pane.widget-column:has(.bot-card-wrap[data-flying]) { z-index: calc(var(--z-chrome) + 1); }
 
 .bot-card-wrap { position: relative; }

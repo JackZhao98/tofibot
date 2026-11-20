@@ -416,7 +416,8 @@ export function Workspace() {
   // The widget column fills in right after the conversation itself: on a switch the chat paints first and the incoming widgets (a
   // computer session, the Artifacts list) mount in the next, interruptible pass, so they never sit on the path to the first frame.
   const deferredWidgets = useDeferredValue(surfaces.widgets);
-  const columnWidgets = surfaces.widgets.includes("usage") ? surfaces.widgets : deferredWidgets;
+  // The Bot card skips the deferral when it opens or closes: the cat changes places in one commit, with no second pass in the middle of its flight.
+  const columnWidgets = surfaces.widgets.includes("usage") || surfaces.widgets.includes("bot") !== deferredWidgets.includes("bot") ? surfaces.widgets : deferredWidgets;
   const columnFolded = useDeferredValue(surfaces.folded);
   // The sidebar view is the one surface the address carries (`?side=tasks`): it is replaced in place, never a history entry, and
   // `tofi:open-sidebar` opens one from anywhere.
@@ -1077,15 +1078,22 @@ export function Workspace() {
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const botByConversationId = useMemo(() => new Map(bots.map((bot) => [bot.dm_conversation_id, bot])), [bots]);
   const activeBot = active?.bot_id ? botById.get(active.bot_id) : undefined;
-  // The header cat opens the Bot card: the cat leaves the header and lands at the top of the column in the same commit (Motion matches the two
-  // by layout id), so the card's chunks are in before the state changes. Opening the card also opens the Artifacts widget when the Bot has any.
+  // The header cat opens the Bot card: the cat leaves the header and lands at the top of the column (Motion matches the two by layout id). Everything
+  // that could hitch the flight is done first: the card's chunks and Motion's layout features are in, the Bot's files are known (the Artifacts widget opens
+  // in the same update as the card), and the update itself waits one frame so the flight starts on a clean one. A switch of conversation meanwhile cancels it.
   const openBotCard = useCallback(() => {
     const conversationId = active?.kind === "dm" ? active.id : null;
     if (!conversationId) return;
-    void Promise.all([whenPanelLoaded("contextCard"), whenPanelLoaded("surfaceViews")]).then(() => {
+    const files = request<{ items?: unknown[] }>(`/api/artifacts?${new URLSearchParams({ scope: "conversation", id: conversationId, include_uploads: "0", limit: "1" })}`).then(page => (page.items?.length ?? 0) > 0, () => false);
+    const early = Promise.race([files, new Promise<boolean>(resolve => window.setTimeout(() => resolve(false), 250))]);
+    void Promise.all([whenPanelLoaded("contextCard"), whenPanelLoaded("surfaceViews"), import("../catMotion"), early]).then(async ([, , motion, has]) => {
+      await Promise.all([motion.ensureCatMotion(), has ? whenPanelLoaded("artifacts") : undefined]);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      if (activeIdRef.current !== conversationId) return;
+      motion.markFlight();
       openSurface(state => openWidget(state, "bot"));
-      request<{ items?: unknown[] }>(`/api/artifacts?${new URLSearchParams({ scope: "conversation", id: conversationId, include_uploads: "0", limit: "1" })}`)
-        .then(page => { if (page.items?.length) setSurfaces(state => state.widgets.includes("bot") ? autoOpenWidget(state, "artifacts") : state); }, () => undefined);
+      // The Artifacts widget joins once the cat has landed: its first render is the heaviest thing the card brings, and a frame lost in the flight is seen.
+      void files.then(late => window.setTimeout(() => { if (late && activeIdRef.current === conversationId) setSurfaces(state => state.widgets.includes("bot") ? autoOpenWidget(state, "artifacts") : state); }, motion.CAT_TRAVEL.duration * 1000 + 60));
     });
   }, [active?.id, active?.kind, openSurface]);
   // VM surfaces keep their capability gate. Personal browser sources are selected independently below.

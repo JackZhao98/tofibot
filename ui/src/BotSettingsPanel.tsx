@@ -18,6 +18,7 @@ import { ModelFields } from "./ModelSettings";
 import { OverlayPopover, pressToggle } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import { takeSettingsSection } from "./settings/pendingSection";
+import { roleOf } from "./botRole";
 import { jumpWhenReady } from "./settings/sectionJump";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";
@@ -165,7 +166,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   const modelLine = follows
     ? (effective ? `${t("botPanel.follows_global")} · ${effective}` : t("botPanel.follows_global"))
     : t("botSettings.model_pinned", { model: draft.model });
-  const role = draft.instructions.trim().split("\n")[0]?.trim();
+  const role = roleOf(draft.instructions);
   const listHint: Partial<Record<SectionId, string>> = { identity: draft.name.trim() || bot.name, role: role || t("botPanel.no_role"), model: modelLine };
 
   const body: Record<SectionId, ReactNode> = {
