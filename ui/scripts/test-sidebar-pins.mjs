@@ -1,5 +1,5 @@
 // Sidebar drag-to-reorder and pinned tiles, against a mocked API that stores the layout like the server does.
-// Covers: drag reorder + persistence across reload, the pin drop zone (only while dragging), dropping pins, large tiles,
+// Covers: drag reorder + persistence across reload, no flash at a drop (size, opacity, avatar, gliding neighbours), the pin drop zone (only while dragging), dropping pins, large tiles,
 // tile reorder, unpin by dragging back and by the menu, keyboard moves, touch long-press at 390 px (and that a tap still
 // opens the chat), reduced motion, and frame timing of a drag over 60 conversations.
 // Synthetic data only. Screenshots go to SIDEBAR_PINS_SHOTS when set.
@@ -416,6 +416,68 @@ await check("a drop lands where it ends: no step between the last animated frame
   await dragTo(page, tile, { x: between.x, y: between.y + 10 }, { hold: true });
   await sleep(250);
   assertNoJump(await releaseSampled(page, "dm_03"), "unpin");
+  await context.close();
+});
+
+/** Samples every visible row per frame around a release: opacity, scale, whether its cat is drawn, and its running animations. */
+const watchRows = page => page.evaluate(() => {
+  window.__rows = []; window.__rowsOn = true;
+  const tick = () => {
+    const box = document.querySelector(".contact-section").getBoundingClientRect();
+    window.__rows.push([...document.querySelectorAll(".contact-section [data-dnd-id]")].filter(el => { const r = el.getBoundingClientRect(); return r.bottom > box.top && r.top < box.bottom; }).map(el => {
+      const s = getComputedStyle(el), m = new DOMMatrixReadOnly(s.transform === "none" ? undefined : s.transform);
+      return { id: el.dataset.dndId, y: el.getBoundingClientRect().top, opacity: +s.opacity, scale: Math.hypot(m.a, m.b), cat: !el.querySelector(".tb-botavatar") || !!el.querySelector(".tb-botavatar svg, .tb-botavatar img"), animating: el.getAnimations().some(a => a.playState === "running") };
+    }));
+    if (window.__rowsOn) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+});
+const stopRows = async page => { await page.evaluate(() => { window.__rowsOn = false; }); return page.evaluate(() => window.__rows); };
+function assertNoFlash(frames, what) {
+  assert.ok(frames.length > 10, `${what}: frames were sampled (${frames.length})`);
+  const last = new Map();
+  frames.forEach((rows, i) => rows.forEach(row => {
+    assert.ok(row.cat, `${what}: frame ${i}: ${row.id} shows an empty avatar tile`);
+    assert.ok(row.opacity > 0.99, `${what}: frame ${i}: ${row.id} fades (opacity ${row.opacity})`);
+    assert.ok(row.scale > 0.99, `${what}: frame ${i}: ${row.id} shrinks (scale ${row.scale.toFixed(2)})`);
+    const before = last.get(row.id);
+    // A row that is not animated holds still: a step of more than a few px between two frames is a jump.
+    if (before && !row.animating && !before.animating) assert.ok(Math.abs(row.y - before.y) <= 2, `${what}: frame ${i}: ${row.id} jumps ${(row.y - before.y).toFixed(1)} px with no animation`);
+    last.set(row.id, row);
+  }));
+}
+
+await check("a drop does not flash: rows keep their size, opacity and cat, and the rows that move glide (pin, unpin)", async () => {
+  const { page, context } = await open();
+  await pinBy(page, "Cat 05");
+  await pinBy(page, "Cat 07");
+  // Pin a row: it becomes a pinned row, a new element.
+  const from = await centre(rowFor(page, "Cat 02"));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x, from.y - 30, { steps: 4 });
+  await until(() => dropZoneVisible(page), "the drop zone");
+  const zone = await centre(page.locator(".pin-frame"));
+  await page.mouse.move(zone.x, zone.y, { steps: 8 });
+  await sleep(250);
+  await watchRows(page); await sleep(80); await page.mouse.up(); await sleep(600);
+  assertNoFlash(await stopRows(page), "pin");
+  await settled(page);
+  assert.deepEqual(await pinnedNames(page), ["Cat 05", "Cat 07", "Cat 02"]);
+  // Unpin the first pinned row: it becomes a list row, and the pinned rows under it close the gap.
+  const tile = await centre(tileFor(page, "Cat 05"));
+  const below = await centre(rowFor(page, "Cat 04"));
+  await dragTo(page, tile, { x: below.x, y: below.y + 10 }, { hold: true });
+  await sleep(250);
+  await watchRows(page); await sleep(80); await page.mouse.up(); await sleep(600);
+  const frames = await stopRows(page);
+  assertNoFlash(frames, "unpin");
+  // The pinned row under the unpinned one glides up: it passes through places between its old and new slot.
+  const ys = frames.map(rows => rows.find(row => row.id === "dm_07")?.y).filter(y => y !== undefined);
+  const [start, end] = [ys[0], ys.at(-1)];
+  assert.ok(start - end > 20, `unpin: the pinned row under the unpinned one moves up (${start} -> ${end})`);
+  assert.ok(ys.some(y => y < start - 2 && y > end + 2), `unpin: the pinned row glides, not jumps (${ys.map(y => y.toFixed(0)).join(" ")})`);
+  assert.deepEqual(await pinnedNames(page), ["Cat 07", "Cat 02"]);
   await context.close();
 });
 

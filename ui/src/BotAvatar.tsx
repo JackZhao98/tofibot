@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mountCat, type AvatarConfig, type CatAvatar } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig, subscribeBotAvatar } from "./avatarStore";
 import { useBotGround } from "./useBotGround";
@@ -26,12 +26,16 @@ function whenNearViewport(element: Element, callback: () => void) {
   nearObserver.observe(element);
   return () => { nearCallbacks.delete(element); nearObserver?.unobserve(element); };
 }
+/** Bots whose cat was drawn on this page. A row that is built again (a drop moves it between the pinned rows and the list)
+ *  draws its cat before it is painted, so the tile is never shown empty. */
+const drawn = new Set<string>();
 
 export function BotAvatar({ id, mini = false, motion, config, still = false, bare = false, plain = false }: { id: string; /** The cat in its V2 box with no tile: the working cats by the composer, until PR 4.1 removes them. */ plain?: boolean; /** Only the cat, with no tile: the caller (the kit BotAvatar) draws the ground tile. */ bare?: boolean; mini?: boolean; motion?: AvatarMotion; config?: AvatarConfig; /** Awake, drawn once: no life layer, no motion director (group avatars). */ still?: boolean }) {
   const host = useRef<HTMLSpanElement | null>(null);
   const controller = useRef<CatAvatar | null>(null);
     const mountedAppearance = useRef<AvatarConfig | null>(null);
-  const [near, setNear] = useState(!mini);
+  // Only the kit avatar (bare: sidebar rows and the like) skips the wait; message heads in a long group stay lazy.
+  const [near, setNear] = useState(() => !mini || (bare && drawn.has(id)));
   const [storedConfig, setStoredConfig] = useState<AvatarConfig>(() => getBotAvatarConfig(id));
   const appearance = config ?? storedConfig;
   const ground = useBotGround(id) ?? "tomato";
@@ -44,8 +48,10 @@ export function BotAvatar({ id, mini = false, motion, config, still = false, bar
     if (!mini || near || !host.current) return;
     return whenNearViewport(host.current, () => setNear(true));
   }, [mini, near]);
-  useEffect(() => {
+  // Drawn before the paint: a cat drawn after it shows an empty tile for a frame.
+  useLayoutEffect(() => {
     if (!host.current || !near) return;
+    drawn.add(id);
     const cat = mountCat(host.current, { ...appearance, initialState: effectiveMotion === "sleeping" && !still ? "asleep" : "awake", life: false });
     mountedAppearance.current = appearance;
     controller.current = cat;
