@@ -71,8 +71,8 @@
 .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); flex-direction: row; gap: 0; padding: 0; min-height: var(--cat); border-radius: 50%; }
 @container (min-width: 560px) { .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); } }
 .tb-chathead.is-bare.is-away .tb-chathead-cat { pointer-events: none; }
-.tb-chathead-halo { position: absolute; left: 50%; top: 50%; width: calc(var(--cat) * 1.6); height: calc(var(--cat) * 1.6); margin: calc(var(--cat) * -0.8) 0 0 calc(var(--cat) * -0.8); z-index: -1; pointer-events: none; background: none; box-shadow: none; border: 0;
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+.tb-chathead-halo { --halo-blur: calc(var(--pbt-blur-1) * 1.5); position: absolute; left: 50%; top: 50%; width: calc(var(--cat) * 1.6); height: calc(var(--cat) * 1.6); margin: calc(var(--cat) * -0.8) 0 0 calc(var(--cat) * -0.8); z-index: -1; pointer-events: none; background: none; box-shadow: none; border: 0;
+  -webkit-backdrop-filter: blur(var(--halo-blur)); backdrop-filter: blur(var(--halo-blur));
   /* Pure blur: a radial fade (full to 35%, nothing at the edge) intersected with the half below the cat's centre line. No tint, no edge. */
   -webkit-mask-image: radial-gradient(circle closest-side, #000 35%, transparent 100%), linear-gradient(to bottom, transparent 50%, #000 50%); -webkit-mask-composite: source-in;
   mask-image: radial-gradient(circle closest-side, #000 35%, transparent 100%), linear-gradient(to bottom, transparent 50%, #000 50%); mask-composite: intersect;
