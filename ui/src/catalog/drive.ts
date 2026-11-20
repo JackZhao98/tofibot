@@ -130,3 +130,11 @@ export async function openSettings(step: Drive) {
   await step.gone('.detail-pane [aria-busy="true"]');
   await step.wait(300);
 }
+
+/** Opens the Bot settings cover from the header cat. On the wide layout the cat opens the Bot card first and the card's "Advanced settings"
+ * link opens the cover; on a phone the cat opens the cover itself. */
+export async function openBotSettings(step: Drive) {
+  await step.click(".chat-identity");
+  const next = await step.find(".bot-card-advanced, .cover-window .bot-settings");
+  if (next.matches(".bot-card-advanced")) await step.click(".bot-card-advanced");
+}

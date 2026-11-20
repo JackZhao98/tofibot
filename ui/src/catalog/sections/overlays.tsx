@@ -1,6 +1,6 @@
 // Dialogs, menus, hints, popovers and list boxes. A dialog that takes props is rendered on its own (overlay state); the
 // menus and popovers that live inside the workspace are opened in the real App (app state).
-import { openSettings } from "../drive";
+import { openBotSettings, openSettings } from "../drive";
 import { useState, type ReactNode } from "react";
 import { DeleteConversationDialog, type DeleteTarget } from "../../DeleteConversationDialog";
 import { ReassignPrimaryDialog } from "../../ReassignPrimaryDialog";
@@ -175,25 +175,25 @@ export const popovers: CatalogSection = {
     { id: "sidebar-expanded", kind: "app", label: "Sidebar: expanded", note: "clamp(480px, 50vw, 760px); the chat keeps at least 480px", app: DM, widths: ["desktop"], probe: ".sidebar-pane",
       drive: async step => { await step.click(".header-more > button"); await step.find(".more-menu button"); await step.click([...document.querySelectorAll<HTMLElement>(".more-menu button")].find(item => item.textContent === "Tasks")!); await step.find(".sidebar-pane .sidebar-shell"); await step.click(".sidebar-shell-expand"); await step.wait(800); } },
     { id: "cover-bot-settings", kind: "app", label: "Cover: Bot settings", note: "one page, section list on the left (a list that pushes the page on a phone); Identity first; Escape closes", app: DM, probe: ".cover-window", keyboard: { close: "Escape" },
-      drive: async step => { await step.click(".chat-identity"); await step.find(".cover-window .bot-settings"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.find(".cover-window .bot-settings"); await step.wait(700); } },
     { id: "cover-bot-settings-role", kind: "app", label: "Cover: Bot settings, Role", note: "rows=10 with a character count", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='role']"); await step.find(".bs-section[data-section='role'] textarea"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='role']"); await step.find(".bs-section[data-section='role'] textarea"); await step.wait(700); } },
     { id: "cover-bot-settings-model", kind: "app", label: "Cover: Bot settings, Model", note: "not collapsed; the line under it says what the Bot runs on now", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='model']"); await step.find(".bs-section[data-section='model'] .model-fields"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='model']"); await step.find(".bs-section[data-section='model'] .model-fields"); await step.wait(700); } },
     { id: "cover-bot-settings-tools", kind: "app", label: "Cover: Bot settings, Tools", note: "Connections (switch per Bot, status, a paused one disabled), Skills, Web, Computer, Built in, this Bot's allowances; saves on its own, never in the dirty bar", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-conn"); await step.find(".bs-section[data-section='tools'] .bot-skill-row"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-conn"); await step.find(".bs-section[data-section='tools'] .bot-skill-row"); await step.wait(700); } },
     { id: "cover-bot-settings-tools-no-connections", kind: "app", label: "Cover: Bot settings, Tools, no connections yet", note: "one line and a link to Settings; the rest of the page is unchanged", app: { ...DM, connections: "none" }, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-empty"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-empty"); await step.wait(700); } },
     { id: "cover-bot-settings-tools-no-computer", kind: "app", label: "Cover: Bot settings, Tools, no computer", note: "Computer states it has none and where to add one", app: { ...DM, computer: "none" }, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-group[data-group='computer']"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='tools']"); await step.find(".bs-section[data-section='tools'] .bt-group[data-group='computer']"); await step.wait(700); } },
     { id: "cover-bot-settings-secrets", kind: "app", label: "Cover: Bot settings, Secrets", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='secrets']"); await step.find(".bs-section[data-section='secrets'] .bot-secret-row"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='secrets']"); await step.find(".bs-section[data-section='secrets'] .bot-secret-row"); await step.wait(700); } },
     { id: "cover-bot-settings-advanced", kind: "app", label: "Cover: Bot settings, Advanced", note: "the system prompt preview is collapsed; exports and Delete Bot", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.click(".bs-nav-item[data-section='advanced']"); await step.find(".bs-section[data-section='advanced'] .bot-inspector"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-section='advanced']"); await step.find(".bs-section[data-section='advanced'] .bot-inspector"); await step.wait(700); } },
     { id: "cover-bot-settings-dirty", kind: "app", label: "Cover: Bot settings, unsaved changes", note: "the bar slides up from the bottom edge; closing now asks first", app: DM, probe: ".cover-window",
-      drive: async step => { await step.click(".chat-identity"); await step.type(".bs-section[data-section='identity'] input", "Mochi Prime"); await step.find(".cover-dirty-bar[data-open]"); await step.wait(500); } },
+      drive: async step => { await openBotSettings(step); await step.type(".bs-section[data-section='identity'] input", "Mochi Prime"); await step.find(".cover-dirty-bar[data-open]"); await step.wait(500); } },
     { id: "cover-bot-settings-leave", kind: "app", label: "Cover: Bot settings, leave question", note: "Escape with unsaved changes asks: keep editing or discard", app: DM, probe: ".cover-leave-dialog",
-      drive: async step => { await step.click(".chat-identity"); await step.type(".bs-section[data-section='identity'] input", "Mochi Prime"); await step.find(".cover-dirty-bar[data-open]"); await step.click(".cover-close"); await step.find(".cover-leave-dialog"); await step.wait(500); } },
+      drive: async step => { await openBotSettings(step); await step.type(".bs-section[data-section='identity'] input", "Mochi Prime"); await step.find(".cover-dirty-bar[data-open]"); await step.click(".cover-close"); await step.find(".cover-leave-dialog"); await step.wait(500); } },
     { id: "cover-group-settings", kind: "app", label: "Cover: Group settings", note: "name, members, the group's memory, Delete group; the roster itself is the Members widget", app: GROUP, probe: ".cover-window", keyboard: { close: "Escape" },
       drive: async step => { await step.click(".chat-identity"); const first = await step.find(".mw-gear, .cover-window .group-settings"); if (first.matches(".mw-gear")) await step.click(first); await step.find(".cover-window .group-settings"); await step.wait(700); } },
     { id: "widget-members", kind: "app", label: "Widget: Members (≥1100 px)", note: "read-only roster with what each member is working on; the gear opens Group settings", app: { ...GROUP, tasks: true }, widths: ["desktop"], probe: ".context-card",
