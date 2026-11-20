@@ -117,7 +117,7 @@ export type RowBind = {
   onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => void;
 } & Record<string, unknown>;
 type Zone = "dock" | "list";
-type Flight = { rect: DOMRect; kind: "lift" | "cross" | "slide"; at: number; focus?: boolean };
+type Flight = { rect: DOMRect; kind: "lift" | "slide"; at: number; focus?: boolean };
 
 // The list is drawn plain until this chunk arrives, then its rows are made again: the row that had focus is found again by this.
 let heldFocus = (typeof document !== "undefined" && document.activeElement?.closest?.("[data-sidebar-flip]")?.getAttribute("data-sidebar-flip")) || null;
@@ -159,13 +159,16 @@ coalesceMoves(RowMouseSensor);
 coalesceMoves(RowTouchSensor);
 
 /** Viewport tops of the list's visible children: what the eye sees before the layout changes under it. */
-function flowTops(scroller: HTMLElement, skip: Array<Element | null>) {
+function flowTops(scroller: HTMLElement, skip: Array<Element | null>, inside: Element | null = null, reach = 0) {
   const box = scroller.getBoundingClientRect();
   const tops = new Map<HTMLElement, number>();
-  for (const child of Array.from(scroller.children) as HTMLElement[]) {
+  // The pinned rows are inside the pinned area, which is one child of the list: they are measured one by one when asked.
+  const pinnedRows = inside ? Array.from(inside.querySelectorAll<HTMLElement>("[data-dnd-id]")) : [];
+  for (const child of [...Array.from(scroller.children) as HTMLElement[], ...pinnedRows]) {
     if (skip.includes(child)) continue;
     const r = child.getBoundingClientRect();
-    if (r.height > 0 && r.bottom > box.top && r.top < box.bottom) tops.set(child, r.top);
+    // reach adds screens above and below: a row that the change brings into view glides in with the rest.
+    if (r.height > 0 && r.bottom > box.top - reach * box.height && r.top < box.bottom + reach * box.height) tops.set(child, r.top);
   }
   return tops;
 }
@@ -189,11 +192,10 @@ function land(el: HTMLElement, flight: Flight) {
   }
   el.classList.add("is-dnd-landing");
   const resting = getComputedStyle(el).backgroundColor;
-  const animation = el.animate(flight.kind === "lift"
-    ? [{ transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "var(--shadow)", backgroundColor: "var(--surface)" }, { transform: "none", boxShadow: "0 0 0 transparent", backgroundColor: resting }]
-    // The row became a pinned row (or the reverse): a new element, so it flies out of the lifted row's place.
-    : [{ transform: `translate(${dx}px,${dy}px) scale(.6)`, opacity: .55 }, { transform: "none", opacity: 1 }],
-  { duration: MOTION.base, easing: EASE.settle });
+  // A pinned row and a list row are the same size, so a row that changed group (a new element) lands like one that did not:
+  // from the lifted pose to its slot, at full size and opacity.
+  const animation = el.animate([{ transform: `translate(${dx}px,${dy}px) scale(${LIFT})`, boxShadow: "var(--shadow)", backgroundColor: "var(--surface)" }, { transform: "none", boxShadow: "0 0 0 transparent", backgroundColor: resting }],
+    { duration: MOTION.base, easing: EASE.settle });
   const landed = () => el.classList.remove("is-dnd-landing");
   animation.addEventListener("finish", landed);
   animation.addEventListener("cancel", landed);
@@ -393,7 +395,8 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
     swallowUntil.current = performance.now() + (current.touch ? 400 : 60);
     const el = nodeOf(list, id);
     const rect = el?.getBoundingClientRect();
-    const seen = flowTops(list, [el, zone]);
+    // The pinned rows glide too: an unpin closes the gap the row leaves.
+    const seen = flowTops(list, [el, zone], zone, 1);
     // Where the pointer is is read while the pinned area is still open.
     const where = aim(pointer.current.x, pointer.current.y, source);
     edges.current = null;
@@ -416,7 +419,7 @@ export function SidebarSortable({ options, children }: { options: SidebarDndOpti
       }
     }
     // A change flies the element into its new slot; no change flies it back to the old one.
-    if (rect) flights.set(id, { rect, kind: next && kind !== "move" ? "cross" : "lift", at: performance.now() });
+    if (rect) flights.set(id, { rect, kind: "lift", at: performance.now() });
     if (next) {
       const into = kind === "unpin" ? next.list : next.pinned;
       live.current.onAnnounce({ kind, id, pos: into.indexOf(id) + 1, total: into.length });
