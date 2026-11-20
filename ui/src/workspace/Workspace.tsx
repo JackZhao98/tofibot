@@ -99,7 +99,6 @@ import { adoptPreview, dropPreview, registerPreview } from "../attachmentImages"
 import { observeVisualViewport, visualViewportMetrics } from "../visualViewport";
 import type { Attachment, Bot, ComputerHealth, Config, Conversation, EventEnvelope, Memory, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary, WorkItem, WorkspaceEventEnvelope } from "../types";
 import { MOTION, EASE } from "../motion";
-import { CatMotion } from "../catMotion";
 import { useWidgetAutomation } from "../useWidgetAutomation";
 import { autoOpenWidget, closeAll, closeCover, closeSidebar, closeWidget, emptySurfaces, enterConversation, foldWidget, forgetWidgets, isEmpty, moveWidget, normalizeWidgetOrder, openCover, openPage, openSidebar, openWidget, stashWidgets, toggleSidebar, WIDGET_ORDER, toggleSidebarExpanded, toggleWidget, type CoverId, type SidebarId, type Surfaces, type WidgetId, type WidgetsByConversation } from "../surfaces";
 import { useSurfaceEscape } from "../useSurfaceEscape";
@@ -2456,7 +2455,7 @@ export function Workspace() {
   const settingsShown = displayedPage === "settings";
   const drawerShown = !columnMode && !settingsShown && displayedSidebar !== null;
   return (
-    <CatMotion><div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
+    <div inert={Boolean(deleteTarget || hidePrimaryTarget || (viewOnlyChat && (isDesktop || compactViewport))) || undefined} className={`workspace${keyboardViewportOpen ? " keyboard-viewport-open" : ""}`} style={viewportHeight ? { "--viewport-height": `${viewportHeight}px` } as React.CSSProperties : undefined}>
       {!settingsShown && <Suspense fallback={null}><UpdateBanner /></Suspense>}
       {workspaceErrorShown && indexInitialized.current && !proxyChallenged && <Suspense fallback={null}><WorkspaceToast onRetry={() => void refreshIndex()} /></Suspense>}
       {nativePanel.failure && <Suspense fallback={null}><WorkspaceToast key={nativePanel.failure} failure={nativePanel.failure} message={browserT(`browser.status.${nativePanel.failure}`)} /></Suspense>}
@@ -2489,7 +2488,7 @@ export function Workspace() {
       {hidePrimaryTarget && <Suspense fallback={null}><ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {viewOnlyChat && !columnMode && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
       <FilePreviewHost />
-    </div></CatMotion>
+    </div>
   );
 }
 const SNAPSHOT_CACHE_LIMIT = 50;

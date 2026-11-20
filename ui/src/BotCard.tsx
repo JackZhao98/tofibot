@@ -7,7 +7,7 @@ import { IconButton } from "./ds/IconButton/IconButton";
 import { Icon } from "./ds/Icon/Icon";
 import { useTranslation } from "./i18n";
 import { botCatState } from "./chat/botCatState";
-import { CARD_IN, CARD_OUT, CAT_TRAVEL } from "./catMotion";
+import { CARD_IN, CARD_OUT, CAT_TRAVEL, CatMotion, CatTravel } from "./catMotion";
 import { setPendingSection } from "./settings/pendingSection";
 import { closeWidget, openCover, type Surfaces } from "./surfaces";
 import type { Bot, Run, ToolActivity } from "./types";
@@ -65,7 +65,7 @@ export function BotCard({ bot, card, surf, save, leaving, focusN, conversationId
     { key: "memory", label: t("contextCard.title.memory"), value: String(card.memoryCount), onOpen: card.openMemory },
     { key: "tasks", label: t("botCard.scheduled_tasks"), value: String(card.taskCount), onOpen: card.openTasks },
   ];
-  return <div className="bot-card-wrap" data-flying={flying || undefined}>
+  return <CatMotion><div className="bot-card-wrap" data-flying={flying || undefined}>
     <m.div className={`bot-fold${moving ? " is-moving" : ""}`} initial={{ height: 0 }} animate={{ height: leaving ? 0 : "auto" }} transition={leaving ? CARD_OUT : CARD_IN}
       onAnimationStart={() => setMoving(true)} onAnimationComplete={() => setMoving(false)}>
       <div className="bot-fold-in"><Collapsible.Root open={open} onOpenChange={setOpen} asChild>
@@ -85,7 +85,7 @@ export function BotCard({ bot, card, surf, save, leaving, focusN, conversationId
       </Collapsible.Root></div>
     </m.div>
     {!leaving && <button ref={cat} type="button" className="bot-card-cat" aria-label={t("botCard.avatar", { name: bot.name })} onClick={() => settings("identity")}>
-      <m.span layoutId="bot-cat" className="tb-chathead-face tb-chathead-travel" transition={CAT_TRAVEL}><BotAvatar id={bot.id} name={bot.name} coat="paper" size={96} state={state} /></m.span>
+      <CatTravel className="tb-chathead-face tb-chathead-travel"><BotAvatar id={bot.id} name={bot.name} coat="paper" size={96} state={state} /></CatTravel>
     </button>}
-  </div>;
+  </div></CatMotion>;
 }
