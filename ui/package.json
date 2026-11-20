@@ -46,6 +46,7 @@
     "test:skin-contrast": "node scripts/test-skin-contrast.mjs",
     "test:skin-sensitivity": "node scripts/test-skin-sensitivity.mjs",
     "test:ds-boundary": "node scripts/test-ds-boundary.mjs",
+    "test:scroll-gutter": "node scripts/test-scroll-gutter.mjs",
     "test:selectors-alive": "node scripts/test-selectors-alive.mjs",
     "shot:v3-board": "node scripts/shot-v3-board.mjs",
     "test:design-icons": "node scripts/test-design-icons.mjs",

@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- the job table: name, what it is, how ci.yml runs it
-JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-css-layers ui-motion-tokens ui-skin-sync ui-skin-contrast ui-skin-palette ui-ds-boundary ui-selectors-alive ui-skin-sensitivity ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-desktop-pages ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
+JOBS="go-gofmt go-build go-vet go-test ui-typecheck ui-i18n ui-css-layers ui-motion-tokens ui-skin-sync ui-skin-contrast ui-skin-palette ui-ds-boundary ui-scroll-gutter ui-selectors-alive ui-skin-sensitivity ui-build ui-desktop-settings ui-layers ui-dialogs ui-overlays ui-desktop-drag ui-desktop-pages ui-shell-budget ui-catalog python playwright-mcp shell runner-root compose"
 if [ "$mode" = list ]; then echo "$JOBS" | tr ' ' '\n'; exit 0; fi
 
 export PLAYWRIGHT_MODULE="${PLAYWRIGHT_MODULE:-$HOME/.claude/skills/gstack/node_modules/playwright/index.mjs}"
@@ -147,6 +147,7 @@ job ui-skin-sync always npm_ui test:skin-sync
 job ui-skin-contrast always npm_ui test:skin-contrast
 job ui-skin-palette always npm_ui test:skin-palette
 job ui-ds-boundary always npm_ui test:ds-boundary
+job ui-scroll-gutter always npm_ui test:scroll-gutter
 # Scripts must not look for selectors that src/ no longer has (ci-local only: it reads ui/scripts).
 job ui-selectors-alive always npm_ui test:selectors-alive
 job ui-avatar-lib '^ui/src/lib/tofi-avatar/' npm_ui test:avatar-lib
@@ -211,7 +212,7 @@ job compose      "$CO"  compose_config
 if [ "$mode" = changed ] && [ -z "$failed" ] && [ -z "$only" ]; then
   for f in $(printf '%s\n' "$changed" | grep -E '^ui/scripts/test-[^/]+\.mjs$'); do
     name="test:$(basename "$f" .mjs | sed 's/^test-//')"
-    case "$name" in test:layers|test:dialogs|test:overlays|test:shell-budget|test:catalog|test:ds-boundary|test:selectors-alive|test:skin-sensitivity) continue ;; esac
+    case "$name" in test:layers|test:dialogs|test:overlays|test:shell-budget|test:catalog|test:ds-boundary|test:scroll-gutter|test:selectors-alive|test:skin-sensitivity) continue ;; esac
     in_list "ui-$name" "$skip" && { summary+=("skip  ui-$name (--skip)"); continue; }
     # test:conversation-route-browser needs its Go fixture running; ui-suites-all.sh starts and stops one.
     if [ "$name" = test:conversation-route-browser ]; then
