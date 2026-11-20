@@ -16,7 +16,7 @@
 .bot-fold { overflow: visible; }
 .bot-fold.is-moving { clip-path: inset(0 -24px); }
 .bot-fold-in { padding: 48px 0 var(--space-3); }
-.bot-card { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 56px var(--space-4) var(--space-3); box-sizing: border-box; border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--card-elevation); }
+.bot-card { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 56px var(--space-4) var(--space-3); box-sizing: border-box; border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
 .bot-card-bar { position: absolute; top: var(--space-2); left: var(--space-2); right: var(--space-2); display: flex; justify-content: space-between; pointer-events: none; }
 .bot-card-bar > * { pointer-events: auto; }
 .bot-card-cat { position: absolute; top: 0; left: calc(50% - 48px); z-index: 2; width: 96px; height: 96px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
@@ -31,7 +31,7 @@
 .bot-card :is(.bot-card-name, .bot-card-role)[aria-invalid="true"] { outline: var(--focus-width) solid var(--danger); }
 .bot-card-role::placeholder { color: var(--muted); }
 
-.bot-card-status { display: flex; align-items: center; justify-content: center; gap: var(--space-2); margin: var(--space-2) 0 0; font: var(--type-status); color: var(--text-process); }
+.bot-card-status { display: flex; align-items: center; justify-content: center; gap: var(--space-2); margin: var(--space-2) 0 0; font: var(--type-status); color: var(--ink-soft); }
 .bot-card-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--muted); }
 .bot-card-status[data-state="working"] .bot-card-dot, .bot-card-status[data-state="thinking"] .bot-card-dot { background: var(--lime-text); animation: tb-breath 2.4s var(--ease-inout) infinite; }
 .bot-card-status[data-state="waiting"] .bot-card-dot { background: var(--grape-text, var(--ink)); animation: tb-breath 2.4s var(--ease-inout) infinite; }
