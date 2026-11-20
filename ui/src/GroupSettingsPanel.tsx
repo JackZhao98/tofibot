@@ -167,7 +167,7 @@ export function GroupSettingsPanel({ conversation, bots, onSaved, onReload, onOp
           <div className="gs-members" role="group" aria-label={t("members.pick")}>
             {candidates.map(bot => <label key={bot.id} className="gs-member" data-selected={selectedIds.includes(bot.id) || undefined}>
               <input type="checkbox" checked={selectedIds.includes(bot.id)} disabled={busy || (!selectedIds.includes(bot.id) && selectedIds.length >= 8)} onChange={() => toggleMember(bot.id)} />
-              <span className="gs-member-avatar" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
+              <span className="gs-member-avatar tb-cat-only" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
               <span className="gs-member-name">{bot.name}</span>
               {bot.is_primary && <PrimaryBadge />}
             </label>)}

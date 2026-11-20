@@ -38,4 +38,18 @@
     border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--sunk));
   }
   :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):disabled { opacity: .45; box-shadow: none; }
+
+  /* Every view that scrolls reserves its scrollbar at all times, so the inside width never changes when a scrollbar comes or goes (owner
+     2026-11-19). Overlay scrollbars (macOS default) take no width and are unaffected. A new scroll container joins this list or carries
+     `.tb-scroll`; the xterm screen manages its own, the widget column and the collapsed rail draw no scrollbar, and horizontal-only strips
+     (the settings tab strip, the usage agent row) have no vertical gutter to hold. */
+  :where(
+    .tb-scroll, .message-scroll, .view-only-chat-body, .contact-section, .detail-pane, .computer-detail, .computer-output, .mention-menu,
+    .cover-body, .sidebar-layer, .bs-scroll, .bs-nav, .bot-style-pop, .gs-scroll, .gs-members, .new-group-dialog, .settings-page-body, .settings-leave-dialog,
+    .tb-settings-rail, .tb-dialog, .tb-menu, .tb-table-wrap, .sheet, .search-palette-list, .onb-body, .permission-coach, .plan-steps,
+    .handover-dialog, .mcp-oauth-dialog, .resource-restart-dialog, .env-config-body, .ag-pick, .fp-body, .fp-code, .fp-table,
+    .run-context-items, .run-context-part-text pre, .task-issue-technical pre, .task-activity pre, .tool-activity-details pre, .approval-payload pre,
+    .prompt-preview, .debug-tools pre, .usage-call-list, .context-card[data-card="usage"] .context-card-body, .sidebar-account-submenu,
+    .run-attempt-family pre, .scheduled-task-recovery .error-text, .desktop-page pre, .desktop-page .desktop-files, .catalog-nav
+  ) { scrollbar-gutter: stable; }
 }

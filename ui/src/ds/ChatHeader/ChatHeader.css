@@ -41,6 +41,8 @@
 .tb-chathead-face .tb-botavatar { background: transparent; border: 0; border-radius: 0; transition: width var(--m-base) var(--ease-out), height var(--m-base) var(--ease-out); }
 .tb-chathead-face .tb-botavatar-cat { width: 100%; height: 100%; transform-origin: 50% 90%; }
 .tb-chathead-face .tb-botavatar img { width: 100%; height: 100%; }
+/* The bare cat keeps its own colours: the kit dim (opacity .7 + desaturate) turns a white cat grey over the pane, so asleep is shown by the missing dot alone. */
+.tb-chathead-face .tb-botavatar.is-asleep { filter: none; opacity: 1; }
 .tb-chathead-face .tb-botavatar-dot { right: 0; bottom: 1px; width: 8px; height: 8px; }
 /* The header cat is the one place a Bot moves: thinking sways, working bobs, waiting for you leans in, an error stops
    still, asleep dims. The dot names the state for anyone who cannot see the motion. */
