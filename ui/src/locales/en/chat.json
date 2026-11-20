@@ -191,6 +191,23 @@
     "verifying": "Verifying Linux and Chrome",
     "restoring": "Restoring saved session"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}, Bot card",
+    "name": "Bot name",
+    "role": "One-line role",
+    "role_placeholder": "What this Bot does, in one line",
+    "avatar": "{{name}}: change the avatar in Bot settings",
+    "status_idle": "Idle",
+    "status_working": "Working",
+    "status_working_on": "Working on {{what}}",
+    "status_waiting": "Waiting for you",
+    "status_failed": "Last run failed",
+    "scheduled_tasks": "Scheduled tasks",
+    "menu_open": "Show computer, memory and tasks",
+    "menu_close": "Hide computer, memory and tasks",
+    "advanced": "Advanced settings"
+  },
   "contextCard": {
     "close": "Close {{title}}",
     "collapse": "Collapse {{title}}",

@@ -21,6 +21,10 @@ export interface ChatHeaderProps {
   atTop: boolean;
   /** A cover is open: the cat steps aside. */
   covered: boolean;
+  /** The Bot card is open in the widget column: the cat is there, and the header shows none. */
+  botCardOpen: boolean;
+  /** Tapping a Bot's cat (wide layout): the cat travels to the top of the widget column and the Bot card opens. */
+  openBotCard: () => void;
   toggleWidgetId: (id: WidgetId) => void;
   openCoverPanel: (id: CoverId) => void;
   botById: Map<string, Bot>;
@@ -42,13 +46,14 @@ export interface ChatHeaderProps {
   confirmDelete: (conversation: Conversation) => void;
 }
 
-export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode, atTop, covered, toggleWidgetId, openCoverPanel, botById, cats, computers, artifactsOn, setArtifactsMode, toggleSidebarId, headerMenuTriggerRef, headerMenuOpen, setHeaderMenuOpen, desktopBot, openTerminalSurface, openSidebarId, openWidgetId, copyConversationLink, confirmDelete }: ChatHeaderProps) {
+export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode, atTop, covered, botCardOpen, openBotCard, toggleWidgetId, openCoverPanel, botById, cats, computers, artifactsOn, setArtifactsMode, toggleSidebarId, headerMenuTriggerRef, headerMenuOpen, setHeaderMenuOpen, desktopBot, openTerminalSurface, openSidebarId, openWidgetId, copyConversationLink, confirmDelete }: ChatHeaderProps) {
   const [menus, setMenus] = useState<HeaderMenus | null>(null);
   useEffect(() => { void import("./HeaderMenus").then(setMenus); }, []);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const sourcesRef = useRef<HTMLButtonElement | null>(null);
   const ids = active.kind === "group" ? active.bot_ids : [active.bot_id ?? active.id];
-  const position: ChatHeaderPosition = covered ? "aside" : atTop ? "top" : "scrolled";
+  const bare = active.kind === "dm";
+  const position: ChatHeaderPosition = bare ? "scrolled" : covered ? "aside" : atTop ? "top" : "scrolled";
   const any = (key: "pressed" | "on" | "driven") => computers.some(entry => entry[key]);
   const only = computers.length === 1 ? computers[0] : undefined;
   const artifacts = <IconButton icon="folder" label={t("header.open_artifacts")} filled={artifactsOn} aria-pressed={artifactsOn} onClick={() => { if (columnMode) toggleWidgetId("artifacts"); else { setArtifactsMode("artifacts-group"); openCoverPanel("artifacts"); } }} />;
@@ -66,15 +71,22 @@ export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode
         copyLink={() => void copyConversationLink(active)} settings={() => openCoverPanel(active.kind === "dm" ? "bot-settings" : "group-settings")} remove={() => confirmDelete(active)} />}
     </div>
   </>;
+  // A Bot's header is one big cat. The cat is the one element that travels: it carries the shared layout id, and it is simply not here while
+  // the Bot card has it in the widget column (the card's cat takes over from this one's last box, and back).
+  const away = bare && columnMode && botCardOpen;
+  const catFor = (id: string) => <BotAvatar key={id} id={id} name={botById.get(id)?.name ?? active.name} coat="paper" size="var(--cat)" state={menus?.botCatState(id, active.id, cats.runs, cats.activities, cats.asleep(id), cats.asked)} />;
+  const faces = bare ? (away ? [] : [menus ? <menus.CatTravel key="cat" id={active.id} transition={menus.CAT_TRAVEL_OUT} className="tb-chathead-travel">{catFor(ids[0])}</menus.CatTravel> : <span key="cat" className="tb-chathead-travel">{catFor(ids[0])}</span>]) : ids.map(catFor);
   return <KitChatHeader
+    bare={bare}
+    away={away}
     headerRef={chatHeaderRef}
     className="chat-header"
     position={position}
     title={active.name}
     subtitle={active.kind === "group" ? t("header.member_count", { count: active.bot_ids.length }) : undefined}
-    avatars={ids.map(id => <BotAvatar key={id} id={id} name={botById.get(id)?.name ?? active.name} coat="paper" size="var(--cat)" state={menus?.botCatState(id, active.id, cats.runs, cats.activities, cats.asleep(id), cats.asked)} />)}
-    onOpen={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : openCoverPanel("bot-settings")}
-    openLabel={active.kind === "group" ? t("header.open_members") : t("header.bot_settings")}
+    avatars={faces}
+    onOpen={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : columnMode ? openBotCard() : openCoverPanel("bot-settings")}
+    openLabel={active.kind === "group" ? t("header.open_members") : botById.get(ids[0])?.name ?? active.name}
     menu={<IconButton icon="arrow-left" label={t("route.back_to_list")} className="back-button" onClick={() => setMobileList(true)} />}
     menuMode="narrow"
     drag={<span className="chat-header-drag" aria-hidden="true" />}

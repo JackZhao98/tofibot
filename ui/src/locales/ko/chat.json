@@ -190,6 +190,23 @@
     "verifying": "Linux 및 Chrome 확인 중",
     "restoring": "저장된 세션 복원 중"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}, Bot 카드",
+    "name": "Bot 이름",
+    "role": "한 줄 역할",
+    "role_placeholder": "이 Bot이 하는 일을 한 줄로",
+    "avatar": "{{name}}: Bot 설정에서 아바타 변경",
+    "status_idle": "대기 중",
+    "status_working": "작업 중",
+    "status_working_on": "{{what}} 작업 중",
+    "status_waiting": "확인 대기 중",
+    "status_failed": "마지막 실행 실패",
+    "scheduled_tasks": "예약된 작업",
+    "menu_open": "컴퓨터, 메모리, 작업 보기",
+    "menu_close": "컴퓨터, 메모리, 작업 숨기기",
+    "advanced": "고급 설정"
+  },
   "contextCard": {
     "close": "{{title}} 닫기",
     "collapse": "{{title}} 접기",

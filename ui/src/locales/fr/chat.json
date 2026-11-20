@@ -192,6 +192,23 @@
     "verifying": "Vérification de Linux et Chrome",
     "restoring": "Restauration de la session enregistrée"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}, carte du Bot",
+    "name": "Nom du Bot",
+    "role": "Rôle en une ligne",
+    "role_placeholder": "Ce que fait ce Bot, en une ligne",
+    "avatar": "{{name}} : changer l’avatar dans les réglages du Bot",
+    "status_idle": "Disponible",
+    "status_working": "Au travail",
+    "status_working_on": "Travaille sur {{what}}",
+    "status_waiting": "Attend votre réponse",
+    "status_failed": "Dernière exécution échouée",
+    "scheduled_tasks": "Tâches planifiées",
+    "menu_open": "Afficher l’ordinateur, la mémoire et les tâches",
+    "menu_close": "Masquer l’ordinateur, la mémoire et les tâches",
+    "advanced": "Réglages avancés"
+  },
   "contextCard": {
     "close": "Fermer {{title}}",
     "collapse": "Replier {{title}}",

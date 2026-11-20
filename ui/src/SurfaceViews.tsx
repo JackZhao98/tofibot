@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "./api";
 import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, UsageWidget, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { BotCard, type BotCardCtx } from "./BotCard";
 import { GroupSettingsPanel } from "./GroupSettingsPanel";
 import { MembersWidget } from "./MembersWidget";
 import { NewGroupDialog } from "./NewGroupDialog";
@@ -28,6 +29,8 @@ const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ def
 export type SurfaceCtx = {
   active?: Conversation; activeBot?: Bot; desktopBot?: Bot; bots: Bot[]; conversations: Conversation[]; botById: Map<string, Bot>;
   memoriesReady?: boolean; memoriesError?: string; retryMemories?: () => void;
+  /** The Bot card (widget `bot`): live state for its status line and the rows behind its menu. */
+  botCard?: BotCardCtx;
   memories: Memory[]; setMemories: (update: (current: Memory[]) => Memory[]) => void;
   terminalBotId: string | null; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
   refreshToken: number; roster?: ReadonlyMap<string, TaskCardModel[]>; lastMessageId?: string;
@@ -81,9 +84,10 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
 }
 
 /** One widget's content (inside its card). */
-export function WidgetView({ id, ctx }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx }) {
+export function WidgetView({ id, ctx, leaving = false, focusN = 0 }: { id: Exclude<WidgetId, "computer">; ctx: SurfaceCtx; leaving?: boolean; focusN?: number }) {
   const { t } = useTranslation("chat");
   const { active } = ctx;
+  if (id === "bot") return active?.kind === "dm" && ctx.activeBot && ctx.botCard ? <BotCard bot={ctx.activeBot} card={ctx.botCard} surf={ctx.surf} save={ctx.updateBot} leaving={leaving} focusN={focusN} conversationId={active.id} /> : null;
   // Terminal and the read-only chat are cards like the others on a wide window (owner 2026-11-14): the card's header carries the title
   // and the close, so the views draw no close of their own and no glass.
   if (id === "terminal") {

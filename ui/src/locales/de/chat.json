@@ -191,6 +191,23 @@
     "verifying": "Linux und Chrome werden geprüft",
     "restoring": "Gespeicherte Sitzung wird wiederhergestellt"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}, Bot-Karte",
+    "name": "Bot-Name",
+    "role": "Rolle in einer Zeile",
+    "role_placeholder": "Was dieser Bot tut, in einer Zeile",
+    "avatar": "{{name}}: Avatar in den Bot-Einstellungen ändern",
+    "status_idle": "Bereit",
+    "status_working": "Arbeitet",
+    "status_working_on": "Arbeitet an {{what}}",
+    "status_waiting": "Wartet auf dich",
+    "status_failed": "Letzter Lauf fehlgeschlagen",
+    "scheduled_tasks": "Geplante Aufgaben",
+    "menu_open": "Computer, Gedächtnis und Aufgaben zeigen",
+    "menu_close": "Computer, Gedächtnis und Aufgaben ausblenden",
+    "advanced": "Erweiterte Einstellungen"
+  },
   "contextCard": {
     "close": "{{title}} schließen",
     "collapse": "{{title}} einklappen",

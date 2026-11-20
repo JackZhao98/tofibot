@@ -190,6 +190,23 @@
     "verifying": "Linux と Chrome を確認中",
     "restoring": "保存したセッションを復元中"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}、Bot カード",
+    "name": "Bot の名前",
+    "role": "ひとこと役割",
+    "role_placeholder": "この Bot の役割を一行で",
+    "avatar": "{{name}}：Bot の設定でアバターを変更",
+    "status_idle": "待機中",
+    "status_working": "作業中",
+    "status_working_on": "{{what}} を作業中",
+    "status_waiting": "確認待ち",
+    "status_failed": "前回の実行は失敗しました",
+    "scheduled_tasks": "スケジュール済みタスク",
+    "menu_open": "コンピュータ、メモリ、タスクを表示",
+    "menu_close": "コンピュータ、メモリ、タスクを隠す",
+    "advanced": "詳細設定"
+  },
   "contextCard": {
     "close": "{{title}}を閉じる",
     "collapse": "{{title}}を折りたたむ",

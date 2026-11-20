@@ -1,0 +1,51 @@
+/* The Bot card: the top widget of the column (PLAN section 11, 2026-11-19). The cat sits on the card's top edge, half over it; the fold under it
+   is what grows (Motion animates its height, 280 in / 180 out) and pushes the other widgets down. Loads with the surfaceViews chunk. */
+
+@layer legacy {
+/* The slot of the Bot card: no gap row of its own (the fold carries it), no rise, and an exit that Motion drives, not the legacy row collapse. */
+.workspace .widget-slot.bot-slot { display: block; padding-bottom: 0; animation: none; }
+.workspace .widget-slot.bot-slot[data-leaving] { opacity: 1; clip-path: none; transition: none; padding-bottom: 0; }
+
+/* While the cat flies in the column is one layer above the header, so the cat is not under the top blur band. (The column box already spans the
+   chat area: context-card.css.) */
+.workspace .detail-pane.widget-column:has(.bot-card-wrap[data-flying]) { z-index: calc(var(--z-chrome) + 1); }
+
+.bot-card-wrap { position: relative; }
+.bot-fold { overflow: visible; }
+.bot-fold.is-moving { clip-path: inset(0 -24px); }
+.bot-fold-in { padding: 48px 0 var(--space-3); }
+.bot-card { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 56px var(--space-4) var(--space-3); box-sizing: border-box; border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.bot-card-bar { position: absolute; top: var(--space-2); left: var(--space-2); right: var(--space-2); display: flex; justify-content: space-between; pointer-events: none; }
+.bot-card-bar > * { pointer-events: auto; }
+.bot-card-cat { position: absolute; top: 0; left: calc(50% - 48px); z-index: 2; width: 96px; height: 96px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.bot-card-cat:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+
+/* Name and role are fields that read as text until pointed at. */
+.bot-card :is(.bot-card-name, .bot-card-role) { display: block; width: 100%; min-width: 0; box-sizing: border-box; min-height: 0; margin: 0; border: 0; box-shadow: none; border-radius: var(--radius-sm); background: transparent; color: var(--ink); text-align: center; text-overflow: ellipsis; transition: background-color var(--m-quick) var(--ease-out); }
+.bot-card-name { padding: var(--space-1) var(--space-2); font: var(--type-title); }
+.bot-card-role { padding: var(--space-1) var(--space-2); font: var(--type-meta); color: var(--muted); }
+.bot-card :is(.bot-card-name, .bot-card-role):hover { background: var(--hover); }
+.bot-card :is(.bot-card-name, .bot-card-role):focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: calc(var(--focus-offset) - 2px); background: var(--sunk); box-shadow: none; }
+.bot-card :is(.bot-card-name, .bot-card-role)[aria-invalid="true"] { outline: var(--focus-width) solid var(--danger); }
+.bot-card-role::placeholder { color: var(--muted); }
+
+.bot-card-status { display: flex; align-items: center; justify-content: center; gap: var(--space-2); margin: var(--space-2) 0 0; font: var(--type-status); color: var(--ink-soft); }
+.bot-card-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--muted); }
+.bot-card-status[data-state="working"] .bot-card-dot, .bot-card-status[data-state="thinking"] .bot-card-dot { background: var(--lime-text); animation: tb-breath 2.4s var(--ease-inout) infinite; }
+.bot-card-status[data-state="waiting"] .bot-card-dot { background: var(--grape-text, var(--ink)); animation: tb-breath 2.4s var(--ease-inout) infinite; }
+.bot-card-status[data-state="error"] .bot-card-dot { background: var(--danger); }
+
+.bot-card-menu ul { margin: var(--space-3) 0 0; padding: 0; list-style: none; border-top: var(--border-1) solid var(--line); }
+.bot-card-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; min-height: 36px; padding: 0 var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink); font: var(--type-meta); text-align: left; transition: background-color var(--m-quick) var(--ease-out); }
+.bot-card-row:hover:not(:disabled) { background: var(--hover); }
+.bot-card-row:disabled { color: var(--muted); }
+.bot-card-value { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--muted); }
+.bot-card-advanced { align-self: flex-end; display: inline-flex; align-items: center; gap: 2px; margin-top: var(--space-3); padding: 2px var(--space-1); border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--muted); font: var(--type-meta); transition: color var(--m-quick) var(--ease-out); }
+.bot-card-advanced:hover { color: var(--ink); }
+:is(.bot-card-advanced, .bot-card-row):focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+@media (pointer: coarse) { .bot-card-row { min-height: 44px; } .bot-card-advanced { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) {
+  .bot-card :is(.bot-card-name, .bot-card-role), .bot-card-row, .bot-card-advanced { transition: none; }
+  .bot-card-status .bot-card-dot { animation: none; }
+}
+}
