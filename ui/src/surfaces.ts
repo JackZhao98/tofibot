@@ -10,7 +10,7 @@
  *
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
-export type WidgetId = "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
+export type WidgetId = "bot" | "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
 export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage";
 export type PageId = "settings";
 export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
@@ -19,7 +19,7 @@ export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approva
  * The default order, top to bottom. It never depends on which widget was opened first. It is also the stable order the column draws its
  * nodes in (moving a live video in the DOM would stop it); where a widget sits on screen is `Surfaces.order`, the person's own choice.
  */
-export const WIDGET_ORDER: readonly WidgetId[] = ["computer", "terminal", "members", "conversation", "artifacts", "usage"];
+export const WIDGET_ORDER: readonly WidgetId[] = ["bot", "computer", "terminal", "members", "conversation", "artifacts", "usage"];
 
 /** A saved order read back from storage: unknown ids and repeats are dropped, a widget the saved list lacks goes last in the default order. */
 export function normalizeWidgetOrder(raw: unknown): WidgetId[] {
@@ -28,8 +28,8 @@ export function normalizeWidgetOrder(raw: unknown): WidgetId[] {
   return [...kept, ...WIDGET_ORDER.filter(id => !kept.includes(id))];
 }
 
-/** `ids` laid out in `order`. */
-export const sortWidgets = (ids: readonly WidgetId[], order: readonly WidgetId[]): WidgetId[] => order.filter(id => ids.includes(id));
+/** `ids` laid out in `order`. The Bot card is always the top widget: it is not part of the person's order (it has no grip and no fold). */
+export const sortWidgets = (ids: readonly WidgetId[], order: readonly WidgetId[]): WidgetId[] => [...(ids.includes("bot") ? ["bot" as const] : []), ...order.filter(id => id !== "bot" && ids.includes(id))];
 
 export type Surfaces = {
   /** Open widgets, always in `order`. */
@@ -123,8 +123,8 @@ export function moveWidget(s: Surfaces, id: WidgetId, to: number): Surfaces {
  * overflow, so the person keeps as much open as fits.
  */
 export function spaceFoldTarget(s: Surfaces, o: { skip?: ReadonlySet<WidgetId>; overflow: boolean }): WidgetId | null {
-  if (s.widgets.length < 3) return null;
-  const candidates = s.widgets.filter(id => id !== "computer");
+  const candidates = s.widgets.filter(id => id !== "computer" && id !== "bot");
+  if (s.widgets.length < 3 || candidates.length < 2) return null;
   const next = [...candidates].reverse().find(id => !s.folded.includes(id) && !o.skip?.has(id));
   if (!next) return null;
   return candidates.some(id => s.folded.includes(id)) && !o.overflow ? null : next;

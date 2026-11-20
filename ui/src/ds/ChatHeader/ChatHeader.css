@@ -28,6 +28,7 @@
 .tb-chathead-cat:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 .tb-chathead-face { display: inline-flex; align-items: center; flex: none; }
 .tb-chathead-face-i { display: inline-flex; flex: none; }
+.tb-chathead-travel { display: inline-flex; }
 .tb-chathead-face-i + .tb-chathead-face-i { margin-left: calc(var(--cat) * -0.3); }
 /* The 更多 trigger and its menu anchor sit in the pill like the other buttons. */
 .tb-chathead-actions .header-more { display: contents; }
@@ -63,7 +64,21 @@
 .tb-chathead.is-aside .tb-chathead-cat { left: calc(10px + var(--chathead-inset, 0px)); transform: none; max-width: calc(100% - var(--chathead-inset, 0px) - var(--hr) - 24px); }
 .tb-chathead:not(.is-top) .tb-chathead-sub { display: none; }
 @container (max-width: 300px) { .tb-chathead:not(.is-top) .tb-chathead-name { display: none; } .tb-chathead:not(.is-top) .tb-chathead-cat { padding: 0 4px; } }
+/* A Bot's header (bare): one cat of radius 30, centred, no name. The pane's top blur band ends on the cat's centre line (ChatPane); the lower
+   half of the cat lies over the messages like a sticker. The halo is a disc of extra blur two radii across the cat's centre; its upper half sits
+   in the band, so only the lower half (the penalty arc) shows. It fades while the cat is in the widget column. */
+.tb-chathead.is-bare, .tb-chathead.is-bare.is-top, .tb-chathead.is-bare.is-aside { --cat: 60px; min-height: calc(max(8px, env(safe-area-inset-top)) + var(--cat) + 8px); align-items: flex-start; }
+.tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); flex-direction: row; gap: 0; padding: 0; min-height: var(--cat); border-radius: 50%; }
+@container (min-width: 560px) { .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); } }
+.tb-chathead.is-bare.is-away .tb-chathead-cat { pointer-events: none; }
+.tb-chathead-halo { position: absolute; left: 50%; top: 50%; width: calc(var(--cat) * 2); height: calc(var(--cat) * 2); margin: calc(var(--cat) * -1) 0 0 calc(var(--cat) * -1); z-index: -1; pointer-events: none; border-radius: 50%;
+  -webkit-backdrop-filter: blur(var(--pbt-blur-2)); backdrop-filter: blur(var(--pbt-blur-2));
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 55%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 55%, transparent 100%);
+  transition: opacity var(--m-quick) var(--ease-out); }
+.tb-chathead.is-away .tb-chathead-halo { opacity: 0; }
+@media (prefers-reduced-transparency: reduce) { .tb-chathead-halo { display: none; } }
 @media (prefers-reduced-motion: reduce) {
+  .tb-chathead-halo { transition: none; }
   .tb-chathead, .tb-chathead-cat, .tb-chathead-face .tb-botavatar { transition: none; }
   .tb-chathead-face .tb-botavatar:is(.is-working, .is-thinking, .is-waiting) :is(.tb-botavatar-cat, img, .tb-botavatar-dot) { animation: none; }
 }

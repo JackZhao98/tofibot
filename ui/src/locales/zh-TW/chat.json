@@ -190,6 +190,23 @@
     "verifying": "驗證 Linux 與 Chrome",
     "restoring": "正在恢復已儲存的工作階段"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}，Bot 卡片",
+    "name": "Bot 名稱",
+    "role": "一句話職能",
+    "role_placeholder": "用一句話說明這個 Bot 做什麼",
+    "avatar": "{{name}}：在 Bot 設定中更換頭像",
+    "status_idle": "閒置",
+    "status_working": "正在工作",
+    "status_working_on": "正在處理 {{what}}",
+    "status_waiting": "等你確認",
+    "status_failed": "上一次執行失敗",
+    "scheduled_tasks": "排程任務",
+    "menu_open": "顯示電腦、記憶和任務",
+    "menu_close": "收起電腦、記憶和任務",
+    "advanced": "進階設定"
+  },
   "contextCard": {
     "close": "關閉{{title}}",
     "collapse": "摺疊{{title}}",

@@ -24,6 +24,11 @@ export type ChatHeaderProps = {
   /** Draw the header's own blur band (a standalone header). The chat pane has its own band, so the product leaves it off. */
   blur?: boolean;
   className?: string;
+  /** A Bot's header: one big cat (radius 30), centred, with no name on screen. The top blur band ends on the cat's centre line; a half-circle halo of
+   *  extra blur sits round the cat below it. `position` does not apply. */
+  bare?: boolean;
+  /** Bare only: the cat has gone to the widget column; the halo fades and the button stands down. */
+  away?: boolean;
   /** The product hooks the window-drag strip and the height measurement on the root. */
   headerRef?: Ref<HTMLElement>;
   /** The first child of the root, behind everything: the macOS window-drag strip. */
@@ -33,13 +38,14 @@ export type ChatHeaderProps = {
 /** The top of a conversation, with no bar: the Bot's cat floats over progressive blur and moves with the view; one pill of
  *  actions sits on the right. The cat is the one place a Bot moves (thinking sways, working bobs, waiting leans in; an error
  *  stops still, asleep dims), and its dot names the state. */
-export function ChatHeader({ blur, position = "scrolled", title, subtitle, avatars, onOpen, openLabel, menu, menuMode = "always", actions, className, headerRef, drag }: ChatHeaderProps) {
-  return <header ref={headerRef} className={cx("tb-chathead", `is-${position}`, blur && "has-blur", !!menu && menuMode === "narrow" && "has-narrow-menu", className)}>
+export function ChatHeader({ blur, bare, away, position = "scrolled", title, subtitle, avatars, onOpen, openLabel, menu, menuMode = "always", actions, className, headerRef, drag }: ChatHeaderProps) {
+  return <header ref={headerRef} className={cx("tb-chathead", `is-${position}`, bare && "is-bare", away && "is-away", blur && "has-blur", !!menu && menuMode === "narrow" && "has-narrow-menu", className)}>
     {drag}
     {menu && <div className="tb-chathead-left">{menu}</div>}
-    <button type="button" className="tb-chathead-cat chat-identity" onClick={onOpen} aria-label={openLabel}>
+    <button type="button" className="tb-chathead-cat chat-identity" onClick={onOpen} aria-label={openLabel} tabIndex={away ? -1 : undefined} aria-hidden={away || undefined}>
+      {bare && <span className="tb-chathead-halo" aria-hidden="true" />}
       <span className="tb-chathead-face member-avatar-stack">{avatars.slice(0, 3).map((cat, index) => <span key={index} className="tb-chathead-face-i">{cat}</span>)}</span>
-      <span className="tb-chathead-name chat-name-pill">
+      <span className={cx("tb-chathead-name chat-name-pill", bare && "sr-only")}>
         <h1 className="tb-chathead-title">{title}</h1>
         {subtitle ? <span className="tb-chathead-sub">{subtitle}</span> : null}
       </span>

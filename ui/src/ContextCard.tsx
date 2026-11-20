@@ -10,7 +10,7 @@ import { SortableList, SortableStatus, useSortableItem } from "./SortableList";
 import { GripGlyph } from "./GripGlyph";
 import "./context-column.css";
 
-const TITLE_KEY = { computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
+const TITLE_KEY = { bot: "botCard.title", computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
 
 /**
  * One widget in the column inside the chat (docs/design/widgets-and-sidebar.md): title on the left; fold and close on
@@ -70,7 +70,9 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
   const { t } = useTranslation("chat");
   const { shown, leaving } = useLeaving(ids, WIDGET_ORDER, 220);
   const visual = sortWidgets(shown, order);
-  const live = visual.filter(id => !leaving.has(id));
+  // The Bot card has no grip and no fold and is always first: it takes no part in the order the person sets.
+  const live = visual.filter(id => !leaving.has(id) && id !== "bot");
+  const lead = ids.includes("bot") ? 1 : 0;
   const [announce, setAnnounce] = useState("");
   const spoke = useRef(0);
   const say = (id: string, index: number) => t("widgetOrder.moved", { title: t(TITLE_KEY[id as WidgetId]), position: index + 1, count: live.length });
@@ -83,13 +85,13 @@ export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClo
       setAnnounce(t(from === 0 ? "widgetOrder.at_top" : "widgetOrder.at_bottom", { title: t(TITLE_KEY[id]) }) + (spoke.current++ % 2 ? "\u200b" : ""));
       return;
     }
-    onMove(id, to);
+    onMove(id, to + lead);
     setAnnounce(say(id, to) + (spoke.current++ % 2 ? "\u200b" : ""));
   };
   if (!shown.length) return null;
-  return <SortableList items={live} onMove={(id, to) => onMove(id as WidgetId, to)} announce={say} instructions={t("widgetOrder.grip_hint")} onDragging={dragging}>
+  return <SortableList items={live} onMove={(id, to) => onMove(id as WidgetId, to + lead)} announce={say} instructions={t("widgetOrder.grip_hint")} onDragging={dragging}>
     <aside className={`detail-pane context-panel context-column widget-column visible${covered ? " is-covered" : ""}`} aria-label={t("detail.label")}>
-      {shown.map(id => { const node = render(id, leaving.has(id)); return node && <ContextCard key={id} id={id} order={visual.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} moveStep={delta => step(id, delta)} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
+      {shown.map(id => { const node = render(id, leaving.has(id)); if (node && id === "bot") return <div key={id} className="widget-slot bot-slot" data-slot="bot" data-leaving={leaving.has(id) || undefined} inert={leaving.has(id) || undefined} style={{ order: visual.indexOf(id) }}>{node}</div>; return node && <ContextCard key={id} id={id} order={visual.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} moveStep={delta => step(id, delta)} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
     </aside>
     <SortableStatus>{announce}</SortableStatus>
   </SortableList>;

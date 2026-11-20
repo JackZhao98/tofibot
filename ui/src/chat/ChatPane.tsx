@@ -185,7 +185,7 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
     <main className={`chat-pane ${!mobileList ? "mobile-chat" : ""}`} inert={modalPanelOpen || desktopExpanded || undefined}>
           {!active ? routeUnavailable ? <div className="conversation-empty" role="alert"><EmptyCat look={CATS.nori} pose="curious" size={72} name="route-unavailable" /><h2>{t("route.unavailable_title")}</h2><p>{t("route.unavailable_body")}</p><button className="secondary-button" onClick={() => setMobileList(true)}>{t("route.back_to_list")}</button></div> : onboardingState === "sheet" ? null : <Suspense fallback={null}><FirstRunHero onCreate={() => void createNewBot()} busy={newBotBusy} error={newBotError} /></Suspense> : <>
             <Ground />
-            <ProgressiveBlur edge="top" above height="calc(var(--chat-header-height, 64px) + 30px)" />
+            <ProgressiveBlur edge="top" above height={active.kind === "dm" ? "calc(max(8px, env(safe-area-inset-top)) + 30px)" : "calc(var(--chat-header-height, 64px) + 30px)"} />
             {header(atTop)}
             <RunStatusAnnouncement key={`run-status-${active.id}`} conversationId={active.id} runs={runs} botById={botById} ready={loadedId === active.id && !loadingMessages} taskAnnouncements={taskAnnouncements} />
             <div className="chat-body">

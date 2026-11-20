@@ -190,6 +190,23 @@
     "verifying": "验证 Linux 与 Chrome",
     "restoring": "正在恢复已保存的会话"
   },
+  "botCard": {
+    "title": "Bot",
+    "label": "{{name}}，Bot 卡片",
+    "name": "Bot 名称",
+    "role": "一句话职能",
+    "role_placeholder": "用一句话说明这个 Bot 做什么",
+    "avatar": "{{name}}：在 Bot 设置中更换头像",
+    "status_idle": "空闲",
+    "status_working": "正在工作",
+    "status_working_on": "正在处理 {{what}}",
+    "status_waiting": "等你确认",
+    "status_failed": "上一次运行失败",
+    "scheduled_tasks": "定时任务",
+    "menu_open": "显示电脑、记忆和任务",
+    "menu_close": "收起电脑、记忆和任务",
+    "advanced": "高级设置"
+  },
   "contextCard": {
     "close": "关闭{{title}}",
     "collapse": "折叠{{title}}",
