@@ -32,7 +32,7 @@ export function MembersWidget({ conversation, bots, tasksByBot, onOpen, onSettin
         const tasks = tasksByBot?.get(bot.id)?.slice(0, 3) ?? [];
         return <li key={bot.id} className="mw-member">
           <button type="button" className="mw-open" aria-label={t("members.open_dm", { name: bot.name })} data-hint={t("members.open_dm", { name: bot.name })} onClick={() => onOpen(bot.dm_conversation_id)}>
-            <span className="mw-avatar" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
+            <span className="mw-avatar tb-cat-only" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
             <span className="mw-name">{bot.name}</span>
             {bot.is_primary && <PrimaryBadge />}
           </button>

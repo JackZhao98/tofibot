@@ -10,6 +10,9 @@
 .tb-botavatar.is-error .tb-botavatar-dot { background: var(--danger); }
 .tb-botavatar.is-asleep { filter: saturate(.35); opacity: .7; }
 .avatar.tb-botavatar > .tofi-avatar { width: 82%; height: 82%; }
+/* Group chats show the cat alone (owner 2026-11-19): message heads and member avatars carry `tb-cat-only`, the group cards name their own heads; the tile is dropped. */
+.tb-cat-only .avatar.tb-botavatar, .question-message > .avatar.tb-botavatar, .approval-avatar .avatar.tb-botavatar, .plan-card-who .avatar.tb-botavatar, .mail-draft-identity .avatar.tb-botavatar { background: transparent; border-color: transparent; }
+.tb-cat-only .avatar.tb-botavatar > .tofi-avatar, .question-message > .avatar.tb-botavatar > .tofi-avatar, .approval-avatar .avatar.tb-botavatar > .tofi-avatar, .plan-card-who .avatar.tb-botavatar > .tofi-avatar, .mail-draft-identity .avatar.tb-botavatar > .tofi-avatar { width: 100%; height: 100%; }
 /* Display is a default, not a look: V2 rules that hide or reshape an avatar in its place (a working label's companion, the fourth head
    of a phone group header) keep winning from @layer legacy. */
 @layer legacy { .tb-botavatar { display: inline-grid; } .avatar.tb-botavatar > .tofi-avatar { display: block; } }

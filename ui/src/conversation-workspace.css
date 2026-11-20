@@ -99,7 +99,7 @@
 .view-only-chat-identity strong,.view-only-chat-participant strong{color:var(--ink);font:600 15px/1.3 var(--display)}
 .view-only-chat-participant{display:flex;align-items:center;gap:8px;min-width:0}
 .view-only-chat-avatars{flex-shrink:0}
-.view-only-chat-body{padding:24px clamp(16px,4vw,48px) 110px;scrollbar-gutter:stable}
+.view-only-chat-body{padding:24px clamp(16px,4vw,48px) 110px}
 .view-only-message-list{max-width:var(--v2-chat-width,760px)}
 .view-only-message-copy small{color:var(--muted);font:11px/1.4 var(--mono)}
 .view-only-message:not(.is-user) .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--bubble-radius);background:var(--bubble-bot);color:var(--bubble-bot-ink);}

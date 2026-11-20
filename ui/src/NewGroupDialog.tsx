@@ -44,7 +44,7 @@ export function NewGroupDialog({ bots, onCreate }: { bots: Bot[]; onCreate: (nam
           <div className="gs-members" role="group" aria-label={t("members.pick")}>
             {bots.map(bot => <label key={bot.id} className="gs-member" data-selected={members.includes(bot.id) || undefined}>
               <input type="checkbox" checked={members.includes(bot.id)} disabled={saving || (!members.includes(bot.id) && members.length >= 8)} onChange={() => toggle(bot.id)} />
-              <span className="gs-member-avatar" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
+              <span className="gs-member-avatar tb-cat-only" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
               <span className="gs-member-name">{bot.name}</span>
               {bot.is_primary && <PrimaryBadge />}
             </label>)}

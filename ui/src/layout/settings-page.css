@@ -60,7 +60,7 @@ html[data-desktop="darwin"][data-fullscreen="true"] .settings-bar { padding-left
 /* Parts that pages place. */
 /* The body of a settings page, also the Mac settings pages': one scroll container, the column at most 760 wide (the shell's own
    rule above), 16px at the edges on a phone. */
-.settings-page-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px 28px 40px;scrollbar-gutter:stable;color:var(--ink);container-type:inline-size}
+.settings-page-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:24px 28px 40px;color:var(--ink);container-type:inline-size}
 .settings-stack{display:grid;gap:24px;align-content:start;min-width:0}
 /* A block a link can scroll to (SectionAnchor) is a plain grid item: it must not widen its track. */
 .settings-anchor{min-width:0}

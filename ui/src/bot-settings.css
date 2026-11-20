@@ -11,7 +11,8 @@
 .bs-nav { display:flex; flex-direction:column; gap:6px; min-width:0; min-height:0; padding:18px 12px 18px; overflow-y:auto; background:var(--surface-2); }
 .bs-who { display:flex; align-items:center; gap:12px; padding:2px 8px 14px; }
 .bs-who-avatar { display:grid; flex:none; width:44px; height:44px; }
-.bs-who-avatar > .avatar, .bs-who-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+.bs-who-avatar > .avatar { display:grid; width:100%; height:100%; }
+.bs-avatar > .avatar > .tofi-avatar, .bs-who-avatar > .avatar > .tofi-avatar { transform:translate(var(--cat-dx,0),var(--cat-dy,0)); }
 .bs-who-copy { display:grid; gap:2px; min-width:0; }
 .bs-who-copy strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 15px/1.3 var(--display); }
 .bs-who-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font:12px/1.4 var(--body); }
@@ -54,7 +55,7 @@
 .bs-row-copy small { color:var(--muted); font:13px/1.5 var(--body); }
 .bs-row .primary-badge { border:0; background:var(--surface); }
 .bs-avatar { display:grid; flex:none; width:72px; height:72px; }
-.bs-avatar > .avatar, .bs-avatar > .avatar > .tofi-avatar { display:block; width:100%; height:100%; }
+.bs-avatar > .avatar { display:grid; width:100%; height:100%; }
 
 .bs-field { display:grid; gap:8px; margin:0; }
 .bs-field > span:not(.sr-only), .bot-settings .model-fields label { color:var(--ink-soft); font:600 12px/1.3 var(--body); }

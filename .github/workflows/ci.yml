@@ -64,6 +64,7 @@ jobs:
       - run: npm --prefix ui run test:skin-palette
       # The kit boundary: other sheets only place .tb-* elements; no new :root token, web fork, legacy alias or bridge name.
       - run: npm --prefix ui run test:ds-boundary
+      - run: npm --prefix ui run test:scroll-gutter
       - run: npm --prefix ui run test:avatar-lib
       - run: npm --prefix ui run build
       - run: npm --prefix ui run test:lazy-css

@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
+import { catCentre } from "./lib/tofi-avatar/framing.js";
 import { BotAvatarPicker } from "./BotAvatarPicker";
 import { BotInspector } from "./BotInspector";
 import { BotSecrets } from "./BotSecrets";
 import { BotTools } from "./BotTools";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
+import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
 import { pushBotAvatar } from "./avatarSync";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
@@ -68,6 +70,8 @@ function Row({ title, hint, children, danger }: { title: string; hint?: string; 
   </div>;
 }
 
+/** The cat is not centred in its drawing box (a loaf sits low, a tall cat leans): the tile shifts it by the measured centre. */
+const centred = (shape: AvatarConfig["shape"]) => { const c = catCentre(shape); return { "--cat-dx": `${c.x * 100}%`, "--cat-dy": `${c.y * 100}%` } as CSSProperties; };
 export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimary, onExportData, onOpenSettings, onDelete }: {
   bot: Bot; refreshToken?: number;
   onUpdate: (id: string, input: Partial<Pick<Bot, "name" | "instructions" | "model" | "reasoning_effort">>) => Promise<void>;
@@ -171,7 +175,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   const body: Record<SectionId, ReactNode> = {
     identity: <div className="bs-stack">
       <div className="bs-row bs-avatar-row">
-        <span className="bs-avatar" aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
+        <span className="bs-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
         <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small></div>
         <button ref={styleButton} type="button" className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</button>
       </div>
@@ -209,7 +213,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   return <div className="bot-settings" data-view={view} data-narrow={narrow || undefined}>
     <nav className="bs-nav" aria-label={t("botSettings.nav")} inert={narrow && view === "page" || undefined}>
       <div className="bs-who">
-        <span className="bs-who-avatar" aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
+        <span className="bs-who-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
         <span className="bs-who-copy"><strong>{draft.name.trim() || bot.name}</strong><small>{modelLine}</small></span>
       </div>
       <div className="bs-nav-list">

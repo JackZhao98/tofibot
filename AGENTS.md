@@ -315,6 +315,8 @@ Rules:
 Commands (run in `ui/`):
 - `npm run build:skin` writes the generated skin files. `test:skin-sync` fails when they differ from a fresh build.
 - `test:skin-palette`, `test:skin-contrast`, `test:css-layers`: static guards (CI).
+- `test:scroll-gutter`: every vertical scroller in a stylesheet must be in the `scrollbar-gutter: stable` list in `ui/src/skin/base.css`
+  (or carry `.tb-scroll`, or be allowed with a reason in the script), so a scrollbar never changes the inside width (CI).
 - `test:ds-boundary`: static ratchet for the rules above and for legacy aliases and bridge names (CI). Baseline:
   `scripts/ds-boundary-baseline.json`. A count can fall, never rise. Lower it with `--update`.
 - `test:selectors-alive` (`ci-local`): fails when a script uses a class, id or `data-` name that `src/` no longer has. Baseline:
