@@ -124,7 +124,7 @@ const mentionComponents: Components = {
   ...components,
   span: ({ node, children }) => {
     const mention = useContext(MentionContext);
-    return node?.properties["data-message-mention"] ? <>{mention}</> : node?.properties["data-typing-cursor"] ? <span className="typing-cursor" aria-hidden="true" /> : <span>{children}</span>;
+    return node?.properties["data-message-mention"] ? <>{mention}</> : node?.properties["data-typing-cursor"] ? <span className="typing-cursor tb-caret" aria-hidden="true" /> : <span>{children}</span>;
   },
 };
 

@@ -62,3 +62,7 @@
   .tb-msg.is-fresh { animation: tb-fade var(--m-arrive-reduced) var(--ease-out) both; }
   .tb-caret { animation: none; }
 }
+@media (forced-colors: active) {
+  .tb-msg--user .tb-bubble { color: ButtonFace; background: ButtonText; }
+  .tb-msg--bot .tb-bubble { color: CanvasText; background: Canvas; border: 1px solid ButtonText; }
+}

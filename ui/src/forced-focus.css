@@ -2,6 +2,6 @@
    Text-entry fields keep their frame: it marks where typing lands, and the caret alone is not enough.
    Unlayered on purpose, like forced.css. The Mac bot browser loads this file alone. */
 html[data-input="pointer"] :focus-visible:not(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="file"]), textarea, select),
-html[data-input="pointer"] .message-block:focus-visible .message-content,
+html[data-input="pointer"] .message-block:focus-visible .tb-bubble,
 html[data-input="pointer"] :is(.sheet-radio, .sheet-check, .check-row):has(:focus-visible){outline-color:transparent!important}
 @media (forced-colors: active){html[data-input="pointer"] :focus-visible:not(input, textarea, select){outline-color:transparent!important}}

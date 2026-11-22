@@ -46,19 +46,21 @@ export type MessageBubbleProps = {
   fresh?: boolean;
   /** A streaming caret after the content. */
   caret?: boolean;
+  /** Reserve the avatar column for others' bubbles (default). A direct chat has none. */
+  avatarColumn?: boolean;
   className?: string;
   children?: ReactNode;
 };
 
 /** A message: a bubble in a run (name over the first, avatar beside the last), with its quote, reactions and hover actions. */
 export function MessageBubble({
-  role = "bot", botColor, author, avatar, joined, continued, quote, attachments, reactions, meta, failed, sending, actions, showActions, flash, fresh, caret, className, children,
+  role = "bot", botColor, author, avatar, joined, continued, quote, attachments, reactions, meta, failed, sending, actions, showActions, flash, fresh, caret, avatarColumn = true, className, children,
 }: MessageBubbleProps) {
   const other = role !== "user";
   const bubble = children ? (
     <div className="tb-bubble">
       {quote ? (
-        <button type="button" className={cx("tb-quote", quote.tone && `tb-tone--${quote.tone}`)} onClick={quote.onJump} title={quote.jumpLabel}>
+        <button type="button" className={cx("tb-quote", quote.tone && `tb-tone--${quote.tone}`)} onClick={quote.onJump} title={quote.jumpLabel} aria-label={quote.jumpLabel}>
           <span className="tb-quote-author">{quote.author}</span>
           <span className="tb-quote-text">{quote.text}</span>
         </button>
@@ -71,7 +73,7 @@ export function MessageBubble({
   ) : null;
   return (
     <div className={cx("tb-msg", `tb-msg--${role}`, botColor && `tb-bot--${botColor}`, joined && "is-joined", continued && "is-continued", !!meta && "has-foot", sending && "is-sending", showActions && "is-hover", flash && "is-flash", fresh && "is-fresh", !!reactions && "has-react", className)}>
-      {other ? (avatar && !continued ? <span className="tb-msg-avatar">{avatar}</span> : <span className="tb-msg-avatar tb-msg-avatar--gap" />) : null}
+      {other && avatarColumn ? (avatar && !continued ? <span className="tb-msg-avatar">{avatar}</span> : <span className="tb-msg-avatar tb-msg-avatar--gap" />) : null}
       <div className="tb-msg-col">
         {other && author && !joined ? <div className="tb-msg-author">{author}</div> : null}
         {bubble ? (
