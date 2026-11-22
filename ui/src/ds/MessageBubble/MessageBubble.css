@@ -52,13 +52,13 @@
 /* Motion: the jump flash frames the bubble once; a fresh one settles in. */
 .tb-msg.is-flash .tb-bubble { animation: tb-bubble-flash 2.4s var(--ease-out) both; }
 @keyframes tb-bubble-flash { 0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mustard) 70%, transparent); } 100% { box-shadow: 0 0 0 3px transparent; } }
-.tb-msg.is-fresh { animation: tb-settle 220ms var(--ease-out) both; }
+.tb-msg.is-fresh { animation: tb-settle var(--m-arrive) var(--ease-out) both; }
 @keyframes tb-settle { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes tb-fade { from { opacity: 0; } }
 .tb-caret { display: inline-block; width: .5em; height: 1.05em; margin-left: 2px; vertical-align: text-bottom; background: var(--ink); animation: tb-caret 1s steps(1) infinite; }
 @keyframes tb-caret { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .tb-msg.is-flash .tb-bubble { animation: none; }
-  .tb-msg.is-fresh { animation: tb-fade 120ms linear both; }
+  .tb-msg.is-fresh { animation: tb-fade var(--m-arrive-reduced) var(--ease-out) both; }
   .tb-caret { animation: none; }
 }
