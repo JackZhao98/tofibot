@@ -11,6 +11,7 @@ import { JumpButton } from "../../ds/JumpButton/JumpButton";
 import { Notice } from "../../ds/Notice/Notice";
 import { LiveLine } from "../../ds/LiveLine/LiveLine";
 import { Mention, type MentionTone } from "../../ds/Mention/Mention";
+import { MessageBubble } from "../../ds/MessageBubble/MessageBubble";
 import { ProcessLine, ProcessPad } from "../../ds/ProcessLine/ProcessLine";
 import { ProgressiveBlur } from "../../ds/ProgressiveBlur/ProgressiveBlur";
 import { Reactions } from "../../ds/Reactions/Reactions";
@@ -82,6 +83,17 @@ export const conversation: CatalogState[] = [
     render: () => <div className="catalog-stack">
       <p style={{ margin: 0 }}>{MENTIONS.map(tone => <span key={tone}><Mention name={tone === "you" ? "Mia" : "Mochi"} tone={tone} /> </span>)}</p>
       <p style={{ margin: 0 }}>Can <Mention name="Mochi" tone="grape" fresh /> look at this before Friday?</p>
+    </div> },
+  { id: "messagebubble", kind: "inline", label: "MessageBubble · a run, your bubble, a quote, sending, failed",
+    note: "A run is bubbles from one sender within five minutes: the name over the first, the avatar beside the last, joined corners between. No delivery ticks.",
+    render: () => <div className="catalog-stack" style={{ maxWidth: 520 }}>
+      <MessageBubble botColor="grape" author="Mochi" joined={false} continued avatar={<Avatar name="Mochi" tone="grape" size={34} />}>I looked at the draft.</MessageBubble>
+      <MessageBubble botColor="grape" author="Mochi" joined continued><span>Two things need a decision.</span></MessageBubble>
+      <MessageBubble botColor="grape" author="Mochi" joined avatar={<Avatar name="Mochi" tone="grape" size={34} />} caret>The first is the date</MessageBubble>
+      <MessageBubble role="user" quote={{ author: "Mochi", text: "Two things need a decision.", tone: "grape", onJump: noop, jumpLabel: "Go to message" }}>Which two?</MessageBubble>
+      <MessageBubble role="user" sending>Sending this one</MessageBubble>
+      <MessageBubble role="user" failed meta={<span>Not sent · <button type="button" className="tb-notice-link" onClick={noop}>Retry</button></span>}>This one did not go out</MessageBubble>
+      <MessageBubble botColor="teal" author="Pip" flash avatar={<Avatar name="Pip" tone="teal" size={34} />}>A quote jumped here: this bubble frames itself once.</MessageBubble>
     </div> },
   { id: "reactions", kind: "inline", label: "Reactions · yours tinted, with who in the tooltip",
     render: () => <Row>
