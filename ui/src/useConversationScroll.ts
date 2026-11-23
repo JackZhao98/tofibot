@@ -3,6 +3,30 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "./types";
 import { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } from "./arrivalCascade";
 
+/** Reading positions on the web: kept per tab in sessionStorage, so a refresh returns to where the person was (the Mac app keeps them in its own state). */
+const WEB_POSITIONS_KEY = "tofi.readingPositions";
+function savedPositions(): Record<string, unknown> {
+  if (window.tofiDesktop) return desktopState().readingPositions ?? {};
+  try { const raw = sessionStore()?.getItem(WEB_POSITIONS_KEY); const parsed: unknown = raw ? JSON.parse(raw) : null; return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}; } catch { return {}; }
+}
+let webSaveTimer = 0;
+const sessionStore = () => { try { return typeof window.sessionStorage === "undefined" ? null : window.sessionStorage; } catch { return null; } };
+let webPending: Record<string, unknown> | null = null;
+function flushWebPositions() {
+  if (webSaveTimer && typeof clearTimeout === "function") clearTimeout(webSaveTimer);
+  webSaveTimer = 0;
+  if (!webPending) return;
+  try { sessionStore()?.setItem(WEB_POSITIONS_KEY, JSON.stringify(webPending)); } catch { /* storage full or blocked: positions stay in memory */ }
+  webPending = null;
+}
+function savePositions(positions: Record<string, unknown>) {
+  if (window.tofiDesktop) { updateDesktopState({ readingPositions: positions }); return; }
+  webPending = positions;
+  if (typeof setTimeout !== "function") { flushWebPositions(); return; }
+  if (!webSaveTimer) webSaveTimer = setTimeout(flushWebPositions, 250) as unknown as number;
+}
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") window.addEventListener("pagehide", flushWebPositions);
+
 interface Options {
   conversation?: Conversation;
   messages: Message[];
@@ -133,7 +157,7 @@ export function useConversationScroll(options: Options) {
   const latest = useRef(options);
   latest.current = options;
   const visit = useRef<Visit | null>(null);
-  const snapshots = useRef(new Map<string, ViewSnapshot>(Object.entries(desktopState().readingPositions ?? {}).filter((entry): entry is [string, ViewSnapshot] => { const value = entry[1] as ViewSnapshot; return Boolean(value && Number.isFinite(value.anchorSeq) && Number.isFinite(value.anchorOffset) && typeof value.atBottom === "boolean"); })));
+  const snapshots = useRef(new Map<string, ViewSnapshot>(Object.entries(savedPositions()).filter((entry): entry is [string, ViewSnapshot] => { const value = entry[1] as ViewSnapshot; return Boolean(value && Number.isFinite(value.anchorSeq) && Number.isFinite(value.anchorOffset) && typeof value.atBottom === "boolean"); })));
   const [, render] = useState(0);
   const id = options.conversation?.id ?? "";
 
@@ -141,7 +165,7 @@ export function useConversationScroll(options: Options) {
     const el = scrollRef.current;
     if (!el || !candidate?.positioned || !candidate.id) return;
     snapshots.current.set(candidate.id, captureViewSnapshot(el, candidate));
-    updateDesktopState({ readingPositions: Object.fromEntries([...snapshots.current.entries()].slice(-100)) });
+    savePositions(Object.fromEntries([...snapshots.current.entries()].slice(-100)));
   };
 
   if (visit.current?.id !== id) {
@@ -569,8 +593,8 @@ export function useConversationScroll(options: Options) {
 
   const current = visit.current;
   const records = options.messages.filter(m => m.conversation_id === id);
-  // A first visit lands on the unread divider when the unread boundary is in the loaded page, otherwise on the newest message.
-  if (current.landing === null && options.ready && !current.positioned) current.landing = ((records[0]?.seq ?? 0) <= current.readSeq + 1 || !options.hasMore) && records.some(m => m.seq > current.readSeq) ? "elsewhere" : "bottom";
+  // A visit with no saved position lands on the newest message (owner 2026-11-23); the unread divider still shows above it.
+  if (current.landing === null && options.ready && !current.positioned) current.landing = "bottom";
   const firstUnread = records.find(m => m.seq > current.readSeq && m.seq <= (current.entryMax ?? 0) && m.kind !== "notice" && m.kind !== "message_ref");
   const boundaryLoaded = !options.hasMore || (records[0]?.seq ?? 0) <= current.readSeq + 1;
   const unreadSeq = boundaryLoaded ? firstUnread?.seq : undefined;

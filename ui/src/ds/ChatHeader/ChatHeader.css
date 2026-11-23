@@ -70,6 +70,8 @@
    half of the cat lies over the messages like a sticker. The halo is a disc of extra blur two radii across the cat's centre; its upper half sits
    in the band, so only the lower half (the penalty arc) shows. It fades while the cat is in the widget column. */
 .tb-chathead.is-bare, .tb-chathead.is-bare.is-top, .tb-chathead.is-bare.is-aside { --cat: 60px; min-height: calc(max(8px, env(safe-area-inset-top)) + var(--cat) + 8px); align-items: flex-start; }
+/* A bare header has one fixed height, so it takes it at once: animating min-height on a group-to-DM switch moved the message list off the bottom for a frame. */
+.tb-chathead.is-bare { transition-property: none; }
 .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + (var(--hl) + var(--chathead-inset, 0px) - var(--hr)) / 2); transform: translateX(-50%); flex-direction: row; gap: 0; padding: 0; min-height: var(--cat); border-radius: 50%; }
 @container (min-width: 560px) { .tb-chathead.is-bare .tb-chathead-cat { left: calc(50% + var(--chathead-inset, 0px) / 2); } }
 .tb-chathead.is-bare.is-away .tb-chathead-cat { pointer-events: none; }

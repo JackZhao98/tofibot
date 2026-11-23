@@ -239,14 +239,37 @@ await check("long unread backlog opens at the latest page without paging", async
   await context.close();
 });
 
-// 2b. Unread boundary inside the first page: opens at the divider before first paint, then holds still.
-await check("unread boundary inside the page opens at the divider without moving", async () => {
+// 2b. Unread boundary inside the first page: with no saved position the chat still opens at the newest message (owner 2026-11-23).
+await check("unread boundary inside the page opens at the newest message without moving", async () => {
   const { page, context } = await open();
   await settle(page);
   const frames = await record(page, () => rowFor(page, "Ledger Cat").click(), 1500);
-  assertStable(frames, "dm_a unread divider", { expectBottom: false });
-  const shown = await page.evaluate(() => { const d = document.querySelector(".unread-divider"); const s = document.querySelector(".message-scroll"); if (!d) return null; const r = d.getBoundingClientRect(), b = s.getBoundingClientRect(); return r.top >= b.top - 1 && r.bottom <= b.bottom + 1; });
-  assert.equal(shown, true, "divider is in view");
+  assertStable(frames, "dm_a unread, no saved position");
+  await context.close();
+});
+
+// 2c. A refresh returns to the saved reading position: the bottom stays the bottom, a scrolled-up position comes back.
+await check("refresh restores the reading position", async () => {
+  const { page, context } = await open();
+  await settle(page);
+  await rowFor(page, "Ledger Cat").click();
+  await page.waitForTimeout(800);
+  const gap = () => page.evaluate(() => { const s = document.querySelector(".message-scroll"); return s ? s.scrollHeight - s.clientHeight - s.scrollTop : null; });
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await page.reload();
+  await settle(page);
+  await page.waitForTimeout(800);
+  assert.ok((await gap()) <= 2, "bottom after refresh");
+  await page.evaluate(() => { const s = document.querySelector(".message-scroll"); s.scrollTop = Math.max(0, s.scrollTop - 400); s.dispatchEvent(new Event("scroll")); });
+  await page.waitForTimeout(400);
+  const before = await gap();
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await page.reload();
+  await settle(page);
+  await page.waitForTimeout(800);
+  const after = await gap();
+  assert.ok(before > 100, `scrolled up before refresh (${before})`);
+  assert.ok(Math.abs(after - before) <= 24, `restored after refresh: ${before} -> ${after}`);
   await context.close();
 });
 
