@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { layerRoot } from "../layers";
 import { onTunables, setTunable, tunables, tunableValue } from "../tunables";
 import "./tuning-panel.css";
 
@@ -38,6 +39,6 @@ export function mountTuningPanel() {
   if (document.getElementById("dev-tune-root")) return;
   const host = document.createElement("div");
   host.id = "dev-tune-root";
-  document.body.append(host);
+  layerRoot().append(host);
   createRoot(host).render(<TuningPanel/>);
 }
