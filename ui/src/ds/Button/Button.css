@@ -1,7 +1,7 @@
 /* Button: a quiet hover wash and a slight press. Secondary has a mid-tone outline; the primary is tomato with the bold ink
    edge and a ledge it presses into (README Edges: one of the four bold-edge things). */
 .tb-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
   font: 600 14px/1 var(--font-display); letter-spacing: .01em;
   border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
   padding: 0 16px; height: 40px; color: var(--ink);

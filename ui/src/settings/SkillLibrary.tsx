@@ -111,9 +111,8 @@ function BundleRow({ bundle, members, handlers, onRemoveBundle, defaultOpen }: {
     {bundle.description && <p>{bundle.description}</p>}
     <p className="skill-meta">{[bundle.version ? t("skills.library.version_label", { version: bundle.version }) : "", installedLine(bundle.installed_by, bundle.installed_at), t("skills.library.on_for", { on: enabled, total, count: total })].filter(Boolean).join(" · ")}</p>
     <div className="extension-actions">
-      <Button size="sm" variant="ghost" className="skill-expand" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <Button size="sm" variant="ghost" className="skill-expand" iconAfter="chevron-down" aria-expanded={open} onClick={() => setOpen(value => !value)}>
         {open ? t("skills.library.hide_members") : t("skills.library.show_members", { count: bundle.skills.length })}
-        <TofiIcon name="chevron-down" size={14} />
       </Button>
       <ConfirmAction label={t("skills.remove")} question={t("skills.library.remove_bundle_confirm", { count: bundle.skills.length })} disabled={handlers.busy} onConfirm={() => onRemoveBundle(bundle.id)} />
     </div>
@@ -153,8 +152,8 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
       <span className="skill-add-actions">
         <input aria-label={t("skills.folder_label")} hidden type="file" multiple ref={el => { folderInput.current = el; el?.setAttribute("webkitdirectory", ""); }}
           onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; if (files.length) props.onPickFolder(files); }} />
-        <Button size="sm" disabled={props.busy} onClick={() => folderInput.current?.click()}><TofiIcon name="folder-open" size={16} />{t("skills.library.add_folder")}</Button>
-        <Button size="sm" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}><TofiIcon name="plus" size={16} />{t("skills.library.add_paste")}</Button>
+        <Button size="sm" icon="folder-open" disabled={props.busy} onClick={() => folderInput.current?.click()}>{t("skills.library.add_folder")}</Button>
+        <Button size="sm" icon="plus" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}>{t("skills.library.add_paste")}</Button>
       </span>
     </div>
     {props.pending !== null && <section className="extension-form skill-pending" aria-label={t("skills.library.pending_title", { name: props.pending })}>
