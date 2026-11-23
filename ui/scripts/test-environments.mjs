@@ -574,8 +574,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const confirm = outdated.page.getByRole("alertdialog");
     await confirm.waitFor();
     assert.match(await flat(confirm), /Upgrade E2B cloud computer\? The computer is replaced with one from the current image\. Files on it are removed and can't be recovered\./);
-    assert.equal(await confirm.getByRole("button", {name: "Upgrade and remove files"}).evaluate(node => node.className), "env-danger-button", "the confirming action has the destructive tone");
-    assert.equal(await confirm.evaluate(node => document.activeElement === node.querySelector(".secondary-button")), true, "Cancel has the focus first");
+    assert.equal(await confirm.getByRole("button", {name: "Upgrade and remove files"}).evaluate(node => node.classList.contains("tb-btn--danger")), true, "the confirming action has the destructive tone");
+    assert.equal(await confirm.evaluate(node => document.activeElement === node.querySelector(".tb-btn--secondary")), true, "Cancel has the focus first");
     if (shots) await outdated.page.screenshot({path: join(shots, "upgrade-confirm-1280.png")});
     await confirm.getByRole("button", {name: "Cancel"}).click();
     assert.deepEqual(outdated.calls.filter(call => call.includes("upgrade")), [], "Cancel sends nothing");

@@ -24,6 +24,7 @@ import "./extensions-system.css";
 import "./environments.css";
 import "./remote-control.css";
 import "./policy-member.css";
+import { Button } from "./ds/Button/Button";
 
 const kindIcon: Record<Environment["kind"], TofiIconName> = {vm: "server", e2b: "cloud", mac: "laptop"};
 const badgeFor: Record<EnvironmentState, BadgeState> = {ready: "ok", online: "ok", starting: "testing", resuming: "testing", preparing: "testing", asleep: "asleep", offline: "asleep", stopped: "asleep", standby: "asleep", unknown: "asleep", failed: "bad"};
@@ -83,7 +84,7 @@ export function EnvironmentRow({item, e2bError, handlers, provided = false, temp
   </>;
   const control = <div className="env-controls">
     <StatusBadge state={badgeFor[item.state]}>{words.state(item.state)}</StatusBadge>
-    {buttons.map(action => <button key={action} type="button" className="st-button" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</button>)}
+    {buttons.map(action => <Button key={action} type="button" size="sm" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</Button>)}
     {menu.length > 0 && <RowMenu item={item} name={name} items={menu} onAction={handlers.onAction} disabled={working}/>}
   </div>;
   return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state}><SettingsRow label={label} description={description} control={control}/></div>;
@@ -214,7 +215,7 @@ export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsT
     {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
     <MacFolders bots={bots}/>
     {/* This Mac's features (built-in browser, desktop control, ...) show here whether or not remote control is on. */}
-    <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <button type="button" className="st-button" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</button> : undefined}/>
+    <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <Button type="button" size="sm" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</Button> : undefined}/>
     {body}
     {data && data.environments.some(item => item.bot_computer || item.kind === "mac") && <AutomationRows groups={["environment"]} hasEnvironment/>}
     {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}

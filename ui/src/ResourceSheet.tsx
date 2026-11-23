@@ -1,6 +1,7 @@
 import {type CSSProperties} from "react";
 import {useTranslation} from "./i18n";
 import "./computer-resources.css";
+import { Button } from "./ds/Button/Button";
 
 export type Allocation={vcpus:number;memory_mib:number;disk_gib:number};
 export type Resources={current:Allocation;desired:Allocation;pending:boolean;state:string;error?:string;host:{cpus:number;memory_total_mib:number;memory_available_mib:number;disk_available_gib:number};limits:{max_vcpus:number;max_memory_mib:number;max_disk_gib:number}};
@@ -48,7 +49,7 @@ export function ResourceSheet({data,desired,dirty,busy,onChange,onSave,onCancel,
    {!valid?<p className="resource-summary-error" role="alert">{t("resources.error.out_of_range")}</p>:dirty?<><strong>{t("resources.summary.title")}</strong><ul>{lines.map(line=><li key={line}>{line}</li>)}</ul><p>{t("resources.summary.restart")}</p></>:<p>{t("resources.summary.none")}</p>}
    <p className="resource-summary-note">{t("resources.field_note")}</p>
   </div>
-  <div className="resource-sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("resources.cancel")}</button><button type="submit" className="primary-button" disabled={busy||!valid||!dirty}>{busy?t("resources.saving"):t("resources.save")}</button></div>
+  <div className="resource-sheet-actions"><Button type="button" disabled={busy} onClick={onCancel}>{t("resources.cancel")}</Button><Button type="submit" variant="primary" disabled={busy||!valid||!dirty}>{busy?t("resources.saving"):t("resources.save")}</Button></div>
  </form>;
 }
 

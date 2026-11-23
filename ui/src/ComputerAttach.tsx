@@ -5,6 +5,7 @@ import {markAttached} from "./resourceSettle";
 import {ConfirmDialog} from "./overlays/ModalDialog";
 import {SettingsRow} from "./settings/components";
 import "./computer-resources.css";
+import { Button } from "./ds/Button/Button";
 
 /** The administrator's view of a server's VM: `GET .../computer/state`, and the answer to attach. */
 type Summary = {attached: boolean; id?: string; kind: string; status: string; backend_available: boolean};
@@ -77,8 +78,8 @@ export function ComputerAttach({base, running, disabled, onAttached, children}: 
 
   const tone = stateKey === "attached_running" ? "on" : stateKey === "lost" || stateKey === "detaching" ? "warn" : "off";
   const action = stateKey === "none" ? null : on
-    ? <button type="button" className="st-button is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</button>
-    : <button type="button" className="st-button" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</button>;
+    ? <Button type="button" variant="danger" size="sm" className="is-danger" disabled={disabled || busy} onClick={() => setConfirming(true)}>{t("attach.action.detach")}</Button>
+    : <Button type="button" size="sm" disabled={disabled || busy} onClick={() => void attach()}>{t("attach.action.attach")}</Button>;
   return <div className="settings-card computer-attach" data-testid="computer-attach">
     <SettingsRow inline label={<span className="computer-status" data-tone={tone} data-testid="computer-attach-state"><span className="computer-status-dot" aria-hidden="true"/>{t(`attach.state.${stateKey}` as "attach.state.none")}{on && <small className="computer-kind"> · {t("kind.vm")}</small>}</span>}
       description={t(`attach.help.${on ? "attached" : stateKey === "none" ? "none" : "detached"}` as "attach.help.none")} control={action}/>
@@ -90,8 +91,8 @@ export function ComputerAttach({base, running, disabled, onAttached, children}: 
       <h3 id="attach-detach-title">{t("attach.confirm.title")}</h3>
       <p id="attach-detach-impact">{t("attach.confirm.impact")}</p>
       <div className="resource-restart-actions">
-        <button type="button" className="st-button" onClick={() => setConfirming(false)}>{t("attach.confirm.cancel")}</button>
-        <button type="button" className="primary-button" onClick={() => void detach()}>{t("attach.confirm.action")}</button>
+        <Button type="button" onClick={() => setConfirming(false)}>{t("attach.confirm.cancel")}</Button>
+        <Button type="button" variant="primary" onClick={() => void detach()}>{t("attach.confirm.action")}</Button>
       </div>
     </div></ConfirmDialog>}
   </div>;
