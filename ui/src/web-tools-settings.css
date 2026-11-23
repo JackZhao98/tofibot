@@ -26,15 +26,14 @@
 .web-row-detail{color:var(--muted);font:var(--type-meta);font-family:var(--mono);overflow-wrap:anywhere}
 .web-row-actions{flex:none;display:flex;align-items:center;gap:8px}
 .web-row-move{display:inline-flex;gap:2px}
-.web-row-move .icon-button{width:32px;height:32px;min-width:32px}
 .web-row[data-status="off"] .web-row-copy{opacity:.7}
 .web-row-form{margin:12px 0 0 36px;padding:12px;border:0;border-radius:var(--radius-md);background:var(--surface-2)}
 .web-row-form>label{display:block;margin:0 0 6px;font-size:13px;color:var(--text-soft)}
 .web-row-form>label:not(:first-child){margin-top:10px}
-.web-row-form>input{display:block;width:100%;margin:0 0 10px}
+.web-row-form>.tb-input{margin:0 0 10px}
 .web-row-form-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:10px}
 .web-row-form-foot>.field-note{margin:0;color:var(--muted)}
-.web-row-form .provider-key-row input{flex:1;min-width:0;font-family:ui-monospace,monospace}
+.web-row-form .provider-key-row .tb-input{flex:1;min-width:0}
 @media(max-width:700px){
  .web-row-main{flex-wrap:wrap}
  .web-row-copy{flex-basis:calc(100% - 100px)}

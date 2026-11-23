@@ -13,6 +13,9 @@ import "./settings/automation.css";
 import "./web-tools-settings.css";
 import "./policy-member.css";
 import { Select } from "./Select";
+import { Button } from "./ds/Button/Button";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { TextInput } from "./ds/TextInput/TextInput";
 
 type Chain = "search" | "fetch";
 type Outcome = {ok: boolean; code: string};
@@ -152,9 +155,9 @@ function SourceRow({entry, chain, readOnly, organization, index, count, outcome,
     <div className="web-row-status" role="status"><StatusBadge state={state}>{statusText}</StatusBadge>{code && <span className="web-row-code" data-code={code}>{t(`webtools.code.${code}` as "webtools.code.network", {defaultValue: code})}</span>}{detail && <span className="web-row-detail">{detail}</span>}</div>
    </div>
    <div className="web-row-actions">
-    {!entry.fixed && !readOnly && <span className="web-row-move"><button type="button" className="icon-button" aria-label={t("webtools.move_up", {name: entry.label})} disabled={index <= 0} onClick={() => onMove(-1)}><TofiIcon name="arrow-up" size={16} /></button><button type="button" className="icon-button" aria-label={t("webtools.move_down", {name: entry.label})} disabled={index >= count - 1} onClick={() => onMove(1)}><TofiIcon name="arrow-down" size={16} /></button></span>}
-    {entry.testable && !readOnly && <button type="button" className="st-button" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</button>}
-    {configurable && !readOnly && <button type="button" className="st-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</button>}
+    {!entry.fixed && !readOnly && <span className="web-row-move"><IconButton size="sm" icon="arrow-up" label={t("webtools.move_up", {name: entry.label})} disabled={index <= 0} onClick={() => onMove(-1)} /><IconButton size="sm" icon="arrow-down" label={t("webtools.move_down", {name: entry.label})} disabled={index >= count - 1} onClick={() => onMove(1)} /></span>}
+    {entry.testable && !readOnly && <Button size="sm" disabled={busy || needsSetup} onClick={onTest}>{testing ? t("webtools.testing") : t("webtools.test")}</Button>}
+    {configurable && !readOnly && <Button size="sm" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{needsSetup ? t("webtools.set_up") : t("webtools.edit")}</Button>}
     {!entry.fixed && !readOnly && <SettingsSwitch id={switchId} label={t("webtools.enable_label", {name: entry.label})} checked={entry.enabled} onChange={onEnabled} />}
    </div>
   </div>
@@ -182,10 +185,10 @@ function ProviderForm({entry, onSave, onRemove}: {entry: WebSourceEntry; onSave:
  return <form className="web-row-form" onSubmit={event => void submit(event)}>
   <label htmlFor={id}>{address ? t("webtools.address_label") : configured ? t("webtools.replace_key_label") : t("webtools.key_label")}</label>
   <div className="provider-key-row">
-   <input id={id} name={`${entry.id}-${address ? "address" : "key"}`} type={address ? "url" : "password"} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={address ? "http://searxng.local:8080" : placeholders[entry.id]} value={value} disabled={saving} onChange={event => setValue(event.target.value)} />
-   {!wantsZone && <button type="submit" className="st-button" disabled={saving || !value.trim()}>{t("providers.save")}</button>}
+   <TextInput mono id={id} name={`${entry.id}-${address ? "address" : "key"}`} type={address ? "url" : "password"} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={address ? "http://searxng.local:8080" : placeholders[entry.id]} value={value} disabled={saving} onChange={event => setValue(event.target.value)} />
+   {!wantsZone && <Button type="submit" size="sm" disabled={saving || !value.trim()}>{t("providers.save")}</Button>}
   </div>
-  {wantsZone && <><label htmlFor={`${id}-zone`}>{t("webtools.zone_label")}</label><input id={`${id}-zone`} name={`${entry.id}-zone`} type="text" autoComplete="off" spellCheck={false} placeholder="web_unlocker1" value={zone} disabled={saving} onChange={event => setZone(event.target.value)} /><button type="submit" className="st-button" disabled={saving || !value.trim() || !zone.trim()}>{t("providers.save")}</button></>}
+  {wantsZone && <><label htmlFor={`${id}-zone`}>{t("webtools.zone_label")}</label><TextInput mono id={`${id}-zone`} name={`${entry.id}-zone`} type="text" autoComplete="off" spellCheck={false} placeholder="web_unlocker1" value={zone} disabled={saving} onChange={event => setZone(event.target.value)} /><Button type="submit" size="sm" disabled={saving || !value.trim() || !zone.trim()}>{t("providers.save")}</Button></>}
   <div className="web-row-form-foot"><p className="field-note">{address ? t("webtools.address_note") : t("webtools.key_note")}</p>{configured && <ConfirmAction label={t("providers.remove")} question={t("providers.remove_question", {provider: entry.label})} onConfirm={async () => { if (!await onRemove()) throw new Error(t("webtools.remove_failed")); }} />}</div>
  </form>;
 }

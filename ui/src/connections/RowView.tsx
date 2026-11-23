@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { arrowOpens, OverlayMenu, pressToggle } from "../overlays/OverlayHost";
 import { TofiIcon } from "../icons";
+import { Button } from "../ds/Button/Button";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";
 import type { ConnectionKind } from "./status";
@@ -11,9 +12,10 @@ export type RowPrimary = { label: string; onClick?: () => void; href?: string; d
 
 /** The primary button of a row or a detail page. */
 export function PrimaryButton({ primary }: { primary: RowPrimary }) {
+  // The continue-sign-in step is a link that opens the provider's page; it wears the kit Button's classes (the kit Button renders a <button> only).
   return primary.href
-    ? <a className="mcp-button" data-pending={primary.pending || undefined} href={primary.href} target="_blank" rel="noopener noreferrer">{primary.label}</a>
-    : <button type="button" className="mcp-button" data-primary data-pending={primary.pending || undefined} disabled={primary.disabled} onClick={primary.onClick}>{primary.label}</button>;
+    ? <a className="tb-btn tb-btn--secondary tb-btn--sm" data-pending={primary.pending || undefined} href={primary.href} target="_blank" rel="noopener noreferrer"><span className="tb-btn-label">{primary.label}</span></a>
+    : <Button size="sm" data-primary pending={primary.pending} disabled={primary.disabled} onClick={primary.onClick}>{primary.label}</Button>;
 }
 
 /** The "more actions" menu (Radix through the overlay host). */

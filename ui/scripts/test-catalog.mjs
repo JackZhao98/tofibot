@@ -248,7 +248,7 @@ try {
     });
     if (!cue.found) fail("pending row: the primary button carries no data-pending cue");
     else if (cue.illustration) fail("pending row: the authorization illustration is back");
-    else if (reduced ? cue.animation !== "none" : cue.animation !== "mcp-pending-breathe") fail(`pending row: ring animation is "${cue.animation}" with reduced motion ${reduced ? "on" : "off"}`);
+    else if (reduced ? cue.animation !== "none" : cue.animation !== "tb-btn-breathe") fail(`pending row: ring animation is "${cue.animation}" with reduced motion ${reduced ? "on" : "off"}`);
     else if (!/127\.0\.0\.1/.test(cue.note)) fail("pending row: the route line does not say the redirect is 127.0.0.1");
     else pass(`pending row: no illustration, ${reduced ? "static ring under reduced motion" : "breathing ring on the primary button"}, one route line`);
     await waiting.close();
