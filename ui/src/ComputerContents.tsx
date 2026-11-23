@@ -6,6 +6,7 @@ import {useComputerContents, type ComputerContents as Contents} from "./useCompu
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import type {SettingsTab} from "./SettingsShell";
 import "./computer-contents.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * Settings > Computer, "What is on this Bot computer" (docs/design/computer-decoupling.md section 7.5). The Bot's own data
@@ -29,8 +30,8 @@ export function ComputerContentsView({data, failed, retry, openTab}: {data: Cont
       <SettingsRow label={t("contents.tools.name")} description={t("contents.tools.what")} control={badge("terminal")}/>
       <SettingsRow label={t("contents.files.name")} description={<>{t("contents.files.what")}{data && data.pending_file_copies > 0 && <span className="computer-row-note" role="status">{t("contents.files.pending", {count: data.pending_file_copies})}</span>}</>} control={badge("folder")}/>
       <SettingsRow label={t("contents.config.name")} description={<>{t("contents.config.what")}<span className="computer-row-note">{data ? (saved > 0 ? t("contents.config.saved", {count: saved}) : t("contents.config.none")) : " "}</span></>}
-        control={<button type="button" className="st-button" onClick={() => { openTab("computer"); revealSection("computer", "keys"); revealSection("computer", null); }}>{t("contents.config.manage")}</button>}/>
+        control={<Button type="button" size="sm" onClick={() => { openTab("computer"); revealSection("computer", "keys"); revealSection("computer", null); }}>{t("contents.config.manage")}</Button>}/>
     </SettingsCard>
-    {failed && <p className="computer-loss-note is-error" role="alert">{t("contents.load_failed")} <button type="button" className="text-button" onClick={retry}>{t("contents.retry")}</button></p>}
+    {failed && <p className="computer-loss-note is-error" role="alert">{t("contents.load_failed")} <button className="text-button" type="button" onClick={retry}>{t("contents.retry")}</button></p>}
   </SettingsSection>;
 }

@@ -8,6 +8,7 @@ import {useOwnerSession} from "./OwnerSession";
 import {ConfirmDialog, ModalDialog} from "./overlays/ModalDialog";
 import "./computer-resources.css";
 import "./environments.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * The dialogs behind Settings > Environments. Lazy with the Settings panel: only this file (and ComputerResources/ComputerAttach)
@@ -28,9 +29,9 @@ function CopyButton({text, label}: {text: string; label: string}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  return <button type="button" className="secondary-button env-copy" aria-label={label} onClick={() => {
+  return <Button type="button" className="env-copy" aria-label={label} onClick={() => {
     void navigator.clipboard?.writeText(text).then(() => { setCopied(true); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setCopied(false), 1600); }, () => {});
-  }}><CopyFeedbackIcon copied={copied} size={16}/>{copied ? t("environments.copied") : t("environments.copy")}</button>;
+  }}><CopyFeedbackIcon copied={copied} size={16}/>{copied ? t("environments.copied") : t("environments.copy")}</Button>;
 }
 
 /** Add an E2B cloud computer: paste a key. The server checks it and starts preparing the computer in the background. */
@@ -68,7 +69,7 @@ export function E2BDialog({onClose, onSaved}: {onClose: () => void; onSaved: (bo
         <input id="env-e2b-template" name="e2b-template-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={template} disabled={busy} aria-describedby="env-e2b-template-hint" onChange={event => setTemplate(event.target.value)}/>
         <p id="env-e2b-template-hint" className="env-dialog-note">{t("environments.e2b.template_hint")}</p>
       </> : <button type="button" className="text-button env-template-toggle" aria-expanded={false} onClick={() => setShowTemplate(true)}>{t("environments.e2b.template_toggle")}</button>}
-      <div className="resource-restart-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("environments.cancel")}</button><button type="submit" className="primary-button" disabled={busy || !key.trim()}>{busy ? t("environments.e2b.saving") : t("environments.save")}</button></div>
+      <div className="resource-restart-actions"><Button type="button" disabled={busy} onClick={onClose}>{t("environments.cancel")}</Button><Button type="submit" variant="primary" disabled={busy || !key.trim()}>{busy ? t("environments.e2b.saving") : t("environments.save")}</Button></div>
     </form>
   </ModalDialog>;
 }
@@ -84,7 +85,7 @@ export function DeniedBotsDialog({bots, onUndo, onClose}: {bots: {bot_id: string
       {bots.length === 0 ? <p className="env-dialog-note" role="status">{t("environments.rc.denied.empty")}</p> : <ul className="rc-denied-list">
         {bots.map(bot => <li key={bot.bot_id} data-bot={bot.bot_id}><span>{bot.bot_name || t("environments.rc.denied.unnamed")}</span><button type="button" className="rc-action" onClick={() => onUndo(bot.bot_id)}>{t("environments.rc.denied.allow")}</button></li>)}
       </ul>}
-      <div className="resource-restart-actions"><button ref={close} type="button" className="secondary-button" onClick={onClose}>{t("environments.close")}</button></div>
+      <div className="resource-restart-actions"><Button ref={close} type="button" onClick={onClose}>{t("environments.close")}</Button></div>
     </section>
   </ModalDialog>;
 }
@@ -99,7 +100,7 @@ export function VmCommandDialog({command, onClose}: {command: string; onClose: (
       <p className="env-dialog-note">{t("environments.vm.run")}</p>
       <div className="env-code-row"><code className="env-command" data-computer-command="">{command}</code><CopyButton text={command} label={t("environments.vm.copy_aria")}/></div>
       <p id="env-vm-after" className="env-dialog-note">{t("environments.vm.after")}</p>
-      <div className="resource-restart-actions"><button ref={close} type="button" className="primary-button" onClick={onClose}>{t("environments.close")}</button></div>
+      <div className="resource-restart-actions"><Button ref={close} type="button" variant="primary" onClick={onClose}>{t("environments.close")}</Button></div>
     </section>
   </ModalDialog>;
 }
@@ -118,7 +119,7 @@ export function ConfigureDialog({onClose, onOpenAdmin, provided = false}: {onClo
         <ComputerResources bare onOpenAdmin={() => { onClose(); onOpenAdmin(); }}/>
         {isAdmin && selfId && !provided && <ComputerAttach base={`/api/admin/accounts/${encodeURIComponent(selfId)}/computer`}/>}
       </div>
-      <div className="resource-restart-actions"><button ref={close} type="button" className="primary-button" onClick={onClose}>{t("environments.done")}</button></div>
+      <div className="resource-restart-actions"><Button ref={close} type="button" variant="primary" onClick={onClose}>{t("environments.done")}</Button></div>
     </section>
   </ModalDialog>;
 }
@@ -134,7 +135,7 @@ export function ActionConfirm({spec, busy, onCancel, onConfirm}: {spec: ConfirmS
     <div className="resource-restart-dialog env-dialog" aria-labelledby="env-confirm-title" aria-describedby="env-confirm-body">
       <h3 id="env-confirm-title">{spec.title}</h3>
       <p id="env-confirm-body">{spec.body}</p>
-      <div className="resource-restart-actions"><button ref={cancel} type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("environments.cancel")}</button><button type="button" className={spec.danger ? "env-danger-button" : "primary-button"} disabled={busy} onClick={confirm}>{spec.action}</button></div>
+      <div className="resource-restart-actions"><Button ref={cancel} type="button" disabled={busy} onClick={onCancel}>{t("environments.cancel")}</Button><Button type="button" variant={spec.danger ? "danger" : "primary"} disabled={busy} onClick={confirm}>{spec.action}</Button></div>
     </div>
   </ConfirmDialog>;
 }

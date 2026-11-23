@@ -14,10 +14,6 @@
 .env-reason{color:var(--danger-text)}
 .env-outdated{color:var(--ink-soft)}
 .env-building{color:var(--muted)}
-.resource-restart-dialog .env-danger-button{min-height:40px;padding:9px 16px;border:2px solid var(--line);border-radius:11px;background:var(--danger);color:var(--on-danger);font:600 13px/1 var(--body);cursor:pointer}
-.resource-restart-dialog .env-danger-button:hover:not(:disabled){filter:brightness(1.06)}
-.resource-restart-dialog .env-danger-button:disabled{opacity:.45;cursor:not-allowed}
-.resource-restart-dialog .env-danger-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 .env-reason-detail{color:var(--muted);font-size:11.5px;line-height:1.5}
 .env-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .env-controls .env-more{width:32px;padding:0}
@@ -44,6 +40,7 @@
 .env-code{font:700 22px/1.2 var(--mono);letter-spacing:.14em}
 .env-command{font:12.5px/1.5 var(--mono)}
 .env-copy{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px}
+.env-copy .tb-btn-label{display:inline-flex;align-items:center;gap:6px}
 .env-config-body{display:grid;gap:14px;margin-top:6px;max-height:min(62vh,560px);overflow:auto}
 /* Kept from the retired pairing sheet: a lone note directly under a web settings section keeps its top gap. */
 html:not([data-desktop]) .settings-section>.field-note{margin:8px 0 0}
