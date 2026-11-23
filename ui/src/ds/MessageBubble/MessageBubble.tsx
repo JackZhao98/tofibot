@@ -48,13 +48,15 @@ export type MessageBubbleProps = {
   caret?: boolean;
   /** Reserve the avatar column for others' bubbles (default). A direct chat has none. */
   avatarColumn?: boolean;
+  /** Hang the avatar in the gutter left of the row, out of flow (the product's group chat). */
+  hangAvatar?: boolean;
   className?: string;
   children?: ReactNode;
 };
 
 /** A message: a bubble in a run (name over the first, avatar beside the last), with its quote, reactions and hover actions. */
 export function MessageBubble({
-  role = "bot", botColor, author, avatar, joined, continued, quote, attachments, reactions, meta, failed, sending, actions, showActions, flash, fresh, caret, avatarColumn = true, className, children,
+  role = "bot", botColor, author, avatar, joined, continued, quote, attachments, reactions, meta, failed, sending, actions, showActions, flash, fresh, caret, avatarColumn = true, hangAvatar, className, children,
 }: MessageBubbleProps) {
   const other = role !== "user";
   const bubble = children ? (
@@ -72,7 +74,7 @@ export function MessageBubble({
     <div className="tb-msg-attach">{attachments}</div>
   ) : null;
   return (
-    <div className={cx("tb-msg", `tb-msg--${role}`, botColor && `tb-bot--${botColor}`, joined && "is-joined", continued && "is-continued", !!meta && "has-foot", sending && "is-sending", showActions && "is-hover", flash && "is-flash", fresh && "is-fresh", !!reactions && "has-react", className)}>
+    <div className={cx("tb-msg", `tb-msg--${role}`, botColor && `tb-bot--${botColor}`, joined && "is-joined", continued && "is-continued", !!meta && "has-foot", sending && "is-sending", hangAvatar && "has-hung-avatar", showActions && "is-hover", flash && "is-flash", fresh && "is-fresh", !!reactions && "has-react", className)}>
       {other && avatarColumn ? (avatar && !continued ? <span className="tb-msg-avatar">{avatar}</span> : <span className="tb-msg-avatar tb-msg-avatar--gap" />) : null}
       <div className="tb-msg-col">
         {other && author && !joined ? <div className="tb-msg-author">{author}</div> : null}

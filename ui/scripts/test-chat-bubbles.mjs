@@ -127,12 +127,12 @@ function measure() {
     if (el.matches(".date-divider, .unread-divider, article.message-user")) { units.push({ type: "break", user: el.matches("article.message-user"), top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" }); continue; }
     if (el.closest(".message-tools")) continue;
     const message = el.matches("article.message-bot");
-    const head = message ? { avatar: el.querySelector(".sender-avatar .avatar, .sender-avatar img, .sender-avatar svg"), name: el.querySelector(".message-meta strong") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
+    const head = message ? { avatar: el.querySelector(".sender-avatar .avatar, .sender-avatar img, .sender-avatar svg"), name: el.querySelector(".tb-msg-author") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
     const avatar = shown(head.avatar) ? rect(head.avatar) : null;
     const name = shown(head.name) ? rect(head.name) : null;
     const unit = { type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" };
     if (message) {
-      const content = el.querySelector(".message-content");
+      const content = el.querySelector(".tb-bubble") ?? el.querySelector(".message-content");
       const cs = getComputedStyle(content);
       const box = content.getBoundingClientRect();
       const radii = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].map(parseFloat);
@@ -140,13 +140,14 @@ function measure() {
       const corner = radii.indexOf(smallest);
       unit.kind = el.classList.contains("message-segment") ? "segment" : "final";
       unit.contentLeft = box.left; unit.bubbleBottom = box.bottom; unit.bubbleTop = box.top;
-      unit.style = { border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`, background: cs.backgroundColor, bodyRadius: String(radii[2]), paddingTop: cs.paddingTop, paddingLeft: cs.paddingLeft };
+      unit.fill = cs.backgroundColor; unit.edge = `${cs.borderTopWidth} ${cs.borderTopStyle}`;
+      unit.style = { bodyRadius: String(radii[2]), paddingTop: cs.paddingTop, paddingLeft: cs.paddingLeft };
       // The tail is the one squared corner of the bubble; its vertical position is the corner's.
       // A run's merged corner (--bubble-joined, 6px) is not a tail (--bubble-tail, 5px): only a corner at or under 5.5px counts.
       unit.joined = el.closest(".message-block")?.dataset.joinsPrev === "true";
       unit.joinsNext = el.closest(".message-block")?.dataset.joinsNext === "true";
       unit.radii = radii;
-      unit.tail = smallest <= 5.5 && smallest < Math.max(...radii) - 1 ? { corner: ["top-left", "top-right", "bottom-right", "bottom-left"][corner], y: corner < 2 ? box.top : box.bottom } : null;
+      unit.tail = null; // V3 draws no tail: only a run tightens the corners on the sender's side
     }
     units.push(unit);
   }
@@ -162,8 +163,8 @@ function check(label, m, kind) {
   // Same container for every kind (the pointed corner is the only allowed difference).
   const styles = new Set(bots.map(b => JSON.stringify(b.style)));
   if (styles.size !== 1) failures.push(`container styles differ: ${[...styles].join(" | ")}`);
-  // Bubbles are filled, never stroked: no outline, a real fill, in both conversation types.
-  for (const b of bots) { if (!b.style.border.startsWith("0px")) failures.push(`${b.id}: bubble has an outline (${b.style.border})`); if (b.style.background === "rgba(0, 0, 0, 0)") failures.push(`${b.id}: bubble has no fill`); }
+  // Bubbles are tinted in the Bot's hue with a 1px edge, in both conversation types (V3 PR 3.3).
+  for (const b of bots) { if (b.edge !== "1px solid") failures.push(`${b.id}: bubble edge is ${b.edge} (V3: a 1px edge in the Bot's hue)`); if (b.fill === "rgba(0, 0, 0, 0)") failures.push(`${b.id}: bubble has no fill`); }
   if (kind === "dm") {
     for (const b of bots) { if (b.avatar || b.name) failures.push(`${b.id}: direct chat shows avatar/name`); if (b.tail) failures.push(`${b.id}: direct chat bubble has a tail`); }
     if (m.units.some(u => u.type === "activity")) failures.push("direct chat renders group Activity heads");
@@ -188,11 +189,6 @@ function check(label, m, kind) {
         else {
           const edge = u.type === "message" ? u.bubbleBottom : u.bottom;
           if (Math.abs(u.avatar.bottom - edge) > 4) failures.push(`${tag}: avatar bottom ${u.avatar.bottom.toFixed(1)} vs unit bottom ${edge.toFixed(1)}`);
-        }
-        if (u.type === "message") {
-          if (!u.tail) failures.push(`${tag}: last bubble has no tail`);
-          else if (u.tail.corner !== "bottom-left") failures.push(`${tag}: tail corner ${u.tail.corner}`);
-          else if (u.avatar && !(u.tail.y >= u.avatar.top - 1 && u.tail.y <= u.avatar.bottom + 4)) failures.push(`${tag}: tail y ${u.tail.y.toFixed(1)} outside avatar`);
         }
       } else {
         if (u.avatar) failures.push(`${tag}: earlier unit shows the avatar`);
@@ -291,11 +287,11 @@ try {
       const first = page.locator('[data-message-id="file_text"] article.message');
       const last = page.locator('[data-message-id="file_only"] article.message');
       assert.equal(await first.getAttribute("data-last"), null, "external files do not end the sender group");
-      assert.equal(await first.locator(".message-meta strong").isVisible(), true, "the first unit names the sender");
+      assert.equal(await first.locator(".tb-msg-author").isVisible(), true, "the first unit names the sender");
       assert.equal(await first.locator(".sender-avatar").isVisible(), false);
       assert.equal(await last.getAttribute("data-continues"), "true");
       assert.equal(await last.getAttribute("data-last"), "true");
-      assert.equal(await last.locator(".message-meta strong").isVisible(), false);
+      assert.equal(await last.locator(".tb-msg-author").isVisible(), false);
       assert.equal(await last.locator(".sender-avatar").isVisible(), true, "a file-only closing unit carries the avatar");
       assert.equal(await last.locator(".message-content").count(), 0, "files stay outside a bubble");
       assert.equal(await first.locator(".message-content .delivered-attachment").count(), 0);

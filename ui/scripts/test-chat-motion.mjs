@@ -236,7 +236,7 @@ await check("action bars are not in the DOM until a message is hovered, and only
   const { page, context } = await open();
   await page.mouse.move(2, 2);
   assert.equal(await bar(page).count(), 0, "no bars while idle");
-  const box = await block(page, "m3").locator(".message-content").boundingBox();
+  const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 60, box.y + 20);
   await bar(page).first().waitFor();
   assert.equal(await bar(page).count(), 1, "one bar");
@@ -252,8 +252,8 @@ const barGeometry = (page, id) => page.evaluate(id => {
   const blockEl = document.querySelector(`[data-message-id="${id}"]`);
   const barEl = blockEl.querySelector(".message-hover-actions");
   if (!barEl) return null;
-  const content = blockEl.querySelector(".message-content");
-  const others = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content, .message-reactions")].map(rect));
+  const content = blockEl.querySelector(".tb-bubble");
+  const others = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".tb-bubble, .message-reactions")].map(rect));
   return { joinsNext: blockEl.dataset.joinsNext === "true", bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
 }, id);
 const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
@@ -269,7 +269,7 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
     for (const id of ids) {
       await block(page, id).evaluate(el => el.scrollIntoView({ block: "center" }));
       await page.waitForTimeout(60);
-      const box = await block(page, id).locator(".message-content").boundingBox();
+      const box = await block(page, id).locator(".tb-bubble").boundingBox();
       await page.mouse.move(2, 2);
       await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0);
       const before = await heights(page);
@@ -344,7 +344,7 @@ await check("a person's bubble has no receipt row: spacing is the action row's, 
   const spacing = await block(page, "m_r").evaluate(node => { const article = node.querySelector(".message-user").getBoundingClientRect(); const row = node.querySelector(".message-actions-row")?.getBoundingClientRect(); return row ? row.top - article.bottom : null; });
   assert.ok(spacing !== null && spacing <= 6, `the action row's reserve sits right under the person's bubble (${spacing}px)`);
   await block(page, "m_r").scrollIntoViewIfNeeded();
-  const box = await block(page, "m_r").locator(".message-content").boundingBox();
+  const box = await block(page, "m_r").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m_r").locator(".message-hover-actions").waitFor();
   const mark = block(page, "m_r").locator(".message-hover-actions .send-receipt-mark");
@@ -371,7 +371,7 @@ await check("hover-to-visible latency is reported", async () => {
 await check("icon hints: the first waits, a neighbour's follows at once", async () => {
   const { page, context } = await open();
   await block(page, "m3").scrollIntoViewIfNeeded();
-  const box = await block(page, "m3").locator(".message-content").boundingBox();
+  const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   const buttons = block(page, "m3").locator(".message-hover-actions button");
   await buttons.first().waitFor();
@@ -392,7 +392,7 @@ await check("icon hints: the first waits, a neighbour's follows at once", async 
 await check("Copy puts the message as displayed on the clipboard and shows a check", async () => {
   const { page, context } = await open();
   await block(page, "m1").scrollIntoViewIfNeeded();
-  const box = await block(page, "m1").locator(".message-content").boundingBox();
+  const box = await block(page, "m1").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 20, box.y + 10);
   await page.waitForTimeout(200);
   if (process.env.CHAT_MOTION_SHOT) await page.screenshot({ path: process.env.CHAT_MOTION_SHOT });
@@ -406,7 +406,7 @@ await check("Copy falls back when the async clipboard is unavailable", async () 
   const { page, context } = await open();
   await page.evaluate(() => { Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true }); window.__copied = null; document.execCommand = cmd => { if (cmd === "copy") { window.__copied = document.activeElement?.value ?? document.getSelection().toString(); return true; } return false; }; });
   await block(page, "m2").scrollIntoViewIfNeeded();
-  const box = await block(page, "m2").locator(".message-content").boundingBox();
+  const box = await block(page, "m2").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 10, box.y + 10);
   await block(page, "m2").locator('[data-action="copy"]').click({ timeout: 4000 });
   assert.equal(await page.evaluate(() => window.__copied), "Done.");
@@ -415,7 +415,7 @@ await check("Copy falls back when the async clipboard is unavailable", async () 
 
 await check("a reaction shows at once and the menu closes before the server answers", async () => {
   const { page, context, reactionCalls } = await open({ reactionDelay: 1500 });
-  const box = await block(page, "m3").locator(".message-content").boundingBox();
+  const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="react"]').click();
   await page.locator(".reaction-context-menu").waitFor();
@@ -431,7 +431,7 @@ await check("a reaction shows at once and the menu closes before the server answ
 
 await check("a failed reaction rolls back and says so", async () => {
   const { page, context } = await open({ reactionFail: true });
-  const box = await block(page, "m3").locator(".message-content").boundingBox();
+  const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="react"]').click();
   await page.locator('.reaction-options button[aria-label*="👍"]').click();
@@ -476,7 +476,7 @@ await check("keyboard: the list is one tab stop, arrows move between messages, t
 await check("touch: tapping beside the bubble does nothing; tapping the bubble opens the bar below it", async () => {
   const { page, context } = await open({ width: 420, height: 800, touch: true });
   await block(page, "m4").scrollIntoViewIfNeeded();
-  const content = await block(page, "m4").locator(".message-content").boundingBox();
+  const content = await block(page, "m4").locator(".tb-bubble").boundingBox();
   const host = await block(page, "m4").locator(".message-hover-host").boundingBox();
   assert.ok(content.x - host.x > 8, "the reader's bubble leaves empty row space on its left");
   await page.touchscreen.tap(host.x + 3, content.y + content.height / 2);
@@ -484,7 +484,7 @@ await check("touch: tapping beside the bubble does nothing; tapping the bubble o
   assert.equal(await bar(page).count(), 0, "a tap beside the bubble opens nothing");
   await page.touchscreen.tap(content.x + 30, content.y + 10);
   await bar(page).first().waitFor();
-  const geometry = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); const blockEl = b.closest(".message-block"); const c = blockEl.querySelector(".message-content").getBoundingClientRect(); const br = b.getBoundingClientRect(), btn = b.querySelector("button").getBoundingClientRect(); const next = blockEl.nextElementSibling?.getBoundingClientRect(); return { static: getComputedStyle(b).position === "static", size: Math.min(btn.width, btn.height), belowBubble: br.top >= c.bottom - 0.5, rightEdge: Math.abs(br.right - c.right) <= 4, overlapsNext: next ? br.bottom > next.top + 1 && br.top < next.bottom : false, inside: br.left >= 0 && br.right <= innerWidth }; });
+  const geometry = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); const blockEl = b.closest(".message-block"); const c = blockEl.querySelector(".tb-bubble").getBoundingClientRect(); const br = b.getBoundingClientRect(), btn = b.querySelector("button").getBoundingClientRect(); const next = blockEl.nextElementSibling?.getBoundingClientRect(); return { static: getComputedStyle(b).position === "static", size: Math.min(btn.width, btn.height), belowBubble: br.top >= c.bottom - 0.5, rightEdge: Math.abs(br.right - c.right) <= 4, overlapsNext: next ? br.bottom > next.top + 1 && br.top < next.bottom : false, inside: br.left >= 0 && br.right <= innerWidth }; });
   assert.ok(geometry.static, "bar is in the flow");
   assert.ok(geometry.belowBubble, "bar is below its bubble");
   assert.ok(geometry.rightEdge, "the reader's bar ends at the bubble's right edge");

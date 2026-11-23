@@ -1,32 +1,23 @@
-/* The product's message bubble on the kit (V3 PR 3.3a). The kit draws the bubble, name, avatar, quote and caret; these rules
-   keep the V2 hooks that still drive them: runs and sender groups are marked on the DOM by senderGroups.ts (3.3b moves them to props). */
+/* The product's message bubble on the kit (V3 PR 3.3a). The kit draws the bubble, name, avatar, quote and caret. Runs and sender groups
+   are marked on the DOM by senderGroups.ts (3.3b moves them to props), so they reach the kit through its custom properties: those
+   cascade from any layer, where a rule would lose to the kit's unlayered ones. */
 @layer legacy {
-/* The kit row fills the message body; yours sits on the right. */
-.workspace .message-body > .tb-msg { max-width:none; }
+.workspace .message-body > .tb-msg { --tb-row-max:none; }
+.workspace .message-user { --tb-col-max:88%; }
+.workspace .message-bot { --tb-col-max:min(680px, 100%); }
+@media (max-width:640px) { .workspace .message-bot { --tb-col-max:100%; } }
 .workspace .message-user .tb-msg { width:fit-content; max-width:100%; margin-left:auto; }
 .workspace .message-bot .tb-msg { width:100%; }
-/* In a group the article keeps its gutter for the rows under the bubble; the avatar column hangs into it. */
-.workspace .message.is-group.message-bot .tb-msg { width:calc(100% + var(--sender-gutter)); margin-left:calc(var(--sender-gutter) * -1); }
-.workspace .tb-msg-col { max-width:min(680px, 100%); }
-@media (max-width:640px) { .workspace .tb-msg-col { max-width:100%; } }
-/* The text inside the bubble: the bubble is the kit's; the V2 content box has no look of its own now. */
-.workspace .tb-bubble .message-content { max-width:none; width:auto; margin:0; padding:0; border:0; border-radius:0; background:none; color:inherit; font-size:15px; line-height:1.6; }
+.workspace .tb-bubble .message-content { max-width:none; width:auto; margin:0; padding:0; border:0; border-radius:0; background:none; color:inherit; }
 .workspace .tb-bubble .message-content > :last-child { margin-bottom:0; }
 /* Sender groups (senderGroups.ts): the name sits over a group's first unit, the avatar beside its last. */
-.workspace .message.is-group[data-continues="true"] .tb-msg-author { display:none; }
-.workspace [data-sender]:not([data-last="true"]) .tb-msg-avatar { visibility:hidden; }
-.workspace .tb-msg-avatar { width:var(--sender-avatar); }
-.workspace .tb-msg-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .tb-msg-author { font:400 12px/1.3 var(--body); color:var(--muted); }
-.workspace .tb-msg--bot[class*="tb-bot--"] .tb-msg-author { color:var(--bot-text); }
-.workspace .tb-msg { gap:var(--sender-gap); }
+.workspace .message.is-group[data-continues="true"] { --tb-author-display:none; }
+.workspace [data-sender]:not([data-last="true"]) { --tb-avatar-visibility:hidden; }
 /* Bubble runs (markBubbleRuns): the corners on the sender's side tighten where two bubbles of one run meet. */
-.workspace .message-block[data-joins-prev] .tb-msg--user .tb-bubble { border-top-right-radius:var(--radius-bubble-joined); }
-.workspace .message-block[data-joins-next] .tb-msg--user .tb-bubble { border-bottom-right-radius:var(--radius-bubble-joined); }
-.workspace .message-block[data-joins-prev] .tb-msg--bot .tb-bubble { border-top-left-radius:var(--radius-bubble-joined); }
-.workspace .message-block[data-joins-next] .tb-msg--bot .tb-bubble { border-bottom-left-radius:var(--radius-bubble-joined); }
-/* A jump to a message frames its bubble once; keyboard focus rings the bubble. */
+.workspace .message-block[data-joins-prev] { --tb-join-top:var(--radius-bubble-joined); }
+.workspace .message-block[data-joins-next] { --tb-join-bottom:var(--radius-bubble-joined); }
+/* A jump to a message frames its bubble once; keyboard focus rings it. */
 .workspace .message-block[data-jump-target] .tb-bubble { animation:tb-bubble-flash 2.4s var(--ease-out) both; }
-.workspace .message-block:focus-visible .tb-bubble { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+html:not([data-input="pointer"]) .workspace .message-block:focus-visible .tb-bubble { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 @media (prefers-reduced-motion:reduce) { .workspace .message-block[data-jump-target] .tb-bubble { animation:none; } }
 }
