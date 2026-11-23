@@ -20,6 +20,7 @@ const ALLOWED = new Map([
   [".workspace .detail-pane.widget-column", "draws no scrollbar (scrollbar-width none)"],
   [".workspace .detail-pane.widget-column:has(.computer-detail.is-expanded)", "draws no scrollbar (scrollbar-width none)"],
   [".workspace .usage-agents", "horizontal row of agent buttons"],
+  [".dev-tune-panel", "dev-build Tune panel, not shipped"],
   [".tb-settings-rail", "mobile variant is a horizontal strip with its scrollbar hidden"],
   [".bb-tabs", "horizontal tab strip"],
   [".terminal-tabs", "horizontal tab strip"],
