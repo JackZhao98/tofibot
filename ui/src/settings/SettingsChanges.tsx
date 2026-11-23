@@ -5,6 +5,7 @@ import { formatRelativeTime } from "../i18n/format";
 import { useSettingLabel } from "../SettingsChangeNotice";
 import type { SettingsChangeRow } from "../types";
 import { SettingsCard, SettingsRow } from "./components";
+import { Button } from "../ds/Button/Button";
 
 const clip = (value: string) => { const text = value.replace(/\s+/g, " ").trim(); return text.length > 80 ? `${text.slice(0, 79)}…` : text; };
 
@@ -21,7 +22,7 @@ function ChangeRow({ change, busy, error, onRevert }: { change: SettingsChangeRo
   </>;
   return <SettingsRow label={label} description={description}
     control={reverted ? <span className="muted">{t("changes.reverted")}</span>
-      : change.revertable ? <button type="button" className="st-button" disabled={busy} onClick={() => onRevert(change.id)}>{busy ? t("changes.reverting") : t("changes.revert")}</button>
+      : change.revertable ? <Button type="button" size="sm" disabled={busy} onClick={() => onRevert(change.id)}>{busy ? t("changes.reverting") : t("changes.revert")}</Button>
       : <span className="muted">{t("changes.not_revertable")}</span>} />;
 }
 
