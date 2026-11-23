@@ -3,6 +3,7 @@ import {fileMoveApi, fileMoveError, type FileMoveDirection, type FileMoveView, t
 import {useTranslation} from "./i18n";
 import {ConfirmAction} from "./ConfirmAction";
 import {formatBytes} from "./storageApi";
+import { Button } from "./ds/Button/Button";
 
 const REPORT_COUNTS = ["rows", "missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans", "orphans_young"] as const;
 const REPORT_PROBLEMS = new Set<string>(["missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans"]);
@@ -49,8 +50,8 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
     <p className="field-note" data-field="counts">{t("admin.org.file_move.on_disk", {files: view.disk.files, size: formatBytes(view.disk.bytes)})} · {t("admin.org.file_move.in_bucket", {files: view.bucket.files, size: formatBytes(view.bucket.bytes)})}</p>
     {view.disabled_accounts > 0 && <p className="field-note" data-field="disabled-accounts">{t("admin.org.file_move.disabled_note", {count: view.disabled_accounts})}</p>}
     {!active && <div className="provider-actions">
-      <button type="button" className="st-button" data-action="move-to-bucket" disabled={!canStart("to_bucket")} onClick={() => void act(() => fileMoveApi.start("to_bucket"))}>{t("admin.org.file_move.to_bucket")}</button>
-      <button type="button" className="st-button" data-action="move-to-disk" disabled={!canStart("to_disk")} onClick={() => void act(() => fileMoveApi.start("to_disk"))}>{t("admin.org.file_move.to_disk")}</button>
+      <Button type="button" size="sm" data-action="move-to-bucket" disabled={!canStart("to_bucket")} onClick={() => void act(() => fileMoveApi.start("to_bucket"))}>{t("admin.org.file_move.to_bucket")}</Button>
+      <Button type="button" size="sm" data-action="move-to-disk" disabled={!canStart("to_disk")} onClick={() => void act(() => fileMoveApi.start("to_disk"))}>{t("admin.org.file_move.to_disk")}</Button>
     </div>}
     {view.previous.length > 0 && <div className="file-move-previous" data-section="previous-buckets">
       <p className="file-move-subhead">{t("admin.org.file_move.previous_title")}</p>
@@ -58,7 +59,7 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
         <p>{t("admin.org.file_move.previous_line", {bucket: previous.bucket, date: new Date(previous.replaced_at).toLocaleDateString()})}</p>
         <p className="field-note">{previous.files > 0 ? t("admin.org.file_move.previous_files", {files: previous.files, size: formatBytes(previous.bytes)}) : t("admin.org.file_move.previous_empty")}{previous.files === 0 && previous.pending > 0 ? ` · ${t("admin.org.file_move.cleanup_pending")}` : ""}</p>
         {!active && <div className="provider-actions">
-          {previous.files > 0 && <button type="button" className="st-button" data-action="move-to-current" disabled={!canStart("to_generation")} onClick={() => void act(() => fileMoveApi.start("to_generation"))}>{t("admin.org.file_move.to_current")}</button>}
+          {previous.files > 0 && <Button type="button" size="sm" data-action="move-to-current" disabled={!canStart("to_generation")} onClick={() => void act(() => fileMoveApi.start("to_generation"))}>{t("admin.org.file_move.to_current")}</Button>}
           {previous.files === 0 && <ConfirmAction label={t("admin.org.file_move.retire")} question={t("admin.org.file_move.retire_question")} disabled={busy || previous.pending > 0} onConfirm={async () => { await act(() => fileMoveApi.retire(previous.gen)); }}/>}
         </div>}
       </div>)}
@@ -74,8 +75,8 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
       </>}
       {!active && <p className="field-note">{t("admin.org.file_move.progress", {done: job.files_done, total: job.files_total, size: formatBytes(job.bytes_done), totalSize: formatBytes(job.bytes_total)})}</p>}
       {active && <div className="provider-actions">
-        {!paused && <button type="button" className="st-button" data-action="move-pause" onClick={() => void act(() => fileMoveApi.pause())}>{t("admin.org.file_move.pause")}</button>}
-        {paused && <button type="button" className="st-button" data-action="move-resume" disabled={busy} onClick={() => void act(() => fileMoveApi.resume())}>{t("admin.org.file_move.resume")}</button>}
+        {!paused && <Button type="button" size="sm" data-action="move-pause" onClick={() => void act(() => fileMoveApi.pause())}>{t("admin.org.file_move.pause")}</Button>}
+        {paused && <Button type="button" size="sm" data-action="move-resume" disabled={busy} onClick={() => void act(() => fileMoveApi.resume())}>{t("admin.org.file_move.resume")}</Button>}
         <ConfirmAction label={t("admin.org.file_move.cancel")} question={t("admin.org.file_move.cancel_question")} onConfirm={async () => { await act(() => fileMoveApi.cancel()); }}/>
       </div>}
     </div>}
@@ -88,7 +89,7 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
     <p className="field-note">{t("admin.org.file_move.reconcile_help")}</p>
     <label className="check-row"><input type="checkbox" name="file-reconcile-deep" checked={deep} disabled={busy} onChange={event => setDeep(event.target.checked)}/>{t("admin.org.file_move.deep")}</label>
     <div className="provider-actions">
-      <button type="button" className="st-button" data-action="reconcile" disabled={busy || view.job?.status === "running"} onClick={() => void act(() => fileMoveApi.reconcile(deep))}>{t("admin.org.file_move.reconcile")}</button>
+      <Button type="button" size="sm" data-action="reconcile" disabled={busy || view.job?.status === "running"} onClick={() => void act(() => fileMoveApi.reconcile(deep))}>{t("admin.org.file_move.reconcile")}</Button>
     </div>
     {report && <ReportView report={report} busy={busy} onSweep={dryRun => act(() => fileMoveApi.sweep(dryRun))}/>}
     {error && <p role="alert" className="admin-error">{error}</p>}
@@ -111,7 +112,7 @@ function ReportView({report, busy, onSweep}: {report: FileReport; busy: boolean;
     {REPORT_COUNTS.every(key => !REPORT_PROBLEMS.has(key) || report[key] === 0) && !report.delete_failed && <p className="field-note" data-field="no-issues">{t("admin.org.file_move.no_issues")}</p>}
     {items.length > 0 && <ul className="file-move-items" data-section="report-items">{items.map((item, index) => <li key={index}>{t(`admin.org.file_move.issue.${item.issue}` as "admin.org.file_move.issue.orphan", {defaultValue: item.issue})}{item.account ? ` · ${item.account}` : ""}{item.kind ? ` · ${item.kind}` : ""} · {formatBytes(item.size)}{item.age_days ? ` · ${t("admin.org.file_move.age_days", {count: item.age_days})}` : ""}</li>)}</ul>}
     {report.orphans > 0 && <div className="provider-actions">
-      <button type="button" className="st-button" data-action="sweep-dry-run" disabled={busy} onClick={() => void onSweep(true)}>{t("admin.org.file_move.sweep_dry")}</button>
+      <Button type="button" size="sm" data-action="sweep-dry-run" disabled={busy} onClick={() => void onSweep(true)}>{t("admin.org.file_move.sweep_dry")}</Button>
       <ConfirmAction label={t("admin.org.file_move.sweep")} question={t("admin.org.file_move.sweep_question", {count: report.orphans})} disabled={busy} onConfirm={() => onSweep(false)}/>
     </div>}
     <p className="field-note">{t("admin.org.file_move.orphan_note")}</p>
