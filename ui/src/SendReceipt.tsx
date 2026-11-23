@@ -11,8 +11,11 @@ import "./send-receipt.css";
  */
 type FailureModule = typeof import("./SendFailure");
 let failureChunk: Promise<FailureModule> | undefined;
-/** Called when a message is sent, so the chunk is in the cache before a failure (maybe a lost connection) needs it. */
-export const preloadSendFailure = () => (failureChunk ??= import("./SendFailure"));
+/** Called when a message is sent, so the chunks are in the cache before a failure (maybe a lost connection) needs them. */
+export const preloadSendFailure = () => {
+  void import("./chat/UnsentMenu").catch(() => {}); // the failed message's right-click menu: needed exactly when the connection is gone
+  return (failureChunk ??= import("./SendFailure"));
+};
 
 export function SendReceipt({ receipt, onRetry, onEdit, onDelete }: { receipt: Receipt; names?: string[]; group?: boolean; onRetry?: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const { t } = useTranslation("chat");
