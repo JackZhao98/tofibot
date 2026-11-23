@@ -3,6 +3,7 @@
 // runs and tool steps; the clock of a live run starts when the frame opens.
 import { CompactLiveLine, RunStartContext, WebToolActivityRun } from "../../App";
 import { DeliveryNote } from "../../SendReceipt";
+import { MessageBubble } from "../../ds/MessageBubble/MessageBubble";
 import { RunContextBody, type RunContextState } from "../../RunContext";
 import { TaskRunBlock } from "../../TaskRunBlock";
 import { QuestionCard } from "../../QuestionCard";
@@ -44,7 +45,7 @@ const answer = (runId: string): Message =>
   ({ id: `m_${runId}`, conversation_id: CONVERSATION, seq: 3, role: "assistant", content: "The review is at 15:00 in the small room.", created_at: ago(2), sender_bot_id: BOT, sender_bot_name: "Mochi", run_id: runId });
 
 // A message sent while the Bot works: the quiet note in the failed-line slot under the bubble (SendReceipt.tsx).
-const sentWhileWorking = (state: "queued" | "read") => <article className="message message-user"><div className="message-body"><div className="message-content"><p>Also check the projector.</p></div><DeliveryNote state={state} /></div></article>;
+const sentWhileWorking = (state: "queued" | "read") => <article className="message message-user"><div className="message-body"><MessageBubble role="user"><div className="message-content"><p>Also check the projector.</p></div></MessageBubble><DeliveryNote state={state} /></div></article>;
 // Parallel Bots in one group: one line each, keyed by run, stacked.
 const twoLiveLines = () => <div>
   <CompactLiveLine label="Browsing the web · 12s" botId={BOT} botName="Mochi" at={ago(12)} showName ariaLabel="Mochi is working" onOpen={noop} />

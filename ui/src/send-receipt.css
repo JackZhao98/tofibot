@@ -1,23 +1,11 @@
-/* Receipts. Delivered and read are a mark at the end of the hover/focus/tap action row, next to the time, and own no row.
-   Only a failed send keeps a line under its bubble (the retry); a sending message is dimmed instead. */
+/* Receipts. No ticks or read marks. Only a failed send keeps a line under its bubble (the retry); a sending message is dimmed instead. */
 @layer legacy {
 .workspace .message-user .send-receipt { display:flex; justify-content:flex-end; align-items:center; height:14px; margin:2px 2px 0 auto; color:var(--muted); font:11px/14px var(--body); }
 .workspace .message-user:has(.send-receipt) { margin-bottom:4px; }
-.workspace .send-receipt-mark { position:relative; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:20px; height:var(--bar-btn,28px); margin-left:2px; color:var(--muted); }
-.workspace .send-receipt[data-state="read"] .send-receipt-mark { color:var(--accent-primary-text); }
-.workspace .send-receipt[data-state="sending"] .send-receipt-mark { opacity:.8; }
-.workspace .send-receipt-mark.has-tip { cursor:default; border-radius:4px; }
-.workspace .send-receipt-mark:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; text-decoration:underline; text-underline-offset:2px; }
 .workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
 /* A press target of 44px on touch without growing the row: the hit area extends over the empty space beside the bubble. */
 @media (pointer:coarse) { .workspace .send-receipt-retry { position:relative; } .workspace .send-receipt-retry::after { content:""; position:absolute; inset:-15px -12px; } }
-.workspace .message-user.is-sending .message-content { opacity:.72; }
-@media (prefers-reduced-motion:no-preference) {
-  .workspace .message-user .message-content { transition:opacity var(--m-base) var(--ease-out); }
-  .workspace .send-receipt-mark { transition:color var(--m-base) var(--ease-out); }
-  .workspace .send-receipt-mark.is-settling svg { animation:send-receipt-settle var(--m-panel-in) var(--ease-out); }
-}
 /* Queued / read note under a message sent while the Bot works: the failed line's slot, quiet meta text. */
 .workspace .send-receipt-note[data-state="read"] { color:var(--accent-primary-text); animation:send-receipt-note-out var(--m-base) var(--ease-out) 4s both; }
 @media (prefers-reduced-motion:no-preference) {
@@ -25,7 +13,6 @@
 }
 @keyframes send-receipt-note-in { from { opacity:0; } to { opacity:1; } }
 @keyframes send-receipt-note-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
-@keyframes send-receipt-settle { from { transform:scale(.7); opacity:.4; } to { transform:none; opacity:1; } }
 
 /* Composer resilience: a failed message offers Retry, Edit and Delete; a message sent again by itself says so. */
 .workspace .message-user .send-receipt.is-failed { flex-wrap:wrap; gap:0 12px; height:auto; min-height:14px; row-gap:2px; }
@@ -36,6 +23,8 @@
 .workspace .send-receipt-hint { flex-basis:100%; text-align:right; color:var(--muted); }
 .workspace .message-user .send-receipt.is-retrying { gap:5px; }
 .workspace .send-receipt.is-retrying svg { flex:none; }
+/* Edit and Delete live in the failed message's right-click menu (UnsentMenu); a touch screen has no right-click until 3.4's long-press menu, so the line keeps them there. */
+@media (hover:hover) and (pointer:fine) { .workspace .send-receipt-action { display:none; } }
 @media (pointer:coarse) { .workspace .send-receipt-action { position:relative; } .workspace .send-receipt-action::after { content:""; position:absolute; inset:-15px -8px; } }
 @media (prefers-reduced-motion:no-preference) {
   .workspace .send-receipt.is-failed, .workspace .send-receipt.is-retrying { animation:send-receipt-note-in var(--m-base) var(--ease-out); }

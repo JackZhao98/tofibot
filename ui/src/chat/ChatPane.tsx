@@ -259,7 +259,6 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                       // "View activity" is offered on a Bot's message whose run did work (steps or progress notes), not on notices or user text.
                       const activityRunId = message.role === "assistant" && message.run_id && message.kind !== "notice" && message.kind !== "message_ref" && runHasActivity(message.run_id) ? message.run_id : undefined;
                       const receiptState = receiptFor(message, runsForMessage.get(message.id), lastReplySeq > message.seq);
-                      const receiptNames = receiptState ? receiptState.readBy.map(id => botById.get(id)?.name ?? knownBotNames.current.get(id) ?? "Bot") : undefined;
                       const hasBar = !isDesktop && canReact && message.kind !== "notice" && message.kind !== "message_ref";
                       const cardLike = message.kind === "ui_card" || message.kind === "scheduled_task";
                       const copyText = !cardLike && message.content.trim() ? copyableMessageText(message) : undefined;
@@ -284,7 +283,7 @@ export function ChatPane({ header, mobileList, modalPanelOpen, desktopExpanded, 
                         noticeTargetAvailable: !message.notice || conversations.some(item => item.id === message.notice?.target_conversation_id),
                         allowOpenDM: active.kind === "group" || message.kind === "forward_result",
                         canDraftReply: !active.archived && !isDesktop && message.card?.type === "mail", canMention: !active.archived,
-                        receipt: receiptState ?? undefined, receiptNames, canRetryReceipt: Boolean(message.local && message.client_message_id && canRetrySend(message.client_message_id)),
+                        receipt: receiptState && receiptState.state !== "delivered" && receiptState.state !== "read" ? receiptState : undefined, canRetryReceipt: Boolean(message.local && message.client_message_id && canRetrySend(message.client_message_id)),
                         hasBar, copyText, activityRunId, activityToggle: Boolean(activityRunId && !showActivity), activityOpen: activityRunId ? revealedRuns.has(activityRunId) : false, canReply: !active.archived,
                         botNames, menuPosition: reactionMenu?.messageId === message.id ? reactionMenu : null,
                         ownerNodes: ownersHere.length ? ownersHere.map(renderPlacement) : undefined, ownsNext: ownersHere.some(placementDraws),

@@ -100,8 +100,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .message-content code{padding:1px 4px;font-size:.9em}
 .message-content pre{max-width:100%;overflow-x:auto;white-space:pre}
 .message-code{max-width:100%;margin:2px 0 9px;overflow-x:auto;padding:11px 13px;white-space:pre}
-.message-user .message-content,.message-bot .message-content{width:fit-content;max-width:76%}
-.message-user .message-content{margin-left:auto}
 .message-user .message-meta{justify-content:flex-end;margin-left:0}
 .message-user .message-avatar{display:none}
 .related-message-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;margin:6px 0 0;padding:3px 6px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:11px;white-space:nowrap}
@@ -117,7 +115,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
 .work-active{width:fit-content;min-height:30px;gap:10px}
 
 .work-details{margin-left:39px;color:var(--muted);font-size:11px}
-.typing-cursor{display:inline-block;width:6px;height:15px;margin-left:4px;vertical-align:-2px;background:var(--accent);animation:blink 1s infinite}
 @keyframes blink{50%{opacity:0}
 }
 
@@ -282,8 +279,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
   .contact-pane::after{opacity:0}
 }
 .message-scroll{padding:25px 14px 16px}
-.message-user .message-content{max-width:88%}
-.message-bot .message-content{max-width:100%}
 .message{margin-bottom:15px}
 .composer{padding-right:14px;padding-left:14px;padding-bottom:max(13px,env(safe-area-inset-bottom))}
 .composer-tools{min-height:24px}
@@ -332,8 +327,6 @@ form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential
   button:disabled{color:GrayText;background:Canvas}
   .primary-button,.send-button{color:ButtonFace;background:ButtonText;border:1px solid ButtonText;forced-color-adjust:none}
   .secondary-button,.icon-button,.top-icon-button,.computer-button,.back-button{color:ButtonText;background:ButtonFace;border:1px solid ButtonText}
-  .message-user .message-content{color:ButtonFace;background:ButtonText}
-  .message-bot .message-content{color:CanvasText;background:Canvas;border:1px solid ButtonText}
   .detail-backdrop{background:Canvas}
 }
 

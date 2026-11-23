@@ -679,9 +679,6 @@
   },
   "receipt": {
     "sending": "Envoi en cours",
-    "delivered": "Remis",
-    "read": "Lu",
-    "read_by": "Lu par {{names}}",
     "failed": "Non envoyé",
     "retry": "Réessayer",
     "retry_label": "Réessayer d’envoyer ce message",

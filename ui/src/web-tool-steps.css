@@ -1,6 +1,5 @@
 /* Motion Lab's BotWorking presentation, in the conversation of both shells (the desktop app no longer keeps its own tool rows). */
 @layer legacy {
-:root .workspace .message-content .typing-cursor{width:2px;height:1.05em;margin-left:2px;vertical-align:-.15em;background:var(--lagoon);animation:blink 1s steps(2,start) infinite}
 :root .workspace .composer-row>.dictation-button.is-starting{color:var(--lagoon-text);border-color:var(--lagoon);background:color-mix(in srgb,var(--lagoon) 12%,var(--surface-2));animation:web-mic-connecting 1.2s var(--ease-inout) infinite}
 :root .workspace .dictation-status.is-starting{color:var(--lagoon-text)}
 @keyframes web-mic-connecting{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--lagoon) 15%,transparent)}}
@@ -54,7 +53,6 @@
 :root .workspace .run-context-toggle:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 :root .workspace .run-context-toggle[aria-expanded="true"] .web-tool-chevron{rotate:90deg}
 @media(prefers-reduced-motion:reduce){
-  :root .workspace .message-content .typing-cursor{animation:none}
   :root .workspace .composer-row>.dictation-button.is-starting{animation:none}
   :root .workspace .web-tool-step,
   :root .workspace .web-tool-step:is(.is-running,.is-queued) .web-tool-step-label,

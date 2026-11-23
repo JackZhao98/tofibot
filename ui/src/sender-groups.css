@@ -9,25 +9,18 @@
 @layer legacy {
 html[data-desktop] { --sender-avatar:38px; }
 
-/* Avatar + caption: only on the closing unit of a group. */
-.workspace .sender-avatar { position:absolute; left:calc(var(--sender-gutter) * -1); bottom:0; width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .sender-avatar .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .sender-name, .workspace .message.is-group .message-meta strong { display:block; color:var(--muted); font:400 12px/1.3 var(--body); }
-.workspace [data-sender]:not([data-last="true"]) .sender-avatar,
-.workspace .message.is-group[data-continues="true"] .message-meta,
+/* Activity heads (the kit bubble hangs its own avatar and name; see chat/message-bubble.css). */
+.workspace .sender-avatar:not(.sender-avatar--kit) { position:absolute; left:calc(var(--sender-gutter) * -1); bottom:0; width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-avatar:not(.sender-avatar--kit) .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .sender-name { display:block; color:var(--muted); font:400 12px/1.3 var(--body); }
+.workspace [data-sender]:not([data-last="true"]) .sender-avatar:not(.sender-avatar--kit),
 .workspace [data-sender][data-continues="true"] .sender-name { display:none; }
 
 /* Message bubbles. */
 .workspace .message.is-group.message-bot:not(.message-ui-card) { padding-left:var(--sender-gutter); }
 .workspace .message.is-group.message-bot:not(.message-ui-card) .message-body { display:flex; flex-direction:column; align-items:flex-start; }
 .workspace .message.is-group .message-meta { order:-1; min-height:0; margin:0 0 4px 2px; }
-.workspace .message.is-group.message-bot:not(.message-ui-card) .message-content {
-  position:relative; display:block; width:fit-content; max-width:min(78%, 680px); padding:10px 14px;
-  border:0; border-radius:var(--bubble-radius); background:var(--bubble-bot); color:var(--bubble-bot-ink);
-}
-.workspace .message.is-group.message-bot[data-last="true"] .message-content { border-bottom-left-radius:var(--bubble-tail); }
 .workspace .message-block:has(.message.is-group) > .message-reactions { margin-left:var(--sender-gutter); }
-@media (max-width:640px) { .workspace .message.is-group.message-bot .message-content { max-width:100%; } }
 
 /* Activity and live-status rows: same column; the head is positioned at the unit's bottom. */
 .workspace .tool-message.web-tool-run[data-sender],
@@ -37,11 +30,6 @@ html[data-desktop] { --sender-avatar:38px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-summary { min-height:26px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-toggle { margin-left:-6px; }
 
-/* Direct chat: the same filled bubble, no tail. Cards (.message-ui-card) are not bubbles. */
-.workspace .message.is-dm.message-bot:not(.message-ui-card) .message-content {
-  width:fit-content; max-width:min(86%, 720px); padding:10px 14px;
-  border:0; border-radius:var(--bubble-radius); background:var(--bubble-bot); color:var(--bubble-bot-ink);
-}
 /* Code and tables inside a bubble sit in a lighter (dark: deeper) well instead of the page-level code colours, which match the bubble tone. */
 .workspace :is(.message-bot,.message-user) .message-content :not(pre)>code { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
 .workspace :is(.message-bot,.message-user) .message-content :is(pre,.message-code) { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
@@ -70,10 +58,6 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .chat-pane:has(.compo
    ALIGNED side (right for the person, left for a Bot) merges to --bubble-joined; the far side stays round because widths differ.
    First of a run: aligned bottom corner. Middle: aligned top and bottom. Last: aligned top; its bottom keeps the single-bubble
    corner (the person's tail is top-right, so the first bubble keeps it; a group Bot's bottom-left tail stays on data-last). */
-.workspace .message-block[data-joins-prev] .message-user .message-content { border-top-right-radius:var(--bubble-joined); }
-.workspace .message-block[data-joins-next] .message-user .message-content { border-bottom-right-radius:var(--bubble-joined); }
-.workspace .message-block[data-joins-prev] .message.message-bot:not(.message-ui-card) .message-content { border-top-left-radius:var(--bubble-joined); }
-.workspace .message-block[data-joins-next] .message.message-bot:not(.message-ui-card) .message-content { border-bottom-left-radius:var(--bubble-joined); }
 /* Spacing inside a run: 3px instead of the 10px margin + the reserved actions row. */
 .workspace .message-block[data-joins-next][data-message-id] .message-hover-host .message { margin-bottom:3px; }
 

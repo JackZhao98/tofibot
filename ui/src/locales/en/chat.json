@@ -665,9 +665,6 @@
   },
   "receipt": {
     "sending": "Sending",
-    "delivered": "Delivered",
-    "read": "Read",
-    "read_by": "Read by {{names}}",
     "failed": "Not sent",
     "retry": "Retry",
     "retry_label": "Retry sending this message",

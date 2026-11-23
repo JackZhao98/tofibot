@@ -1,0 +1,26 @@
+/* The product's message bubble on the kit (V3 PR 3.3a). The kit draws the bubble, name, avatar, quote and caret. Runs and sender groups
+   are marked on the DOM by senderGroups.ts (3.3b moves them to props), so they reach the kit through its custom properties: those
+   cascade from any layer, where a rule would lose to the kit's unlayered ones. */
+@layer legacy {
+.workspace .message-body > .tb-msg { --tb-row-max:none; }
+.workspace .message.is-group { --tb-avatar-size:var(--sender-avatar); }
+.workspace .sender-avatar--kit .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
+.workspace .message-user { --tb-col-max:88%; }
+.workspace .message-bot { --tb-col-max:min(680px, 100%); }
+@media (max-width:640px) { .workspace .message-bot { --tb-col-max:100%; } }
+.workspace .message-user .tb-msg { width:fit-content; max-width:100%; margin-left:auto; }
+.workspace .message-bot .tb-msg { width:100%; }
+.workspace .tb-bubble .message-content { max-width:none; width:auto; margin:0; padding:0; border:0; border-radius:0; background:none; color:inherit; }
+.workspace .tb-bubble .message-content > :last-child { margin-bottom:0; }
+/* Sender groups (senderGroups.ts): the name sits over a group's first unit, the avatar beside its last. */
+.workspace .message.is-group[data-continues="true"] { --tb-author-display:none; }
+/* Out of flow (hangAvatar), so a hidden avatar can leave the box altogether: it is not focusable or hoverable either. */
+.workspace [data-sender]:not([data-last="true"]) { --tb-avatar-visibility:hidden; --tb-avatar-display:none; }
+/* Bubble runs (markBubbleRuns): the corners on the sender's side tighten where two bubbles of one run meet. */
+.workspace .message-block[data-joins-prev] { --tb-join-top:var(--radius-bubble-joined); }
+.workspace .message-block[data-joins-next] { --tb-join-bottom:var(--radius-bubble-joined); }
+/* A jump to a message frames its bubble once; keyboard focus rings it. */
+.workspace .message-block[data-jump-target] .tb-bubble { animation:tb-bubble-flash 2.4s var(--ease-out) both; }
+html:not([data-input="pointer"]) .workspace .message-block:focus-visible .tb-bubble { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) { .workspace .message-block[data-jump-target] .tb-bubble { animation:none; } }
+}

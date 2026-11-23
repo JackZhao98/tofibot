@@ -34,6 +34,7 @@ import { Divider } from "../src/ds/Divider/Divider";
 import { JumpButton } from "../src/ds/JumpButton/JumpButton";
 import { LiveLine } from "../src/ds/LiveLine/LiveLine";
 import { Mention } from "../src/ds/Mention/Mention";
+import { MessageBubble } from "../src/ds/MessageBubble/MessageBubble";
 import { ProcessLine } from "../src/ds/ProcessLine/ProcessLine";
 import { ProgressiveBlur } from "../src/ds/ProgressiveBlur/ProgressiveBlur";
 import { Reactions } from "../src/ds/Reactions/Reactions";
@@ -41,7 +42,7 @@ import { SidebarRow } from "../src/ds/SidebarRow/SidebarRow";
 import { StepList } from "../src/ds/StepList/StepList";
 import { TaskCard } from "../src/ds/TaskCard/TaskCard";
 import { ToolSteps } from "../src/ds/ToolSteps/ToolSteps";
-Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, ProcessLine, ProgressiveBlur, Reactions, SidebarRow, StepList, TaskCard, ToolSteps });
+Object.assign(registry, { ApprovalCard, Divider, JumpButton, LiveLine, Mention, MessageBubble, ProcessLine, ProgressiveBlur, Reactions, SidebarRow, StepList, TaskCard, ToolSteps });
 
 // Forms (PR 2.2): Radix components with the spec's tags (test-ds-parity skips the hidden input Radix adds in a server render).
 // Select is not here: the spec's is a native <select>.

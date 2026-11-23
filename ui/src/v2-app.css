@@ -68,16 +68,8 @@
 html:not([data-desktop]) .workspace .message-avatar { align-self:flex-start; width:34px; height:34px; flex:0 0 34px; margin:0 10px 0 0; }
 html:not([data-desktop]) .workspace .message-avatar .avatar { width:34px; height:34px; }
 html:not([data-desktop]) .workspace .message-bot:has(>.message-avatar) { align-items:flex-start; }
-.workspace .message-user .message-content {
-  max-width:78%; color:var(--bubble-user-ink); background:var(--bubble-user); border:0;
-  border-radius:var(--bubble-radius) var(--bubble-tail) var(--bubble-radius) var(--bubble-radius); padding:10px 14px; line-height:1.55;
-}
 html:not([data-desktop]) .workspace .message-user .message-meta.compact { display:none; }
 html:not([data-desktop]) .workspace .new-arrival .message-user .message-content { animation:none; }
-.workspace .message-bot .message-content {
-  max-width:100%; width:auto; padding:2px 0 0; border:0;
-  border-radius:0; background:transparent; color:var(--ink);
-}
 .workspace .message-reply-quote {
   display:flex; flex-direction:column; gap:2px; width:min(100%, 480px); margin:0 0 9px;
   padding:7px 11px; border:1px solid var(--line-soft); border-radius:10px;
@@ -89,11 +81,7 @@ html:not([data-desktop]) .workspace .new-arrival .message-user .message-content 
 .workspace .message-reply-excerpt { overflow:hidden; max-width:100%; text-overflow:ellipsis; white-space:nowrap; font:13px/1.4 var(--body); }
 .workspace .message-user .message-reply-quote { margin-left:auto; }
 .workspace .message-block:focus { outline:none; }
-.workspace .message-block:focus-visible .message-content { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:4px; }
-/* Clicking a message never frames it. Jumps to a message (sidebar result, reply
-   quote) flash the target once via .is-jump-target; keyboard focus keeps the ring. */
-.workspace .message-block:is(.is-jump-target,[data-jump-target]) .message-content { outline:2px solid var(--lagoon); outline-offset:4px; animation:v2-focus-flash 1.6s var(--ease-out) forwards; }
-@keyframes v2-focus-flash { 0%,45% { outline-color:var(--lagoon); } 100% { outline-color:transparent; } }
+/* Clicking a message never frames it. Jumps flash the target bubble (message-bubble.css); keyboard focus rings it there. */
 /* One arrival vocabulary on web: a Bot message that appears whole fades in over 200 ms. Opacity only: a transform on the newest message
    widens the scroll extent while it plays, and the pane that follows the bottom would move with it. A message that was streamed in
    place (.was-streamed) was already read as a draft, so saving it must not blink or replay. History and switches never get .new-arrival. */
@@ -124,7 +112,6 @@ html:not([data-desktop]) .workspace .new-arrival:not(.was-streamed) .message-bot
 .workspace .tool-activity summary strong { color:var(--ink-soft); }
 .workspace .tool-activity-details { background:var(--sunk); border-left:1px solid var(--line-soft); }
 .workspace .tool-activity-details pre { color:var(--ink-soft); }
-.workspace .typing-cursor { background:var(--blue); }
 .workspace .conversation-empty { background:var(--dots); border:1px solid var(--line-soft); border-radius:16px; min-height:240px; }
 .workspace .conversation-empty h2 { color:var(--ink); font:600 20px/1.3 var(--display); }
 

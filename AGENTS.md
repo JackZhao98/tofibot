@@ -297,6 +297,15 @@ Rules:
   notification switch open the Notifications row first (`[data-setting="notifications"] .gen-expand-toggle`). Not in the product, so not on
   the page though the mock draws them: a name field, the password row, Enter to send. `timezone-settings.css` is gone.
 
+- Message bubble (PR 3.3a). `chat/MessageBubble.tsx` draws a text message with the kit `ds/MessageBubble` (`.tb-msg`, `.tb-bubble`); the V2
+  article (`article.message[data-from]`, `.message-body`, `.message-content`, `.sender-avatar`) stays as the outer hook and the text box inside the
+  bubble. Name, avatar, quote (`.tb-quote`, the quoted sender's colour; yours is blue), Bot tint (`tb-bot--<ground>` from `useBotGround`) and the
+  caret (`tb-caret`) come from the kit. Runs and sender groups are still marked on the DOM by `senderGroups.ts` (3.3b moves them to props); the
+  bridge `chat/message-bubble.css` hands them to the kit through its custom properties (`--tb-join-top/bottom`, `--tb-avatar-visibility`,
+  `--tb-author-display`, `--tb-col-max`, `--tb-row-max`), because the kit is unlayered and a layered rule would lose. The group avatar hangs out of flow
+  (`hangAvatar`), so a cat that draws late never moves the text. V3 has no tail: only a run tightens corners. No delivery ticks or read marks
+  (`SendReceiptMark` is gone): sending dims the bubble, failed keeps the line, and Edit and Delete of a failed message are in its right-click menu
+  (`chat/UnsentMenu.tsx`, preloaded by `preloadSendFailure`); the line keeps both buttons on touch only until 3.4's long-press menu.
 - Chat header (PR 3.2). `chat/ChatHeader.tsx` builds the kit `ds/ChatHeader` (`.tb-chathead`; `chat-header.css` is gone). No bar: a bare cat
   (`ds/BotAvatar` with the tile taken away, `size="var(--cat)"`; up to 3 cats for a group) and its name, centred over the pane's top band;
   the pills have a translucent `--surface` fill and no backdrop, and the kit header draws its own blur layers only with `blur` (catalog).

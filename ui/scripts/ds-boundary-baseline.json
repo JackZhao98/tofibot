@@ -222,7 +222,7 @@
     "bridgeUse": 20
   },
   "v2-app.css": {
-    "bridgeUse": 52,
+    "bridgeUse": 50,
     "webFork": 24
   },
   "v2-foundations.css": {
@@ -236,7 +236,7 @@
     "bridgeUse": 4
   },
   "web-tool-steps.css": {
-    "bridgeUse": 25
+    "bridgeUse": 24
   },
   "web-tools-settings.css": {
     "bridgeUse": 5

@@ -17,7 +17,7 @@ import { ScheduledTaskRow } from "../ScheduledTaskRow";
 import { type ScheduleOccurrence } from "../scheduleOccurrences";
 import type { Schedule } from "../types";
 import { TofiIcon as Icon } from "../icons";
-import { lazy, memo, Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MessageMarkdown } from "../MessageMarkdown";
 import { BotAvatar } from "../BotAvatar";
 import { DeliveryNote, SendReceipt } from "../SendReceipt";
@@ -33,11 +33,16 @@ import { Notice } from "../ds/Notice/Notice";
 import { Button } from "../ds/Button/Button";
 import { Divider } from "../ds/Divider/Divider";
 import { ToolActivityList, type ToolDetailState } from "./RunActivity";
+import { MessageBubble as KitBubble, type BubbleTone } from "../ds/MessageBubble/MessageBubble";
+import { useBotGround } from "../useBotGround";
+import { getBotGround } from "../avatarStore";
+import "./message-bubble.css";
 
 // Shown only before the first Bot exists.
 /** The work trace line under a run's final reply, for a run whose Activity list is not drawn; the same chunk as in Activity. */
 const WorkTrace = lazy(() => import("../WorkTrace"));
 const SettingsChangeNotice = lazy(() => import("../SettingsChangeNotice"));
+const UnsentMenu = lazy(() => import("./UnsentMenu"));
 /** Holds a message's action bar and mounts it only while that message is the active one. */
 function MessageActionsSlot({ id, children }: { id: string; children: React.ReactNode }) {
   return useMessageActionsOpen(id) ? <>{children}</> : null;
@@ -65,6 +70,7 @@ function SmoothStreamMarkdown({ content, mention, active, streaming = false }: {
 export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const hasComputer = useHasComputer();
   const { t } = useTranslation("chat");
+  const ground = useBotGround(sender?.id ?? (message.sender_bot_id && message.sender_bot_id !== "system" ? message.sender_bot_id : undefined));
   const {timezone} = useUserTimezone();
   const toolsRunning = run?.status === "running" || run?.status === "queued";
   const answerRef = useRef<HTMLDivElement>(null);
@@ -161,9 +167,17 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   // A person's attachments sit above the text bubble, on their own (a photo is not a bubble); an image-only message has no bubble at all.
   const hasAttachments = Boolean(message.attachments?.length);
   const mediaOnly = hasAttachments && !body.trim();
-  const avatar = showAvatar && !isUser && <div className="sender-avatar tb-cat-only">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</div>;
-  const userAttachments = isUser && hasAttachments ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${message.local?.state === "sending" || message.local?.state === "retrying" ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}><div className={`message-meta ${hideMeta ? "compact" : ""}`}>{scheduled && <span>{t("message.scheduled")}</span>}{showIdentity && !isUser && (!compact || showAvatar) && <strong>{label}</strong>}</div>{(toolsRunning || !isDesktop) && toolRow}{replyTarget && <button type="button" className="message-reply-quote" aria-label={t("message.jump_to_reply", { name: replyTargetName ?? t("message.original") })} onClick={() => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`))}><span className="message-reply-author">{t("message.reply_to", { name: replyTargetName ?? t("message.original") })}</span><span className="message-reply-excerpt">{previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment")}</span></button>}{userAttachments}{!mediaOnly && <div className="message-content" ref={answerRef}>{avatar}{<SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />}{draft !== undefined && isDesktop && <span className="typing-cursor" />}</div>}{!isUser && hasAttachments && <div className="message-attachments bot-attachments">{mediaOnly && avatar}<AttachmentList attachments={message.attachments} /></div>}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  const avatar = showAvatar && !isUser ? <span className="sender-avatar sender-avatar--kit tb-cat-only">{sender ? <BotIdentityCard bot={sender} onMention={onMention ? () => onMention(sender) : undefined} onOpen={allowOpenDM && onNavigate ? () => onNavigate(sender.dm_conversation_id) : undefined}><Avatar label={label} id={sender.id} mini /></BotIdentityCard> : <Avatar label={label} id={message.sender_bot_id ?? "bot"} mini />}</span> : undefined;
+  const userAttachments = isUser && hasAttachments && !mediaOnly ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
+  const sending = message.local?.state === "sending" || message.local?.state === "retrying";
+  // The quote takes the quoted sender's colour: blue for you, the Bot's coat for a Bot.
+  const quoteName = replyTargetName ?? t("message.original");
+  const quoteTone: BubbleTone | undefined = replyTarget ? (replyTarget.role === "user" ? "you" : replyTarget.sender_bot_id && replyTarget.sender_bot_id !== "system" ? getBotGround(replyTarget.sender_bot_id) : undefined) : undefined;
+  const quote = replyTarget ? { author: t("message.reply_to", { name: quoteName }), text: previewText(readReplyMarker(replyTarget.content).body) || t("message.attachment"), tone: quoteTone, jumpLabel: t("message.jump_to_reply", { name: quoteName }), onJump: () => jumpToMessage(document.querySelector<HTMLElement>(`[data-message-id="${replyTarget.id}"]`)) } : undefined;
+  const author = showIdentity && !isUser && (!compact || showAvatar) ? label : undefined;
+  const botAttachments = !isUser && hasAttachments ? <div className="message-attachments bot-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
+  const bubble = mediaOnly ? undefined : <div className="message-content" ref={answerRef}><SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />{draft !== undefined && isDesktop && <span className="typing-cursor tb-caret" />}</div>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${sending ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}>{scheduled && <div className={`message-meta ${hideMeta ? "compact" : ""}`}><span>{t("message.scheduled")}</span></div>}{(toolsRunning || !isDesktop) && toolRow}{userAttachments}<KitBubble role={isUser ? "user" : "bot"} botColor={!isUser && message.sender_bot_id && message.sender_bot_id !== "system" ? ground ?? "tomato" : undefined} author={author} avatar={avatar} avatarColumn={grouped} hangAvatar={grouped} quote={quote} sending={sending} attachments={mediaOnly ? (isUser ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : botAttachments) : undefined}>{bubble}</KitBubble>{!isUser && hasAttachments && !mediaOnly && botAttachments}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 /** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
 export interface RowModel {
@@ -177,7 +191,7 @@ export interface RowModel {
   afterTools?: ToolActivity[]; afterSummaries?: ToolActivityRunSummary[]; afterSummaryErrors?: Record<string, string>; afterSummaryLoading?: Record<string, boolean>;
   scheduleOccurrence?: ScheduleOccurrence; schedulePending: boolean; schedule?: Schedule; canRetrySchedule: boolean;
   relatedChat: ViewOnlyChatTarget | null; compact: boolean; showIdentity: boolean; noticeTargetAvailable: boolean; allowOpenDM: boolean; canDraftReply: boolean; canMention: boolean;
-  receipt?: NonNullable<ReturnType<typeof receiptFor>>; receiptNames?: string[]; canRetryReceipt: boolean;
+  receipt?: NonNullable<ReturnType<typeof receiptFor>>; canRetryReceipt: boolean;
   hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
   botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number; h?: number } | null;
   ownerNodes?: React.ReactNode[];
@@ -213,17 +227,20 @@ export interface RowHandlers {
  */
 export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { model: RowModel; h: RowHandlers; stream: DraftStream }) {
   const { t } = useTranslation("chat");
+  const [unsentMenu, setUnsentMenu] = useState<{ x: number; y: number } | null>(null);
   const live = useLiveDraft(stream, m.liveId);
   const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
   const draft = m.drafting ? live ?? "" : undefined;
+  // A failed message of yours: Edit and Delete are in a right-click menu (or the keyboard's Menu key on the focused block).
+  const failedHere = m.receipt?.state === "failed" && message.role === "user" && Boolean(message.client_message_id);
+  useEffect(() => { if (!failedHere) setUnsentMenu(null); }, [failedHere]);
   const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
-  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} group={m.isGroup} names={m.receiptNames ?? []} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
-  const mark = m.receipt && (m.receipt.state === "delivered" || m.receipt.state === "read") ? { state: m.receipt.state, names: m.receiptNames ?? [], group: m.isGroup } : undefined;
-  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText} mark={mark}
+  const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
+  const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText}
       onReact={anchor => h.react(message.id, anchor)}
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
-  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
+  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : failedHere ? event => { event.preventDefault(); const box = event.currentTarget.querySelector(".tb-bubble")?.getBoundingClientRect(); setUnsentMenu(event.clientX || event.clientY || !box ? { x: event.clientX, y: event.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 }); } : undefined}>
     {m.dividerLabel !== undefined && <Divider className="date-divider">{m.dividerLabel}</Divider>}
     {m.unread && <Divider tone="unread" className="unread-divider" label={t("history.unread_below")}>{t("history.unread")}</Divider>}
     <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
@@ -234,6 +251,7 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
         relatedChat={m.relatedChat} onOpenRelatedChat={h.openRelated}
         compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
     </div>
+    {unsentMenu && failedHere && message.client_message_id && <Suspense fallback={null}><UnsentMenu x={unsentMenu.x} y={unsentMenu.y} t={t} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} close={() => setUnsentMenu(null)} /></Suspense>}
     {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
     {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}

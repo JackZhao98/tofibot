@@ -651,9 +651,6 @@
   },
   "receipt": {
     "sending": "送信中",
-    "delivered": "配信済み",
-    "read": "既読",
-    "read_by": "既読：{{names}}",
     "failed": "未送信",
     "retry": "再送",
     "retry_label": "このメッセージを再送します",
