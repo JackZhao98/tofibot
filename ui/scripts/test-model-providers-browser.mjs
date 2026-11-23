@@ -93,6 +93,9 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     await claude.getByLabel("Claude API key").waitFor();
     await claude.getByRole("button", {name: "取消"}).click();
     assert.equal(await claude.locator("input").count(), 0, "cancel hides the input again");
+    assert.equal(await claude.getByRole("button", {name: "替换密钥"}).evaluate(node => node === document.activeElement), true, "cancel returns focus to the control that opened the form");
+    assert.equal(await claude.locator(".provider-card-mark img").getAttribute("src"), "/brand/services/claude.svg", "Claude wears its own mark");
+    assert.equal(await openai.locator(".provider-card-mark img").getAttribute("src"), "/brand/services/openai-blossom.svg", "OpenAI wears its own mark");
     // Picker: optgroups in Codex, OpenAI, Claude order with display names.
     const picker = page.getByTestId("picker");
     await picker.locator(".ui-select-trigger").first().waitFor();

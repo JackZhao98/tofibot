@@ -5,6 +5,9 @@ import {useUserTimezone} from "./UserTimezone";
 import type {CompatListedModel, ModelProviderStatus} from "./types";
 import {intlLocale, formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
+import {Button} from "./ds/Button/Button";
+import {TextInput} from "./ds/TextInput/TextInput";
+import {TextArea} from "./ds/TextArea/TextArea";
 
 const SHOWN_MODELS = 12;
 /** The address that reaches an Ollama running on the computer that hosts the App container (Docker Desktop). */
@@ -52,7 +55,7 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
   setBaseUrl(status?.base_url ?? ""); setKey(""); setModelText((status?.models ?? []).join(", ")); setListed(null); setError(""); setNotice(""); setEditing(true);
  }
  function close(event?: MouseEvent<HTMLButtonElement>) {
-  event?.currentTarget.closest(".provider-card")?.querySelector<HTMLButtonElement>(".provider-card-head button")?.focus();
+  event?.currentTarget.closest(".provider-card")?.querySelector<HTMLButtonElement>("[data-form-opener]")?.focus();
   setEditing(false); setError("");
  }
  function failure(cause: unknown) {
@@ -87,7 +90,7 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
  const verified = status?.verified_at ? formatVerified(status.verified_at, timezone) : "";
  const summaryMeta = status?.error ? t("providers.verify_failed", {error: status.error}) : verified ? t("providers.verified_at", {time: verified}) : "";
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={Boolean(working) || loading}>
-  <CardHead id={titleId} title={t("providers.compat.title")} state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} action={!loading && <button type="button" className="st-button" aria-expanded={editing} onClick={() => editing ? close() : open()}>{t(configured ? "providers.manage" : "providers.add")}</button>}/>
+  <CardHead id={titleId} title={t("providers.compat.title")} provider={configured && isOllama(status?.base_url ?? "") ? "ollama" : undefined} state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} action={!loading && <Button size="sm" type="button" data-form-opener aria-expanded={editing} onClick={() => editing ? close() : open()}>{t(configured ? "providers.manage" : "providers.add")}</Button>}/>
   {loading ? <p className="provider-key-line is-muted" role="status">{t("providers.status_loading")}</p> : <>
    {editing && configured && status && <>
     <p className={`provider-key-line${failed ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{status.base_url}</code>{summaryMeta && <span className="provider-key-meta">{summaryMeta}</span>}</p>
@@ -97,25 +100,25 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
    </>}
    {showForm && <form className="provider-key-form compat-form" onSubmit={event => void save(event)} aria-busy={Boolean(working)}>
     <div className="compat-presets" role="group" aria-label={t("providers.compat.presets")}>
-     <button type="button" className="st-button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setListed(null); setError(""); }}>Ollama</button>
+     <Button size="sm" type="button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setListed(null); setError(""); }}>Ollama</Button>
     </div>
     <label htmlFor={urlId}>{t("providers.compat.url_label")}</label>
-    <input id={urlId} name="compat-base-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="http://host:11434/v1" value={baseUrl} disabled={Boolean(working)} required autoFocus onChange={event => { setBaseUrl(event.target.value); setListed(null); setError(""); }}/>
+    <TextInput mono id={urlId} name="compat-base-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="http://host:11434/v1" value={baseUrl} disabled={Boolean(working)} required autoFocus onChange={event => { setBaseUrl(event.target.value); setListed(null); setError(""); }}/>
     <p className="field-note">{t("providers.compat.url_note")}</p>
     {isOllama(baseUrl) && <p className="field-note compat-ollama" data-compat-note="ollama">{t("providers.compat.ollama_note")}</p>}
     <label htmlFor={keyId}>{t("providers.compat.key_label")}</label>
-    <input id={keyId} name="compat-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={configured && status?.key_hint ? t("providers.compat.key_keep") : "sk-…"} value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setError(""); }}/>
+    <TextInput mono id={keyId} name="compat-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={configured && status?.key_hint ? t("providers.compat.key_keep") : "sk-…"} value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setError(""); }}/>
     <label htmlFor={modelsId}>{t("providers.compat.models_label")}</label>
-    <textarea id={modelsId} name="compat-models" rows={2} autoComplete="off" spellCheck={false}  value={modelText} disabled={Boolean(working)} onChange={event => { setModelText(event.target.value); setError(""); }}/>
+    <TextArea id={modelsId} name="compat-models" rows={2} autoComplete="off" spellCheck={false}  value={modelText} disabled={Boolean(working)} onChange={event => { setModelText(event.target.value); setError(""); }}/>
     <p className="field-note">{t("providers.compat.models_note")}</p>
     {listed && <div className="compat-listed" role="status">
      <p className="field-note">{listed.length ? t("providers.compat.found", {count: listed.length}) : t("providers.compat.none_found")}</p>
      {listed.length > 0 && <ul>{listed.slice(0, SHOWN_MODELS).map(model => <li key={model.id}><code>{model.id}</code>{model.context_window ? <span>{t("providers.compat.window", {tokens: formatNumber(model.context_window)})}</span> : null}</li>)}{listed.length > SHOWN_MODELS && <li className="compat-more">{t("providers.compat.more", {count: listed.length - SHOWN_MODELS})}</li>}</ul>}
     </div>}
     <div className="provider-key-row">
-     <button type="submit" className="st-button" disabled={Boolean(working) || !baseUrl.trim()}>{showWorking && working === "save" ? t("providers.verifying") : t("providers.save")}</button>
-     <button type="button" className="st-button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void fetchModels()}>{showWorking && working === "fetch" ? t("providers.compat.fetching") : t("providers.compat.fetch")}</button>
-     <button type="button" className="st-button" disabled={Boolean(working)} onClick={close}>{t("action.cancel")}</button>
+     <Button size="sm" type="submit" disabled={Boolean(working) || !baseUrl.trim()}>{showWorking && working === "save" ? t("providers.verifying") : t("providers.save")}</Button>
+     <Button size="sm" type="button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void fetchModels()}>{showWorking && working === "fetch" ? t("providers.compat.fetching") : t("providers.compat.fetch")}</Button>
+     <Button size="sm" type="button" disabled={Boolean(working)} onClick={close}>{t("action.cancel")}</Button>
     </div>
     {error && <p className="error-text" role="alert">{error}</p>}
     <p className="field-note">{t("providers.compat.network_note")}</p>

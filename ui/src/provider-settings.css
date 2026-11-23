@@ -27,7 +27,7 @@
 .provider-status.missing .status-dot{background:var(--orange)}
 .settings-page-body .provider-key-form>label,.provider-key-form>label{display:block;margin:0 0 8px;font-size:13px;color:var(--text-soft)}
 .provider-key-row{display:flex;gap:10px;align-items:stretch}
-.provider-key-row input{flex:1;min-width:0;font-family:ui-monospace,monospace}
+.provider-key-row .tb-input{flex:1;min-width:0}
 .provider-key-row .primary-button{flex:none;white-space:nowrap}
 .provider-key-form .error-text,.provider-key-form .field-note{margin:8px 0 0}
 .provider-card-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:12px}
@@ -41,6 +41,7 @@
 /* Compact provider cards: a heading row, one status line, small actions. The key input appears only on demand. */
 .provider-card .provider-card-head{align-items:center;margin:0 0 10px}
 .provider-card-marks{display:inline-flex;align-items:center;gap:8px;flex:none}
+.provider-card-head>.provider-card-mark{flex:none}
 .provider-card-note{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.55}
 .provider-key-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;color:var(--ink);font:var(--type-meta);overflow-wrap:anywhere}
 .provider-key-line.is-muted{color:var(--muted)}
@@ -57,8 +58,8 @@
 .compat-form{display:grid;gap:0}
 .compat-form>label{margin-top:12px}
 .compat-form>label:first-child{margin-top:0}
-.compat-form input,.compat-form textarea{width:100%;min-width:0;font-family:ui-monospace,monospace}
-.compat-form textarea{resize:vertical}
+.compat-form .tb-input,.compat-form .tb-textarea{width:100%;min-width:0}
+.compat-form .tb-textarea{resize:vertical}
 .compat-form .field-note{margin:6px 0 0}
 .compat-form .provider-key-row{margin-top:14px;flex-wrap:wrap}
 .compat-form .provider-key-row .st-button{flex:none}
