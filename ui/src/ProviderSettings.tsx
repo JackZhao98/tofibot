@@ -9,6 +9,8 @@ import { useTranslation } from "./i18n";
 import { SettingsCard, SettingsSection, type BadgeState } from "./settings/components";
 import { useCodexConnection, type CodexConnection } from "./settings/AppSlots";
 import { TofiIcon as Icon } from "./icons";
+import { Button } from "./ds/Button/Button";
+import { TextInput } from "./ds/TextInput/TextInput";
 import {CardHead, ProviderConfirm, SwitchMethod, useDelayedBusy} from "./ProviderControls";
 export {CardHead} from "./ProviderControls";
 import { CompatCard } from "./CompatProviderCard";
@@ -19,10 +21,10 @@ type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
 const placeholders: Record<KeyProvider, string> = {openai: "sk-…", anthropic: "sk-ant-…"};
 
-/** The stored key as the server describes it: first four and last four characters with dots between, never the whole key. */
-export function maskedKey(status?: {key_hint?: string; key_prefix?: string}) {
+/** The stored key as the server describes it: dots and the last four characters, never more of the key. */
+export function maskedKey(status?: {key_hint?: string}) {
  if (!status?.key_hint) return "";
- return `${status.key_prefix ?? ""}••••••••${status.key_hint.replace(/^…/, "")}`;
+ return `••••••••${status.key_hint.replace(/^…/, "")}`;
 }
 
 /**
@@ -61,16 +63,16 @@ function ChatGPTCard({codex}: {codex: CodexConnection}) {
  else if (codex.session) body = <div className="verification-card"><p>{tc("codex.enter_code")}</p><code>{codex.session.code}</code><a href={codex.session.url} target="_blank" rel="noreferrer">{tc("codex.open_verification")} <Icon name="external-link" size={16} style={{verticalAlign: "middle"}}/></a></div>;
  else if (on) body = <>
   <div className="provider-actions">
-   {codex.check === "unverified" && <button type="button" className="st-button" onClick={codex.refresh} disabled={codex.working}>{t("action.retry")}</button>}
-   {codex.needsReconnect && <button type="button" className="st-button" onClick={() => void codex.connect()} disabled={codex.working}>{t("providers.reconnect")}</button>}
+   {codex.check === "unverified" && <Button size="sm" type="button" onClick={codex.refresh} disabled={codex.working}>{t("action.retry")}</Button>}
+   {codex.needsReconnect && <Button size="sm" type="button" onClick={() => void codex.connect()} disabled={codex.working}>{t("providers.reconnect")}</Button>}
    <ProviderConfirm label={t("providers.disconnect")} question={t("providers.disconnect_chatgpt_question")} disabled={codex.working} onConfirm={async () => { if (!(await codex.disconnect())) throw new Error(codex.error || t("action.failed")); }}/>
   </div>
  </>;
  else body = <>
-  {codex.connected === null && !codex.working && <p className="field-note"><button type="button" className="st-button" onClick={codex.refresh}>{tc("codex.retry_status")}</button></p>}
+  {codex.connected === null && !codex.working && <p className="field-note"><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></p>}
  </>;
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || codex.working} data-provider="codex">
-  <CardHead id={titleId} title="ChatGPT" state={state} action={on ? <button type="button" className="st-button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</button> : !waiting && !codex.session ? <button type="button" className="st-button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</button> : undefined}/>
+  <CardHead id={titleId} provider="openai" title="ChatGPT" state={state} action={on ? <Button size="sm" type="button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</Button> : !waiting && !codex.session ? <Button size="sm" type="button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</Button> : undefined}/>
   {(!on || managing) && body}
   {codex.error && <p className="error-text" role="alert">{codex.error}</p>}
  </article>;
@@ -82,7 +84,7 @@ function OwnModelProviders({refreshToken, codexRefresh, onConfigured, onCodexCon
  const codex = useCodexConnection(codexRefresh, onCodexConfigured);
  const update = (next: ModelProviderStatus | null) => { if (next) setProviders.set(next); else setProviders.reload(); onConfigured(); };
  return <SettingsSection className="model-providers" title={t("providers.title")}>
-  {providers.error && <p className="error-text" role="alert">{providers.error} <button type="button" className="st-button" onClick={setProviders.reload}>{t("action.retry")}</button></p>}
+  {providers.error && <p className="error-text" role="alert">{providers.error} <Button size="sm" type="button" onClick={setProviders.reload}>{t("action.retry")}</Button></p>}
   {/* One card per service: its sign-in or key, status and removal never share a box with another service. */}
   <SettingsCard className="provider-list provider-openai"><OpenAICard status={providers.list?.find(item => item.id === "openai")} loading={!providers.list && !providers.error} codex={codex} onChange={update}/></SettingsCard>
   <SettingsCard className="provider-list provider-anthropic"><KeyCard id="anthropic" status={providers.list?.find(item => item.id === "anthropic")} loading={!providers.list && !providers.error} onChange={update}/></SettingsCard>
@@ -124,7 +126,7 @@ function KeySummary({provider, status, replacing, onReplace, onRemove, extra}: {
  return <>
   <p className={`provider-key-line${failed ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{maskedKey(status)}</code>{verified && <span className="provider-key-meta">{verified}</span>}</p>
   <div className="provider-actions">
-   <button type="button" className="st-button" aria-expanded={replacing} onClick={onReplace}>{t("providers.replace_key")}</button>
+   <Button size="sm" type="button" data-form-opener aria-expanded={replacing} onClick={onReplace}>{t("providers.replace_key")}</Button>
    <ProviderConfirm label={t("providers.remove")} question={t("providers.remove_question", {provider: labels[provider]})} onConfirm={onRemove}/>
    {extra}
   </div>
@@ -161,24 +163,24 @@ function KeyForm({id, entry, onCancel, autoFocus = false}: {id: KeyProvider; ent
  const inputId = useId();
  const {key, setKey, workspace, setWorkspace, verifying, showVerifying, error, setError, save} = entry;
  function cancel(event: MouseEvent<HTMLButtonElement>) {
+  // Focus goes back to the control that opened the form: the one marked `data-form-opener` and expanded (Replace, Add, Manage).
   const card = event.currentTarget.closest(".provider-card");
-  const trigger = card?.querySelector<HTMLButtonElement>('.provider-actions > button[aria-expanded="true"]') ?? card?.querySelector<HTMLButtonElement>('.provider-card-head button[aria-expanded="true"]');
-  trigger?.focus();
+  card?.querySelector<HTMLButtonElement>('[data-form-opener][aria-expanded="true"]')?.focus();
   onCancel?.();
  }
- const saveButton = <button type="submit" className="st-button" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{showVerifying ? t("providers.verifying") : t("providers.save")}</button>;
+ const saveButton = <Button size="sm" type="submit" disabled={verifying || !key.trim() || (id === "anthropic" && !workspace.trim())}>{showVerifying ? t("providers.verifying") : t("providers.save")}</Button>;
  return <form className="provider-key-form" onSubmit={event => void save(event)} aria-busy={verifying}>
   <label htmlFor={inputId}>{t("providers.key_label", {provider: labels[id]})}</label>
   <div className="provider-key-row">
-   <input id={inputId} name={`${id}-api-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={placeholders[id]} value={key} disabled={verifying} autoFocus={autoFocus} onChange={event => { setKey(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined}/>
+   <TextInput mono id={inputId} name={`${id}-api-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={placeholders[id]} value={key} disabled={verifying} autoFocus={autoFocus} onChange={event => { setKey(event.target.value); setError(""); }} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined}/>
    {id !== "anthropic" && saveButton}
-   {id !== "anthropic" && onCancel && <button type="button" className="st-button" disabled={verifying} onClick={cancel}>{t("action.cancel")}</button>}
+   {id !== "anthropic" && onCancel && <Button size="sm" type="button" disabled={verifying} onClick={cancel}>{t("action.cancel")}</Button>}
   </div>
   {id === "anthropic" && <>
    <label htmlFor={`${inputId}-workspace`}>{t("providers.workspace_label")}</label>
-   <input id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }}/>
+   <TextInput mono id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }}/>
    <p className="field-note">{t("providers.workspace_note")}</p>
-   <div className="provider-key-row">{saveButton}{onCancel && <button type="button" className="st-button" disabled={verifying} onClick={cancel}>{t("action.cancel")}</button>}</div>
+   <div className="provider-key-row">{saveButton}{onCancel && <Button size="sm" type="button" disabled={verifying} onClick={cancel}>{t("action.cancel")}</Button>}</div>
   </>}
   {error && <p id={`${inputId}-error`} className="error-text" role="alert">{error}</p>}
  </form>;
@@ -201,7 +203,7 @@ function KeyCard({id, status, loading, onChange}: {id: KeyProvider; status?: Mod
   onChange(null);
  }
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={entry.verifying || loading}>
-  <CardHead id={titleId} title={labels[id]} state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} action={!loading && <button type="button" className="st-button" aria-expanded={configured ? managing : replacing} onClick={() => configured ? setManaging(value => !value) : setReplacing(value => !value)}>{t(configured ? "providers.manage" : "providers.add")}</button>}/>
+  <CardHead id={titleId} provider={id} title={labels[id]} state={loading ? "testing" : !configured ? "need" : failed ? "bad" : "ok"} action={!loading && <Button size="sm" type="button" data-form-opener={configured ? undefined : ""} aria-expanded={configured ? managing : replacing} onClick={() => configured ? setManaging(value => !value) : setReplacing(value => !value)}>{t(configured ? "providers.manage" : "providers.add")}</Button>}/>
   {loading ? <p className="provider-key-line is-muted" role="status">{t("providers.status_loading")}</p> : configured && status ? managing && <>
    <KeySummary provider={id} status={status} replacing={replacing} onReplace={() => { setReplacing(value => !value); setNotice(""); }} onRemove={remove}/>
    {replacing && <KeyForm id={id} entry={entry} autoFocus onCancel={() => { setReplacing(false); entry.setError(""); }}/>}
@@ -242,12 +244,12 @@ function OpenAICard({status, loading, codex, onChange}: {status?: ModelProviderS
  const verification = codex.session && <div className="verification-card"><p>{tc("codex.enter_code")}</p><code>{codex.session.code}</code><a href={codex.session.url} target="_blank" rel="noreferrer">{tc("codex.open_verification")} <Icon name="external-link" size={16} style={{verticalAlign: "middle"}}/></a></div>;
  const choices = (
   <div className="provider-actions provider-choices" role="group" aria-label={t("providers.choose_method")}>
-   <button type="button" className="st-button provider-choice" data-method="chatgpt" disabled={codex.working} onClick={() => { setChoosingKey(false); void codex.connect(); }}>
+   <Button size="sm" type="button" className="provider-choice" data-method="chatgpt" disabled={codex.working} onClick={() => { setChoosingKey(false); void codex.connect(); }}>
     {t("providers.chatgpt_title")}
-   </button>
-   <button type="button" className="st-button provider-choice" data-method="key" aria-expanded={choosingKey} onClick={() => setChoosingKey(true)}>
+   </Button>
+   <Button size="sm" type="button" className="provider-choice" data-method="key" data-form-opener aria-expanded={choosingKey} onClick={() => setChoosingKey(true)}>
     {t("providers.key_title")}
-   </button>
+   </Button>
   </div>
  );
  let body: ReactNode;
@@ -255,8 +257,8 @@ function OpenAICard({status, loading, codex, onChange}: {status?: ModelProviderS
  else if (codex.session) body = verification;
  else if (codexOn) body = <>
   <div className="provider-actions">
-   {codex.check === "unverified" && <button type="button" className="st-button" onClick={codex.refresh} disabled={codex.working}>{t("action.retry")}</button>}
-   {codex.needsReconnect && <button type="button" className="st-button" onClick={() => void codex.connect()} disabled={codex.working}>{t("providers.reconnect")}</button>}
+   {codex.check === "unverified" && <Button size="sm" type="button" onClick={codex.refresh} disabled={codex.working}>{t("action.retry")}</Button>}
+   {codex.needsReconnect && <Button size="sm" type="button" onClick={() => void codex.connect()} disabled={codex.working}>{t("providers.reconnect")}</Button>}
    <SwitchMethod label={t("providers.switch_to_key")} question={t("providers.switch_to_key_question")} confirm={t("providers.switch")} onConfirm={switchToKey}/>
    <ProviderConfirm label={t("providers.disconnect")} question={t("providers.disconnect_chatgpt_question")} disabled={codex.working} onConfirm={async () => { if (!(await codex.disconnect())) throw new Error(codex.error || t("action.failed")); }}/>
   </div>
@@ -270,10 +272,10 @@ function OpenAICard({status, loading, codex, onChange}: {status?: ModelProviderS
  else body = <>
 
   {choosingKey && <KeyForm id="openai" entry={entry} autoFocus onCancel={() => { setChoosingKey(false); entry.setError(""); }}/>}
-  {codex.connected === null && !codex.working && <p className="field-note"><button type="button" className="st-button" onClick={codex.refresh}>{tc("codex.retry_status")}</button></p>}
+  {codex.connected === null && !codex.working && <p className="field-note"><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></p>}
  </>;
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || entry.verifying || codex.working}>
-  <CardHead id={titleId} title={labels.openai} state={state} action={(codexOn || keyOn) ? <button type="button" className="st-button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</button> : !waiting && !codex.session ? choices : undefined}/>
+  <CardHead id={titleId} provider="openai" title={labels.openai} state={state} action={(codexOn || keyOn) ? <Button size="sm" type="button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</Button> : !waiting && !codex.session ? choices : undefined}/>
   {(!(codexOn || keyOn) || managing || codex.session) && body}
   {notice && !entry.error && <p className="field-note" role="status">{notice}</p>}
   {codex.error && <p className="error-text" role="alert">{codex.error}</p>}

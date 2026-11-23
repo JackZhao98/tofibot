@@ -83,7 +83,7 @@ try {
     await save.click();
     await claude.locator(".provider-key-mask").waitFor();
     assert.deepEqual(stub.writes, [`PUT /api/admin/org/resources/provider:anthropic ${JSON.stringify({key: CLAUDE_KEY, workspace_id: "wrkspc_0123456789"})}`]);
-    assert.equal(await claude.locator(".provider-key-mask").innerText(), "sk-a••••••••abcd", "prefix, dots and the last four only");
+    assert.equal(await claude.locator(".provider-key-mask").innerText(), "••••••••abcd", "dots and the last four only");
     assert.match(await text(claude), /Verified/);
     assert.equal(await claude.locator("input[type=password]").count(), 0, "the key field is gone once a key is stored");
     await holdsNoKey(page, CLAUDE_KEY);
@@ -119,7 +119,7 @@ try {
     await openai.locator('input[name="provider:openai-key"]').fill(OPENAI_KEY);
     await openai.getByRole("button", {name: "Save"}).click();
     await openai.locator(".provider-key-mask").waitFor();
-    assert.equal(await openai.locator(".provider-key-mask").innerText(), "••••••••WXYZ", "a key under 32 characters shows no prefix");
+    assert.equal(await openai.locator(".provider-key-mask").innerText(), "••••••••WXYZ", "the last four only");
     stub.writes.length = 0;
     await openai.locator('[data-action="test"]').click();
     await openai.getByText("Key verified.").waitFor();
@@ -199,7 +199,7 @@ try {
     await e2b.getByRole("button", {name: "Save"}).click();
     await e2b.locator(".provider-key-mask").waitFor();
     assert.deepEqual(stub.writes, [`PUT /api/admin/org/resources/computer:e2b ${JSON.stringify({key: E2B_KEY, template_id: "tpl_shared_1"})}`]);
-    assert.equal(await e2b.locator(".provider-key-mask").innerText(), "e2b_••••••••4567");
+    assert.equal(await e2b.locator(".provider-key-mask").innerText(), "••••••••4567");
     assert.equal(await e2b.locator(".org-template").getAttribute("data-custom"), "true");
     assert.match(await text(e2b.locator(".org-template")), /^Custom template tpl_shared_1\. Used as supplied and never rebuilt\.$/);
     assert.equal(await e2b.locator('[data-action="retry-build"]').count(), 0, "a custom template is never rebuilt: no Retry build");

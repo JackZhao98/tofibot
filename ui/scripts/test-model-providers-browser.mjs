@@ -84,8 +84,8 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     assert.equal(await page.getByRole("heading", {name: "Codex", exact: true}).count(), 0, "no separate Codex card");
     assert.equal(await openai.locator("input").count(), 0, "no key input while the ChatGPT sign-in is the method");
     assert.equal(await openai.locator(".provider-choice").count(), 0, "no chooser once a method is set up");
-    // Claude: the key is masked (first four, dots, last four) with its verified time; no replace input until asked.
-    await claude.getByText("sk-a••••••••7c21").waitFor();
+    // Claude: the key is masked (dots and the last four) with its verified time; no replace input until asked.
+    await claude.getByText("••••••••7c21").waitFor();
     assert.match(await claude.innerText(), /已验证于/);
     assert.equal(await claude.locator("input").count(), 0, "no input while a key is set");
     assert.equal(await claude.getByText(/替换 Claude API key/).count(), 0, "no Replace heading");
@@ -93,6 +93,9 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     await claude.getByLabel("Claude API key").waitFor();
     await claude.getByRole("button", {name: "取消"}).click();
     assert.equal(await claude.locator("input").count(), 0, "cancel hides the input again");
+    assert.equal(await claude.getByRole("button", {name: "替换密钥"}).evaluate(node => node === document.activeElement), true, "cancel returns focus to the control that opened the form");
+    assert.equal(await claude.locator(".provider-card-mark img").getAttribute("src"), "/brand/services/claude.svg", "Claude wears its own mark");
+    assert.equal(await openai.locator(".provider-card-mark img").getAttribute("src"), "/brand/services/openai-blossom.svg", "OpenAI wears its own mark");
     // Picker: optgroups in Codex, OpenAI, Claude order with display names.
     const picker = page.getByTestId("picker");
     await picker.locator(".ui-select-trigger").first().waitFor();
@@ -121,8 +124,10 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     assert.equal(await page.getByTestId("value").textContent(), "default|default", "following global follows its effort too");
     // Switching method disconnects the current one after a confirmation, then offers both equal choices.
     await openai.getByRole("button", {name: "改用 API key"}).click();
-    await openai.getByRole("group", {name: "退出 ChatGPT 并改用 API key？"}).waitFor();
-    await openai.getByRole("button", {name: "切换"}).click();
+    // The confirmation is a page-level Dialog (alertdialog), not part of the card.
+    const switching = page.getByRole("alertdialog", {name: "退出 ChatGPT 并改用 API key？"});
+    await switching.waitFor();
+    await switching.getByRole("button", {name: "切换"}).click();
     const input = openai.getByLabel("OpenAI API key");
     await input.waitFor();
     const tiles = openai.locator(".provider-choice");
@@ -143,7 +148,7 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     // Valid key: the input goes away and the card shows only the masked key and when it was verified.
     await input.fill(goodKey);
     await openai.getByRole("button", {name: "保存并验证"}).click();
-    await openai.getByText("sk-s••••••••9f3a").waitFor();
+    await openai.getByText("••••••••9f3a").waitFor();
     assert.match(await openai.innerText(), /已验证于/);
     assert.equal(await openai.locator("input").count(), 0, "no replace input after saving");
     assert.equal(await openai.locator(".provider-choice").count(), 0, "the other method is not offered beside a set-up one");
@@ -151,8 +156,9 @@ void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getEl
     if (shots && viewport.width === 900) await page.screenshot({path: join(shots, "providers-saved.png"), fullPage: true});
     // Remove asks first.
     await openai.getByRole("button", {name: "移除", exact: true}).click();
-    await openai.getByRole("group", {name: "移除 OpenAI API key？"}).waitFor();
-    await openai.getByRole("button", {name: "确认移除"}).click();
+    const removing = page.getByRole("alertdialog", {name: "移除 OpenAI API key？"});
+    await removing.waitFor();
+    await removing.getByRole("button", {name: "确认移除"}).click();
     await openai.locator(".provider-choice").first().waitFor();
     assert.equal(await openai.locator(".provider-choice").count(), 2, "nothing set up: both methods are offered");
     // Reset the OpenAI provider for the next viewport.

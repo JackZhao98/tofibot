@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { openSettings } from "../drive";
 import { Banner, ChangedNote, DangerZone, FilePicker, Segmented, SettingsCard, SettingsDetails, SettingsRow, SettingsSection, SettingsSubpage, SettingsSwitch, StatusBadge, type BadgeState } from "../../settings/components";
+import { Button } from "../../ds/Button/Button";
 import { ConfirmAction } from "../../ConfirmAction";
+import { CardHead } from "../../ProviderControls";
 import { Disclosure } from "../../InteractionPrimitives";
 import { ThemeRow } from "../../AppearanceSetting";
 import { OwnerAccount, SignOut } from "../../OwnerAccount";
@@ -418,5 +420,12 @@ export const settings: CatalogSection = {
     { id: "shell-unsaved", kind: "app", label: "Settings page, unsaved changes: the save bar under the page", note: "the Models default-model draft; Save and Discard sit in the bar, the head row says Saved after Save",
       app: { path: "/b/bot_mochi" }, probe: ".settings-shell",
       drive: async step => { await openSettings(step); await step.click('.settings-tabs [data-tab="models"]'); await step.find('.settings-page-body[data-page="models"] .segmented button'); await step.click('.settings-page-body[data-page="models"] .segmented button:not([aria-checked="true"])'); await step.find(".settings-save-bar"); await step.wait(300); } },
+    { id: "provider-cards", kind: "inline", label: "Models › providers: each card wears its official mark (OpenAI, Claude, Ollama); the OpenAI-compatible card has none unless the endpoint is Ollama", note: "marks resolve by provider id, never by display name",
+      render: () => <SettingsCard className="provider-list">
+        <article className="detail-content provider-card"><CardHead id="pc-openai" provider="openai" title="OpenAI" state="ok" action={<Button size="sm" aria-expanded={false}>Manage</Button>}/></article>
+        <article className="detail-content provider-card"><CardHead id="pc-claude" provider="anthropic" title="Claude" state="bad" action={<Button size="sm" aria-expanded={false}>Manage</Button>}/></article>
+        <article className="detail-content provider-card"><CardHead id="pc-ollama" provider="ollama" title="OpenAI-compatible endpoint" state="ok" action={<Button size="sm" aria-expanded={false}>Manage</Button>}/></article>
+        <article className="detail-content provider-card"><CardHead id="pc-compat" title="OpenAI-compatible endpoint" state="need" action={<Button size="sm" aria-expanded={false}>Add</Button>}/></article>
+      </SettingsCard> },
   ],
 };

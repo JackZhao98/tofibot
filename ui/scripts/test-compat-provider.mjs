@@ -68,7 +68,8 @@ try {
   await card.getByRole("button", { name: "Ollama" }).click();
   assert.equal(await card.getByLabel("Base URL").inputValue(), "http://host.docker.internal:11434/v1");
   const note = await card.locator("[data-compat-note='ollama']").innerText();
-  assert.equal(note, "Ollama needs no API key.", "one short setup hint");
+  assert.match(note, /^Ollama needs no key\. /, "the hint opens with the no-key line, then the setup steps");
+  assert.ok(note.includes("host.docker.internal:11434"), "and names the address that reaches the host");
 
   await card.getByRole("button", { name: "Fetch models" }).click();
   await card.getByText("Models found: 2").waitFor();

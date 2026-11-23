@@ -641,7 +641,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await card.locator(".provider-card-head .status-badge").count(), 1);
     assert.equal(await card.locator("button").count(), 1, "a connected provider has one action");
     await card.getByRole("button", {name: "Manage", exact: true}).click();
-    await card.getByText("sk-p••••••••9fa2").waitFor();
+    await card.getByText("••••••••9fa2").waitFor();
     assert.match(await card.innerText(), /Verified/);
     assert.equal(await card.locator("input").count(), 0, "no replace input while a key is set");
     assert.equal(await card.getByText(/Replace OpenAI API key/).count(), 0);
