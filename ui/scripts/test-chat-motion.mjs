@@ -335,7 +335,7 @@ await check("the gap between messages: a run is 3px with a floating bar, the run
   }
 });
 
-await check("a person's bubble has no receipt row: spacing is the action row's, the mark appears with the row, and hovering moves nothing", async () => {
+await check("a person's bubble has no receipt row and no tick: spacing is the action row's, and hovering moves nothing", async () => {
   const { page, context } = await open({ extra: [base("m_r", 70, "user", "Synthetic receipt probe", { client_message_id: "cm-r" }), base("m_r2", 71, "assistant", "Synthetic answer to the probe")] });
   await page.mouse.move(2, 2);
   assert.equal(await page.locator(".send-receipt, .send-receipt-mark").count(), 0, "a receipt is on show without hover");
@@ -347,9 +347,7 @@ await check("a person's bubble has no receipt row: spacing is the action row's, 
   const box = await block(page, "m_r").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m_r").locator(".message-hover-actions").waitFor();
-  const mark = block(page, "m_r").locator(".message-hover-actions .send-receipt-mark");
-  await mark.waitFor({ timeout: 2000 });
-  assert.ok(await mark.evaluate(node => node === node.parentElement.lastElementChild), "the mark is the last item of the action row, after the time");
+  assert.equal(await block(page, "m_r").locator(".send-receipt-mark").count(), 0, "the action row carries no delivery mark");
   assert.deepEqual(await heights(), rest, "hovering the person's bubble moved something");
   await context.close();
 });

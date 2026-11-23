@@ -67,12 +67,8 @@ export const actions: CatalogSection = {
 };
 
 export const receipts: CatalogSection = {
-  id: "receipts", number: "3", title: "Send receipts (SendReceipt / SendReceiptMark)",
+  id: "receipts", number: "3", title: "Send receipts (SendReceipt)",
   states: [
-    { id: "delivered", kind: "app", label: "Delivered", note: "one tick at the end of the action row; the run is still queued", app: { ...DM, queued: true }, drive: step => hoverMessage(step, LAST_USER) },
-    { id: "read", kind: "app", label: "Read", note: "two ticks", app: DM, drive: step => hoverMessage(step, LAST_USER) },
-    { id: "read-group", kind: "app", label: "Read in a group, names on hover", app: GROUP,
-      drive: step => hoverMessage(step, block("m_grp_launch_7")), force: [{ selector: `${block("m_grp_launch_7")} .send-receipt-mark.has-tip`, state: "hover" }] },
     { id: "sending", kind: "app", label: "Sending", note: "no mark; the bubble is dimmed and a screen reader hears \"Sending\"", app: { ...DM, send: "hang" }, drive: step => send(step, "Is the room booked?") },
     { id: "failed", kind: "app", label: "Failed, retry", note: "\"Not sent · Retry\", Edit, Delete; the reason in the app's words", app: { ...DM, send: "fail" }, drive: async step => { await send(step, "Is the room booked?"); await step.find(".send-receipt-retry"); },
       force: [{ selector: ".send-receipt-retry", state: "focus" }] },

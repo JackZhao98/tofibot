@@ -112,6 +112,12 @@ async function openConversation(page, name) {
   await page.locator(".message-list .message-block").first().waitFor();
 }
 const block = (page, text) => page.locator(".message-list .message-block").filter({ has: page.locator(".message-user") }).filter({ hasText: text });
+// Edit and Delete of a failed message: on the line for touch (no right-click), in the right-click menu otherwise (V3 PR 3.3).
+async function unsentAction(page, text, name) {
+  if (page.viewportSize().width < 500) return block(page, text).locator(name === "Edit" ? ".send-receipt-edit" : ".send-receipt-delete").click();
+  await block(page, text).locator(".tb-bubble").first().click({ button: "right" });
+  await page.locator(".unsent-context-menu").getByText(name, { exact: true }).click();
+}
 const type = async (page, text) => { await page.locator(".composer textarea").fill(text); await page.keyboard.press("Enter"); };
 async function waitFor(fn, ms, what) { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return; await sleep(30); } throw new Error(`timed out: ${what}`); }
 const delivered = (page, text) => block(page, text).locator(".message-user:not(.is-sending):not(:has(.send-receipt))").count().then(n => n > 0);
@@ -136,11 +142,18 @@ for (const view of ["desktop", "phone"]) {
     assert.match(await line.innerText(), /Not sent/);
     assert.match(await line.innerText(), /offline/i, "the reason is in the app's words");
     assert.match(await line.innerText(), /try again when you're back/i, "the promise is on show");
-    for (const action of ["Retry", "Edit", "Delete"]) assert.ok(await line.getByRole("button", { name: new RegExp(action, "i") }).count(), `${action} is offered`);
+    assert.ok(await line.getByRole("button", { name: /Retry/i }).count(), "Retry is offered");
+    if (page.viewportSize().width < 500) for (const action of ["Edit", "Delete"]) assert.ok(await line.getByRole("button", { name: new RegExp(action, "i") }).count(), `${action} is offered`);
+    else {
+      await block(page, text).locator(".tb-bubble").first().click({ button: "right" });
+      await page.locator(".unsent-context-menu").waitFor({ timeout: 3000 });
+      assert.deepEqual(await page.locator(".unsent-context-menu button").allInnerTexts(), ["Edit", "Delete"], "Edit and Delete are in the right-click menu");
+      await page.keyboard.press("Escape");
+    }
     assert.equal(mock.posts.length, 0, "nothing reached the server while offline");
     // Connection back: one automatic try, visibly labelled, then delivered.
     await context.setOffline(false);
-    await block(page, text).locator('.send-receipt[data-state="retrying"], .send-receipt-mark, .message-user:not(.is-sending):not(:has(.send-receipt))').first().waitFor({ timeout: 6000 });
+    await block(page, text).locator('.send-receipt[data-state="retrying"], .message-user:not(.is-sending):not(:has(.send-receipt))').first().waitFor({ timeout: 6000 });
     await waitFor(() => delivered(page, text), 6000, "delivered after the connection came back");
     assert.equal(stored(text), 1, "stored exactly once");
     assert.equal(new Set(mock.posts.map(p => p.cmid)).size, 1, "every attempt carried the same client_message_id");
@@ -237,7 +250,7 @@ await check("Edit after an ambiguous failure: the server already has it -> no du
   await block(page, "edited but delivered").locator('.send-receipt[data-state="failed"]').waitFor({ timeout: 5000 });
   assert.equal(stored("edited but delivered"), 1);
   await page.unroute("**/dm_a/messages");
-  await block(page, "edited but delivered").locator(".send-receipt-edit").click();
+  await unsentAction(page, "edited but delivered", "Edit");
   await page.locator(".error-banner", { hasText: /already sent/i }).waitFor({ timeout: 5000 });
   assert.equal(await page.locator(".composer textarea").inputValue(), "", "nothing moved to the composer");
   assert.equal(await block(page, "edited but delivered").count(), 1, "one bubble: the stored message");
@@ -252,7 +265,7 @@ await check("Edit when the check cannot be made keeps the bubble (no risk of a d
   await type(page, "cannot check");
   await block(page, "cannot check").locator('.send-receipt[data-state="failed"]').waitFor();
   await page.route("**/dm_a/messages**", route => route.request().method() === "GET" ? route.abort("connectionreset") : route.continue());
-  await block(page, "cannot check").locator(".send-receipt-edit").click();
+  await unsentAction(page, "cannot check", "Edit");
   await page.locator(".error-banner", { hasText: /couldn't check/i }).waitFor({ timeout: 5000 });
   assert.equal(await block(page, "cannot check").locator('.send-receipt[data-state="failed"]').count(), 1, "the bubble stays");
   assert.equal(await page.locator(".composer textarea").inputValue(), "");
@@ -266,9 +279,9 @@ await check("Delete removes the failed message for good; Edit puts it back in th
   await type(page, "edit me");
   await block(page, "edit me").locator('.send-receipt[data-state="failed"]').waitFor();
   await block(page, "delete me").locator('.send-receipt[data-state="failed"]').waitFor();
-  await block(page, "delete me").locator(".send-receipt-delete").click();
+  await unsentAction(page, "delete me", "Delete");
   await waitFor(async () => (await block(page, "delete me").count()) === 0, 2000, "bubble removed");
-  await block(page, "edit me").locator(".send-receipt-edit").click();
+  await unsentAction(page, "edit me", "Edit");
   await waitFor(async () => (await block(page, "edit me").count()) === 0, 2000, "bubble moved to the composer");
   assert.equal(await page.locator(".composer textarea").inputValue(), "edit me");
   await page.reload();

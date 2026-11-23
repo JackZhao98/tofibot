@@ -566,21 +566,6 @@ await check("icon hint: a scroll that leaves the button in place still hides its
   await context.close();
 });
 
-await check("group read-by names are a quiet hint in #tofi-layers", async () => {
-  const { page, context } = await fx.open({ path: "/g/grp" });
-  const block = page.locator('[data-message-id="grp_m3"]');
-  const b = await block.locator(".message-content").boundingBox();
-  await page.mouse.move(b.x + 20, b.y + 10);
-  const mark = block.locator(".send-receipt-mark.has-tip");
-  await mark.waitFor({ timeout: 3000 });
-  await mark.hover();
-  await page.locator(".action-hint.is-quiet").waitFor({ timeout: 3000 });
-  assert.equal(await page.locator(".action-hint.is-quiet").textContent(), "Read by Ledger Cat and Simile Cat");
-  assert.equal(await page.evaluate(() => Boolean(document.querySelector(".action-hint").closest("#tofi-layers"))), true);
-  assert.equal(await block.locator(".send-receipt-tip").count(), 0, "no tooltip inside the row any more");
-  await context.close();
-});
-
 // The identity card uses Radix HoverCard dwell, presence and dismissal. Exercise it with the app CSS.
 await check("identity card: hover opens it in #tofi-layers without taking focus; moving into it keeps it; leaving and Escape close it", async () => {
   if (engineName !== "chromium") return console.log("  (dev-server page: Chromium only)");

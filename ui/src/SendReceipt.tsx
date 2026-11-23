@@ -1,23 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "./i18n";
-import { formatList } from "./i18n/format";
 import type { Receipt } from "./sendReceipts";
 import type { DeliveryState } from "./messageDelivery";
 import "./send-receipt.css";
 
-const tick = "M3 8.6l3.1 3.1L13 4.8";
-// Two overlapping ticks, the second shifted right: read.
-const tickPair = ["M0.6 8.8l2.9 2.9L9 5.4", "M5.6 8.8l2.9 2.9L14.2 5.4"];
-
-function Mark({ state }: { state: Receipt["state"] }) {
-  if (state === "sending" || state === "retrying") return <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M8 4.8V8l2.2 1.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  return <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">{(state === "read" ? tickPair : [tick]).map(d => <path key={d} d={d} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />)}</svg>;
-}
-
 /**
- * Status of one of the person's own messages. Delivered and read are quiet: they show only in the hover/focus/tap action row,
- * as a mark at its end next to the time (SendReceiptMark), and own no row of their own. The two states that must be seen without
- * asking stay on the bubble: sending (the bubble is dimmed, the words are for assistive tech) and failed (the retry line).
+ * Status of one of the person's own messages. There are no delivery ticks or read marks (V3): a sent message shows nothing. The two
+ * states that must be seen without asking stay on the bubble: sending (the bubble is dimmed, the words are for assistive tech) and
+ * failed (the retry line).
  */
 type FailureModule = typeof import("./SendFailure");
 let failureChunk: Promise<FailureModule> | undefined;
@@ -40,25 +30,6 @@ export function SendReceipt({ receipt, onRetry, onEdit, onDelete }: { receipt: R
   if (receipt.state === "retrying") return <div className="send-receipt is-retrying" data-state="retrying" role="status"><span>{t("receipt.retrying")}</span></div>;
   if (receipt.state === "sending") return <span className="sr-only send-receipt-status" data-state="sending" role="status">{t("receipt.sending")}</span>;
   return null;
-}
-
-/** The delivered / read mark at the end of the action row. A group's read-by names are its hover/focus hint (ActionHints, quiet tone). */
-export function SendReceiptMark({ state, names, group }: { state: "delivered" | "read"; names: string[]; group: boolean }) {
-  const { t } = useTranslation("chat");
-  const previous = useRef(state);
-  const [settling, setSettling] = useState(false);
-  useEffect(() => {
-    if (previous.current === state) return;
-    previous.current = state;
-    setSettling(true);
-    const timer = window.setTimeout(() => setSettling(false), 360);
-    return () => window.clearTimeout(timer);
-  }, [state]);
-  const label = state === "delivered" ? t("receipt.delivered") : names.length && group ? t("receipt.read_by", { names: formatList(names) }) : t("receipt.read");
-  const tip = state === "read" && group && names.length > 0;
-  return <span className={`send-receipt-mark${settling ? " is-settling" : ""}${tip ? " has-tip" : ""}`} data-state={state} role="img" aria-label={label} tabIndex={tip ? -1 : undefined} data-roving={tip ? "" : undefined} data-hint={tip ? label : undefined} data-hint-tone={tip ? "quiet" : undefined}>
-    <Mark state={state} />
-  </span>;
 }
 
 /**
