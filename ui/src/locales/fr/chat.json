@@ -672,8 +672,7 @@
     "chip_mine_other": "{{emoji}}, {{count}} réactions ; cliquez pour retirer la vôtre",
     "common": "Emoji fréquents",
     "failed": "Impossible de réagir. Réessayez.",
-    "menu": "Choisir une réaction",
-    "react_with": "Réagir avec {{emoji}}"
+    "menu": "Choisir une réaction"
   },
   "receipt": {
     "sending": "Envoi en cours",

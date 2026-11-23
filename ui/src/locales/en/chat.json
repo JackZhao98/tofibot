@@ -658,8 +658,7 @@
     "chip_mine_other": "{{emoji}}, {{count}} reactions; click to remove yours",
     "common": "Frequent emoji",
     "failed": "Couldn't react. Try again.",
-    "menu": "Choose a reaction",
-    "react_with": "React with {{emoji}}"
+    "menu": "Choose a reaction"
   },
   "receipt": {
     "sending": "Sending",

@@ -658,8 +658,7 @@
     "chip_mine_other": "{{emoji}}, {{count}} Reaktionen; klicken, um deine zu entfernen",
     "common": "Häufige Emojis",
     "failed": "Reaktion fehlgeschlagen. Versuche es erneut.",
-    "menu": "Reaktion wählen",
-    "react_with": "Mit {{emoji}} reagieren"
+    "menu": "Reaktion wählen"
   },
   "receipt": {
     "sending": "Wird gesendet",
