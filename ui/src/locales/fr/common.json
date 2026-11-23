@@ -107,6 +107,8 @@
   },
   "ds": {
     "reactionsLabel": "Réactions",
+    "reactionPickerLabel": "Réactions courantes",
+    "reactionPickerReact": "Réagir avec {{emoji}}",
     "approve": "Approuver",
     "decline": "Refuser",
     "needsYou": "Besoin de vous",

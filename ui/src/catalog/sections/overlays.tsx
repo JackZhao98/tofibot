@@ -101,16 +101,6 @@ export const menus: CatalogSection = {
         await step.click('.message-block[data-message-id="m_dm_mochi_2"] [data-action="react"]');
         await step.find(".reaction-context-menu");
       } },
-    { id: "emoji-picker", kind: "app", label: "Full emoji picker", note: "lazy loaded from the reaction menu", app: DM, probe: ".reaction-context-menu",
-      drive: async step => {
-        await step.hover(await step.find('.message-block[data-message-id="m_dm_mochi_2"] .message-hover-host'));
-        await step.click('.message-block[data-message-id="m_dm_mochi_2"] [data-action="react"]');
-        const menu = await step.find(".reaction-context-menu");
-        const buttons = menu.querySelectorAll<HTMLButtonElement>(".reaction-options button");
-        buttons[buttons.length - 1]?.click();
-        await step.find(".reaction-context-menu.has-emoji-picker");
-        await step.wait(600);
-      } },
     { id: "create", kind: "app", label: "New menu (Bot, group, import)", app: LIST, probe: ".create-menu", keyboard: { close: "Escape" },
       drive: async step => { await step.click(".create-menu-anchor > button"); await step.wait(250); } },
     { id: "more", kind: "app", label: "Header \"More\" menu", app: DM, probe: ".more-menu", keyboard: { close: "Escape" },
@@ -207,7 +197,7 @@ export const popovers: CatalogSection = {
     { id: "cover-artifacts-scope-group", kind: "app", label: "Cover: Artifacts, This group", note: "a group offers This group and All", app: GROUP, widths: ["desktop"], probe: ".cover-window",
       drive: async step => { await step.click("button[aria-label='Open artifacts']"); await step.click(".artifacts-widget-all"); await step.find(".cover-window .artifacts-scopes"); await step.wait(900); } },
   ],
-  gaps: ["Full emoji picker: section 9.", "Related chat in the sidebar: section 8.", "Sidebar: Terminal, Memory and Archive views: need their own synthetic reads."],
+  gaps: ["Related chat in the sidebar: section 8.", "Sidebar: Terminal, Memory and Archive views: need their own synthetic reads."],
 };
 
 export const listboxes: CatalogSection = {

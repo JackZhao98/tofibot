@@ -644,10 +644,7 @@
     "chip_mine_other": "{{emoji}}, {{count}}명 반응. 클릭해 내 반응 삭제",
     "common": "자주 쓰는 이모지",
     "failed": "반응을 남기지 못했습니다. 다시 시도하세요",
-    "loading": "이모지를 불러오는 중…",
-    "menu": "반응 선택",
-    "more": "이모지 더보기",
-    "react_with": "{{emoji}}로 반응"
+    "menu": "반응 선택"
   },
   "receipt": {
     "sending": "전송 중",

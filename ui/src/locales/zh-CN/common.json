@@ -107,6 +107,8 @@
   },
   "ds": {
     "reactionsLabel": "回应",
+    "reactionPickerLabel": "常用回应",
+    "reactionPickerReact": "用 {{emoji}} 回应",
     "approve": "批准",
     "decline": "拒绝",
     "needsYou": "需要你",

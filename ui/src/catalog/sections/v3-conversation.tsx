@@ -15,6 +15,7 @@ import { MessageBubble } from "../../ds/MessageBubble/MessageBubble";
 import { ProcessLine, ProcessPad } from "../../ds/ProcessLine/ProcessLine";
 import { ProgressiveBlur } from "../../ds/ProgressiveBlur/ProgressiveBlur";
 import { Reactions } from "../../ds/Reactions/Reactions";
+import { ReactionPicker } from "../../ds/ReactionPicker/ReactionPicker";
 import { SidebarRow } from "../../ds/SidebarRow/SidebarRow";
 import { StepList } from "../../ds/StepList/StepList";
 import { TaskCard } from "../../ds/TaskCard/TaskCard";
@@ -102,6 +103,11 @@ export const conversation: CatalogState[] = [
         { emoji: "🎉", count: 1, mine: true, who: "You", onToggle: noop },
         { emoji: "👀", count: 12, onToggle: noop },
       ]} /></Specimen>
+    </Row> },
+  { id: "reaction-picker", kind: "inline", label: "ReactionPicker · the eight, yours pressed",
+    render: () => <Row>
+      <Specimen label="one of yours"><ReactionPicker selected={["👍"]} onPick={noop} /></Specimen>
+      <Specimen label="one in flight"><ReactionPicker selected={["🎉"]} disabled={["🎉"]} onPick={noop} /></Specimen>
     </Row> },
   { id: "worklog", kind: "inline", label: "ProcessLine + ToolSteps · the work log (S18)",
     note: "A ruled scratch pad: indent carries the structure, only the title is bold, the only mark is the cross on a failed call. Fold the first row to see the nested calls fold.",

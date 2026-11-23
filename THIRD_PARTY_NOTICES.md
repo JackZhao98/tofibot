@@ -47,7 +47,6 @@ These are the `dependencies` of `ui/package.json`. Versions and license names co
 
 | Component | Version | License | Source URL |
 |---|---|---|---|
-| `@emoji-mart/data` | 1.2.1 | MIT | https://www.npmjs.com/package/@emoji-mart/data |
 | `@radix-ui/react-alert-dialog` | 1.2.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-alert-dialog |
 | `@radix-ui/react-dialog` | 1.3.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-dialog |
 | `@radix-ui/react-dropdown-menu` | 2.2.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-dropdown-menu |
@@ -55,7 +54,6 @@ These are the `dependencies` of `ui/package.json`. Versions and license names co
 | `@radix-ui/react-select` | 2.4.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-select |
 | `@xterm/addon-fit` | 0.11.0 | MIT | https://www.npmjs.com/package/@xterm/addon-fit |
 | `@xterm/xterm` | 6.0.0 | MIT | https://www.npmjs.com/package/@xterm/xterm |
-| `emoji-mart` | 5.6.0 | MIT | https://www.npmjs.com/package/emoji-mart |
 | `i18next` | 26.4.2 | MIT | https://www.npmjs.com/package/i18next |
 | `react` | 19.3.0 | MIT | https://www.npmjs.com/package/react |
 | `react-dom` | 19.3.0 | MIT | https://www.npmjs.com/package/react-dom |
