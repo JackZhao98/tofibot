@@ -1,7 +1,7 @@
 /* Button: a quiet hover wash and a slight press. Secondary has a mid-tone outline; the primary is tomato with the bold ink
    edge and a ledge it presses into (README Edges: one of the four bold-edge things). */
 .tb-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
   font: 600 14px/1 var(--font-display); letter-spacing: .01em;
   border: var(--border-1) solid var(--edge); border-radius: var(--radius-sm);
   padding: 0 16px; height: 40px; color: var(--ink);
@@ -21,4 +21,8 @@
 .tb-btn--ghost:hover:not(:disabled) { background-color: var(--hover); transform: none; box-shadow: none; }
 .tb-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
 .tb-btn.is-busy .tb-btn-label { opacity: .6; }
-@media (prefers-reduced-motion: reduce) { .tb-btn { transition: none; } }
+/* pending: a ring that breathes (opacity and scale only) around the one button the person must press. */
+.tb-btn[data-pending] { position: relative; overflow: visible; }
+.tb-btn[data-pending]::after { content: ""; position: absolute; inset: -4px; border: var(--edge-bold) solid var(--focus); border-radius: inherit; opacity: .35; pointer-events: none; animation: tb-btn-breathe 2.8s var(--ease-inout) infinite; }
+@keyframes tb-btn-breathe { 0%, 100% { opacity: .12; transform: scale(.985); } 50% { opacity: .5; transform: scale(1.025); } }
+@media (prefers-reduced-motion: reduce) { .tb-btn { transition: none; } .tb-btn[data-pending]::after { animation: none; opacity: .35; } }

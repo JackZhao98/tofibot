@@ -10,6 +10,9 @@ import { formatDateTime } from "../i18n/format";
 import { CATS, EmptyState } from "../EmptyCat";
 import { installedLine, readSkillFolder, type LibraryBundle, type LibraryListing, type LibrarySkill, type SkillVersion } from "../skillLibrary";
 import "../extensions-system.css";
+import { Button } from "../ds/Button/Button";
+import { TextInput } from "../ds/TextInput/TextInput";
+import { TextArea } from "../ds/TextArea/TextArea";
 import "../skill-library.css";
 
 const post = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
@@ -25,9 +28,9 @@ export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: B
   const [choosing, setChoosing] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   if (!choosing) return <div className="extension-actions skill-enable" data-step="default">
-    <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "all" })}>{busy ? t("skills.installing") : t("skills.library.enable_all")}</button>
-    {bots.length > 0 && <button type="button" className="st-button" disabled={busy} onClick={() => setChoosing(true)}>{t("skills.library.choose_bots")}</button>}
-    {onCancel && <button type="button" className="st-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button>}
+    <Button size="sm" variant="primary" disabled={busy} onClick={() => onChoose({ mode: "all" })}>{busy ? t("skills.installing") : t("skills.library.enable_all")}</Button>
+    {bots.length > 0 && <Button size="sm" disabled={busy} onClick={() => setChoosing(true)}>{t("skills.library.choose_bots")}</Button>}
+    {onCancel && <Button size="sm" disabled={busy} onClick={onCancel}>{t("action.cancel")}</Button>}
   </div>;
   return <div className="skill-enable" data-step="choose">
     <fieldset className="skill-enable-bots" disabled={busy}>
@@ -35,8 +38,8 @@ export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: B
       {bots.map(bot => <label key={bot.id}><input type="checkbox" checked={picked.includes(bot.id)} onChange={event => setPicked(current => event.target.checked ? [...current, bot.id] : current.filter(id => id !== bot.id))} /><span>{bot.name}</span></label>)}
     </fieldset>
     <div className="extension-actions">
-      <button type="button" className="primary-button" disabled={busy} onClick={() => onChoose({ mode: "bots", ids: picked })}>{picked.length ? t("skills.library.add_enable", { count: picked.length }) : t("skills.library.add_without")}</button>
-      <button type="button" className="st-button" disabled={busy} onClick={() => setChoosing(false)}>{t("skills.library.back")}</button>
+      <Button size="sm" variant="primary" disabled={busy} onClick={() => onChoose({ mode: "bots", ids: picked })}>{picked.length ? t("skills.library.add_enable", { count: picked.length }) : t("skills.library.add_without")}</Button>
+      <Button size="sm" disabled={busy} onClick={() => setChoosing(false)}>{t("skills.library.back")}</Button>
     </div>
   </div>;
 }
@@ -60,9 +63,9 @@ function VersionList({ skill, busy, onRollback }: { skill: LibrarySkill; busy: b
           <span>{installedLine(version.created_by, version.created_at)}</span>
           {version.note && <span className="skill-version-note">{version.note}</span>}
         </span>
-        {!version.current && <button type="button" className="text-button" disabled={busy} onClick={() => onRollback(skill.name, version.version)}>
+        {!version.current && <Button size="sm" variant="ghost" disabled={busy} onClick={() => onRollback(skill.name, version.version)}>
           {version.version < current ? t("skills.library.roll_back") : t("skills.library.roll_forward")}
-        </button>}
+        </Button>}
       </li>)}
     </ul>
   </Disclosure>;
@@ -108,10 +111,9 @@ function BundleRow({ bundle, members, handlers, onRemoveBundle, defaultOpen }: {
     {bundle.description && <p>{bundle.description}</p>}
     <p className="skill-meta">{[bundle.version ? t("skills.library.version_label", { version: bundle.version }) : "", installedLine(bundle.installed_by, bundle.installed_at), t("skills.library.on_for", { on: enabled, total, count: total })].filter(Boolean).join(" · ")}</p>
     <div className="extension-actions">
-      <button type="button" className="text-button skill-expand" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <Button size="sm" variant="ghost" className="skill-expand" iconAfter="chevron-down" aria-expanded={open} onClick={() => setOpen(value => !value)}>
         {open ? t("skills.library.hide_members") : t("skills.library.show_members", { count: bundle.skills.length })}
-        <TofiIcon name="chevron-down" size={14} />
-      </button>
+      </Button>
       <ConfirmAction label={t("skills.remove")} question={t("skills.library.remove_bundle_confirm", { count: bundle.skills.length })} disabled={handlers.busy} onConfirm={() => onRemoveBundle(bundle.id)} />
     </div>
     {open && <div className="skill-members">{members.map(member => <SkillRow key={member.name} skill={member} member handlers={handlers} />)}</div>}
@@ -150,8 +152,8 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
       <span className="skill-add-actions">
         <input aria-label={t("skills.folder_label")} hidden type="file" multiple ref={el => { folderInput.current = el; el?.setAttribute("webkitdirectory", ""); }}
           onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; if (files.length) props.onPickFolder(files); }} />
-        <button type="button" className="st-button" disabled={props.busy} onClick={() => folderInput.current?.click()}><TofiIcon name="folder-open" size={16} />{t("skills.library.add_folder")}</button>
-        <button type="button" className="st-button" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}><TofiIcon name="plus" size={16} />{t("skills.library.add_paste")}</button>
+        <Button size="sm" icon="folder-open" disabled={props.busy} onClick={() => folderInput.current?.click()}>{t("skills.library.add_folder")}</Button>
+        <Button size="sm" icon="plus" disabled={props.busy} aria-expanded={props.form} onClick={props.onToggleForm}>{t("skills.library.add_paste")}</Button>
       </span>
     </div>
     {props.pending !== null && <section className="extension-form skill-pending" aria-label={t("skills.library.pending_title", { name: props.pending })}>
@@ -161,8 +163,8 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
     </section>}
     {props.form && <form className="extension-form" aria-busy={props.busy} onSubmit={event => event.preventDefault()}>
       <fieldset className="form-fields" disabled={props.busy}>
-        <label>{t("skills.name")}<input value={props.formState.name} onChange={event => props.onFormChange({ name: event.target.value })} placeholder="research-assistant" /></label>
-        <label>SKILL.md<textarea rows={9} value={props.formState.text} onChange={event => props.onFormChange({ text: event.target.value })} placeholder={"---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…"} /></label>
+        <label>{t("skills.name")}<TextInput value={props.formState.name} onChange={event => props.onFormChange({ name: event.target.value })} placeholder="research-assistant" /></label>
+        <label>SKILL.md<TextArea rows={9} value={props.formState.text} onChange={event => props.onFormChange({ text: event.target.value })} placeholder={"---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…"} /></label>
         <p className="field-note">{t("skills.support_note")}</p>
         {props.error && <p className="error-text" role="alert">{props.error}</p>}
         <EnableChoicePicker bots={props.bots} busy={props.busy} onChoose={props.onSubmitForm} onCancel={props.onToggleForm} />
@@ -182,7 +184,7 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
       {official.length > 0 && <h3 className="skill-group-title">{t("skills.library.official_title")}</h3>}
       {official.map(skill => <SkillRow key={skill.name} skill={skill} handlers={handlers} />)}
     </div>
-    {props.showReload && <button className="extension-refresh text-button" disabled={props.busy || props.loading} onClick={props.onReload}>{t("skills.reload")}</button>}
+    {props.showReload && <Button size="sm" variant="ghost" className="extension-refresh" disabled={props.busy || props.loading} onClick={props.onReload}>{t("skills.reload")}</Button>}
   </div>;
 }
 

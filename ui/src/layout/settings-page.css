@@ -126,7 +126,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .settings-ghost-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
 /* Phones: every tap target is 44px (the prefix outranks the component rules that load later). */
 @media(max-width:700px){
-  .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
+  .settings-shell :is(.st-button,.settings-ghost-button,.purge-button,.admin-danger-button,.danger-link,.mcp-button,.primary-button,.tb-btn),.settings-shell :is(.settings-save-bar,.settings-leave-actions) button{min-height:44px}
   .settings-shell .settings-row-control button.ui-select-trigger,.settings-shell .settings-page-body button.ui-select-trigger[data-size="sm"]{min-height:44px}
 }
 /* Fields: a title above, the kit's pressed-in control look (ds/control.css), 40px. Not inside a group. */

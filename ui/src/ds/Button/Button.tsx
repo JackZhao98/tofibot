@@ -11,15 +11,17 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
   icon?: IconName;
   iconAfter?: IconName;
   busy?: boolean;
+  /** Waiting on the person, not on work: the ring breathes. No ARIA change (busy is for work in flight). Static under reduced motion. */
+  pending?: boolean;
   /** The button element, for a caller that moves focus to it. */
   ref?: Ref<HTMLButtonElement>;
   children?: ReactNode;
 };
 
 /** A short verb label that names the result. Keep one primary per view. */
-export function Button({ variant = "secondary", size = "md", icon, iconAfter, busy, children, className, type = "button", ...rest }: ButtonProps) {
+export function Button({ variant = "secondary", size = "md", icon, iconAfter, busy, pending, children, className, type = "button", ...rest }: ButtonProps) {
   const iconSize = size === "sm" ? 16 : 18;
-  return <button {...rest} type={type} className={cx("tb-btn", `tb-btn--${variant}`, `tb-btn--${size}`, busy && "is-busy", className)} aria-busy={busy ? true : undefined}>
+  return <button {...rest} type={type} className={cx("tb-btn", `tb-btn--${variant}`, `tb-btn--${size}`, busy && "is-busy", className)} aria-busy={busy ? true : undefined} data-pending={pending || undefined}>
     {icon && <Icon name={icon} size={iconSize} />}
     {children != null && <span className="tb-btn-label">{children}</span>}
     {iconAfter && <Icon name={iconAfter} size={iconSize} />}
