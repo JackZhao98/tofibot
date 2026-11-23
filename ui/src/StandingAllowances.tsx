@@ -5,6 +5,7 @@ import { useTranslation } from "./i18n";
 import { intlLocale } from "./i18n/format";
 import { SettingsCard, SettingsSection } from "./settings/components";
 import { useUserTimezone } from "./UserTimezone";
+import { Button } from "./ds/Button/Button";
 
 /** "Always allow": one Bot, one tool on one server. Server record; no arguments, URL or credential. */
 export interface StandingAllowance {
@@ -88,7 +89,7 @@ export function StandingAllowances({ rememberedExtra }: { rememberedExtra?: Reac
               <small className="standing-meta">{t("permissionsPage.standing.granted", { time: when(item.created_at) })} · {item.last_used_at ? t("permissionsPage.standing.last_used", { time: when(item.last_used_at) }) : t("permissionsPage.standing.never_used")}{uses(item.use_count)}</small>
               {item.state !== "active" && <small className="standing-warning">{t(`permissionsPage.standing.${item.state}`)}</small>}
             </div>
-            <button type="button" className="st-button standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/standing-allowances/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("permissionsPage.standing.revoking") : t("permissionsPage.standing.revoke")}</button>
+            <Button size="sm" className="standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/standing-allowances/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("permissionsPage.standing.revoking") : t("permissionsPage.standing.revoke")}</Button>
           </li>)}
         </ul>}
         {error && <p role="alert" className="error-text standing-error">{error}</p>}
@@ -106,7 +107,7 @@ export function StandingAllowances({ rememberedExtra }: { rememberedExtra?: Reac
               <small className="standing-meta">{t("permissionsPage.standing.remembered.chat", { name: item.conversation_name || t("permissionsPage.standing.remembered.unknown_chat") })} · {item.target_kind === "identifier" && item.target_summary ? t("permissionsPage.standing.remembered.target_identifier", { target: item.target_summary }) : t("permissionsPage.standing.remembered.target_exact")}</small>
               <small className="standing-meta">{t("permissionsPage.standing.remembered.ends", { time: when(item.expires_at) })}{uses(item.use_count)}</small>
             </div>
-            <button type="button" className="st-button standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/conversations/${encodeURIComponent(item.conversation_id)}/remembered-approvals/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("permissionsPage.standing.revoking") : t("permissionsPage.standing.revoke")}</button>
+            <Button size="sm" className="standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/conversations/${encodeURIComponent(item.conversation_id)}/remembered-approvals/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("permissionsPage.standing.revoking") : t("permissionsPage.standing.revoke")}</Button>
           </li>)}
         </ul>}
       </SettingsCard>

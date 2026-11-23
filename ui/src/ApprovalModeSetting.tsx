@@ -9,6 +9,7 @@ import {groupModels, modelName} from "./modelCatalog";
 import {useModelCatalog} from "./useModelCatalog";
 import type {Bot} from "./types";
 import {Select} from "./Select";
+import {Button} from "./ds/Button/Button";
 import "./approval-mode.css";
 
 type Top = ApprovalChoice | "bot";
@@ -81,7 +82,7 @@ export function ApprovalModeSetting() {
     <SettingsCard>
       <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <><SavedNote show={savedTop}/><Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/></>}/>
     </SettingsCard>
-    {error && <p className="error-text" role="alert">{error}{bots === null && <button type="button" className="text-button" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</button>}</p>}
+    {error && <p className="error-text" role="alert">{error}{bots === null && <Button variant="ghost" size="sm" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</Button>}</p>}
     {bots !== null && <SettingsSection title={t("approval.bots_title")} hint={<SavedNote show={savedBots}/>} description={locked ? t("approval.bots_locked") : t("approval.bots_description")}>
       <SettingsCard className="approval-bots">
         {list.length === 0 ? <p className="settings-card-note">{t("approval.no_bots")}</p> : list.map(bot => <div className="approval-bot-row" key={bot.id} data-bot-id={bot.id}>

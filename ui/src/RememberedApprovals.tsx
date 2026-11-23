@@ -4,6 +4,7 @@ import { request } from "./api";
 import { useTranslation } from "./i18n";
 import { intlLocale } from "./i18n/format";
 import { useUserTimezone } from "./UserTimezone";
+import { Button } from "./ds/Button/Button";
 import "./remembered-approvals.css";
 
 /** A grant made from "Approve and remember in this chat". Server record; no arguments, URL or credential. */
@@ -67,12 +68,12 @@ export function RememberedApprovalsSheet({ conversationId, onClose }: { conversa
           <span className="remembered-target">{grant.target_kind === "identifier" && grant.target_summary ? t("remembered.target_identifier", { target: grant.target_summary }) : t("remembered.target_exact")}</span>
           <small className="remembered-meta">{t("remembered.expires", { time: new Intl.DateTimeFormat(intlLocale(), { timeZone: timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(grant.expires_at)) })}{grant.use_count > 0 ? ` · ${t("remembered.used", { count: grant.use_count })}` : ""}</small>
         </div>
-        <button type="button" className="st-button remembered-revoke" disabled={Boolean(busy)} onClick={() => void revoke(grant.id)}>{busy === grant.id ? t("remembered.revoking") : t("remembered.revoke")}</button>
+        <Button size="sm" className="remembered-revoke" disabled={Boolean(busy)} onClick={() => void revoke(grant.id)}>{busy === grant.id ? t("remembered.revoking") : t("remembered.revoke")}</Button>
       </li>)}
     </ul>}
     {error && <p role="alert" className="admin-error">{error}</p>}
     <div className="sheet-actions">
-      <button type="button" className="st-button" disabled={Boolean(busy)} onClick={onClose}>{t("remembered.close")}</button>
+      <Button disabled={Boolean(busy)} onClick={onClose}>{t("remembered.close")}</Button>
     </div>
   </AdminSheet>;
 }
