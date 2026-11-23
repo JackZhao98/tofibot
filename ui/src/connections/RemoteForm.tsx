@@ -8,6 +8,9 @@ import { mcpTokenHeaders } from "../mcpTokenHeaders";
 import { useTranslation } from "../i18n";
 import { endpoint, message, transportLabels, words, type MCP, type MCPTransport } from "./shared";
 import type { GoogleOverview } from "./google";
+import { Button } from "../ds/Button/Button";
+import { TextInput } from "../ds/TextInput/TextInput";
+import { TextArea } from "../ds/TextArea/TextArea";
 import { Select } from "../Select";
 
 /** Google Cloud links for one Google connector. Shown while connecting, and after a failure; never on a healthy row. */
@@ -40,7 +43,7 @@ export function CallbackAddress({ label, value }: { label: string; value: string
   const { t } = useTranslation("extensions");
   const [notice, setNotice] = useState("");
   async function copy() { try { await navigator.clipboard.writeText(value); setNotice(t("callback.copied")); } catch { setNotice(t("callback.copy_failed")); } }
-  return <div className="integration-callback"><span>{label}</span><code>{value}</code><button className="secondary-button" type="button" onClick={() => void copy()}>{t("callback.copy")}</button>{notice && <small role="status">{notice}</small>}</div>;
+  return <div className="integration-callback"><span>{label}</span><code>{value}</code><Button onClick={() => void copy()}>{t("callback.copy")}</Button>{notice && <small role="status">{notice}</small>}</div>;
 }
 
 /** The page where a Home Assistant person creates a long-lived access token, built from the address they typed; none when it is not a URL. */
@@ -50,7 +53,7 @@ const profilePage = (address: string) => { try { return `${new URL(address).orig
 function LanAddress({ url, onChange }: { url: string; onChange: (value: string) => void }) {
   const { t } = useTranslation("extensions");
   return <>
-    <label>{t("form.url")}<input required type="url" inputMode="url" autoComplete="off" spellCheck={false} value={url} onChange={e => onChange(e.target.value)} placeholder="http://192.168.1.20:8123/api/mcp" /></label>
+    <label>{t("form.url")}<TextInput required type="url" inputMode="url" autoComplete="off" spellCheck={false} value={url} onChange={e => onChange(e.target.value)} placeholder="http://192.168.1.20:8123/api/mcp" /></label>
     <p className="field-note">{t("lan.address_hint")}</p>
   </>;
 }
@@ -89,30 +92,30 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
     <fieldset className="form-fields" disabled={busy}>
       {preset && <Disclosure title={t("form.guide")} defaultOpen={preset.category === "google"}><div className="integration-guide"><div><strong>{preset.category === "google" ? t("form.google_prepare") : t("form.guide_heading")}</strong><a href={preset.docsURL} target="_blank" rel="noopener noreferrer">{preset.upstream === "community" ? t("docs.community") : t("docs.vendor")} <TofiIcon name="external-link" size={16} style={{ verticalAlign: "middle" }} /></a></div><ol>{preset.setup.map(step => <li key={step}>{step}</li>)}</ol>{preset.note && <p>{preset.note}</p>}<GoogleSetupLinks preset={preset} /></div></Disclosure>}
       {oauth && <OAuthLoginHelp route={route} />}
-      {!preset && <label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
-      {!preset && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} placeholder="https://example.com/mcp" /></label>}
+      {!preset && <label>{t("form.name")}<TextInput required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
+      {!preset && <label>{t("form.url")}<TextInput required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} placeholder="https://example.com/mcp" /></label>}
       {preset?.lan && <LanAddress url={url} onChange={value => { setURL(value); setToken(""); }} />}
-      {preset?.auth === "token" && <label>{preset.lan ? t("lan.token_label") : t("form.token")}<input type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
+      {preset?.auth === "token" && <label>{preset.lan ? t("lan.token_label") : t("form.token")}<TextInput type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
       {preset?.lan && <p className="field-note">{t("lan.token_hint")} {profilePage(url) && <a href={profilePage(url)} target="_blank" rel="noopener noreferrer">{t("lan.token_link")}</a>}</p>}
       {!preset && <label className="extension-check"><input type="checkbox" checked={oauth} onChange={e => setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)} />{t("auth.oauth")}</label>}
-      {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p>}
+      {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <Button size="sm" variant="ghost" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</Button></p>}
       {oauth && !preset?.dcr && !savedClient && <>
-        <label>{preset?.category !== "google" ? t("form.client_id_optional") : t("form.client_id")}<input required={preset?.category === "google"} value={clientID} onChange={e => setClientID(e.target.value)} autoComplete="off" /></label>
-        <label>{t("form.client_secret")}<input required={preset?.category === "google"} type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)} placeholder={t("form.client_secret_hint")} /></label>
+        <label>{preset?.category !== "google" ? t("form.client_id_optional") : t("form.client_id")}<TextInput required={preset?.category === "google"} value={clientID} onChange={e => setClientID(e.target.value)} autoComplete="off" /></label>
+        <label>{t("form.client_secret")}<TextInput required={preset?.category === "google"} type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)} placeholder={t("form.client_secret_hint")} /></label>
         {options?.web_callback_origin && <CallbackAddress label={t("callback.web")} value={`${options.web_callback_origin}${endpoint(name || t("form.name"))}/oauth/callback`} />}
         {options?.desktop_redirect_uri && <CallbackAddress label={t("callback.desktop")} value={options.desktop_redirect_uri} />}
         {preset?.category === "google" && <p className="field-note">{t("google.redirect_hint")}</p>}
       </>}
       <Disclosure title={t("form.advanced")}>
-        {preset && <label>{t("form.name")}<input required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
-        {preset && !preset.lan && <label>{t("form.url")}<input required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
+        {preset && <label>{t("form.name")}<TextInput required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
+        {preset && !preset.lan && <label>{t("form.url")}<TextInput required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
         <label>{t("form.transport")}<Select value={transport} disabled={busy} onValueChange={value => setTransport(value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></Select></label>
-        <label>{t("form.headers")}<textarea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <p className="field-note">{t("form.headers_note")}</p>}
-        {oauth && <><label>{t("form.scopes")}<input value={scopes} onChange={e => setScopes(e.target.value)} placeholder={t("form.comma_separated")} /></label><label>{t("form.metadata_url")}<input type="url" value={metadata} onChange={e => setMetadata(e.target.value)} /></label></>}
-        <label>{t("form.allowlist")}<input value={allow} onChange={e => setAllow(e.target.value)} placeholder={t("form.allowlist_hint")} /></label><label>{t("form.denylist")}<input value={deny} onChange={e => setDeny(e.target.value)} placeholder={t("form.comma_separated")} /></label>
+        <label>{t("form.headers")}<TextArea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <p className="field-note">{t("form.headers_note")}</p>}
+        {oauth && <><label>{t("form.scopes")}<TextInput value={scopes} onChange={e => setScopes(e.target.value)} placeholder={t("form.comma_separated")} /></label><label>{t("form.metadata_url")}<TextInput type="url" value={metadata} onChange={e => setMetadata(e.target.value)} /></label></>}
+        <label>{t("form.allowlist")}<TextInput value={allow} onChange={e => setAllow(e.target.value)} placeholder={t("form.allowlist_hint")} /></label><label>{t("form.denylist")}<TextInput value={deny} onChange={e => setDeny(e.target.value)} placeholder={t("form.comma_separated")} /></label>
       </Disclosure>
       {error && <Banner tone="error" title={error} />}
-      <div className="sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button><button type="submit" className="primary-button" disabled={busy}>{busy ? t("form.saving") : initial ? t("form.save") : preset?.lan ? t("lan.add_test") : t("form.add")}</button></div>
+      <div className="sheet-actions"><Button disabled={busy} onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" type="submit" disabled={busy}>{busy ? t("form.saving") : initial ? t("form.save") : preset?.lan ? t("lan.add_test") : t("form.add")}</Button></div>
     </fieldset>
   </form>;
 }

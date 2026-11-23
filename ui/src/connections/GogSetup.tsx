@@ -6,6 +6,8 @@ import { Trans, useTranslation } from "../i18n";
 import { message } from "./shared";
 import { GOG_SERVICES, GOOGLE_SERVICE_API, GOOGLE_SERVICE_NAME, googleEnableURL, parseGoogleClient, type GogService, type GoogleOverview } from "./google";
 import type { GoogleStatus, LocalState } from "./localPlugins";
+import { Button } from "../ds/Button/Button";
+import { TextInput } from "../ds/TextInput/TextInput";
 import { CallbackAddress } from "./RemoteForm";
 
 type Scope = "readonly" | "read-send";
@@ -87,7 +89,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
   if (!installed) return <div className="connect-body">
     <p className="connect-lead">{t("local.gog.intro")}</p>
     {error && <Banner tone="error" title={error} />}
-    <div className="sheet-actions"><button type="button" className="secondary-button" onClick={onCancel}>{t("action.cancel")}</button><button type="button" className="primary-button" disabled={Boolean(busy)} onClick={() => void install()}>{busy === "install" ? t("local.gog.installing") : t("local.gog.install")}</button></div>
+    <div className="sheet-actions"><Button onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" disabled={Boolean(busy)} onClick={() => void install()}>{busy === "install" ? t("local.gog.installing") : t("local.gog.install")}</Button></div>
     {extra}
   </div>;
 
@@ -95,7 +97,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
     <p className="connect-lead">{t("local.google.finish_in_google")}</p>
     {authURL && <a className="connect-link" href={authURL} target="_blank" rel="noopener noreferrer">{t("local.google.continue")}</a>}
     {error && <Banner tone="error" title={error} />}
-    <div className="sheet-actions"><button type="button" className="secondary-button" onClick={onCancel}>{t("action.close")}</button></div>
+    <div className="sheet-actions"><Button onClick={onCancel}>{t("action.close")}</Button></div>
   </div>;
 
   return <div className="connect-body">
@@ -106,7 +108,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
           <CallbackAddress label={t("callback.web")} value={callbackURL} />
         </li>}
       <li>
-        {savedClient ? <p>{t("connections.google.using_client", { project })} <button type="button" className="text-button" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</button></p> : <>
+        {savedClient ? <p>{t("connections.google.using_client", { project })} <Button size="sm" variant="ghost" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</Button></p> : <>
         <div className="connect-field"><span id={fileLabel}>{t("local.google.client_json")}</span><FilePicker accept=".json,application/json" labelledBy={fileLabel} label={t("local.google.choose_file")} fileName={credentialsName} dropHint={t("local.google.no_file")} disabled={Boolean(busy)} onFile={file => { setError(""); void file.text().then(text => { setCredentials(text); setCredentialsName(file.name); }).catch(caught => setError(message(caught))); }} /></div>
         {uploaded && <p>{t("connections.google.project_found", { project: uploaded.project || uploaded.clientId })}</p>}</>}
       </li>
@@ -119,7 +121,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
           </div>)}
           <p className="field-note">{t("local.google.services_note")}</p>
         </fieldset>
-        <label className="connect-field">{t("local.google.email")}<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
+        <label className="connect-field">{t("local.google.email")}<TextInput type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
         {hasGmail && <fieldset className="connect-field connect-scope">
           <legend>{t("local.google.scope")}</legend>
           <RadioGroup.Root value={scope} onValueChange={value => setScope(value as typeof scope)} className="connect-scope-cards" aria-label={t("local.google.scope")}>
@@ -133,7 +135,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
     </ol>
     {!oauthReady && <p className="field-note">{t("local.google.needs_https")}</p>}
     {error && <Banner tone="error" title={error} />}
-    <div className="sheet-actions"><button type="button" className="secondary-button" onClick={onCancel}>{t("action.cancel")}</button><button type="button" className="primary-button" disabled={Boolean(busy) || !email || (!savedClient && !credentials) || !oauthReady} onClick={() => void authorize()}>{busy === "oauth" ? t("local.google.preparing") : t("local.google.connect")}</button></div>
+    <div className="sheet-actions"><Button onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" disabled={Boolean(busy) || !email || (!savedClient && !credentials) || !oauthReady} onClick={() => void authorize()}>{busy === "oauth" ? t("local.google.preparing") : t("local.google.connect")}</Button></div>
     {extra}
   </div>;
 }

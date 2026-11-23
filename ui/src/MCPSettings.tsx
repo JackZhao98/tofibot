@@ -27,6 +27,7 @@ import { OPEN_CONNECTION_EVENT, takeConnectionTarget } from "./settings/deepLink
 import { connectionKind, primaryAction, type Phase } from "./connections/status";
 import { GOOGLE_SERVICE_NAME, googleServiceForAPI, googleServicesLabel, isConsoleURL, useGoogleOverview, type GoogleOverview } from "./connections/google";
 import { endpoint, localPluginId, message, normalizeTiers, post, toolsEndpoint, type MCP, type TestResult, type ToolTierList, diagnosticText } from "./connections/shared";
+import { Button } from "./ds/Button/Button";
 import "./connections/connections.css";
 
 export type { ToolTier, ToolTierView, ToolTierList } from "./connections/shared";
@@ -126,8 +127,8 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   const close = () => { setNav("back"); setSelected(null); };
   return <div className="extension-panel mcp-settings" data-view={selected ? "detail" : "list"} data-nav={nav || undefined}>
     <div className="mcp-list-pane" hidden={selected !== null} inert={selected !== null || undefined}>
-      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><button ref={addButton} className="primary-button" onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</button></div>
-      {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><button className="mcp-button" onClick={() => void refresh()}>{t("common:action.retry")}</button></div>}
+      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><Button variant="primary" ref={addButton} onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</Button></div>
+      {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><Button size="sm" onClick={() => void refresh()}>{t("common:action.retry")}</Button></div>}
       {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
       {empty && <ConnectionsEmpty onStart={startTile} onBrowse={() => openDialog({ view: "directory" })} />}
       <div className="mcp-rows">
@@ -155,7 +156,7 @@ function PluginRow({ plugin, onChanged }: { plugin: Plugin; onChanged: () => Pro
   const menu: RowMenuItem[] = [{ key: "remove", label: t("mcp.menu.remove"), danger: true, onSelect: () => setConfirm(true) }];
   return <ConnectionRowView name={name} mark={plugin.id === "gog" ? "Gmail" : name} state="idle" kind="needs_auth" statusText={t("status.setup")} error={error} menuBusy={busy} menu={menu}
     primary={{ label: t("mcp.connect"), disabled: busy, onClick: () => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}/attach`, post({}))) }}>
-    {confirm && <div className="mcp-confirm"><span>{t("mcp.confirm.remove", { name })}</span><button className="mcp-button" disabled={busy} onClick={() => setConfirm(false)}>{t("action.cancel")}</button><button className="mcp-button mcp-danger" disabled={busy} onClick={() => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}`, { method: "DELETE" }))}>{t("mcp.confirm.remove_submit")}</button></div>}
+    {confirm && <div className="mcp-confirm"><span>{t("mcp.confirm.remove", { name })}</span><Button size="sm" disabled={busy} onClick={() => setConfirm(false)}>{t("action.cancel")}</Button><Button size="sm" variant="danger" disabled={busy} onClick={() => void act(() => request(`/api/extensions/local-mcp/${encodeURIComponent(plugin.id)}`, { method: "DELETE" }))}>{t("mcp.confirm.remove_submit")}</Button></div>}
   </ConnectionRowView>;
 }
 
