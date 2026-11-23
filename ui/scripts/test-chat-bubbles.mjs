@@ -129,8 +129,9 @@ function measure() {
     const message = el.matches("article.message-bot");
     const head = message ? { avatar: el.querySelector(".sender-avatar .avatar, .sender-avatar img, .sender-avatar svg"), name: el.querySelector(".tb-msg-author") } : { avatar: el.querySelector(".sender-head .avatar, .sender-head img, .sender-head svg"), name: el.querySelector(".sender-head .sender-name") };
     const avatar = shown(head.avatar) ? rect(head.avatar) : null;
+    const avatarWants = parseFloat(getComputedStyle(el).getPropertyValue("--sender-avatar"));
     const name = shown(head.name) ? rect(head.name) : null;
-    const unit = { type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" };
+    const unit = { avatarWants, type: message ? "message" : "activity", id: el.closest(".message-block")?.dataset.messageId ?? "", sender: el.dataset.sender ?? "", avatar, name, left: rect(el).left, top: rect(el).top, bottom: rect(el).bottom, speakerChange: el.dataset.speakerChange === "true" };
     if (message) {
       const content = el.querySelector(".tb-bubble") ?? el.querySelector(".message-content");
       const cs = getComputedStyle(content);
@@ -187,6 +188,7 @@ function check(label, m, kind) {
       if (last) {
         if (!u.avatar) failures.push(`${tag}: last of sender group lacks the avatar`);
         else {
+          if (Math.abs((u.avatar.right - u.avatar.left) - u.avatarWants) > 1) failures.push(`${tag}: avatar is ${(u.avatar.right - u.avatar.left).toFixed(1)}px wide, want ${u.avatarWants}`);
           const edge = u.type === "message" ? u.bubbleBottom : u.bottom;
           if (Math.abs(u.avatar.bottom - edge) > 4) failures.push(`${tag}: avatar bottom ${u.avatar.bottom.toFixed(1)} vs unit bottom ${edge.toFixed(1)}`);
         }
@@ -206,6 +208,9 @@ function check(label, m, kind) {
         if (!first && (!m.hover || prev.type !== "message" || u.type === "activity") && gap > 14) failures.push(`${tag}: gap ${gap.toFixed(1)}px inside one sender's group (want <= 14)`);
       }
     }
+    // One avatar column: the cats of messages and of Activity heads share a left edge.
+    const avatarLefts = new Set(m.units.filter(u => u.avatar).map(u => Math.round(u.avatar.left)));
+    if (avatarLefts.size > 1) failures.push(`avatar column differs: ${[...avatarLefts]}`);
     // One column: every Bot unit starts at the same x.
     const lefts = new Set(m.units.filter(u => u.type !== "break").map(u => Math.round(u.type === "message" ? u.contentLeft : u.left)));
     if (lefts.size !== 1) failures.push(`unit column differs: ${[...lefts]}`);

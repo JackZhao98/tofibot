@@ -1953,7 +1953,7 @@ export function Workspace() {
     else flushSync(apply);
     jumpLatest();
     if (animate) {
-      const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === key)?.querySelector<HTMLElement>(".message-user .message-content");
+      const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === key)?.querySelector<HTMLElement>(".message-user .tb-bubble");
       if (flightOrigin && target) flySentMessage(flightOrigin, target);
     }
     setError("");
@@ -2347,7 +2347,7 @@ export function Workspace() {
       const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString());
       selectionOnPress.current = false;
       const target = event.target as HTMLElement;
-      if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return;
+      if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".tb-bubble, .message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return;
       setMessageActions("tap", tappedMessageActionsId() === messageId ? "" : messageId);
     },
     react: (messageId, anchor) => setReactionMenu({ messageId, x: anchor.left, y: anchor.top - 6, h: anchor.height + 12 }),

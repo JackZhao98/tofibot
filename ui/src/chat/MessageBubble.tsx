@@ -17,7 +17,7 @@ import { ScheduledTaskRow } from "../ScheduledTaskRow";
 import { type ScheduleOccurrence } from "../scheduleOccurrences";
 import type { Schedule } from "../types";
 import { TofiIcon as Icon } from "../icons";
-import { lazy, memo, Suspense, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MessageMarkdown } from "../MessageMarkdown";
 import { BotAvatar } from "../BotAvatar";
 import { DeliveryNote, SendReceipt } from "../SendReceipt";
@@ -231,16 +231,19 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
   const live = useLiveDraft(stream, m.liveId);
   const message = useMemo(() => m.isStub && live !== undefined ? { ...m.message, content: live } : m.message, [m.message, m.isStub, live]);
   const draft = m.drafting ? live ?? "" : undefined;
+  // A failed message of yours: Edit and Delete are in a right-click menu (or the keyboard's Menu key on the focused block).
+  const failedHere = m.receipt?.state === "failed" && message.role === "user" && Boolean(message.client_message_id);
+  useEffect(() => { if (!failedHere) setUnsentMenu(null); }, [failedHere]);
   const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
   const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
   const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText}
       onReact={anchor => h.react(message.id, anchor)}
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
-  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : undefined}>
+  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} data-flip={blockKey(message)} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : failedHere ? event => { event.preventDefault(); const box = event.currentTarget.querySelector(".tb-bubble")?.getBoundingClientRect(); setUnsentMenu(event.clientX || event.clientY || !box ? { x: event.clientX, y: event.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 }); } : undefined}>
     {m.dividerLabel !== undefined && <Divider className="date-divider">{m.dividerLabel}</Divider>}
     {m.unread && <Divider tone="unread" className="unread-divider" label={t("history.unread_below")}>{t("history.unread")}</Divider>}
-    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onContextMenu={m.receipt?.state === "failed" && message.client_message_id ? event => { event.preventDefault(); event.stopPropagation(); setUnsentMenu({ x: event.clientX, y: event.clientY }); } : undefined} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
+    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
       <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
         run={m.run} tools={tools}
         scheduleOccurrence={m.scheduleOccurrence} schedulePending={m.schedulePending} schedule={m.schedule} onRetrySchedule={m.canRetrySchedule ? h.retryRun : undefined}
@@ -248,7 +251,7 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
         relatedChat={m.relatedChat} onOpenRelatedChat={h.openRelated}
         compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
     </div>
-    {unsentMenu && message.client_message_id && <Suspense fallback={null}><UnsentMenu x={unsentMenu.x} y={unsentMenu.y} t={t} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} close={() => setUnsentMenu(null)} /></Suspense>}
+    {unsentMenu && failedHere && message.client_message_id && <Suspense fallback={null}><UnsentMenu x={unsentMenu.x} y={unsentMenu.y} t={t} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} close={() => setUnsentMenu(null)} /></Suspense>}
     {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
     {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}

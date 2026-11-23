@@ -3,6 +3,8 @@
    cascade from any layer, where a rule would lose to the kit's unlayered ones. */
 @layer legacy {
 .workspace .message-body > .tb-msg { --tb-row-max:none; }
+.workspace .message.is-group { --tb-avatar-size:var(--sender-avatar); }
+.workspace .sender-avatar--kit .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
 .workspace .message-user { --tb-col-max:88%; }
 .workspace .message-bot { --tb-col-max:min(680px, 100%); }
 @media (max-width:640px) { .workspace .message-bot { --tb-col-max:100%; } }

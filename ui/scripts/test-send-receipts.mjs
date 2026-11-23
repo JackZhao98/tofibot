@@ -283,6 +283,47 @@ await check("sending and failed stay visible without hover, and the failed line 
   await context.close();
 });
 
+await check("desktop web: the send flight carries the bubble's own look, and the bubble waits hidden", async () => {
+  const { page, context } = await open();
+  mock.sendDelayMs = 400;
+  await page.evaluate(() => {
+    window.__flight = null;
+    const watch = new MutationObserver(() => {
+      const ghost = document.querySelector(".v2-send-flight-ghost");
+      if (!ghost || window.__flight) return;
+      const bubble = [...document.querySelectorAll(".message-user .tb-bubble")].find(node => node.textContent.includes("flight probe"));
+      const cs = getComputedStyle(bubble);
+      window.__flight = { ghostW: ghost.offsetWidth, ghostH: ghost.offsetHeight, bubbleW: bubble.offsetWidth, bubbleH: bubble.offsetHeight, ghostBg: ghost.style.backgroundColor, bubbleBg: cs.backgroundColor, ghostRadius: ghost.style.borderRadius, bubbleRadius: cs.borderRadius, hidden: cs.visibility === "hidden" };
+      watch.disconnect();
+    });
+    watch.observe(document.body, { subtree: true, childList: true });
+  });
+  await type(page, "flight probe");
+  await page.waitForFunction(() => window.__flight, null, { timeout: 5000 });
+  const f = await page.evaluate(() => window.__flight);
+  assert.ok(Math.abs(f.ghostW - f.bubbleW) < 1 && Math.abs(f.ghostH - f.bubbleH) < 1, `the ghost is the bubble's size (${JSON.stringify(f)})`);
+  assert.equal(f.ghostBg, f.bubbleBg, "the ghost wears the bubble's fill");
+  assert.equal(f.ghostRadius, f.bubbleRadius, "the ghost wears the bubble's corners");
+  assert.equal(f.hidden, true, "the real bubble waits hidden under the flight");
+  await context.close();
+});
+
+await check("desktop: the keyboard's Menu key on a focused failed message opens Edit and Delete", async () => {
+  const { page, context } = await open();
+  mock.failSends = true;
+  await type(page, "keyboard menu");
+  await block(page, "keyboard menu").locator(".send-receipt-retry").waitFor({ timeout: 5000 });
+  await block(page, "keyboard menu").focus();
+  // The Menu key and Shift+F10 send a contextmenu event with no pointer position (clientX and clientY are 0) to the focused element.
+  await block(page, "keyboard menu").evaluate(node => node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 0, clientY: 0 })));
+  const menu = page.locator(".unsent-context-menu");
+  await menu.waitFor({ timeout: 3000 });
+  assert.deepEqual(await menu.locator("button").allInnerTexts(), ["Edit", "Delete"]);
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached", timeout: 2000 });
+  await context.close();
+});
+
 await check("no duplicate when the stream copy arrives before the POST answer", async () => {
   const { page, context } = await open();
   mock.ssePreempt = true;
