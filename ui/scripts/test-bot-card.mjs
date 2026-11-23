@@ -28,7 +28,7 @@ const bezier = (x1, y1, x2, y2) => t => {
 const ease = bezier(0.45, 0, 0.2, 1); // --ease-inout
 /** Smoothness of one flight, per series (the cat's path and the card's height). From the first frame that moved to the last:
  *  - no frame may come more than two frames late (a hitch is a long frame, then a big step);
- *  - the series must follow the ease-in-out curve over the motion's duration: at no frame may it be more than 10% of its travel away from the curve
+ *  - the card's height must follow the ease-in-out curve (the cat is a spring: see the cat check below) over the motion's duration: at no frame may it be more than 10% of its travel away from the curve
  *    (the start time is the best fit within a frame of the first move). A stall then a jump, or half the path in one frame, is far over that.
  *  The report also carries the plain ratio of the biggest step to the median step, and of the peak speed to the mean speed, which the curve itself
  *  puts near 5 and 2.8 (a step at the middle of an ease is several times the steps in its tails), so those two are not asserted. */
@@ -47,6 +47,16 @@ const smooth = (frames, label, duration) => {
     const window = live.slice(moved - 1, t1 + 1);
     const late = Math.max(...window.slice(1).map((frame, i) => frame.t - window[i].t));
     if (late > 40) problems.push(`${label} ${name}: a frame came ${late} ms after the one before (over two frames) while the motion ran`);
+    if (name === "cat") {
+      // The cat travels on a spring with a slight overshoot (owner 2026-11-23): it must land where it ends, pass that place by at most 6% of the
+      // travel, and never move back past its start.
+      const over = Math.max(0, ...window.map((frame, i) => (values[moved - 1 + i] - end) * Math.sign(travel))) / Math.abs(travel);
+      const under = Math.max(0, ...window.map((frame, i) => (start - values[moved - 1 + i]) * Math.sign(travel))) / Math.abs(travel);
+      if (over > 0.06) problems.push(`${label} cat: overshoots its place by ${(over * 100).toFixed(1)}% of the travel (over 6%)`);
+      if (under > 0.02) problems.push(`${label} cat: moves back past its start by ${(under * 100).toFixed(1)}% of the travel`);
+      out[name] = { overshoot: +(over * 100).toFixed(1) + "%", lateMs: late };
+      continue;
+    }
     let best = Infinity;
     for (let t0 = live[moved].t - 30; t0 <= live[moved].t; t0 += 1) {
       const worst = Math.max(...window.map((frame, i) => Math.abs(values[moved - 1 + i] - (start + travel * ease(Math.min(1, Math.max(0, (frame.t - t0) / duration))))))) / Math.abs(travel);

@@ -7,7 +7,7 @@ import { IconButton } from "./ds/IconButton/IconButton";
 import { Icon } from "./ds/Icon/Icon";
 import { useTranslation } from "./i18n";
 import { botCatState } from "./chat/botCatState";
-import { CARD_IN, CARD_OUT, CAT_TRAVEL, CatMotion, CatTravel, takeFlight } from "./catMotion";
+import { CARD_IN, CARD_OUT, catSettleMs, CatMotion, CatTravel, takeFlight } from "./catMotion";
 import { roleOf, withRole } from "./botRole";
 import { setPendingSection } from "./settings/pendingSection";
 import { closeWidget, openCover, type Surfaces } from "./surfaces";
@@ -46,7 +46,7 @@ function EditableLine({ value, label, placeholder, required, maxLength, onSave, 
 /**
  * The Bot card: the top widget of the column. The cat (the header's own cat, travelling by its shared layout id) sits on the card's top edge,
  * half over it; the card unfolds downward from the cat's middle and pushes the other widgets down. Lazy chunk `surfaceViews`.
- * `leaving` is the exit: the cat is handed back to the header at once (it flies home while the card folds, 180 ms).
+ * `leaving` is the exit: the cat is handed back to the header at once (it springs home while the card folds).
  */
 export function BotCard({ bot, card, surf, save, leaving, focusN, conversationId }: { bot: Bot; card: BotCardCtx; surf: Surf; /** The Bot settings save (Workspace `updateBot`). */ save: (id: string, input: Partial<Pick<Bot, "name" | "instructions">>) => Promise<void>; leaving: boolean; focusN: number; conversationId: string }) {
   const { t } = useTranslation("chat");
@@ -59,7 +59,7 @@ export function BotCard({ bot, card, surf, save, leaving, focusN, conversationId
   const menuId = useId();
   const cat = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (focusN > 0 && !leaving) cat.current?.focus({ preventScroll: true }); }, [focusN, leaving]);
-  useEffect(() => { if (!fresh) return; const timer = window.setTimeout(() => wrap.current?.removeAttribute("data-flying"), CAT_TRAVEL.duration * 1000 + 60); return () => window.clearTimeout(timer); }, [fresh]);
+  useEffect(() => { if (!fresh) return; const timer = window.setTimeout(() => wrap.current?.removeAttribute("data-flying"), catSettleMs()); return () => window.clearTimeout(timer); }, [fresh]);
   const state = botCatState(bot.id, conversationId, card.runs, card.activities, card.asleep, card.asked);
   const working = card.activities.filter(activity => activity.bot_id === bot.id && activity.conversation_id === conversationId && (activity.status === "running" || activity.status === "queued")).at(-1);
   const status = state === "waiting" ? t("botCard.status_waiting") : state === "working" || state === "thinking" ? (working ? t("botCard.status_working_on", { what: working.name.replace(/[_.-]+/g, " ") }) : t("botCard.status_working")) : state === "error" ? t("botCard.status_failed") : t("botCard.status_idle");

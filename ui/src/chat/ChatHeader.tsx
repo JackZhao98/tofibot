@@ -75,7 +75,7 @@ export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode
   // the Bot card has it in the widget column (the card's cat takes over from this one's last box, and back).
   const away = bare && columnMode && botCardOpen;
   const catFor = (id: string) => <BotAvatar key={id} id={id} name={botById.get(id)?.name ?? active.name} coat="paper" size="var(--cat)" state={menus?.botCatState(id, active.id, cats.runs, cats.activities, cats.asleep(id), cats.asked)} />;
-  const faces = bare ? (away ? [] : [menus ? <menus.CatTravel key="cat" id={active.id} transition={menus.CAT_TRAVEL_OUT} className="tb-chathead-travel">{catFor(ids[0])}</menus.CatTravel> : <span key="cat" className="tb-chathead-travel">{catFor(ids[0])}</span>]) : ids.map(catFor);
+  const faces = bare ? (away ? [] : [menus ? <menus.CatTravel key="cat" id={active.id} transition={menus.catTravelOut()} className="tb-chathead-travel">{catFor(ids[0])}</menus.CatTravel> : <span key="cat" className="tb-chathead-travel">{catFor(ids[0])}</span>]) : ids.map(catFor);
   return <KitChatHeader
     bare={bare}
     away={away}

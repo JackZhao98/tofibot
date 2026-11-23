@@ -27,6 +27,8 @@ void i18nReady.finally(() => {
       <Root />
     </StrictMode>,
   );
+  // The Tune panel (motion sliders) exists only in a dev build; production never bundles it.
+  if (import.meta.env.DEV) void import("./dev/TuningPanel").then(module => module.mountTuningPanel());
 });
 
 import "./interaction-system.css";
