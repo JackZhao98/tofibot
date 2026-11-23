@@ -14,7 +14,7 @@ function TuningPanel() {
   const groups = new Map<string, ReturnType<typeof tunables>>();
   for (const def of tunables()) groups.set(def.group, [...(groups.get(def.group) ?? []), def]);
   return <div className="dev-tune" data-open={open || undefined}>
-    {open && <div className="dev-tune-panel" role="dialog" aria-label="Tune">
+    {open && <div className="dev-tune-panel tb-scroll" role="dialog" aria-label="Tune">
       <div className="dev-tune-head"><strong>Tune</strong><button type="button" onClick={() => tunables().forEach(def => setTunable(def.key, null))}>Reset all</button></div>
       {[...groups].map(([group, defs]) => <fieldset key={group}><legend>{group}</legend>
         {defs.map(def => {
