@@ -4,6 +4,7 @@ import {Banner, SettingsCard, SettingsRow, SettingsSection} from "./settings/com
 import {GIB} from "./adminApi";
 import { Select } from "./Select";
 import {formatBytes, storageApi, type AdminStorageAccount} from "./storageApi";
+import { Button } from "./ds/Button/Button";
 
 /** Limits offered in the menu, in GiB. The account's current limit is added when it is not one of these. */
 const LIMIT_STEPS = [1, 5, 10, 25, 50, 100, 250, 500, 1000] as const;
@@ -31,8 +32,8 @@ export function AdminStorageLimit({accountId, entry, busy, run}: {accountId: str
           {steps.map(step => <option key={step} value={step}>{t("admin.limit_option", {size: step})}</option>)}
         </Select>}/>
       <SettingsRow label={t("admin.limit_save")}
-        control={<button type="button" className="st-button" disabled={busy || value === current}
-          onClick={() => void run(async () => { await storageApi.setLimit(accountId, value === UNLIMITED ? null : Math.round(Number(value) * GIB)); setSaved(true); })}>{t("admin.limit_save")}</button>}/>
+        control={<Button type="button" size="sm" disabled={busy || value === current}
+          onClick={() => void run(async () => { await storageApi.setLimit(accountId, value === UNLIMITED ? null : Math.round(Number(value) * GIB)); setSaved(true); })}>{t("admin.limit_save")}</Button>}/>
     </SettingsCard>
   </SettingsSection>;
 }

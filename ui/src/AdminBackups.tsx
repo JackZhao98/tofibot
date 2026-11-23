@@ -8,6 +8,7 @@ import {CardHead, formatVerified} from "./ProviderSettings";
 import {SettingsCard, SettingsSection, type BadgeState} from "./settings/components";
 import {useUserTimezone} from "./UserTimezone";
 import {Select} from "./Select";
+import { Button } from "./ds/Button/Button";
 
 /** The Recovery Key is typed as 8 groups of 4; the last two groups confirm it was written down. */
 const lastTwoGroups = (key: string) => key.split("-").slice(-2).join("").toUpperCase();
@@ -100,7 +101,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <input id={`${formId}-access`} name="backup-access-key" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={form.accessKey} disabled={saving} onChange={set("accessKey")}/>
         <label htmlFor={`${formId}-secret`}>{t("admin.org.file_store.secret_key")}</label>
         <input id={`${formId}-secret`} name="backup-secret-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={form.secret} disabled={saving} onChange={set("secret")}/>
-        <div className="provider-key-row"><button type="submit" className="st-button" disabled={saving || !ready}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</button>{view?.configured && <button type="button" className="st-button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</button>}</div>
+        <div className="provider-key-row"><Button type="submit" disabled={saving || !ready}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</Button>{view?.configured && <Button type="button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</Button>}</div>
         <p className="field-note">{t("admin.org.backup.separate_bucket")}</p>
       </form>}
 
@@ -111,17 +112,17 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
           <p className="field-note">{t("admin.org.backup.key_show_once")}</p>
           <label htmlFor={`${formId}-confirm`}>{t("admin.org.backup.key_confirm_label")}</label>
           <input id={`${formId}-confirm`} name="backup-key-confirm" type="text" autoComplete="off" spellCheck={false} value={typed} onChange={event => setTyped(event.target.value)}/>
-          <button type="button" className="st-button" disabled={!keyOk} onClick={() => void act(async () => { await backupApi.confirmKey(); setFreshKey(""); setTyped(""); }, t("admin.org.backup.key_confirmed_notice"))}>{t("admin.org.backup.key_confirm")}</button>
+          <Button type="button" size="sm" disabled={!keyOk} onClick={() => void act(async () => { await backupApi.confirmKey(); setFreshKey(""); setTyped(""); }, t("admin.org.backup.key_confirmed_notice"))}>{t("admin.org.backup.key_confirm")}</Button>
         </div> : <>
           <p className="field-note">{view.key.fingerprint ? (view.key.confirmed_at ? t("admin.org.backup.key_state", {fingerprint: view.key.fingerprint, time: when(view.key.confirmed_at)}) : t("admin.org.backup.key_unconfirmed", {fingerprint: view.key.fingerprint})) : t("admin.org.backup.key_none")}</p>
           <div className="provider-actions">
             {view.key.present ? <ConfirmAction label={t("admin.org.backup.key_rotate")} question={t("admin.org.backup.key_rotate_question")} onConfirm={async () => { try { const out = await backupApi.recoveryKey(); setFreshKey(out.recovery_key ?? ""); setTyped(""); await load(); } catch (cause) { throw new Error(backupError(cause)); } }}/>
-              : <button type="button" className="st-button" onClick={() => void createKey()}>{t("admin.org.backup.key_create")}</button>}
+              : <Button type="button" size="sm" onClick={() => void createKey()}>{t("admin.org.backup.key_create")}</Button>}
             {view.key.fingerprint && <a className="text-button" href="/api/admin/backups/recovery-card" download>{t("admin.org.backup.card")}</a>}
           </div>
           {!view.key.present && <div className="provider-key-row">
             <input aria-label={t("admin.org.backup.key_import")} name="backup-key-import" type="password" autoComplete="off" spellCheck={false} value={importKey} onChange={event => setImportKey(event.target.value)}/>
-            <button type="button" className="st-button" disabled={!importKey.trim()} onClick={() => void act(async () => { await backupApi.recoveryKey({import: importKey.trim()}); setImportKey(""); })}>{t("admin.org.backup.key_import")}</button>
+            <Button type="button" disabled={!importKey.trim()} onClick={() => void act(async () => { await backupApi.recoveryKey({import: importKey.trim()}); setImportKey(""); })}>{t("admin.org.backup.key_import")}</Button>
           </div>}
         </>}
       </div>}
@@ -137,7 +138,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <Select id={`${formId}-before-update`} data-field="before_update" aria-describedby={`${formId}-before-update-hint`} value={settings.before_update ?? "attempt"} onValueChange={next => patch({before_update: next as typeof settings.before_update})}>{(["attempt", "require", "off"] as const).map(option => <option key={option} value={option}>{t(`admin.org.backup.before_update_${option}`)}</option>)}</Select>
         <p id={`${formId}-before-update-hint`} className="backup-hint">{t("admin.org.backup.before_update_hint")}</p>
         {(["keep_daily", "keep_weekly", "keep_monthly", "stale_after_hours"] as const).map(key => <div key={key} className="provider-key-row"><label htmlFor={`${formId}-${key}`}>{t(`admin.org.backup.${key}`)}</label><input id={`${formId}-${key}`} data-field={key} type="number" min={1} value={settings[key]} onChange={num(key)}/></div>)}
-        <button type="button" className="st-button" data-action="save-settings" onClick={() => void act(async () => { setView(await backupApi.settings(settings)); setDraft(null); }, t("admin.org.backup.settings_saved"))}>{t("admin.org.backup.save_settings")}</button>
+        <Button type="button" size="sm" data-action="save-settings" onClick={() => void act(async () => { setView(await backupApi.settings(settings)); setDraft(null); }, t("admin.org.backup.settings_saved"))}>{t("admin.org.backup.save_settings")}</Button>
         <p className="field-note">{t("admin.org.backup.retention_note")}</p>
       </div>}
 
@@ -148,8 +149,8 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <p>{t("admin.org.backup.last_verified")}: {status.verified_at ? `${when(status.verified_at)}${status.verify_duration_ms ? ` · ${Math.max(1, Math.round(status.verify_duration_ms / 1000))} s` : ""}` : t("admin.org.backup.never")}</p>
         {status.verify_status === "failed" && <p className="is-failed" data-status="verify_failed">{t("admin.org.backup.failed", {reason: t(`admin.org.backup.error.${status.verify_code}` as "admin.org.backup.error.generic", {defaultValue: t("admin.org.backup.error.generic")}), account: ""})}</p>}
         <div className="provider-actions">
-          <button type="button" className="st-button" data-action="run" disabled={running || !keyReady} onClick={() => void act(() => backupApi.run(), t("admin.org.backup.started"))}>{t("admin.org.backup.run_now")}</button>
-          <button type="button" className="st-button" data-action="verify" disabled={running || !keyReady || !hasSnapshot} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</button>
+          <Button type="button" size="sm" data-action="run" disabled={running || !keyReady} onClick={() => void act(() => backupApi.run(), t("admin.org.backup.started"))}>{t("admin.org.backup.run_now")}</Button>
+          <Button type="button" size="sm" data-action="verify" disabled={running || !keyReady || !hasSnapshot} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</Button>
           <button type="button" className="text-button" data-action="snapshots" disabled={!keyReady} onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</button>
         </div>
         {!keyReady && <p className="field-note" data-hint="key-not-ready">{t("admin.org.backup.error.backup_not_ready")}</p>}
@@ -209,7 +210,7 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
       <Select id={`${formId}-point`} value={snapshot} onValueChange={setSnapshot}>{points.map(item => <option key={item.name} value={item.name}>{formatVerified(item.at, timezone)} · {item.rows?.conversations ?? 0} / {item.rows?.messages ?? 0}</option>)}</Select>
       <label htmlFor={`${formId}-name`}>{t("admin.org.backup.restore_confirm_name")}</label>
       <input id={`${formId}-name`} name="backup-restore-confirm" type="text" autoComplete="off" spellCheck={false} value={name} onChange={event => setName(event.target.value)}/>
-      <button type="button" className="st-button" data-action="restore-account" disabled={busy || !snapshot || !target || name !== target.username} onClick={() => void restore()}>{t("admin.org.backup.restore_button")}</button>
+      <Button type="button" size="sm" data-action="restore-account" disabled={busy || !snapshot || !target || name !== target.username} onClick={() => void restore()}>{t("admin.org.backup.restore_button")}</Button>
     </>}
     {account && undo && <button type="button" className="text-button" data-action="undo-restore" disabled={busy} onClick={() => void undoRestore()}>{t("admin.org.backup.undo")}</button>}
     {held && <button type="button" className="text-button" data-action="interrupt-runs" disabled={busy || (held === "restore" && name !== target?.username)} onClick={() => void (held === "restore" ? restore(true) : undoRestore(true))}>{t(held === "restore" ? "admin.org.backup.interrupt_and_restore" : "admin.org.backup.interrupt_and_undo")}</button>}

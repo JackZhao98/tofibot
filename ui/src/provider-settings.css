@@ -51,6 +51,7 @@
 .compat-form .field-note{margin:6px 0 0}
 .compat-form .provider-key-row{margin-top:14px;flex-wrap:wrap}
 .compat-form .provider-key-row .tb-btn{flex:none}
+.provider-key-row .tb-btn{flex:none;white-space:nowrap}
 .compat-listed{margin-top:10px;padding:10px 12px;border:0;border-radius:14px;background:var(--surface-2)}
 .compat-listed .field-note{margin:0 0 6px}
 .compat-listed ul{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:12.5px}
