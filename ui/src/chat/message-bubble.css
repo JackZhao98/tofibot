@@ -14,7 +14,8 @@
 .workspace .tb-bubble .message-content > :last-child { margin-bottom:0; }
 /* Sender groups (senderGroups.ts): the name sits over a group's first unit, the avatar beside its last. */
 .workspace .message.is-group[data-continues="true"] { --tb-author-display:none; }
-.workspace [data-sender]:not([data-last="true"]) { --tb-avatar-visibility:hidden; }
+/* Out of flow (hangAvatar), so a hidden avatar can leave the box altogether: it is not focusable or hoverable either. */
+.workspace [data-sender]:not([data-last="true"]) { --tb-avatar-visibility:hidden; --tb-avatar-display:none; }
 /* Bubble runs (markBubbleRuns): the corners on the sender's side tighten where two bubbles of one run meet. */
 .workspace .message-block[data-joins-prev] { --tb-join-top:var(--radius-bubble-joined); }
 .workspace .message-block[data-joins-next] { --tb-join-bottom:var(--radius-bubble-joined); }

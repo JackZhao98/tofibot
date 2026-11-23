@@ -2,7 +2,7 @@
 .tb-msg { display: flex; gap: 10px; align-items: flex-start; max-width: var(--tb-row-max, 760px); }
 .tb-msg--user { flex-direction: row-reverse; }
 .tb-msg.is-joined { margin-top: -4px; }
-.tb-msg-avatar { display: flex; width: var(--tb-avatar-size, 34px); flex: none; align-self: flex-end; visibility: var(--tb-avatar-visibility, visible); }
+.tb-msg-avatar { display: var(--tb-avatar-display, flex); width: var(--tb-avatar-size, 34px); flex: none; align-self: flex-end; visibility: var(--tb-avatar-visibility, visible); }
 /* hangAvatar: the avatar sits out of flow in the gutter to the left, level with the bubble's bottom edge, so a cat that draws late never moves the text. */
 .tb-msg.has-hung-avatar { position: relative; }
 .tb-msg.has-hung-avatar > .tb-msg-avatar { position: absolute; left: calc((var(--tb-avatar-size, 34px) + 10px) * -1); bottom: 0; }
