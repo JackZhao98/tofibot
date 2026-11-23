@@ -63,6 +63,8 @@
   .workspace .workspace-grid.context-open .composer { pointer-events:none; }
   .workspace .workspace-grid.context-open .composer > * { pointer-events:auto; }
   /* Only the widgets take the pointer; wheel over them scrolls the column, over empty chat space it scrolls the messages. */
+  /* The column covers the chat; only its cards take the pointer, so the wheel over the empty area reaches the message list. Beats `.detail-pane.context-panel.visible` in conversation-workspace.css. */
+  .workspace .detail-pane.context-panel.widget-column.visible:not(:has(.computer-detail.is-expanded)) { pointer-events:none; }
   .workspace .detail-pane.widget-column > * { pointer-events:auto; }
   .workspace .workspace-grid.context-open { --context-room:calc(var(--widget-w) + var(--scroll-bar-w,0px)); }
 
