@@ -413,7 +413,7 @@ try {
       const seen = await page.evaluate(() => {
         const line = document.querySelector(".message-assignment");
         const brief = line.querySelector(".assignment-brief");
-        return { text: line.querySelector(":scope > div > span").textContent, briefOpen: brief?.open ?? null, bubbles: document.querySelectorAll('[data-message-id="h1"] .message-content').length, briefVisible: brief ? getComputedStyle(brief.querySelector(":scope > *:not(summary)") ?? brief).display !== "none" && brief.open : false };
+        return { text: line.querySelector(".tb-notice-text").textContent, briefOpen: brief?.open ?? null, bubbles: document.querySelectorAll('[data-message-id="h1"] .message-content').length, briefVisible: brief ? getComputedStyle(brief.querySelector(":scope > *:not(summary)") ?? brief).display !== "none" && brief.open : false };
       });
       assert.match(seen.text, /Simile Cat.*Ledger Cat|Ledger Cat.*Simile Cat/, `handoff line names both Bots: ${seen.text}`);
       assert.equal(seen.bubbles, 0, "the brief is not rendered as a chat bubble");
