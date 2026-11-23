@@ -16,7 +16,7 @@
 
 /* List */
 .admin-list-actions{display:flex;justify-content:flex-end;margin:-38px 0 12px}
-.admin-list-actions .primary-button{display:inline-flex;align-items:center;gap:8px;min-height:40px}
+.admin-list-actions .tb-btn--primary{display:inline-flex;align-items:center;gap:8px;min-height:40px}
 .settings-card.admin-list{overflow:hidden}
 .admin-row{display:grid;grid-template-columns:40px minmax(0,1.4fr) 216px minmax(0,1fr) 18px;align-items:center;gap:14px;width:100%;padding:12px 16px;border:0;border-radius:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer;transition:background var(--m-quick) var(--ease-out)}
 .admin-row+.admin-row,.admin-row-wrap+.admin-row-wrap{border-top:1px solid var(--line-soft)}
@@ -95,7 +95,7 @@
   .admin-capacity dl{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .admin-capacity dd{font-size:18px}
   .admin-list-actions{margin:0 0 12px}
-  .admin-list-actions .primary-button{width:100%;justify-content:center;min-height:44px}
+  .admin-list-actions .tb-btn--primary{width:100%;justify-content:center;min-height:44px}
   .admin-row{grid-template-columns:40px minmax(0,1fr) 18px;grid-template-areas:"avatar main chev" "avatar badges chev" "avatar usage chev";gap:6px 12px;padding:14px 16px;min-height:64px}
   .admin-row .admin-avatar{grid-area:avatar;align-self:start}
   .admin-row .admin-row-main{grid-area:main}
@@ -107,9 +107,9 @@
   .admin-detail{animation:admin-push var(--m-base) var(--ease-settle)}
   .admin-detail-head{align-items:flex-start}
   .admin-export-actions>*{flex:1 1 auto}
-  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .st-button{width:100%;min-height:44px}
+  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .st-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .tb-btn{width:100%;min-height:44px}
   .admin-secret-line{flex-direction:column}
-  .admin-sheet .admin-danger-button,.admin-sheet .primary-button,.admin-sheet .secondary-button,.admin-sheet .st-button{min-height:44px}
+  .admin-sheet .admin-danger-button,.admin-sheet .primary-button,.admin-sheet .secondary-button,.admin-sheet .st-button,.admin-sheet .tb-btn{min-height:44px}
 }
 @keyframes admin-push{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.admin-detail{animation:none}}
