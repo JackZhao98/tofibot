@@ -326,6 +326,45 @@
       "kit": "simple-icons",
       "retrieved": "2026-11-01",
       "license": "Simple Icons (CC0-1.0); Home Assistant is a trademark of Nabu Casa, Inc., mark used to name the service."
+    },
+    {
+      "name": "claude.svg",
+      "brand": "claude",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/c71c69e3a27e4436936b831c72643e6513b9f49b/icons/claude.svg",
+      "source_commit": "c71c69e3a27e4436936b831c72643e6513b9f49b",
+      "sha256": "2d6fda79eb18ddccca35b799eeb3cece0dfabc22520ce3b10abd25668df9fa93",
+      "modified": false,
+      "runtime": "brand/services/claude.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-11-22",
+      "license": "CC0-1.0 (package); brand rights remain with the owner, see simple-icons DISCLAIMER.md"
+    },
+    {
+      "name": "ollama.svg",
+      "brand": "ollama",
+      "style": "color",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/c71c69e3a27e4436936b831c72643e6513b9f49b/icons/ollama.svg",
+      "source_commit": "c71c69e3a27e4436936b831c72643e6513b9f49b",
+      "sha256": "9c62bf0159ee96c8b58c86a732f33b002b4b3bb165ec86e8ecca51ad6a82dab6",
+      "modified": false,
+      "runtime": "brand/services/ollama.svg",
+      "kit": "simple-icons",
+      "retrieved": "2026-11-22",
+      "license": "CC0-1.0 (package); brand rights remain with the owner, see simple-icons DISCLAIMER.md"
+    },
+    {
+      "name": "openai-blossom.svg",
+      "brand": "openai",
+      "style": "monochrome",
+      "source": "https://cdn.openai.com/brand/openai-logos.zip",
+      "archive_member": "OpenAI-logos/SVGs/OAI_OpenAI-Blossom_Black.svg",
+      "sha256": "75c1e9fffa5e8c437bec1d67197a73992bca45d166c6ff23215185dea8fae92a",
+      "modified": false,
+      "runtime": "brand/services/openai-blossom.svg",
+      "license": "Vendor brand kit (openai.com/brand); usage per vendor guidelines",
+      "kit": "official",
+      "retrieved": "2026-11-22"
     }
   ],
   "brands": [
@@ -431,6 +470,37 @@
         "soft": null
       },
       "note": "Google gstatic published PNGs (SVG not published at gstatic); unmodified, used only to identify the connected Google service."
+    },
+    {
+      "id": "openai",
+      "title": "OpenAI",
+      "guidelines": "https://openai.com/brand",
+      "variants": {
+        "monochrome": "openai-blossom.svg",
+        "color": "openai-blossom.svg",
+        "soft": null
+      },
+      "note": "OpenAI's own Blossom mark (black), unmodified, from the vendor logo kit; shown beside the visible OpenAI name on the Models page."
+    },
+    {
+      "id": "claude",
+      "title": "Claude",
+      "variants": {
+        "monochrome": null,
+        "color": "claude.svg",
+        "soft": null
+      },
+      "note": "Simple Icons 'claude' spark, unmodified (default black fill); chosen over the 'anthropic' mark because the Models card is named Claude. Shown on a light tile."
+    },
+    {
+      "id": "ollama",
+      "title": "Ollama",
+      "variants": {
+        "monochrome": null,
+        "color": "ollama.svg",
+        "soft": null
+      },
+      "note": "Simple Icons mark, unmodified (default black fill); shown only on an OpenAI-compatible endpoint that is an Ollama server."
     }
   ],
   "soft_proposal": "Named soft/cute treatment for TOFI-owned surrounding UI only. Retain provider mark unmodified, recognizably paired with its service name. No mascot substitutions, endorsement claims, effects on the mark or unapproved combinations; obtain applicable permission before rendering."
