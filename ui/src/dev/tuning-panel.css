@@ -1,6 +1,6 @@
 /* Dev-only Tune panel (src/dev/TuningPanel.tsx). Not in production builds. */
 @layer legacy {
-.dev-tune{position:fixed;right:12px;bottom:12px;z-index:2147483000;display:flex;flex-direction:column;align-items:flex-end;gap:8px;font:12px/1.4 var(--font-body,system-ui)}
+.dev-tune{position:fixed;right:12px;bottom:12px;z-index:var(--z-drag);display:flex;flex-direction:column;align-items:flex-end;gap:8px;font:12px/1.4 var(--font-body,system-ui)}
 .dev-tune-toggle{padding:6px 10px;border:var(--border-1,1px) solid var(--line);border-radius:var(--radius-pill,999px);background:var(--surface);color:var(--ink);cursor:pointer;box-shadow:var(--shadow-pop,none)}
 .dev-tune-panel{width:min(340px,calc(100vw - 24px));max-height:70vh;overflow:auto;padding:10px 12px;border:var(--border-1,1px) solid var(--line);border-radius:var(--radius-md,12px);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-pop,none)}
 .dev-tune-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
