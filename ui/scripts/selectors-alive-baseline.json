@@ -32,9 +32,6 @@
     ".desktop-mini-controls",
     ".desktop-mini-open"
   ],
-  "test-overlays.mjs": [
-    ".send-receipt-tip"
-  ],
   "test-search-palette.mjs": [
     ".new-bot-dialog"
   ],
