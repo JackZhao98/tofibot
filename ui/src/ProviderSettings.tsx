@@ -19,10 +19,10 @@ type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
 const placeholders: Record<KeyProvider, string> = {openai: "sk-…", anthropic: "sk-ant-…"};
 
-/** The stored key as the server describes it: first four and last four characters with dots between, never the whole key. */
-export function maskedKey(status?: {key_hint?: string; key_prefix?: string}) {
+/** The stored key as the server describes it: dots and the last four characters, never more of the key. */
+export function maskedKey(status?: {key_hint?: string}) {
  if (!status?.key_hint) return "";
- return `${status.key_prefix ?? ""}••••••••${status.key_hint.replace(/^…/, "")}`;
+ return `••••••••${status.key_hint.replace(/^…/, "")}`;
 }
 
 /**
