@@ -107,6 +107,8 @@
   },
   "ds": {
     "reactionsLabel": "リアクション",
+    "reactionPickerLabel": "よく使うリアクション",
+    "reactionPickerReact": "{{emoji}} でリアクション",
     "approve": "承認",
     "decline": "却下",
     "needsYou": "あなたの確認待ち",

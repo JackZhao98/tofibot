@@ -107,6 +107,8 @@
   },
   "ds": {
     "reactionsLabel": "Reactions",
+    "reactionPickerLabel": "Common reactions",
+    "reactionPickerReact": "React with {{emoji}}",
     "approve": "Approve",
     "decline": "Decline",
     "needsYou": "Needs you",

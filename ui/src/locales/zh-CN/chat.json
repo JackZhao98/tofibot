@@ -644,9 +644,7 @@
     "chip_mine_other": "{{emoji}}，{{count}} 人回应；点击移除我的回应",
     "common": "常用表情",
     "failed": "回应失败，请重试",
-    "loading": "正在加载表情…",
     "menu": "选择消息回应",
-    "more": "更多表情",
     "react_with": "回应 {{emoji}}"
   },
   "receipt": {

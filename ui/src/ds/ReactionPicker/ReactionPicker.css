@@ -1,0 +1,8 @@
+.tb-reactpick { display: flex; gap: 2px; width: fit-content; max-width: calc(100vw - 24px); padding: 6px; box-sizing: border-box; }
+.tb-reactpick-item { display: grid; place-items: center; flex: none; width: 36px; height: 36px; padding: 0; margin: 0; border: 0; border-radius: var(--radius-pill); background: transparent; font: 20px/1 var(--font-emoji, system-ui, sans-serif); cursor: pointer; transition: transform var(--m-press) var(--ease-out), background var(--m-press) var(--ease-out); }
+.tb-reactpick-item:hover { background: var(--surface-2); transform: scale(1.12); }
+.tb-reactpick-item:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-reactpick-item[aria-pressed="true"] { background: color-mix(in srgb, var(--mustard) 32%, var(--surface)); }
+.tb-reactpick-item:disabled { opacity: .5; cursor: default; transform: none; }
+@media (prefers-reduced-motion: reduce) { .tb-reactpick-item, .tb-reactpick-item:hover { transition: none; transform: none; } }
+@media (max-width: 420px) { .tb-reactpick-item { width: 32px; height: 32px; } }

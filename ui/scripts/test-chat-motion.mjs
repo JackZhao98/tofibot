@@ -417,7 +417,7 @@ await check("a reaction shows at once and the menu closes before the server answ
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="react"]').click();
   await page.locator(".reaction-context-menu").waitFor();
-  await page.locator('.reaction-options button[aria-label*="👍"]').click();
+  await page.locator('.reaction-context-menu .tb-reactpick-item[aria-label*="👍"]').click();
   await page.waitForTimeout(150);
   assert.equal(await page.locator(".reaction-context-menu").count(), 0, "menu closed while the request is in flight");
   assert.equal(await block(page, "m3").locator(".reaction-chip").count(), 1, "chip is on screen before the response");
@@ -432,7 +432,7 @@ await check("a failed reaction rolls back and says so", async () => {
   const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="react"]').click();
-  await page.locator('.reaction-options button[aria-label*="👍"]').click();
+  await page.locator('.reaction-context-menu .tb-reactpick-item[aria-label*="👍"]').click();
   await page.waitForFunction(() => document.querySelector('[data-message-id="m3"] .reaction-error'), null, { timeout: 10000 });
   assert.equal(await block(page, "m3").locator(".reaction-chip").count(), 0, "the optimistic chip is removed");
   await context.close();

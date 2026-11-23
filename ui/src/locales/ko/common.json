@@ -107,6 +107,8 @@
   },
   "ds": {
     "reactionsLabel": "반응",
+    "reactionPickerLabel": "자주 쓰는 반응",
+    "reactionPickerReact": "{{emoji}}로 반응",
     "approve": "승인",
     "decline": "거절",
     "needsYou": "확인이 필요해요",
