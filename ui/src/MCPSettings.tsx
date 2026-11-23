@@ -4,7 +4,6 @@ import { ApiError, request } from "./api";
 import type { Bot } from "./types";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import { Disclosure } from "./InteractionPrimitives";
-import { TofiIcon } from "./icons";
 import { integrationCatalog, LOCAL_PLUGIN_REPOS, type IntegrationPreset } from "./integrationCatalog";
 import { useRepoStars } from "./connections/repoStars";
 import { isDesktop } from "./desktop";
@@ -127,7 +126,7 @@ export function MCPSettings({ refreshToken = 0, bots = [] }: { refreshToken?: nu
   const close = () => { setNav("back"); setSelected(null); };
   return <div className="extension-panel mcp-settings" data-view={selected ? "detail" : "list"} data-nav={nav || undefined}>
     <div className="mcp-list-pane" hidden={selected !== null} inert={selected !== null || undefined}>
-      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><Button variant="primary" ref={addButton} onClick={() => openDialog({ view: "directory" })}><TofiIcon name="plus" size={16} />{t("connections.add")}</Button></div>
+      <div className="mcp-toolbar"><h3>{t("connections.title")} <span>{total || ""}</span></h3><Button variant="primary" icon="plus" ref={addButton} onClick={() => openDialog({ view: "directory" })}>{t("connections.add")}</Button></div>
       {listError && <div className="mcp-list-error" role="alert"><span>{listError}</span><Button size="sm" onClick={() => void refresh()}>{t("common:action.retry")}</Button></div>}
       {!loaded && <p className="mcp-placeholder">{t("mcp.loading")}</p>}
       {empty && <ConnectionsEmpty onStart={startTile} onBrowse={() => openDialog({ view: "directory" })} />}

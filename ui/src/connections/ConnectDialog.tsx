@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { IntegrationBrowser } from "../IntegrationBrowser";
 import { ModalDialog } from "../overlays/ModalDialog";
-import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { Banner } from "../settings/components";
 import type { IntegrationPreset } from "../integrationCatalog";
