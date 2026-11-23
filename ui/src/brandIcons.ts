@@ -48,7 +48,7 @@ export const brandIcons: BrandIcon[] = [
   { key: "firecrawl", ids: [], match: /\bFirecrawl\b/i, src: dir + "firecrawl.png", label: "Firecrawl" },
   { key: "brightdata", ids: [], match: /\bBright Data\b/i, src: dir + "brightdata.png", label: "Bright Data" },
   // Model providers (Settings > Models). Resolved by provider id only: the match never fires on a display name, so
-  // "OpenAI-compatible" cannot pick up the OpenAI mark. Not directory services, so no catalog ids.
+  // "OpenAI-compatible" cannot pick up the OpenAI mark. Keyed by provider id, not by a directory catalog id.
   { key: "openai", ids: ["provider:openai"], match: /(?!)/, src: dir + "openai-blossom.svg", fill: 1, label: "OpenAI" },
   { key: "claude", ids: ["provider:anthropic"], match: /(?!)/, src: dir + "claude.svg", label: "Claude" },
   { key: "ollama", ids: ["provider:ollama"], match: /(?!)/, src: dir + "ollama.svg", label: "Ollama" },
