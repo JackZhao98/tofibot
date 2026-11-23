@@ -3,6 +3,8 @@ import { ApiError, request } from "../api";
 import { codeText } from "../i18n/codeText";
 import { useTranslation } from "../i18n";
 import { ModalDialog } from "../overlays/ModalDialog";
+import { Button } from "../ds/Button/Button";
+import { TextInput } from "../ds/TextInput/TextInput";
 import { endpoint, message, post } from "./shared";
 
 type Start = { session_id: string; authorization_url: string; redirect_uri: string };
@@ -80,10 +82,10 @@ export function PasteBackView({ title, session, pasted, busy, error, onPasted, o
       <ol className="paste-back-steps">
         <li><a className="mcp-button" href={session.authorization_url} target="_blank" rel="noopener noreferrer">{t("paste.open", { title })}</a></li>
         <li>{t("paste.step_copy")}</li>
-        <li><label>{t("paste.label")}<input value={pasted} onChange={e => onPasted(e.target.value)} inputMode="url" autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={4096} disabled={busy} placeholder={session.redirect_uri + "?code=…"} /></label></li>
+        <li><label>{t("paste.label")}<TextInput mono value={pasted} onChange={e => onPasted(e.target.value)} inputMode="url" autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={4096} disabled={busy} placeholder={session.redirect_uri + "?code=…"} /></label></li>
       </ol>
       {error && <p className="paste-back-error" role="alert">{error}</p>}
-      <div className="sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button><button type="submit" className="primary-button" disabled={busy || !pasted.trim()}>{busy ? t("paste.submitting") : t("paste.submit")}</button></div>
+      <div className="sheet-actions"><Button disabled={busy} onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" type="submit" disabled={busy || !pasted.trim()}>{busy ? t("paste.submitting") : t("paste.submit")}</Button></div>
     </form>}
   </div>;
 }

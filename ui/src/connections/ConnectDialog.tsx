@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { IntegrationBrowser } from "../IntegrationBrowser";
 import { ModalDialog } from "../overlays/ModalDialog";
-import { TofiIcon } from "../icons";
 import { ServiceMark } from "../ServiceMark";
 import { Banner } from "../settings/components";
 import type { IntegrationPreset } from "../integrationCatalog";
@@ -15,6 +14,8 @@ import { RemoteForm } from "./RemoteForm";
 import { message, type MCP } from "./shared";
 import { GoogleWorkspaceAdvanced } from "./GoogleWorkspace";
 import { isOneClick, openSignInTab, presetDefaults } from "./oneClick";
+import { Button } from "../ds/Button/Button";
+import { IconButton } from "../ds/IconButton/IconButton";
 import type { GoogleOverview } from "./google";
 
 export type DialogRequest =
@@ -100,10 +101,10 @@ export function ConnectDialog({ request, servers, local, google, options, route,
   return <ModalDialog onClose={onClose} closeOnOutside={!saving} locked={saving} overlayClassName="sheet-overlay">
     <div className="sheet connect-dialog" role="dialog" aria-labelledby={headingId} tabIndex={-1}>
       <header className="connect-head">
-        {view.view !== "directory" && canGoBack && <button type="button" className="close-button" aria-label={t("mcp.back")} disabled={saving} onClick={back}><TofiIcon name="arrow-left" size={18} /></button>}
+        {view.view !== "directory" && canGoBack && <IconButton icon="arrow-left" label={t("mcp.back")} disabled={saving} onClick={back} />}
         {mark && <ServiceMark name={mark} />}
         <div className="connect-title"><h3 id={headingId}>{heading}</h3>{hint && <p>{hint}</p>}</div>
-        <button type="button" className="close-button" aria-label={t("action.close")} disabled={saving} onClick={onClose}><TofiIcon name="close" size={18} /></button>
+        <IconButton icon="close" label={t("action.close")} disabled={saving} onClick={onClose} />
       </header>
       {view.view === "directory" && <IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery} googleAdded={servers.some(server => server.name === "local_gog")} localAvailable={local.available}
         onSelect={choose} onGoogle={() => setView({ view: "google" })} onCustom={() => setView({ view: "custom" })} onPackage={local.available ? () => setView({ view: "package" }) : undefined} />}
@@ -117,8 +118,8 @@ export function ConnectDialog({ request, servers, local, google, options, route,
         <p className="connect-lead">{t("connections.connecting.lead", { name: view.preset.name })}</p>
         {connectError && <Banner tone="error" title={connectError} />}
         <div className="sheet-actions">
-          <button type="button" className="secondary-button" disabled={saving} onClick={() => { setConnectError(""); setView({ view: "preset", preset: view.preset }); }}>{t("connections.connecting.advanced")}</button>
-          <button type="button" className="secondary-button" disabled={saving} onClick={onClose}>{t("action.cancel")}</button>
+          <Button disabled={saving} onClick={() => { setConnectError(""); setView({ view: "preset", preset: view.preset }); }}>{t("connections.connecting.advanced")}</Button>
+          <Button disabled={saving} onClick={onClose}>{t("action.cancel")}</Button>
         </div>
       </div>}
       {view.view === "package" && <PackageForm onInstalled={async () => { await onLocalChanged(); onClose(); }} onCancel={fromDirectory ? back : onClose} />}

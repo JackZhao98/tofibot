@@ -845,7 +845,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await pending.waitFor();
     assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 0, "choosing Bots comes before the write");
     assert.deepEqual(await pending.locator("button").allInnerTexts(), ["Enable for all Bots", "Choose Bots…", "Cancel"]);
-    assert.equal(await pending.locator("button.primary-button").innerText(), "Enable for all Bots", "the default is one primary button");
+    assert.equal(await pending.locator("button.tb-btn--primary").innerText(), "Enable for all Bots", "the default is one primary button");
     await pending.getByRole("button", {name: "Choose Bots…"}).click();
     assert.deepEqual(await pending.locator(".skill-enable-bots label").allInnerTexts(), ["Research Bot", "Inbox Bot", "Notes Bot"], "only active Bots are listed");
     assert.equal(await pending.getByRole("button", {name: "Add without enabling"}).count(), 1, "no Bot picked means install for none");
@@ -863,7 +863,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(libWrites.filter(entry => entry.startsWith("POST /api/extensions/skills ")).length, 2);
     assert.ok(!(await page$(page).locator(".skill-templates").innerText()).includes(starterTitle), "an added template leaves the template list");
     await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
-    assert.equal(await page$(page).locator("form .primary-button").innerText(), "Enable for all Bots", "the paste form offers the same default");
+    assert.equal(await page$(page).locator("form .tb-btn--primary").innerText(), "Enable for all Bots", "the paste form offers the same default");
     await page$(page).getByRole("button", {name: "Paste SKILL.md"}).click();
     // Add folder is a styled button over a hidden folder input; paste opens the small form.
     assert.equal(await page$(page).locator('input[type=file][webkitdirectory]').count(), 1);
@@ -1411,7 +1411,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const column = Math.max(0, ...[...body.children].filter(visible).filter(node => !node.classList.contains("st-wide") && !node.classList.contains("settings-stack")).map(node => node.getBoundingClientRect().width));
       const stack = body.querySelector(":scope > .settings-stack");
       const stackWidest = stack ? Math.max(0, ...[...stack.children].filter(visible).filter(node => !node.classList.contains("st-wide")).map(node => node.getBoundingClientRect().width)) : 0;
-      return {bordered, hard, primaries: all.filter(node => node.matches(".primary-button")).length, column: Math.max(column, stackWidest), wide: body.querySelectorAll(".st-wide").length};
+      return {bordered, hard, primaries: all.filter(node => node.matches(".primary-button, .tb-btn--primary")).length, column: Math.max(column, stackWidest), wide: body.querySelectorAll(".st-wide").length};
     });
     for (const id of ["general", "advanced"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();

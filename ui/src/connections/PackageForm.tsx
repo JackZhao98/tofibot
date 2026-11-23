@@ -3,6 +3,9 @@ import { request } from "../api";
 import { Banner } from "../settings/components";
 import { useTranslation } from "../i18n";
 import { message } from "./shared";
+import { Button } from "../ds/Button/Button";
+import { TextInput } from "../ds/TextInput/TextInput";
+import { TextArea } from "../ds/TextArea/TextArea";
 import { Select } from "../Select";
 
 type PackageKind = "npm" | "pypi";
@@ -40,19 +43,19 @@ export function PackageForm({ onInstalled, onCancel }: { onInstalled: () => Prom
     <p className="connect-lead">{t("local.custom.intro")}</p>
     <fieldset className="form-fields connect-form" disabled={busy}>
       <label>{t("local.custom.runtime")}<Select value={kind} onValueChange={value => setKind(value as PackageKind)}><option value="npm">Node / npm</option><option value="pypi">Python / PyPI</option></Select></label>
-      <label>{t("local.custom.plugin_id")}<input value={id} onChange={event => setID(event.target.value)} placeholder="my-plugin" /></label>
-      <label>{t("local.custom.package")}<input value={packageName} onChange={event => setPackageName(event.target.value)} /></label>
-      <label>{t("local.custom.version")}<input value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" /></label>
-      <label>{t("local.custom.binary")}<input value={binary} onChange={event => setBinary(event.target.value)} /></label>
-      <label>{t("local.custom.args")}<textarea rows={2} value={args} onChange={event => setArgs(event.target.value)} /></label>
-      {kind === "npm" && <label>{t("local.custom.integrity")}<input value={integrity} onChange={event => setIntegrity(event.target.value)} placeholder="sha512-…" spellCheck={false} autoComplete="off" /></label>}
+      <label>{t("local.custom.plugin_id")}<TextInput value={id} onChange={event => setID(event.target.value)} placeholder="my-plugin" /></label>
+      <label>{t("local.custom.package")}<TextInput value={packageName} onChange={event => setPackageName(event.target.value)} /></label>
+      <label>{t("local.custom.version")}<TextInput value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" /></label>
+      <label>{t("local.custom.binary")}<TextInput value={binary} onChange={event => setBinary(event.target.value)} /></label>
+      <label>{t("local.custom.args")}<TextArea rows={2} value={args} onChange={event => setArgs(event.target.value)} /></label>
+      {kind === "npm" && <label>{t("local.custom.integrity")}<TextInput value={integrity} onChange={event => setIntegrity(event.target.value)} placeholder="sha512-…" spellCheck={false} autoComplete="off" /></label>}
       <fieldset className="connect-env"><legend>{t("local.custom.env")}</legend>
-        {envRows.map((row, index) => <div key={index} className="connect-env-row"><input aria-label={t("local.custom.env_name")} value={row.key} onChange={event => updateRow(index, { key: event.target.value })} placeholder="API_TOKEN" spellCheck={false} autoComplete="off" /><input aria-label={t("local.custom.env_value")} type="password" value={row.value} onChange={event => updateRow(index, { value: event.target.value })} autoComplete="new-password" spellCheck={false} /></div>)}
-        <button type="button" className="secondary-button" onClick={() => setEnvRows(rows => [...rows, { key: "", value: "" }])}>{t("local.custom.env_add")}</button>
+        {envRows.map((row, index) => <div key={index} className="connect-env-row"><TextInput aria-label={t("local.custom.env_name")} value={row.key} onChange={event => updateRow(index, { key: event.target.value })} placeholder="API_TOKEN" spellCheck={false} autoComplete="off" /><TextInput aria-label={t("local.custom.env_value")} type="password" value={row.value} onChange={event => updateRow(index, { value: event.target.value })} autoComplete="new-password" spellCheck={false} /></div>)}
+        <Button onClick={() => setEnvRows(rows => [...rows, { key: "", value: "" }])}>{t("local.custom.env_add")}</Button>
       </fieldset>
       <code className="connect-code">{preview}</code>
     </fieldset>
     {error && <Banner tone="error" title={error} />}
-    <div className="sheet-actions"><button type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{t("action.cancel")}</button><button type="button" className="primary-button" disabled={busy || !id || !packageName || !version || !binary || !valid} onClick={() => void install()}>{busy ? t("local.custom.installing") : t("local.custom.install")}</button></div>
+    <div className="sheet-actions"><Button disabled={busy} onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" disabled={busy || !id || !packageName || !version || !binary || !valid} onClick={() => void install()}>{busy ? t("local.custom.installing") : t("local.custom.install")}</Button></div>
   </div>;
 }

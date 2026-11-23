@@ -12,6 +12,7 @@ import type { ConnectionBots } from "./bots";
 import { MoreMenu, PrimaryButton, type RowMenuItem, type RowPrimary } from "./RowView";
 import { RepoLink } from "./repoStars";
 import { message, normalizeTiers, TIERS, transportLabels, toolsEndpoint, type MCPTransport, type ToolTier, type ToolTierList, type ToolTierView } from "./shared";
+import { Button } from "../ds/Button/Button";
 import type { ConnectionKind } from "./status";
 
 /** Facts the Advanced section lists. Each is optional: a section row appears only for what this connection has. */
@@ -193,7 +194,7 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
   const { kind } = props;
   return <SettingsSubpage className="mcp-detail" attrs={{ "data-kind": kind, "aria-label": props.name }} headClassName="mcp-detail-head" titleClassName="mcp-detail-title" backClassName="mcp-detail-back" backLabel={t("detail.back")} title={props.name} note={props.source} lead={<ServiceMark name={props.mark} />} onBack={props.onBack}
     actions={<div className="mcp-detail-actions">
-        <button type="button" className="mcp-button" disabled={props.busy || props.refreshing || props.toolsUnavailable} onClick={props.onRefresh}>{props.refreshing ? t("tools.refreshing") : t("tools.refresh")}</button>
+        <Button size="sm" disabled={props.busy || props.refreshing || props.toolsUnavailable} onClick={props.onRefresh}>{props.refreshing ? t("tools.refreshing") : t("tools.refresh")}</Button>
         {props.menu.length > 0 && <MoreMenu name={props.name} menu={props.menu} busy={props.busy} />}
       </div>}>
     <section className="conn-section" data-section="status" aria-labelledby="conn-status-title">
@@ -217,8 +218,8 @@ export function ConnectionDetailView(props: ConnectionDetailViewProps) {
     <section className="conn-section conn-danger" data-section="danger" aria-labelledby="conn-danger-title">
       <h4 id="conn-danger-title">{t("detail.danger")}</h4>
       {props.confirm
-        ? <div className="mcp-confirm" role="alertdialog" aria-label={props.confirm.text}><span>{props.confirm.text}</span><button type="button" className="mcp-button" disabled={props.busy} onClick={props.confirm.onCancel}>{t("action.cancel")}</button><button type="button" className="mcp-button mcp-danger" disabled={props.busy} onClick={props.confirm.onConfirm}>{props.confirm.submit}</button></div>
-        : <div className="conn-danger-actions">{props.danger.map(item => <button key={item.key} type="button" className={`mcp-button${item.remove ? " mcp-danger" : ""}`} disabled={props.busy} onClick={item.onSelect}>{item.label}</button>)}</div>}
+        ? <div className="mcp-confirm" role="alertdialog" aria-label={props.confirm.text}><span>{props.confirm.text}</span><Button size="sm" disabled={props.busy} onClick={props.confirm.onCancel}>{t("action.cancel")}</Button><Button size="sm" variant="danger" disabled={props.busy} onClick={props.confirm.onConfirm}>{props.confirm.submit}</Button></div>
+        : <div className="conn-danger-actions">{props.danger.map(item => <Button key={item.key} size="sm" variant={item.remove ? "danger" : "secondary"} disabled={props.busy} onClick={item.onSelect}>{item.label}</Button>)}</div>}
     </section>
   </SettingsSubpage>;
 }
