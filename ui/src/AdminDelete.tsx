@@ -6,6 +6,7 @@ import {formatDateTime, formatNumber} from "./i18n/format";
 import {useTranslation} from "./i18n";
 import {TofiIcon} from "./icons";
 import {Banner} from "./settings/components";
+import { Button } from "./ds/Button/Button";
 
 /**
  * Confirmation, progress and retry for deleting an account. The server does the
@@ -91,7 +92,7 @@ export function DeleteSheet({account, diskBytes, retry, onClose, onDone, onRefre
       </label>
       {error && <p id="admin-delete-error" role="alert" className="admin-error">{error}</p>}
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" onClick={onClose}>{t("action.cancel")}</button>
+        <Button type="button" onClick={onClose}>{t("action.cancel")}</Button>
         <button type="button" className="admin-danger-button" disabled={!matches} onClick={() => void run()}>{t("admin.delete.confirm_action")}</button>
       </div>
     </>}
@@ -102,7 +103,7 @@ export function DeleteSheet({account, diskBytes, retry, onClose, onDone, onRefre
       {steps}
       {error && <p role="alert" className="admin-error">{error}</p>}
       <div className="sheet-actions">
-        <button type="button" className="secondary-button" disabled={busy} onClick={onClose}>{t("admin.delete.close")}</button>
+        <Button type="button" disabled={busy} onClick={onClose}>{t("admin.delete.close")}</Button>
         <button type="button" className="admin-danger-button" disabled={busy} onClick={() => void run()}>{t("admin.delete.retry_action")}</button>
       </div>
     </>}
@@ -138,7 +139,7 @@ export function ExportResultSheet({result, onClose}: {result: DeletedExport; onC
     </div>
     {error && <p role="alert" className="admin-error">{error}</p>}
     <div className="sheet-actions">
-      <button type="button" className="primary-button" disabled={busy || !passphrase} onClick={() => void done()}>{t("admin.result.done")}</button>
+      <Button type="button" variant="primary" disabled={busy || !passphrase} onClick={() => void done()}>{t("admin.result.done")}</Button>
     </div>
   </AdminSheet>;
 }

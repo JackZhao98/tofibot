@@ -16,6 +16,7 @@ import {Banner, SettingsCard, SettingsSection} from "./settings/components";
 import {AdminHostDisk} from "./AdminStorage";
 import {adminSpendText} from "./AdminSpend";
 import {formatBytes, storageApi, type AdminStorage} from "./storageApi";
+import { Button } from "./ds/Button/Button";
 
 const gib = (bytes: number) => formatNumber(Math.round((bytes / GIB) * 10) / 10);
 
@@ -102,7 +103,7 @@ export function AdminAccounts() {
     {exportAction?.kind === "delete" && <AdminSheet title={t("admin.exports.delete_title", {name: exportAction.item.username})} onClose={() => setExportAction(null)} locked={busy}>
       <p className="admin-sheet-lead">{t("admin.exports.delete_body")}</p>
       <div className="sheet-actions">
-        <button type="button" className="st-button" disabled={busy} onClick={() => setExportAction(null)}>{t("action.cancel")}</button>
+        <Button type="button" disabled={busy} onClick={() => setExportAction(null)}>{t("action.cancel")}</Button>
         <button type="button" className="admin-danger-button" disabled={busy} onClick={() => void run(async () => { await adminApi.removeExport(exportAction.item.id); }).then(() => setExportAction(null))}>{t("admin.exports.delete")}</button>
       </div>
     </AdminSheet>}
@@ -136,7 +137,7 @@ export function AdminAccounts() {
     <AdminHostDisk host={storage?.host}/>
 
     <SettingsSection title={t("admin.accounts.title")} hint={accounts ? formatNumber(accounts.length) : undefined}>
-      <div className="admin-list-actions"><button type="button" className="primary-button" onClick={() => setAdding(true)} disabled={busy}><TofiIcon name="user-add" size={16} aria-hidden="true"/>{t("admin.add")}</button></div>
+      <div className="admin-list-actions"><Button type="button" variant="primary" icon="user-add" onClick={() => setAdding(true)} disabled={busy}>{t("admin.add")}</Button></div>
       <SettingsCard className="admin-list">
         <div className="admin-row-head" aria-hidden="true"><span/><span className="admin-row-head-main"><span/><span/><span/><span className="admin-row-usage"><span>{ts("admin.server")}</span><span>{t("spend.admin.column")}</span>{hasComputer && <span>{ts("admin.computer")}</span>}</span></span><span>{t("admin.accounts.group_col")}</span></div>
         {accounts?.length === 0 && <p className="settings-card-note admin-empty">{t("admin.accounts.empty")}</p>}
@@ -183,7 +184,7 @@ export function AdminAccounts() {
           </div>
           <div className="admin-export-actions">
             {!item.link_unavailable && <CopyButton value={absoluteLink(item.link_path)} label={t("admin.exports.copy_link")}/>}
-            {item.passphrase_pending && !item.passphrase_unavailable && <button type="button" className="st-button" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</button>}
+            {item.passphrase_pending && !item.passphrase_unavailable && <Button type="button" size="sm" onClick={() => setExportAction({kind: "passphrase", item})}>{t("admin.exports.show_passphrase")}</Button>}
             <button type="button" className="admin-danger-button" disabled={busy} onClick={() => setExportAction({kind: "delete", item})}>{t("admin.exports.delete")}</button>
           </div>
         </div>)}
@@ -214,8 +215,8 @@ function CreateSheet({onClose, onCreated}: {onClose: () => void; onCreated: () =
       <p className="admin-sheet-note">{t("admin.create.password_note")}</p>
       {error && <p role="alert" className="admin-error">{error}</p>}
       <div className="sheet-actions">
-        <button type="button" className="st-button" disabled={busy} onClick={onClose}>{t("action.cancel")}</button>
-        <button type="submit" className="primary-button" disabled={busy}>{t("admin.create.submit")}</button>
+        <Button type="button" disabled={busy} onClick={onClose}>{t("action.cancel")}</Button>
+        <Button type="submit" variant="primary" disabled={busy}>{t("admin.create.submit")}</Button>
       </div>
     </form>
   </AdminSheet>;

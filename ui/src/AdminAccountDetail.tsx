@@ -12,6 +12,7 @@ import type {AdminStorageAccount} from "./storageApi";
 import {AdminSpend} from "./AdminSpend";
 import {AccountPolicySections} from "./AdminAccountPolicy";
 import {Banner, DangerZone, Segmented, SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
+import { Button } from "./ds/Button/Button";
 
 type Props = {
   account: AdminAccount;
@@ -135,7 +136,7 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
     <SettingsSection title={t("admin.detail.signin.title")}>
       <SettingsCard>
         <SettingsRow label={t("admin.detail.signin.label")} description={deleting ? t("admin.detail.signin.deleting") : t("admin.detail.signin.help")}
-          control={<button type="button" className="st-button" disabled={busy || deleting} onClick={() => setReset("confirm")}>{t("admin.detail.signin.action")}</button>}/>
+          control={<Button type="button" size="sm" disabled={busy || deleting} onClick={() => setReset("confirm")}>{t("admin.detail.signin.action")}</Button>}/>
       </SettingsCard>
     </SettingsSection>
 
@@ -143,7 +144,7 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
       <div className="admin-danger-rows">
         {account.disabled
           ? <SettingsRow label={t("admin.detail.danger.reactivate_label")} description={deleting ? t("admin.detail.danger.reactivate_deleting") : t("admin.detail.danger.reactivate_help")}
-              control={<button type="button" className="st-button" disabled={busy || deleting} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: false}); })}>{t("admin.detail.danger.reactivate_action")}</button>}/>
+              control={<Button type="button" size="sm" disabled={busy || deleting} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: false}); })}>{t("admin.detail.danger.reactivate_action")}</Button>}/>
           : <SettingsRow label={t("admin.detail.danger.deactivate_label")} description={deactivateWhy || t("admin.detail.danger.deactivate_help")}
               control={<button type="button" className="admin-danger-button" disabled={busy || Boolean(deactivateWhy)} onClick={() => void run(async () => { await adminApi.patch(account.id, {disabled: true}); })}>{t("admin.detail.danger.deactivate_action")}</button>}/>}
         <SettingsRow label={t("admin.detail.danger.delete_label")} description={deleteWhy || t("admin.detail.danger.delete_help")}
@@ -154,14 +155,14 @@ export function AccountDetail({account, accounts, disk, storage, spend, capacity
     {reset === "confirm" && <AdminSheet title={t("admin.detail.reset.confirm_title", {name: account.username})} onClose={() => setReset(null)} locked={busy}>
       <p className="admin-sheet-lead">{t("admin.detail.reset.confirm_body")}</p>
       <div className="sheet-actions">
-        <button type="button" className="st-button" disabled={busy} onClick={() => setReset(null)}>{t("action.cancel")}</button>
-        <button type="button" className="primary-button" disabled={busy} onClick={() => void resetPassword()}>{t("admin.detail.reset.confirm_action")}</button>
+        <Button type="button" disabled={busy} onClick={() => setReset(null)}>{t("action.cancel")}</Button>
+        <Button type="button" variant="primary" disabled={busy} onClick={() => void resetPassword()}>{t("admin.detail.reset.confirm_action")}</Button>
       </div>
     </AdminSheet>}
     {reset && reset !== "confirm" && <AdminSheet title={t("admin.detail.reset.done_title")} onClose={() => setReset(null)} locked>
       <p className="admin-sheet-lead">{t("admin.detail.reset.done_body", {name: account.username})}</p>
       <SecretField label={t("admin.detail.reset.password")} value={reset.password} note={t("admin.detail.reset.once")}/>
-      <div className="sheet-actions"><button type="button" className="primary-button" onClick={() => setReset(null)}>{t("admin.detail.reset.done")}</button></div>
+      <div className="sheet-actions"><Button type="button" variant="primary" onClick={() => setReset(null)}>{t("admin.detail.reset.done")}</Button></div>
     </AdminSheet>}
   </div>;
 }

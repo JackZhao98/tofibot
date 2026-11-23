@@ -375,7 +375,7 @@ try {
       const clipped = await pane(page).locator(".provider-card").evaluateAll(cards => cards.filter(item => item.scrollWidth > item.clientWidth + 1).map(item => item.dataset.resource));
       assert.deepEqual(clipped, [], `${theme} ${width}: no card clips its content`);
       if (width < 700) {
-        const small = await pane(page).locator("button.primary-button:visible, button.secondary-button:visible").evaluateAll(buttons => buttons.filter(button => button.getBoundingClientRect().height < 36).map(button => button.textContent.trim() || button.getAttribute("aria-label")));
+        const small = await pane(page).locator("button.primary-button:visible, button.secondary-button:visible, button.tb-btn--primary:visible, button.tb-btn--secondary:visible").evaluateAll(buttons => buttons.filter(button => button.getBoundingClientRect().height < 36).map(button => button.textContent.trim() || button.getAttribute("aria-label")));
         assert.deepEqual(small, [], `${theme} ${width}: primary and secondary buttons are touch-sized`);
       }
       await shot(page, `resources-${theme}-${width}`);
@@ -460,7 +460,7 @@ try {
     const models = page => page.locator('.settings-page-body[data-page="models"]');
     const section = page => models(page).locator(".provided-own");
     const noOwnKeys = async page => assert.equal(await models(page).locator("input[type=password], input[type=url], .provider-choices, .provider-openai, .provider-anthropic, .provider-compatible").count(), 0, "Claude, OpenAI and compatible cards stay hidden");
-    const primaries = async page => assert.ok((await models(page).locator("button.primary-button:visible").count()) <= 1, "at most one orange primary button");
+    const primaries = async page => assert.ok((await models(page).locator("button.primary-button:visible, button.tb-btn--primary:visible").count()) <= 1, "at most one orange primary button");
 
     // Allowed, not signed in: the organization's card stays, "Your own" holds only the ChatGPT card with one way in.
     stub.reset();
