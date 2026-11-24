@@ -225,7 +225,8 @@
       "outputs": "Productions",
       "schedule": "Tâches",
       "terminal": "Terminal",
-      "usage": "Utilisation"
+      "usage": "Utilisation",
+      "activity": "Déroulé du travail"
     }
   },
   "cover": {

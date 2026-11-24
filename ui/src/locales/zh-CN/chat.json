@@ -223,7 +223,8 @@
       "outputs": "产出",
       "schedule": "任务",
       "terminal": "终端",
-      "usage": "用量"
+      "usage": "用量",
+      "activity": "工作过程"
     }
   },
   "cover": {

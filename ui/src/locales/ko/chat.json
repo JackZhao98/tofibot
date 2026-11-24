@@ -223,7 +223,8 @@
       "outputs": "산출물",
       "schedule": "작업",
       "terminal": "터미널",
-      "usage": "사용량"
+      "usage": "사용량",
+      "activity": "작업 과정"
     }
   },
   "cover": {

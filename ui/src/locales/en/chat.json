@@ -224,7 +224,8 @@
       "outputs": "Outputs",
       "schedule": "Tasks",
       "terminal": "Terminal",
-      "usage": "Usage"
+      "usage": "Usage",
+      "activity": "Work"
     }
   },
   "cover": {

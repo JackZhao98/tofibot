@@ -32,7 +32,7 @@ export type SurfaceCtx = {
   /** The Bot card (widget `bot`): live state for its status line and the rows behind its menu. */
   botCard?: BotCardCtx;
   memories: Memory[]; setMemories: (update: (current: Memory[]) => Memory[]) => void;
-  terminalBotId: string | null; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
+  terminalBotId: string | null; /** The work of the run opened from a reply's 工作过程 (V3 4.3), or null. */ activityView: ReactNode; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
   refreshToken: number; roster?: ReadonlyMap<string, TaskCardModel[]>; lastMessageId?: string;
   artifactsMode: "artifacts" | "artifacts-bot" | "artifacts-group"; setArtifactsMode: (mode: SurfaceCtx["artifactsMode"]) => void;
   /** Opens Settings on a tab (the cover that is open is replaced). */
@@ -79,6 +79,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
       onUpdate={async (memoryId, input) => { const memory = await api.updateMemory(memoryId, input); ctx.setMemories(current => current.map(item => item.id === memoryId ? memory : item)); }}
       onDelete={async memoryId => { await api.deleteMemory(memoryId); ctx.setMemories(current => current.filter(item => item.id !== memoryId)); }} /></Suspense>;
   }
+  if (id === "activity") return ctx.activityView ? <div className="detail-content activity-sidebar">{ctx.activityView}</div> : null;
   if (id === "tasks") return active ? <Suspense fallback={<Loading />}><WorkPanel key={active.id} conversation={active} conversations={ctx.conversations} bots={ctx.bots} refreshToken={ctx.refreshToken} onClose={close} onNavigate={ctx.openConversation} /></Suspense> : null;
   return ctx.viewOnlyChat ? <Suspense fallback={<Loading />}><ViewOnlyChat target={ctx.viewOnlyChat} bots={ctx.bots} sidebar onClose={() => { ctx.setViewOnlyChat(null); close(); }} /></Suspense> : null;
 }
