@@ -521,12 +521,16 @@
       "guest_outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Mettez-le à niveau pour continuer à l’utiliser. La mise à niveau remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
       "computer_upgrade_failed": "Impossible de mettre l’ordinateur à niveau. Réessayez.",
       "not_outdated": "Cet ordinateur est déjà à jour.",
-      "computer_busy": "L’ordinateur est occupé. Réessayez quand le travail en cours sera terminé."
+      "computer_busy": "L’ordinateur est occupé. Réessayez quand le travail en cours sera terminé.",
+      "home_too_large": "Le dossier home dépasse 4 Go et ne peut pas être déplacé.",
+      "target_disk_full": "Le nouvel ordinateur n’a pas assez d’espace libre pour le dossier home.",
+      "move_failed": "Le dossier home n’a pas pu être copié. Rien n’a été modifié ; réessayez.",
+      "busy": "L’ordinateur du Bot est occupé. Réessayez après la tâche en cours."
     },
     "confirm": {
       "use": {
         "title": "Utiliser {{name}} pour les Bots ?",
-        "body": "Le travail en cours se termine d’abord. Ensuite tous les Bots utilisent cet ordinateur et l’actuel passe en veille.",
+        "body": "Le travail en cours se termine d’abord. Le dossier home (les fichiers créés et enregistrés par les Bots) est déplacé vers {{name}}. Les logiciels installés et les connexions du navigateur ne sont pas déplacés ; les Bots se reconnectent là-bas. L’ordinateur actuel est mis de côté.",
         "action": "Utiliser pour les Bots"
       },
       "remove": {
@@ -797,6 +801,11 @@
     "disconnect": {
       "title": "Déconnecter",
       "body": "Les Bots perdent l’accès à ce Mac. Reconnectez-le depuis Tofi sur le Mac."
+    },
+    "move": {
+      "moving": "Déplacement des fichiers vers {{name}}…",
+      "moving_note": "Le dossier home est copié, puis les Bots basculent. D’ici là, l’ordinateur actuel continue de fonctionner.",
+      "failed": "Le basculement n’a pas abouti. L’ordinateur actuel est inchangé."
     }
   }
 }

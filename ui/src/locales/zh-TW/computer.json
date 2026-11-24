@@ -509,12 +509,16 @@
       "guest_outdated_required": "這台電腦的映像已不再受支援。請升級後繼續使用。升級會取代這台電腦，其中的檔案將被移除。",
       "computer_upgrade_failed": "無法升級這台電腦。請重試。",
       "not_outdated": "這台電腦已是最新。",
-      "computer_busy": "電腦正忙。請在執行中的工作結束後重試。"
+      "computer_busy": "電腦正忙。請在執行中的工作結束後重試。",
+      "home_too_large": "home 資料夾超過 4 GB，無法搬移。",
+      "target_disk_full": "新電腦的剩餘空間放不下 home 資料夾。",
+      "move_failed": "home 資料夾複製失敗，未做任何變更，請重試。",
+      "busy": "Bot 電腦正忙，請在目前的工作結束後重試。"
     },
     "confirm": {
       "use": {
         "title": "讓 Bot 使用 {{name}}？",
-        "body": "進行中的工作會先完成。之後所有 Bot 使用這台電腦，目前的電腦轉為閒置。",
+        "body": "進行中的工作會先完成。home 資料夾（Bot 製作和儲存的檔案）會搬到{{name}}；已安裝的軟體和瀏覽器登入不會搬，Bot 需在新電腦上重新登入。目前的電腦轉為閒置。",
         "action": "設為 Bot 使用"
       },
       "remove": {
@@ -785,6 +789,11 @@
     "disconnect": {
       "title": "中斷連接",
       "body": "Bot 將無法使用這台 Mac。可在該 Mac 的 Tofi 中重新連接。"
+    },
+    "move": {
+      "moving": "正在把檔案搬到{{name}}…",
+      "moving_note": "先複製 home 資料夾，再切換 Bot。搬完前目前的電腦照常運作。",
+      "failed": "切換沒有完成，目前的電腦未變。"
     }
   }
 }

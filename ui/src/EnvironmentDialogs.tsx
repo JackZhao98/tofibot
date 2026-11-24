@@ -9,6 +9,8 @@ import {ConfirmDialog, ModalDialog} from "./overlays/ModalDialog";
 import "./computer-resources.css";
 import "./environments.css";
 import { Button } from "./ds/Button/Button";
+import { Field } from "./ds/Field/Field";
+import { TextInput } from "./ds/TextInput/TextInput";
 
 /**
  * The dialogs behind Settings > Environments. Lazy with the Settings panel: only this file (and ComputerResources/ComputerAttach)
@@ -20,7 +22,7 @@ const E2B_KEYS_URL = "https://e2b.dev/dashboard?tab=keys";
 /** The dialogs sit inside the page body, so the settings styles that scope to `.settings-page-body` still reach them. */
 const pageContainer = () => document.querySelector<HTMLElement>('.settings-content [data-page="computer"]');
 
-const knownErrors = ["invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable", "org_resource_missing", "not_ready", "guest_outdated_required", "computer_upgrade_failed", "not_outdated", "computer_busy"] as const;
+const knownErrors = ["home_too_large", "target_disk_full", "move_failed", "busy", "invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable", "org_resource_missing", "not_ready", "guest_outdated_required", "computer_upgrade_failed", "not_outdated", "computer_busy"] as const;
 export const reasonKey = (code: string) => (knownErrors as readonly string[]).includes(code) ? code : "generic";
 
 /** Copy button with the same glyph the rest of the app uses; clipboard failures stay silent (the text is selectable). */
@@ -60,14 +62,14 @@ export function E2BDialog({onClose, onSaved}: {onClose: () => void; onSaved: (bo
   return <ModalDialog onClose={onClose} locked={busy} initialFocus={field} overlayClassName="resource-restart-overlay" container={pageContainer()}>
     <form className="resource-restart-dialog env-dialog" aria-labelledby="env-e2b-title" aria-describedby="env-e2b-cost" onSubmit={event => void submit(event)} noValidate>
       <h3 id="env-e2b-title">{t("environments.e2b.title")}</h3>
-      <div className="env-field-row"><label className="env-field" htmlFor="env-e2b-key">{t("environments.e2b.key")}</label><a className="env-field-link" href={E2B_KEYS_URL} target="_blank" rel="noopener noreferrer">{t("environments.e2b.get_key")}</a></div>
-      <input ref={field} id="env-e2b-key" name="e2b-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="e2b_…" value={key} disabled={busy} aria-invalid={error ? true : undefined} aria-describedby={error ? "env-e2b-error" : undefined} onChange={event => { setKey(event.target.value); if (error) setError(""); }}/>
-      {error && <p id="env-e2b-error" className="env-dialog-error" role="alert">{error}</p>}
-      <p id="env-e2b-cost" className="env-dialog-note">{t("environments.e2b.cost")}</p>
+      <Field id="env-e2b-key" label={t("environments.e2b.key")} error={error || undefined}>
+        <TextInput ref={field} mono name="e2b-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="e2b_…" value={key} disabled={busy} onChange={event => { setKey(event.target.value); if (error) setError(""); }}/>
+      </Field>
+      <p id="env-e2b-cost" className="env-dialog-note">{t("environments.e2b.cost")} <a className="env-field-link" href={E2B_KEYS_URL} target="_blank" rel="noopener noreferrer">{t("environments.e2b.get_key")}</a></p>
       {showTemplate ? <>
-        <label className="env-field" htmlFor="env-e2b-template">{t("environments.e2b.template_id")}</label>
-        <input id="env-e2b-template" name="e2b-template-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={template} disabled={busy} aria-describedby="env-e2b-template-hint" onChange={event => setTemplate(event.target.value)}/>
-        <p id="env-e2b-template-hint" className="env-dialog-note">{t("environments.e2b.template_hint")}</p>
+        <Field id="env-e2b-template" label={t("environments.e2b.template_id")} hint={t("environments.e2b.template_hint")}>
+          <TextInput mono name="e2b-template-id" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={template} disabled={busy} onChange={event => setTemplate(event.target.value)}/>
+        </Field>
       </> : <button type="button" className="text-button env-template-toggle" aria-expanded={false} onClick={() => setShowTemplate(true)}>{t("environments.e2b.template_toggle")}</button>}
       <div className="resource-restart-actions"><Button type="button" disabled={busy} onClick={onClose}>{t("environments.cancel")}</Button><Button type="submit" variant="primary" disabled={busy || !key.trim()}>{busy ? t("environments.e2b.saving") : t("environments.save")}</Button></div>
     </form>

@@ -515,12 +515,16 @@
       "guest_outdated_required": "This computer's image is no longer supported. Upgrade it to keep using it. Upgrading replaces this computer; files on it are removed.",
       "computer_upgrade_failed": "Couldn't upgrade the computer. Try again.",
       "not_outdated": "This computer is already up to date.",
-      "computer_busy": "The computer is busy. Try again when running work finishes."
+      "computer_busy": "The computer is busy. Try again when running work finishes.",
+      "home_too_large": "The home folder is larger than 4 GB, so it can't be moved.",
+      "target_disk_full": "The new computer doesn't have enough free space for the home folder.",
+      "move_failed": "The home folder couldn't be copied. Nothing was changed; try again.",
+      "busy": "The Bot computer is busy. Try again after the current task."
     },
     "confirm": {
       "use": {
         "title": "Use {{name}} for Bots?",
-        "body": "Running work finishes first. Then every Bot uses this computer and the current one goes idle.",
+        "body": "Running work finishes first. The home folder (files Bots made and saved) moves to {{name}}. Installed software and browser sign-ins don't move; Bots sign in again there. The current computer is set aside.",
         "action": "Use for Bots"
       },
       "remove": {
@@ -791,6 +795,11 @@
     "disconnect": {
       "title": "Disconnect",
       "body": "Bots lose access to this Mac. Reconnect from Tofi on the Mac."
+    },
+    "move": {
+      "moving": "Moving files to {{name}}…",
+      "moving_note": "The home folder is copied, then Bots switch over. The current computer keeps working until then.",
+      "failed": "The switch did not finish. The current computer is unchanged."
     }
   }
 }

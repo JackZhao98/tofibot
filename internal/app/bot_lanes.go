@@ -179,7 +179,15 @@ func (s *Server) laneWinner(r Run) bool {
 		s.mu.Lock()
 		worker := s.queues[h.ConversationID] != nil
 		s.mu.Unlock()
-		if !worker || s.isInflight(h.ID) || s.store.runOrderBlocked(h) {
+		if !worker || s.store.runOrderBlocked(h) {
+			continue
+		}
+		// A head another worker is starting (marked in flight, still taking the lane) keeps its place: skipping it
+		// let a later-ranked run win the race for the lane in that window.
+		if s.isInflight(h.ID) {
+			if s.laneRankOf(h).before(mine) {
+				return false
+			}
 			continue
 		}
 		seen[h.ConversationID] = true
