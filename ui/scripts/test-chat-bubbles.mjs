@@ -444,10 +444,10 @@ try {
       assert.equal(seen.approval, 1, "the pending approval card is visible");
       assert.ok(seen.issue >= 1, "the failed run's issue card is visible");
       assert.equal(seen.rows, 0, "no Activity row beside the cards");
-      // The issue card's own "View activity" still opens the details although Activity is hidden.
+      // The issue card's own "View activity" opens the run's work in the Activity sidebar view (V3 4.3).
       await page.locator('.task-issue-card[data-issue-kind] button:has-text("查看执行记录")').first().click();
-      await page.waitForSelector(".task-activity[data-state=open]");
-      assert.ok(await page.locator(".task-activity[data-state=open] .task-step").count() >= 1, "the failed run's steps are listed");
+      await page.waitForSelector(".sidebar-pane .is-activity-view .task-step");
+      assert.ok(await page.locator(".sidebar-pane .is-activity-view .task-step").count() >= 1, "the failed run's steps are listed");
       await page.screenshot({ path: join(heroDir, "after-cards-dm-1180x820-light.png") });
       assert.deepEqual(errors, [], "page errors");
     } finally { await context.close(); }
@@ -467,15 +467,16 @@ try {
         // A message whose run did no work offers none.
         assert.equal(await page.locator('.message-block[data-message-id="u1"] button[aria-label="查看工作过程"]').count(), 0, "a person's message has no activity action");
         await action.tap();
-        await page.waitForSelector('.task-run-block[data-run-id="run_c"] .task-activity[data-state=open]');
-        assert.ok(await page.locator('.task-run-block[data-run-id="run_c"] .task-step').count() >= 7, "the run's seven steps load inside the opened details");
-        assert.equal(await page.locator('.task-run-block[data-run-id="run_a"] .task-activity').count(), 0, "only the asked run opens");
+        // V3 4.3: the work opens in the Activity sidebar view, not in the conversation.
+        await page.waitForFunction(() => document.querySelectorAll('.sidebar-pane .is-activity-view[data-run-id="run_c"] .task-step').length >= 7);
+        assert.equal(await page.locator('.message-list .task-activity').count(), 0, "nothing unfolds in the conversation");
+        assert.equal(await page.locator('.sidebar-pane .is-activity-view[data-run-id="run_a"]').count(), 0, "only the asked run opens");
         await page.screenshot({ path: join(heroDir, `after-view-activity-${kind}-1180x820-light.png`) });
         // Tapping again on the same message offers Hide activity.
         await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
         await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
         await host.locator('button[aria-label="收起工作过程"]').tap();
-        await page.waitForFunction(() => !document.querySelector('.task-run-block[data-run-id="run_c"] .task-activity'));
+        await page.waitForFunction(() => !document.querySelector('.sidebar-pane .is-activity-view'));
         assert.deepEqual(errors, [], "page errors");
       } finally { await context.close(); }
     });
