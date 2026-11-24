@@ -12,6 +12,7 @@ import { REMEMBERED_APPROVAL_ACTOR, STANDING_ALLOWANCE_ACTOR, type Question } fr
 import type { MailDraft } from "./MailDraftCard";
 import type { Message, Run, ToolActivity, ToolActivityRunSummary } from "./types";
 import { isTerminalRun } from "./runFamily";
+import { planHistory } from "./planModel";
 import { WorkTimeline, SilentNoteBody, TaskActivityBody, PlanHistoryRow, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
 
@@ -201,6 +202,9 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     if (disclosure.current) { disclosure.current.open(); disclosure.current.element?.querySelector("button")?.focus(); }
     else { openWhenShown.current = true; setRevealedHere(true); }
   }
+  // V3 4.4: a failed run's list and its failure are one card; the folded history row is then not drawn.
+  const planned = issue && !superseded && !runLive ? [...owner.family.attempts].reverse().find(attempt => attempt.plan?.steps.length) : undefined;
+  const failedSteps = planned ? planHistory(planned.plan, planned) : undefined;
   if (activityOnly) return <section className="task-run-block is-activity-view" data-task-owner={owner.key} data-run-id={run.id} aria-label={t("activity.records_label")}>
     <TaskActivityBody owner={owner} tools={shownTools} head={firstPart} tail={primary} allTools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={runLive} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
   </section>;
@@ -211,10 +215,10 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   return <section ref={block} className={`task-run-block${senderHead ? " in-group" : ""}`} data-sender={head ? run.bot_id : undefined} data-at={head ? run.created_at : undefined} data-task-owner={owner.key} data-run-id={run.id} data-latest-run-id={run.id} data-segment={segment ? segment.index : undefined} tabIndex={-1} aria-label={t("activity.records_label")} onFocusCapture={event => { if ((event.target as Element).closest(".task-issue-card")) cardHadFocus.current = true; }} onBlurCapture={event => { if ((event.target as Element).closest(".task-issue-card") && event.relatedTarget) cardHadFocus.current = false; }}>
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {silentNotes.length > 0 && <details className="task-silent-note"><summary>{t("activity.left_note")}</summary><SilentNoteBody notes={silentNotes} /></details>}
-    {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
+    {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} steps={failedSteps} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
     {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
     {/* Where the pinned card was when it left: the list of a run that ended before every step was done. */}
-    {primary && !runLive && owner.family.attempts.some(attempt => attempt.plan) && <PlanHistoryRow attempts={owner.family.attempts} />}
+    {primary && !runLive && !failedSteps && owner.family.attempts.some(attempt => attempt.plan) && <PlanHistoryRow attempts={owner.family.attempts} />}
     {primary && owner.family.attempts.map(attempt => {
       const detail = details[attempt.id];
       // "Load more" only after the first page has arrived: before it, hasMore is a guess and the button would flash in and out.

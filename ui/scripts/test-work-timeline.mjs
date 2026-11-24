@@ -74,6 +74,8 @@ void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoo
       assert.equal(await groups.locator('[data-state=open]').count(),0);
       assert.equal(await groups.first().getAttribute('data-state'),'closed');
       await groups.first().locator('.work-command-toggle').click();
+      // The group opens with a height transition: wait for its rows, not a fixed moment after the click.
+      await groups.first().locator('li').nth(1).waitFor({state:'visible'});
       assert.equal(await groups.first().locator('li:visible').count(),2);
       assert.equal(await page.locator('.work-narration').textContent(),'The first check passed.');
       const stack=page.locator('.work-capture-stack'); await stack.waitFor();
