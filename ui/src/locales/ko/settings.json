@@ -57,8 +57,8 @@
         "description": "제공업체와 기본 모델."
       },
       "computer": {
-        "name": "환경",
-        "description": "클라우드 컴퓨터, 이 서버, 내 Mac"
+        "name": "기기",
+        "description": "Bot 컴퓨터와 연결된 기기"
       },
       "usage": {
         "name": "사용량",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "동작",
         "description": "Tofi가 알아서 하는 일을 확인하고 조정"
-      },
-      "devices": {
-        "name": "다른 기기",
-        "description": "Tofi 앱이 있는 Mac 연결"
       },
       "admin-groups": {
         "name": "그룹",

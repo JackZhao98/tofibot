@@ -19,7 +19,7 @@ import {ConfirmDialog} from "./overlays/ModalDialog";
 import {UpdateBanner} from "./UpdateNotice";
 import "./layout/settings-page.css";
 
-export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"devices"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources"|"admin-design";
+export type SettingsTab="general"|"connections"|"skills"|"permissions"|"models"|"computer"|"usage"|"advanced"|"admin"|"admin-groups"|"admin-resources"|"admin-design";
 // Compile-time check: every tab has its section list in settings/sections.ts (the ids a link can scroll to).
 export const SETTINGS_TAB_SECTIONS:Record<SettingsTab,readonly string[]>=SETTINGS_SECTIONS;
 /** Not used since V3 PR 6.1: a narrow window shows the page with a strip of links, not a list that pushes the page in. Callers may still pass it. */

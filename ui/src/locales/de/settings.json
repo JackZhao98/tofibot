@@ -57,8 +57,8 @@
         "description": "Anbieter und Standardmodell."
       },
       "computer": {
-        "name": "Umgebungen",
-        "description": "Cloud-Computer, dieser Server und deine Macs"
+        "name": "Geräte",
+        "description": "Bot-Computer und verbundene Geräte"
       },
       "usage": {
         "name": "Nutzung",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "Verhalten",
         "description": "Ansehen und anpassen, was Tofi selbstständig tut"
-      },
-      "devices": {
-        "name": "Weitere Geräte",
-        "description": "Einen Mac mit der Tofi-App verbinden"
       },
       "admin-groups": {
         "name": "Gruppen",

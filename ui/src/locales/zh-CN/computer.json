@@ -110,7 +110,7 @@
     "fold": "折叠",
     "fold_aria": "把 Bot 电脑折成窄栏",
     "unfold_aria": "显示 Bot 电脑",
-    "outdated_required": "这台电脑的镜像已不再受支持。请在 设置 > 环境 中升级。",
+    "outdated_required": "这台电脑的镜像已不再受支持。请在 设置 > 设备 中升级。",
     "look": "查看",
     "look_aria": "查看 Bot 电脑",
     "pip": {

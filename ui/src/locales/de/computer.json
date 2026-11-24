@@ -111,7 +111,7 @@
     "fold": "Einklappen",
     "fold_aria": "Bot-Computer zu einem Streifen einklappen",
     "unfold_aria": "Bot-Computer anzeigen",
-    "outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn unter Einstellungen > Umgebungen.",
+    "outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn unter Einstellungen > Geräte.",
     "look": "Ansehen",
     "look_aria": "Bot-Computer ansehen",
     "pip": {

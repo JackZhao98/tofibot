@@ -64,8 +64,6 @@ export function SettingsPages(props:SettingsPagesProps){
   case "skills": return <SectionAnchor id="library"><ExtensionPanel bots={bots} kind="skills" refreshToken={props.extensionRefresh}/></SectionAnchor>;
   case "permissions": return <PermissionsPage/>;
   case "models": return <ModelsPage {...props}/>;
-  // "devices" (Other devices) is part of Environments; the shell redirects its id, and a direct render still lands on the same page.
-  case "devices": return <SectionAnchor id="devices"><EnvironmentsPage openTab={props.openTab} bots={activeBots}/></SectionAnchor>;
   case "computer": return <ComputerPage openTab={props.openTab} bots={activeBots}/>;
   case "usage": return <div className="settings-stack"><SectionAnchor id="spend"><SpendCap/></SectionAnchor><SectionAnchor id="usage" wide><UsagePanel preferredBotId={props.usageBotId} timezone={props.timezone}/></SectionAnchor><SectionAnchor id="storage"><Suspense fallback={null}><StorageUsage/></Suspense></SectionAnchor></div>;
   case "advanced": return <AdvancedPage {...props} bots={bots} activeBots={activeBots}/>;

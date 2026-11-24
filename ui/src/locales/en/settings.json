@@ -57,8 +57,8 @@
         "description": "Providers and the default model."
       },
       "computer": {
-        "name": "Environments",
-        "description": "Cloud computers, this server and your Macs"
+        "name": "Devices",
+        "description": "Bot computer and your connected devices"
       },
       "usage": {
         "name": "Usage",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "Behavior",
         "description": "See and adjust what Tofi does on its own"
-      },
-      "devices": {
-        "name": "Other devices",
-        "description": "Connect a Mac that has the Tofi app"
       },
       "admin-groups": {
         "name": "Groups",
