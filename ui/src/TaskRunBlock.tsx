@@ -206,6 +206,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
   const planned = issue && !superseded && !runLive ? [...owner.family.attempts].reverse().find(attempt => attempt.plan?.steps.length) : undefined;
   const failedSteps = planned ? planHistory(planned.plan, planned) : undefined;
   if (activityOnly) return <section className="task-run-block is-activity-view" data-task-owner={owner.key} data-run-id={run.id} aria-label={t("activity.records_label")}>
+    {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
     <TaskActivityBody owner={owner} tools={shownTools} head={firstPart} tail={primary} allTools={tools} drafts={drafts} messages={messages} summaries={summaries} details={details} live={runLive} now={now} locale={locale} recordedQuestions={recordedQuestions} rememberedDecisions={rememberedDecisions} notes={notes} onOpenTools={onOpenTools} onLoadDetails={onLoadDetails} renderMessage={renderMessage} renderQuestion={renderQuestion} renderDraft={renderDraft} />
   </section>;
   if (!taskBlockVisible({ owner, tools, questions, drafts, messages, summaries, details, connected, locale, hideActivity, revealed })) return null;
@@ -216,7 +217,8 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
     {senderHead ? head : showName && botName && <p className="task-run-identity">{botName}</p>}
     {silentNotes.length > 0 && <details className="task-silent-note"><summary>{t("activity.left_note")}</summary><SilentNoteBody notes={silentNotes} /></details>}
     {issue && superseded ? <p ref={retriedNote} className="task-issue-retried" tabIndex={-1} role="status" data-issue-retried="true"><TofiIcon name="retry" size={16} aria-hidden="true" />{t("issue.retried")}</p> : issue ? <TaskIssueCard issue={issue} steps={failedSteps} locale={locale} onRetry={onRetryRun ? () => onRetryRun(run.id) : undefined} onFeedback={onFeedback} onOpenStep={openStep} onAction={issue.action === "open_tools" ? onOpenTools : issue.action === "open_codex" ? () => { window.dispatchEvent(new Event("tofi:open-codex-settings")); } : issue.action === "refresh_status" ? onRefresh : viewActivity} /> : taskPhaseVisible(run) && <p className="task-run-phase">{taskPhaseLabel(input)}</p>}
-    {hasWork && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
+    {/* V3 4.3: the work log lives in the Activity sidebar view; it stays in the conversation only when the person turned Activity on. */}
+    {hasWork && !hideActivity && <WorkTimeline tools={shownTools} notes={notes} runs={owner.family.attempts} locale={locale} />}
     {/* Where the pinned card was when it left: the list of a run that ended before every step was done. */}
     {primary && !runLive && !failedSteps && owner.family.attempts.some(attempt => attempt.plan) && <PlanHistoryRow attempts={owner.family.attempts} />}
     {primary && owner.family.attempts.map(attempt => {
