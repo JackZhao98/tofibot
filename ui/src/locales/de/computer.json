@@ -369,28 +369,6 @@
   "kind": {
     "vm": "Integrierte VM"
   },
-  "none": {
-    "title": "Dieser Server hat keinen Bot-Computer",
-    "body": "Bots arbeiten auch ohne: Sie chatten, merken sich Dinge, führen Zeitpläne aus und nutzen verbundene Dienste. Arbeit, die einen echten Browser, eine Shell oder einen Desktop braucht, wartet, bis ein Bot-Computer hinzugefügt wird.",
-    "options": "Bot-Computer hinzufügen",
-    "soon": "Kommt später",
-    "kvm": {
-      "name": "Integrierte VM",
-      "what": "Bot-Computer laufen auf der Hardware dieses Servers. Der Host braucht KVM und mindestens 4 GiB Arbeitsspeicher.",
-      "run": "Auf dem Server-Host ausführen:",
-      "after": "Diese Seite aktualisiert sich selbst, sobald der Bot-Computer angebunden ist."
-    },
-    "own": {
-      "name": "Dein eigener Computer",
-      "what": "Lass einen Bot auf einem Mac arbeiten, den du schon besitzt. Installiere dort die Tofi-Mac-App und schalte „Diesen Mac fernsteuern“ ein."
-    },
-    "e2b": {
-      "name": "E2B-Cloud-Computer",
-      "what": "Miete mit deinem eigenen Schlüssel einen Bot-Computer bei E2B.",
-      "add": "E2B-Cloud-Computer hinzufügen"
-    },
-    "add": "Hinzufügen"
-  },
   "contents": {
     "title": "Was sich auf diesem Bot-Computer befindet",
     "description": "Das liegt auf dem Bot-Computer, nicht auf dem Server. Wird der Bot-Computer zurückgesetzt oder ersetzt, geht es verloren.",
@@ -482,23 +460,15 @@
     }
   },
   "environments": {
-    "description": "Wo Bots arbeiten. Der Bot-Computer dient allen Bots; ein Mac dient ihnen, solange die Fernsteuerung an ist.",
     "unavailable": "Umgebungen konnten nicht geladen werden.",
     "stale": "Umgebungen konnten nicht aktualisiert werden. Zeige das letzte Ergebnis.",
     "retry": "Erneut versuchen",
     "loading": "Umgebungen werden geladen…",
-    "empty": "Noch keine Umgebungen. Füge eine hinzu, damit Bots über den Chat hinaus arbeiten können.",
-    "add": "Umgebung hinzufügen",
-    "add_menu": {
-      "e2b": "E2B-Cloud-Computer",
-      "vm": "Bot-Computer auf diesem Server"
-    },
     "name": {
       "vm": "Dieser Server",
       "e2b": "E2B-Cloud-Computer",
       "mac": "Mac"
     },
-    "bot_computer": "Bot-Computer",
     "access": {
       "all_bots": "Von allen Bots genutzt",
       "allowed_on_mac": "Von allen Bots genutzt, solange die Fernsteuerung an ist",
@@ -529,7 +499,6 @@
       "details": "Details"
     },
     "more": "Weitere Aktionen für {{name}}",
-    "attach_title": "Bot-Computer",
     "error": {
       "generic": "Das hat nicht geklappt. Versuche es erneut.",
       "invalid_key": "E2B hat den API-Schlüssel nicht akzeptiert.",
@@ -596,10 +565,6 @@
       "title": "Bot-Computer konfigurieren",
       "provided_title": "Details zum Bot-Computer"
     },
-    "provided": "Von Ihrer Organisation bereitgestellt",
-    "provided_note": "Diesen Bot-Computer stellt Ihre Organisation bereit. Schlüssel und Image verwaltet Ihr Administrator.",
-    "none_title": "Ihr Administrator hat keinen Bot-Computer zugewiesen",
-    "none_body": "Bots laufen ohne Computer, bis einer zugewiesen wird. Ihre Macs lassen sich weiterhin verbinden.",
     "outdated": "Ein neueres Computer-Image ist verfügbar. Die Aktualisierung ersetzt diesen Computer; Dateien darauf werden entfernt.",
     "image_preparing": "Das Computer-Image wird gebaut. Das dauert einige Minuten.",
     "image_building": "Ein neueres Computer-Image wird gebaut.",
@@ -613,7 +578,6 @@
       "in_use": "Ein Bot nutzt ihn",
       "in_use_by": "Wird von {{name}} genutzt",
       "hotkey_taken": "Ein anderes Programm belegt das Stopp-Kürzel. Nutze „Stopp“ in dieser Zeile.",
-      "browser": "Um einen Mac hinzuzufügen, installiere die Tofi-Mac-App, öffne dort Einstellungen › Umgebungen und schalte „Diesen Mac fernsteuern“ ein.",
       "state": {
         "available": "Verfügbar",
         "in_use": "In Benutzung",
@@ -771,5 +735,50 @@
     "empty_title": "Bot-Browser",
     "empty_body": "Seiten, die der Bot öffnet, erscheinen hier. Du kannst auch selbst eine Adresse eingeben.",
     "hand_back_short": "Zurückgeben"
+  },
+  "devices": {
+    "bot": {
+      "title": "Bot-Computer",
+      "description": "Der Computer, auf dem Bots arbeiten. Einer pro Konto.",
+      "unassigned_title": "Kein Bot-Computer zugewiesen",
+      "unassigned_body": "Bot-Computer weist ein Administrator zu. Chat, Gedächtnis, Zeitpläne und Verbindungen funktionieren auch ohne.",
+      "managed": "Von Ihrer Organisation verwaltet"
+    },
+    "kind": {
+      "vm": "Integrierte VM",
+      "vm_sub": "Läuft auf diesem Server",
+      "e2b": "E2B-Cloud-Computer",
+      "e2b_sub": "Schlüssel {{hint}} · Abrechnung über E2B",
+      "e2b_billed": "Abrechnung über E2B"
+    },
+    "add": {
+      "vm_body": "Firecracker-VM auf diesem Server. Benötigt KVM und 4 GiB Arbeitsspeicher.",
+      "vm_member": "Wird von einem Administrator zugewiesen.",
+      "e2b_body": "Läuft in Ihrem E2B-Konto. Sekundengenaue Abrechnung über E2B; pausiert im Leerlauf."
+    },
+    "action": {
+      "setup": "Einrichten",
+      "add": "Hinzufügen"
+    },
+    "second": {
+      "ready": "{{name}} ist bereit.",
+      "switch": "Wechseln"
+    },
+    "mine": {
+      "title": "Meine Geräte",
+      "description": "Computer, die Sie verbunden haben. Bots nutzen sie nur mit den Rechten, die Sie je Gerät erteilen.",
+      "empty_title": "Keine Geräte verbunden",
+      "empty_body": "Installieren Sie Tofi für Mac und melden Sie sich an diesem Server an. Der Mac erscheint dann hier.",
+      "disabled": "Dieser Server erlaubt keine persönlichen Geräte."
+    },
+    "cap": {
+      "remote": "Fernsteuerung",
+      "browser": "Browser",
+      "folders": "Ordner"
+    },
+    "mac": {
+      "no_access": "Kein Zugriff erteilt",
+      "last_seen": "Zuletzt online {{time}}"
+    }
   }
 }

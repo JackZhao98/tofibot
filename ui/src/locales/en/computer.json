@@ -369,28 +369,6 @@
   "kind": {
     "vm": "Built-in VM"
   },
-  "none": {
-    "title": "This server has no Bot computer",
-    "body": "Bots work without one: they chat, remember, keep schedules and use connected services. Work that needs a real browser, a shell or a desktop waits until a Bot computer is added.",
-    "options": "Add a Bot computer",
-    "soon": "Coming later",
-    "kvm": {
-      "name": "Built-in VM",
-      "what": "Run Bot computers on this server's own hardware. The host needs KVM and at least 4 GiB of memory.",
-      "run": "Run this on the server host:",
-      "after": "This page updates by itself once the Bot computer is attached."
-    },
-    "own": {
-      "name": "Your own computer",
-      "what": "Let a Bot work on a Mac you already own. Install the Tofi Mac app there and turn on Remote control this Mac."
-    },
-    "e2b": {
-      "name": "E2B cloud computer",
-      "what": "Rent a Bot computer from E2B with your own key.",
-      "add": "Add E2B cloud computer"
-    },
-    "add": "Add"
-  },
   "contents": {
     "title": "What is on this Bot computer",
     "description": "These live on the Bot computer, not on the server. If the Bot computer is wiped or replaced, they are lost.",
@@ -482,23 +460,15 @@
     }
   },
   "environments": {
-    "description": "Where Bots work. The Bot computer serves every Bot; a Mac serves them while remote control is on.",
     "unavailable": "Couldn't load environments.",
     "stale": "Couldn't refresh environments. Showing the last result.",
     "retry": "Try again",
     "loading": "Loading environments…",
-    "empty": "No environments yet. Add one so Bots can work beyond chat.",
-    "add": "Add environment",
-    "add_menu": {
-      "e2b": "E2B cloud computer",
-      "vm": "Bot computer on this server"
-    },
     "name": {
       "vm": "This server",
       "e2b": "E2B cloud computer",
       "mac": "Mac"
     },
-    "bot_computer": "Bot computer",
     "access": {
       "all_bots": "Used by all Bots",
       "allowed_on_mac": "Used by all Bots while remote control is on",
@@ -529,7 +499,6 @@
       "details": "Details"
     },
     "more": "More actions for {{name}}",
-    "attach_title": "Bot computer",
     "error": {
       "generic": "Couldn't complete that. Try again.",
       "invalid_key": "E2B didn't accept the API key.",
@@ -596,10 +565,6 @@
       "title": "Configure Bot computer",
       "provided_title": "Bot computer details"
     },
-    "provided": "Provided by your organization",
-    "provided_note": "Your organization provides this Bot computer. Its key and image are managed by your administrator.",
-    "none_title": "Your administrator has not assigned a Bot computer",
-    "none_body": "Bots run without a computer until one is assigned. Your Macs can still be connected.",
     "outdated": "Newer computer image available. Updating replaces this computer; files on it are removed.",
     "image_preparing": "The computer image is being built. This takes a few minutes.",
     "image_building": "A newer computer image is being built.",
@@ -613,7 +578,6 @@
       "in_use": "A Bot is using it",
       "in_use_by": "Used by {{name}}",
       "hotkey_taken": "Another app holds the stop shortcut. Use Stop on this row.",
-      "browser": "To add a Mac, install the Tofi Mac app, open Settings › Environments there and turn on Remote control this Mac.",
       "state": {
         "available": "Available",
         "in_use": "In use",
@@ -771,5 +735,50 @@
     "empty_title": "Bot browser",
     "empty_body": "Pages your Bot opens show up here. Type an address to browse yourself.",
     "hand_back_short": "Hand back"
+  },
+  "devices": {
+    "bot": {
+      "title": "Bot computer",
+      "description": "The computer Bots work on. One per account.",
+      "unassigned_title": "No Bot computer assigned",
+      "unassigned_body": "An administrator assigns Bot computers. Chat, memory, schedules and connections work without one.",
+      "managed": "Managed by your organization"
+    },
+    "kind": {
+      "vm": "Built-in VM",
+      "vm_sub": "Runs on this server",
+      "e2b": "E2B cloud computer",
+      "e2b_sub": "Key {{hint}} · Billed by E2B",
+      "e2b_billed": "Billed by E2B"
+    },
+    "add": {
+      "vm_body": "Firecracker VM on this server. Requires KVM and 4 GiB of memory.",
+      "vm_member": "Assigned by an administrator.",
+      "e2b_body": "Runs in your E2B account. Billed by E2B per second; pauses when idle."
+    },
+    "action": {
+      "setup": "Set up",
+      "add": "Add"
+    },
+    "second": {
+      "ready": "{{name}} is ready.",
+      "switch": "Switch"
+    },
+    "mine": {
+      "title": "My devices",
+      "description": "Computers you connected. Bots use them only with the access you grant on each one.",
+      "empty_title": "No devices connected",
+      "empty_body": "Install Tofi for Mac and sign in to this server. The Mac appears here.",
+      "disabled": "This server does not allow personal devices."
+    },
+    "cap": {
+      "remote": "Remote control",
+      "browser": "Browser",
+      "folders": "Folders"
+    },
+    "mac": {
+      "no_access": "No access granted",
+      "last_seen": "Last seen {{time}}"
+    }
   }
 }

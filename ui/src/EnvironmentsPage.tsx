@@ -3,14 +3,13 @@ import {AutomationRows} from "./AutomationSettings";
 import {useEffect, useRef, useState, type ReactNode, type RefObject} from "react";
 import {ApiError, request} from "./api";
 import {ComputerAttach} from "./ComputerAttach";
-import {ComputerOptions} from "./ComputerOptions";
 import {useHasComputer, useHostHasComputer} from "./computerCapability";
 import {ActionConfirm, ConfigureDialog, DeniedBotsDialog, E2BDialog, reasonKey, VmCommandDialog, type ConfirmSpec} from "./EnvironmentDialogs";
 import {RemoteControlBlock} from "./RemoteControl";
 import {MacFolders} from "./MacFolders";
 import type {Bot} from "./types";
 import {useRemoteControl} from "./useRemoteControl";
-import {useEnvironments, type Environment, type EnvironmentAction, type EnvironmentState, type EnvironmentsView} from "./environments";
+import {useEnvironments, type Environment, type EnvironmentAction, type EnvironmentFeature, type EnvironmentState, type EnvironmentsView} from "./environments";
 import {useTranslation} from "./i18n";
 import {formatRelativeTime} from "./i18n/format";
 import {TofiIcon, type TofiIconName} from "./icons";
@@ -25,6 +24,8 @@ import "./environments.css";
 import "./remote-control.css";
 import "./policy-member.css";
 import { Button } from "./ds/Button/Button";
+import { EmptyState } from "./ds/EmptyState/EmptyState";
+import { Notice } from "./ds/Notice/Notice";
 
 const kindIcon: Record<Environment["kind"], TofiIconName> = {vm: "server", e2b: "cloud", mac: "laptop"};
 const badgeFor: Record<EnvironmentState, BadgeState> = {ready: "ok", online: "ok", starting: "testing", resuming: "testing", preparing: "testing", asleep: "asleep", offline: "asleep", stopped: "asleep", standby: "asleep", unknown: "asleep", failed: "bad"};
@@ -43,10 +44,9 @@ export type EnvironmentRowHandlers = {
 function useEnvironmentWords() {
   const {t} = useTranslation("computer");
   return {
-    name: (item: Environment) => item.name || t(`environments.name.${item.kind}`),
+    name: (item: Environment) => item.kind === "mac" ? item.name || t("environments.name.mac") : t(`devices.kind.${item.kind}`),
     state: (state: EnvironmentState) => t(`environments.state.${state}`),
-    access: (item: Environment) => t(`environments.access.${item.access}`),
-  };
+      };
 }
 
 function RowMenu({item, name, items, onAction, disabled}: {item: Environment; name: string; items: EnvironmentAction[]; onAction: EnvironmentRowHandlers["onAction"]; disabled: boolean}) {
@@ -62,55 +62,86 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
   </>;
 }
 
-/** One environment: kind icon, name, a "Bot computer" tag on the one Bots use, who may use it, a named reason when it failed. Controls come only from `actions`. */
-export function EnvironmentRow({item, e2bError, handlers, provided = false, templatePhase = ""}: {item: Environment; e2bError?: string; handlers: EnvironmentRowHandlers; provided?: boolean; templatePhase?: string}) {
+/** The words a row shows for a Mac's features: remote control (desktop), the browser, and folders (files or shell). */
+const capOf: Record<EnvironmentFeature["key"], "remote" | "browser" | "folders"> = {desktop: "remote", browser: "browser", files: "folders", shell: "folders"};
+const quietStates: EnvironmentState[] = ["ready", "online"];
+
+/** One row: kind icon, name, a subtitle, a badge only when the state is not the normal one, and the controls `actions` allows. */
+export function EnvironmentRow({item, e2bError, handlers, provided = false, templatePhase = "", keyHint = ""}: {item: Environment; e2bError?: string; handlers: EnvironmentRowHandlers; provided?: boolean; templatePhase?: string; keyHint?: string}) {
   const {t} = useTranslation("computer");
   const words = useEnvironmentWords();
   const name = words.name(item);
-  const buttons = item.actions.filter(action => !menuActions.includes(action));
+  const buttons = item.actions.filter(action => !menuActions.includes(action) && action !== "use");
   const menu = item.actions.filter(action => menuActions.includes(action));
   const working = handlers.busy === item.id;
   const lastSeen = item.kind === "mac" && item.state === "offline" && item.last_seen ? formatRelativeTime(item.last_seen) : "";
-  const label = <span className="env-name"><TofiIcon name={kindIcon[item.kind]} size={18} aria-hidden="true"/><span className="env-name-text">{name}</span>{(item.bot_computer || provided) && <span className="env-tag">{t("environments.bot_computer")}</span>}{provided && <span className="env-tag env-tag-org" data-tag="organization"><TofiIcon name="lock" size={11} aria-hidden="true"/>{t("environments.provided")}</span>}</span>;
+  const label = <span className="env-name"><TofiIcon name={kindIcon[item.kind]} size={18} aria-hidden="true"/><span className="env-name-text">{name}</span></span>;
   const required = item.error_code === "guest_outdated_required";
   const imageBuilding = item.kind === "e2b" && templatePhase === "preparing" && !required;
+  const caps = [...new Set(item.features.filter(feature => feature.status === "connected").map(feature => capOf[feature.key]))];
+  const subtitle = provided ? t("devices.bot.managed")
+    : item.kind === "vm" ? t("devices.kind.vm_sub")
+    : item.kind === "e2b" ? (keyHint ? t("devices.kind.e2b_sub", {hint: keyHint}) : t("devices.kind.e2b_billed"))
+    : lastSeen ? t("devices.mac.last_seen", {time: lastSeen})
+    : caps.length ? caps.map(cap => t(`devices.cap.${cap}`)).join(" · ") : t("devices.mac.no_access");
   const description = <>
-    {!(provided && item.access === "none") && <span className="env-line">{words.access(item)}{lastSeen && ` · ${t("environments.last_seen", {time: lastSeen})}`}</span>}
-    {(item.bot_computer || item.kind === "mac") && <EnvironmentFeatures kind={item.kind === "mac" ? "mac" : "bot"} features={item.features}/>}
+    <span className="env-line">{subtitle}</span>
     {item.guest_outdated && !required && <span className="env-line env-outdated" data-outdated="true">{t("environments.outdated")}</span>}
     {imageBuilding && <span className="env-line env-building" data-template="preparing">{t(item.state === "preparing" ? "environments.image_preparing" : "environments.image_building")}</span>}
     {item.error_code && <span className="env-line env-reason" data-error-code={item.error_code}>{t(`environments.error.${reasonKey(item.error_code)}` as "environments.error.generic")}</span>}
     {e2bError && <span className="env-line env-reason-detail">{e2bError}</span>}
   </>;
   const control = <div className="env-controls">
-    <StatusBadge state={badgeFor[item.state]}>{words.state(item.state)}</StatusBadge>
+    {!quietStates.includes(item.state) && <StatusBadge state={badgeFor[item.state]}>{words.state(item.state)}</StatusBadge>}
     {buttons.map(action => <Button key={action} type="button" size="sm" data-action={action} disabled={working} onClick={() => handlers.onAction(action, item)}>{t(action === "configure" && provided ? "environments.action.details" : `environments.action.${action}`)}</Button>)}
     {menu.length > 0 && <RowMenu item={item} name={name} items={menu} onAction={handlers.onAction} disabled={working}/>}
   </div>;
-  return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state}><SettingsRow label={label} description={description} control={control}/></div>;
+  return <div className="env-row" data-environment={item.id} data-kind={item.kind} data-state={item.state} data-bot-computer={item.bot_computer || undefined}><SettingsRow label={label} description={description} control={control}/></div>;
 }
 
-/** The list without the requests, so every state can be drawn from data. */
-export function EnvironmentList({view, handlers, children, organization, thisMacID}: {view: EnvironmentsView; handlers: EnvironmentRowHandlers; children?: ReactNode; organization?: OrganizationComputer; /** The Mac app's own device: shown in the remote-control block (one thing in one place), not again here. */ thisMacID?: string | null}) {
+/** What the empty Bot computer section offers: one row per kind, in the names the filled rows use. */
+export type BotComputerOffers = {onSetupVM?: () => void; attach?: ReactNode; vmMember?: boolean; onAddE2B?: () => void; unassigned?: boolean};
+
+/** Devices: the Bot computer (one per account) and the person's own devices. Drawn from data, so the catalog shows every state. */
+export function EnvironmentList({view, handlers, children, organization, thisMacID, offers = {}}: {view: EnvironmentsView; handlers: EnvironmentRowHandlers; children?: ReactNode; organization?: OrganizationComputer; /** The Mac app's own device: shown in the remote-control block (one thing in one place), not again here. */ thisMacID?: string | null; offers?: BotComputerOffers}) {
   const {t} = useTranslation("computer");
   const macs = view.environments.filter(item => item.kind === "mac" && item.id !== thisMacID);
-  const others = view.environments.filter(item => item.kind !== "mac");
-  // The organization's computer is the one of its kind, also while it is still being prepared (no Bot computer yet).
+  const computers = view.environments.filter(item => item.kind !== "mac");
+  // One Bot computer: the one Bots use, else the one being set up. A second one ready beside it is a note with Switch.
+  const primary = computers.find(item => item.bot_computer) ?? computers[0];
+  // A second computer that is ready but idle is a note with Switch; one still being set up (or failed) keeps its own row.
+  const spare = computers.find(item => item !== primary && item.actions.includes("use") && !["preparing", "failed", "starting"].includes(item.state));
+  const settingUp = computers.filter(item => item !== primary && item !== spare);
+  const canAddE2B = Boolean(offers.onAddE2B) && !computers.some(item => item.kind === "e2b");
   const orgKind = organization ? (organization.via === "e2b" ? "e2b" : "vm") : "";
   const isOrg = (item: Environment) => Boolean(organization) && item.kind === orgKind;
-  const row = (item: Environment) => <EnvironmentRow key={item.id} item={item} e2bError={item.kind === "e2b" && !organization ? view.e2b?.error : undefined} handlers={handlers} provided={isOrg(item)} templatePhase={item.kind === "e2b" ? view.e2b?.template_phase : ""}/>;
-  // Provided but nothing listed yet (the shared computer is not there): the page still says whose Bot computer it will be.
   const waiting = organization && !view.environments.some(isOrg);
-  const empty = !others.length && !macs.length && !waiting;
-  return <SettingsCard className="env-list">
-    {waiting && <div className="env-row" data-environment="organization" data-kind={organization.via || "organization"} data-state="provided"><SettingsRow
-      label={<span className="env-name"><TofiIcon name={organization.via === "e2b" ? "cloud" : "server"} size={18} aria-hidden="true"/><span className="env-name-text">{t(organization.via === "e2b" ? "environments.name.e2b" : "environments.name.vm")}</span><span className="env-tag">{t("environments.bot_computer")}</span><span className="env-tag env-tag-org" data-tag="organization"><TofiIcon name="lock" size={11} aria-hidden="true"/>{t("environments.provided")}</span></span>}
-      description={<span className="env-line">{t("environments.provided_note")}</span>}/></div>}
-    {others.map(row)}
-    {macs.map(row)}
-    {empty && <p className="settings-card-note" role="status">{t("environments.empty")}</p>}
-    {children}
+  const row = (item: Environment) => <EnvironmentRow key={item.id} item={item} e2bError={item.kind === "e2b" && !organization ? view.e2b?.error : undefined} handlers={handlers} provided={isOrg(item)} templatePhase={item.kind === "e2b" ? view.e2b?.template_phase : ""} keyHint={item.kind === "e2b" && !organization ? view.e2b?.key_hint : ""}/>;
+  let bot: ReactNode;
+  if (primary) bot = <SettingsCard className="env-list">{row(primary)}{settingUp.map(row)}
+    {canAddE2B && <div className="env-row" data-offer="e2b"><SettingsRow label={<span className="env-name"><TofiIcon name="cloud" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.kind.e2b")}</span></span>} description={<span className="env-line">{t("devices.add.e2b_body")}</span>} control={<Button size="sm" data-add="e2b" onClick={offers.onAddE2B}>{t("devices.action.add")}</Button>}/></div>}
+    {spare && <Notice className="env-spare" action={<><Button size="sm" data-action="use" onClick={() => handlers.onAction("use", spare)}>{t("devices.second.switch")}</Button>{spare.actions.includes("remove") && <Button size="sm" variant="ghost" data-action="remove" onClick={() => handlers.onAction("remove", spare)}>{t("environments.action.remove")}</Button>}</>}>{t("devices.second.ready", {name: t(`devices.kind.${spare.kind === "e2b" ? "e2b" : "vm"}`)})}</Notice>}
   </SettingsCard>;
+  else if (waiting) bot = <SettingsCard className="env-list"><div className="env-row" data-environment="organization" data-kind={organization.via || "organization"} data-state="provided"><SettingsRow
+    label={<span className="env-name"><TofiIcon name={organization.via === "e2b" ? "cloud" : "server"} size={18} aria-hidden="true"/><span className="env-name-text">{t(organization.via === "e2b" ? "devices.kind.e2b" : "devices.kind.vm")}</span></span>}
+    description={<span className="env-line">{t("devices.bot.managed")}</span>}/></div></SettingsCard>;
+  else if (offers.unassigned) bot = <EmptyState icon="server" title={t("devices.bot.unassigned_title")}>{t("devices.bot.unassigned_body")}</EmptyState>;
+  else bot = <SettingsCard className="env-list env-offers">
+    <div className="env-row" data-offer="vm"><SettingsRow label={<span className="env-name"><TofiIcon name="server" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.kind.vm")}</span></span>}
+      description={<span className="env-line">{offers.vmMember ? t("devices.add.vm_member") : t("devices.add.vm_body")}</span>}
+      control={offers.onSetupVM ? <Button size="sm" data-add="vm" onClick={offers.onSetupVM}>{t("devices.action.setup")}</Button> : undefined}/>{offers.attach}</div>
+    <div className="env-row" data-offer="e2b"><SettingsRow label={<span className="env-name"><TofiIcon name="cloud" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.kind.e2b")}</span></span>}
+      description={<span className="env-line">{t("devices.add.e2b_body")}</span>}
+      control={offers.onAddE2B ? <Button size="sm" data-add="e2b" onClick={offers.onAddE2B}>{t("devices.action.add")}</Button> : undefined}/></div>
+  </SettingsCard>;
+  return <div className="settings-stack env-devices">
+    <SectionAnchor id="environment"><SettingsSection className="env-section" title={t("devices.bot.title")} description={t("devices.bot.description")}>{bot}</SettingsSection></SectionAnchor>
+    <SectionAnchor id="devices"><SettingsSection className="env-section" title={t("devices.mine.title")} description={t("devices.mine.description")}>
+      {macs.length ? <SettingsCard className="env-list">{macs.map(row)}</SettingsCard>
+        : !thisMacID && <EmptyState icon="laptop" title={t("devices.mine.empty_title")}>{t(view.add.mac ? "devices.mine.empty_body" : "devices.mine.disabled")}</EmptyState>}
+      {children}
+    </SettingsSection></SectionAnchor>
+  </div>;
 }
 
 type Dialog = {kind: "e2b"} | {kind: "denied"} | {kind: "vm"} | {kind: "configure"} | {kind: "confirm"; action: "use" | "remove" | "disconnect" | "upgrade"; item: Environment};
@@ -178,38 +209,26 @@ export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsT
   }
 
   const add = data?.add;
-  const addItems = [
-    add?.e2b ? {id: "e2b" as const, icon: "cloud" as const, label: t("environments.add_menu.e2b")} : null,
-    add?.vm_command ? {id: "vm" as const, icon: "server" as const, label: t("environments.add_menu.vm")} : null,
-  ].filter(item => item !== null);
-  const addControl = addItems.length > 0 && <>
-    <button ref={addButton} type="button" className="st-button env-add" aria-haspopup="menu" aria-expanded={menuOpen} {...pressToggle(() => setMenuOpen(value => !value))} onKeyDown={arrowOpens(setMenuOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.add")}</button>
-    {menuOpen && <OverlayMenu open onOpenChange={setMenuOpen} className="mcp-menu env-menu env-add-menu" label={t("environments.add")} trigger={addButton as RefObject<HTMLElement | null>} anchor={addButton as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
-      {addItems.map(item => <button key={item.id} type="button" data-add={item.id} onClick={() => { setMenuOpen(false); setDialog({kind: item.id}); }}><TofiIcon name={item.icon} size={16} aria-hidden="true"/>{item.label}</button>)}
-    </OverlayMenu>}
-  </>;
-
   const policy = usePolicy();
   const computerPolicy = data?.policy ?? policy.of("computer");
   const computerMode = computerPolicy.mode;
   const organization = computerMode === "provided" ? {via: computerPolicy.via ?? ""} : undefined;
-  const noComputer = computerMode === "none";
-  const noBackendEmpty = !has && data && data.environments.length === 0 && !canAttach && !organization && !noComputer;
+  const base = session?.multi_account && session.owner?.id ? `/api/admin/accounts/${encodeURIComponent(session.owner.id)}/computer` : "/api/admin/computer";
+  const offers: BotComputerOffers = {
+    unassigned: computerMode === "none",
+    onSetupVM: add?.vm_command ? () => setDialog({kind: "vm"}) : undefined,
+    attach: data && !has && canAttach && computerMode === "host" ? <ComputerAttach base={base}/> : undefined,
+    vmMember: !add?.vm_command && !canAttach,
+    onAddE2B: add?.e2b ? () => setDialog({kind: "e2b"}) : undefined,
+  };
   let body: ReactNode;
   if (failed && !data) body = <Banner tone="error" title={t("environments.unavailable")} action={{label: t("environments.retry"), onClick: retry}}/>;
   else if (!data) body = <p className="field-note" role="status">{t("environments.loading")}</p>;
-  else if (noBackendEmpty) body = <ComputerOptions onAddE2B={add?.e2b ? () => setDialog({kind: "e2b"}) : undefined} />;
   else body = <>
-    {noComputer && <Banner tone="info" title={t("environments.none_title")}>{t("environments.none_body")}</Banner>}
-    <SectionAnchor id="environment"><SettingsSection className="env-section">
-      <div className="env-head"><p>{t("environments.description")}</p>{addControl}</div>
-      <EnvironmentList view={data} handlers={{busy, onAction}} organization={organization} thisMacID={rc.available ? rc.status?.deviceID : null}/>
-    </SettingsSection></SectionAnchor>
-    {!rc.available && add?.mac && <p className="rc-browser-note" data-add-mac-note="">{t("environments.rc.browser")}</p>}
+    <EnvironmentList view={data} handlers={{busy, onAction}} organization={organization} thisMacID={rc.available ? rc.status?.deviceID : null} offers={offers}/>
     {failed && <Banner tone="warn" title={t("environments.stale")} action={{label: t("environments.retry"), onClick: retry}}/>}
   </>;
 
-  const base = session?.multi_account && session.owner?.id ? `/api/admin/accounts/${encodeURIComponent(session.owner.id)}/computer` : "/api/admin/computer";
   return <div className="settings-stack environments-page">
     {error && <Banner tone="error" title={error}/>}
     {data && rc.available && <RemoteControlBlock rc={rc} offered={add?.mac !== false} onOpenFiles={openFiles} onOpenDenied={() => setDialog({kind: "denied"})}/>}
@@ -218,7 +237,6 @@ export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsT
     <SettingsRow label={t("browser.source")} description={!window.tofiDesktop ? t("browser.in_app") : !window.tofiDesktop.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <Button type="button" size="sm" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</Button> : undefined}/>
     {body}
     {data && data.environments.some(item => item.bot_computer || item.kind === "mac") && <AutomationRows groups={["environment"]} hasEnvironment/>}
-    {data && !has && canAttach && computerMode === "host" && <SettingsSection id="attach" title={t("environments.attach_title")}><ComputerAttach base={base}/></SettingsSection>}
     {dialog?.kind === "e2b" && <E2BDialog onClose={() => setDialog(null)} onSaved={body => { replace(body); setDialog(null); }}/>}
     {dialog?.kind === "denied" && <DeniedBotsDialog bots={rc.denied} onUndo={id => void rc.undoDeny(id)} onClose={() => setDialog(null)}/>}
     {dialog?.kind === "vm" && add?.vm_command && <VmCommandDialog command={add.vm_command} onClose={() => setDialog(null)}/>}
