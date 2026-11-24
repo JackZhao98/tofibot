@@ -14,7 +14,7 @@ export const SETTINGS_SECTIONS = {
   // System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids are its
   // folded groups, "followups" its Follow-ups subpage.
   advanced: ["version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"],
-  admin: ["accounts", "version"],
+  admin: ["accounts"],
   "admin-groups": ["policy", "members"],
   "admin-resources": ["models", "computers", "storage", "backups", "web"],
   "admin-design": [],
@@ -40,7 +40,7 @@ export const CONNECTION_SECTIONS = ["status", "tools", "advanced", "danger"] as 
  * primary Bot's settings (`readSettingsLink`), or General when there is no Bot.
  */
 export const LEGACY_SETTINGS_LINKS: Record<string, string> = {
-  approvals: "permissions", devices: "computer", environments: "computer",
+  approvals: "permissions", devices: "computer", environments: "computer", "admin#version": "advanced#version",
   allowances: "permissions", "allowances#how": "permissions", "allowances#standing": "permissions#standing",
   "allowances#remembered": "permissions#remembered", "allowances#reviewer": "permissions#advanced",
   followups: "advanced#followups", tools: "connections#web", keys: "computer#keys",

@@ -25,7 +25,7 @@ const TABS = ["general", "models", "connections", "skills", "permissions", "comp
 // "devices" (Other devices) is merged into Environments: no rail item, its id still routes to the Environments page. Behavior and Follow-ups keep their names as subpage titles.
 const SUBPAGE_NAMES = ["automation", "followups"];
 const ICONS = {general: "sliders", connections: "plug", skills: "skill", permissions: "shield-check", allowances: "checklist", followups: "bell", devices: "laptop", models: "sparkles", tools: "globe", automation: "workflow", computer: "layers", keys: "key", usage: "progress", advanced: "settings", admin: "group", "admin-groups": "workspace", "admin-resources": "server", "admin-design": "layout-grid"};
-const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Environments", keys: "Bot computer keys", usage: "Usage", advanced: "System", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources", "admin-design": "Design system"};
+const NAMES = {general: "General", connections: "Connections", skills: "Skills", permissions: "Permissions", allowances: "Tool rules", followups: "Follow-ups", devices: "Other devices", models: "AI Models", tools: "Search & fetch", automation: "Behavior", computer: "Devices", keys: "Bot computer keys", usage: "Usage", advanced: "System", admin: "Accounts", "admin-groups": "Groups", "admin-resources": "Organization resources", "admin-design": "Design system"};
 
 // ---- Catalog checks (every locale): page names and descriptions are real translations. Descriptions are no longer shown in the window; the manual and reference pages the server generates read them.
 const catalogs = {};
@@ -35,7 +35,7 @@ for (const lang of LANGS) {
   // The rail groups are You, Organization and Server (V3 PLAN section 11, owner Q2).
   assert.deepEqual(Object.keys(shell.group).sort(), ["organization", "server", "you"], `${lang}: shell.group keys`);
   for (const key of ["you", "organization", "server"]) assert.ok(shell.group[key], `${lang}: group ${key} has a name`);
-  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "devices", "admin", "admin-groups", "admin-resources", "admin-design"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
+  assert.deepEqual(Object.keys(shell.page).sort(), [...TABS, ...SUBPAGE_NAMES, "admin", "admin-groups", "admin-resources", "admin-design"].sort(), `${lang}: shell.page keys (no stale tab ids)`);
   let sameAsEnglish = 0;
   for (const [id, page] of Object.entries(shell.page)) {
     assert.ok(page.name && page.description, `${lang}: ${id} needs a name and a description`);
@@ -792,11 +792,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.ok(item.lines <= 2, `${item.text}: ${item.lines} lines`);
       assert.equal(item.inside, true, `${item.text}: inside its rail item`);
     }
-    for (const text of ["Verbindungen", "Berechtigungen", "Umgebungen"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
+    for (const text of ["Verbindungen", "Berechtigungen", "Geräte"]) assert.ok(report.some(item => item.text === text), `German rail shows ${text}`);
     const rail = await page.locator(".settings-tabs").evaluate(element => element.getBoundingClientRect().width);
     assert.equal(Math.round(rail), 232, "rail is 232px wide (V3.0)");
     await close();
-    console.log("PASS german: Verbindungen, Berechtigungen and Umgebungen fit the 232px rail in at most two lines, no clipping");
+    console.log("PASS german: Verbindungen, Berechtigungen and Geräte fit the 232px rail in at most two lines, no clipping");
   }
 
   // ---- 7b. Skill library (decision 0058): installer and version on each row, bundles expand, rollback, remove, one-click add.
@@ -1692,10 +1692,11 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
     // Up to date: no banner; the Version card says so.
     updateState.latest = "v0.1.0";
-    // On a multi-account server the Version card is in Administration, not System.
-    const current = await open({admin: "1", tab: "admin"});
-    await current.page.locator('.settings-page-body[data-page="admin"] .version-card').waitFor({timeout: 15000});
-    assert.equal(await current.page.locator('.settings-page-body[data-page="advanced"] .version-card').count(), 0, "System has no Version card on a multi-account server");
+    // The Version card is in System for whoever may update the server, also the administrator of a multi-account server
+    // (owner 2026-11-24); Accounts no longer carries it.
+    const current = await open({admin: "1", tab: "advanced"});
+    await current.page.locator('.settings-page-body[data-page="advanced"] .version-card').waitFor({timeout: 15000});
+    assert.equal(await current.page.locator('.settings-page-body[data-page="admin"] .version-card').count(), 0, "Accounts has no Version card");
     const single = await open({admin: "0", tab: "advanced"});
     await single.page.locator('.settings-page-body[data-page="advanced"] .version-card').waitFor({timeout: 15000});
     await single.close();
@@ -1724,7 +1725,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
 
     // Update available + auto on: card shows the install hint and the state.
     updateState.latest = "v0.1.1";
-    const pending = await open({admin: "1", tab: "admin", auto: "patch"});
+    const pending = await open({admin: "1", tab: "advanced", auto: "patch"});
     await pending.page.locator(".version-card").waitFor({timeout: 15000});
     await pending.page.getByText("Update available", {exact: true}).waitFor();
     const pendingCard = (await pending.page.locator(".version-card").innerText()).replace(/\s+/g, " ");
@@ -1734,8 +1735,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await pending.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await pending.close();
     // No horizontal scroll at 390px.
-    const narrow = await open({admin: "1", tab: "admin"}, {width: 390, height: 844});
-    await narrow.page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
+    const narrow = await open({admin: "1", tab: "advanced"}, {width: 390, height: 844});
+    await narrow.page.locator(".settings-tabs [data-tab=\"advanced\"]").click().catch(() => {});
     await narrow.page.locator(".version-card").waitFor({timeout: 15000});
     await narrow.page.waitForTimeout(500);
     assert.equal(await narrow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
@@ -1798,7 +1799,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       // Release candidates: the switch is in the Version card; with it on, the candidate has its own button and badge.
       resetUpdateFlow("done");
       updateFlow.rc = false;
-      const rc = await open({admin: "1", host: "1", tab: "admin"});
+      const rc = await open({admin: "1", host: "1", tab: "advanced"});
       await rc.page.locator(".version-card").waitFor({timeout: 15000});
       assert.equal(await rc.page.getByRole("button", {name: /^Try v/}).count(), 0, "no candidate offered while the setting is off");
       const toggle = rc.page.getByRole("switch", {name: "Receive release candidates"});
@@ -1820,11 +1821,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       resetUpdateFlow("done");
 
       // 390 px: the progress and the dialog fit.
-      const narrowFlow = await open({admin: "1", host: "1", tab: "admin"}, {width: 390, height: 844});
-      await narrowFlow.page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
-      await narrowFlow.page.locator(".version-card").waitFor({timeout: 15000});
+      const narrowFlow = await open({admin: "1", host: "1", tab: "advanced"}, {width: 390, height: 844});
+      await narrowFlow.page.locator(".version-card:visible").waitFor({timeout: 15000});
       assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the Update row at 390px");
-      await narrowFlow.page.locator(".version-card").getByRole("button", {name: "Update to v0.1.1"}).click();
+      await narrowFlow.page.locator(".version-card:visible").getByRole("button", {name: "Update to v0.1.1"}).click();
       const narrowDialog = narrowFlow.page.locator('[data-update-dialog="stable"]');
       await narrowDialog.waitFor();
       assert.equal(await narrowFlow.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll with the dialog open at 390px");
@@ -1841,10 +1841,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }
 
     // Translations render (Japanese banner and card).
-    const ja = await open({admin: "1", lang: "ja", tab: "admin", auto: "off"});
+    const ja = await open({admin: "1", lang: "ja", tab: "advanced", auto: "off"});
     await ja.page.locator(banner).waitFor({timeout: 15000});
     assert.match((await ja.page.locator(banner).innerText()).replace(/\s+/g, " "), /Tofi v0\.1\.1 が公開されました/);
-    assert.match(await ja.page.locator(".version-card").innerText(), /現在のバージョン/);
+    assert.match(await ja.page.locator(".version-card:visible").innerText(), /現在のバージョン/);
     await ja.close();
     console.log("PASS update notice: banner for admins and the single owner, hidden for members, per-version dismissal, patch-only automatic wording, Version card, 390px, ja");
 
@@ -1854,10 +1854,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       let count = 0;
       updateState.latest = "v0.1.1";
       for (const theme of ["light", "dark"]) for (const [label, size] of [["1440", {width: 1440, height: 900}], ["390", {width: 390, height: 844}]]) {
-        const {page, close} = await open({admin: "1", tab: "admin", auto: "patch"}, {...size, theme});
+        const {page, close} = await open({admin: "1", tab: "advanced", auto: "patch"}, {...size, theme});
         await page.locator(banner).waitFor({timeout: 15000});
-        if (label === "390") await page.locator(".settings-tabs [data-tab=\"admin\"]").click().catch(() => {});
-        await page.locator(".version-card").waitFor({timeout: 15000});
+        if (label === "390") await page.locator(".settings-tabs [data-tab=\"advanced\"]").click().catch(() => {});
+        await page.locator(".version-card:visible").waitFor({timeout: 15000});
         await page.waitForTimeout(900);
         await page.screenshot({path: join(dir, `update-${label}-${theme}.png`)}); count++;
         await close();
