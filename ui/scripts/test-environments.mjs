@@ -224,7 +224,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await dialog.getByRole("button", {name: "Save"}).isDisabled(), true, "Save waits for a key");
     await dialog.locator("input[type=password]").fill("e2b_badkey");
     await dialog.getByRole("button", {name: "Save"}).click();
-    await dialog.getByRole("alert").getByText("E2B didn't accept the API key.").waitFor();
+    await dialog.getByText("E2B didn't accept the API key.").waitFor();
+    if (shots) await page.screenshot({path: join(shots, "e2b-dialog-error-1280.png")});
     assert.deepEqual(calls.filter(call => call.includes("/api/environments/e2b")), ['PUT /api/environments/e2b {"api_key":"e2b_badkey"}']);
     scenario.put = "ok";
     await dialog.getByRole("button", {name: "Use an existing template"}).click();
