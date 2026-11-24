@@ -1093,7 +1093,7 @@ export function Workspace() {
       motion.markFlight();
       openSurface(state => openWidget(state, "bot"));
       // The Artifacts widget joins once the cat has landed: its first render is the heaviest thing the card brings, and a frame lost in the flight is seen.
-      void files.then(late => window.setTimeout(() => { if (late && activeIdRef.current === conversationId) setSurfaces(state => state.widgets.includes("bot") ? autoOpenWidget(state, "artifacts") : state); }, motion.CAT_TRAVEL.duration * 1000 + 60));
+      void files.then(late => window.setTimeout(() => { if (late && activeIdRef.current === conversationId) setSurfaces(state => state.widgets.includes("bot") ? autoOpenWidget(state, "artifacts") : state); }, motion.catSettleMs()));
     });
   }, [active?.id, active?.kind, openSurface]);
   // VM surfaces keep their capability gate. Personal browser sources are selected independently below.
