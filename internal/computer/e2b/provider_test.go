@@ -71,6 +71,7 @@ type fake struct {
 	buildReason  string
 	tplCalls     []string
 	getCode      int
+	listCode     int // answer to listing the team's sandboxes (the key check); 0 => 200 []
 	// rootUnreadable: a token written as root is not readable by the guest (uid 1000).
 	rootUnreadable bool
 	uploadUsers    []string
@@ -191,6 +192,13 @@ func (f *fake) handle(w http.ResponseWriter, r *http.Request) {
 		f.sandboxState = "running"
 		f.guestToken = ""
 		f.sandboxJSON(w, 201, id)
+	case r.Method == "GET" && (p == "/v2/sandboxes" || p == "/sandboxes"):
+		if f.listCode != 0 {
+			w.WriteHeader(f.listCode)
+			w.Write([]byte(`{"code":1,"message":"Invalid API key"}`))
+			return
+		}
+		w.Write([]byte(`[]`))
 	case r.Method == "GET" && strings.HasPrefix(p, "/sandboxes/"):
 		if f.getCode != 0 {
 			w.WriteHeader(f.getCode)
@@ -1125,5 +1133,33 @@ func TestOnlyTeamLevelCallsRejectTheKey(t *testing.T) {
 	_, _ = act(bad)
 	if len(used) != 1 || used[0] != "older-key-0000000" {
 		t.Fatalf("rejections %v", used)
+	}
+}
+
+func TestARevokedKeyMakesAReadyComputerFailed(t *testing.T) {
+	f := newFake(t)
+	f.sandboxState = "paused"
+	st := ready
+	st.SandboxID = "sbx9"
+	p, _ := f.provider(st)
+	f.connectCode, f.listCode = 401, 401
+	if _, err := act(p); err == nil {
+		t.Fatal("an action with a revoked key must fail")
+	}
+	if got := p.Status(); got.Phase != PhaseFailed || got.ErrorCode != CodeInvalidKey {
+		t.Fatalf("status %s/%s, want failed/%s", got.Phase, got.ErrorCode, CodeInvalidKey)
+	}
+}
+
+func TestA401AboutOneSandboxKeepsTheComputerReady(t *testing.T) {
+	f := newFake(t)
+	f.sandboxState = "paused"
+	st := ready
+	st.SandboxID = "sbx9"
+	p, _ := f.provider(st)
+	f.connectCode = 401 // the team's key still lists its sandboxes
+	_, _ = act(p)
+	if got := p.Status(); got.Phase == PhaseFailed && got.ErrorCode == CodeInvalidKey {
+		t.Fatal("a 401 about one sandbox is not a verdict on the key")
 	}
 }
