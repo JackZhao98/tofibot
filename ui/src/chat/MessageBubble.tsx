@@ -252,7 +252,7 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
         compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
     </div>
     {unsentMenu && failedHere && message.client_message_id && <Suspense fallback={null}><UnsentMenu x={unsentMenu.x} y={unsentMenu.y} t={t} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} close={() => setUnsentMenu(null)} /></Suspense>}
-    {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
+    {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
     {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}
     {m.ownerNodes}
