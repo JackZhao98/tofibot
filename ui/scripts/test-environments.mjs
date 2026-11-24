@@ -187,6 +187,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Jack's MacBook Pro Browser/);
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
     assert.deepEqual(await buttons(page.locator(".env-spare")), ["use", "remove"]);
+    await close();
+  }
+
+  // ---- 1b. The idle second computer keeps every action the server offers: an outdated one can still be upgraded.
+  {
+    const {page, close} = await open({tab: "computer"}, {state: {environments: [vm(), e2b({guest_outdated: true, actions: ["use", "upgrade", "remove"]}), mac()]}});
+    await page.locator(".env-spare").waitFor();
+    assert.deepEqual(await buttons(page.locator(".env-spare")), ["use", "upgrade", "remove"]);
+    assert.equal(await page.locator(".env-spare [data-outdated]").count(), 1, "the outdated note is on the idle computer's line");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
     assert.equal(await page.locator(".resource-grid").count(), 0, "the size grid is behind Configure");
     assert.equal(await page.locator(".computer-contents, .device-pairing-code, .environment-summary").count(), 0, "no old cards");
