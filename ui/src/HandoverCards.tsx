@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "./ds/Button/Button";
+import "./ds/ApprovalCard/ApprovalCard.css";
 import { ApiError, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { isDesktop } from "./desktop";
@@ -56,7 +58,7 @@ function Shell({ item, bot, group, children, active }: { item: Question; bot?: B
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} data-question-type={item.question_type} tabIndex={-1} aria-label={t("question.aria", { name: bot?.name ?? "Bot" })}>
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-      <section className={`question-card ${active ? "is-pending" : "is-resolved"}`}>
+      <section className={`question-card tb-approval ${active ? "is-pending" : "is-resolved"}`}>
         <div className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {children}
       </section>
@@ -78,9 +80,9 @@ export function TakeoverCard({ item, bot, group, archived, onChanged }: CardProp
     {active ? <>
       <p className="handover-hint">{t("handover.takeover.hint")}</p>
       <div className="question-actions handover-actions">
-        <button className="text-button" type="button" disabled={busy} onClick={() => void send("cannot")}>{t("handover.cannot")}</button>
-        <button className="secondary-button" type="button" disabled={busy} onClick={() => void send("done")}>{t("handover.done")}</button>
-        <button className="primary-button" type="button" disabled={busy} onClick={() => setOpen(true)}>{t("handover.takeover.take")}</button>
+        <Button variant="ghost" disabled={busy} onClick={() => void send("cannot")}>{t("handover.cannot")}</Button>
+        <Button variant="secondary" disabled={busy} onClick={() => void send("done")}>{t("handover.done")}</Button>
+        <Button variant="primary" disabled={busy} onClick={() => setOpen(true)}>{t("handover.takeover.take")}</Button>
       </div>
       {open && <TakeoverDialog botId={item.bot_id} questionId={item.question_id} site={item.source_url ?? ""} prompt={item.question} busy={busy} error={error}
         onResult={result => void send(result)} onClose={() => setOpen(false)} />}
@@ -202,8 +204,8 @@ export function ConnectionCard({ item, bot, group, archived, onChanged }: CardPr
     {active ? <>
       <p className="handover-hint">{t("handover.connection.hint")}</p>
       <div className="question-actions handover-actions">
-        <button className="text-button" type="button" disabled={busy || waiting} onClick={() => void send("declined")}>{t("handover.connection.decline")}</button>
-        <button className="primary-button" type="button" disabled={busy || waiting || !connect.ready} onClick={() => void connect.start()}>{waiting ? t("handover.connection.waiting") : connect.error || sendError ? t("handover.connection.retry") : t("handover.connection.connect")}</button>
+        <Button variant="ghost" disabled={busy || waiting} onClick={() => void send("declined")}>{t("handover.connection.decline")}</Button>
+        <Button variant="primary" disabled={busy || waiting || !connect.ready} onClick={() => void connect.start()}>{waiting ? t("handover.connection.waiting") : connect.error || sendError ? t("handover.connection.retry") : t("handover.connection.connect")}</Button>
       </div>
       {connect.paste && <PasteBackDialog serverName={service} title={service} popup={connect.pastePopup} onFinish={connect.finishPaste} />}
       {connect.vm && <VMOAuthDialog session={connect.vm} serverName={service} title={service} onFinish={status => connect.finishVM(status)} />}
