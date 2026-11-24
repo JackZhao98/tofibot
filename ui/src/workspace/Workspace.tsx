@@ -787,8 +787,12 @@ export function Workspace() {
   // must not put the older stored layout back over the optimistic one.
   const layoutInFlight = useRef(0);
   const layoutQueue = useRef<Promise<void>>(Promise.resolve());
+  // Bumped on every drop: a poll that started before the latest drop must not apply its (older) pins and order, even if the save has
+  // finished by the time it lands; otherwise the list flips back and the next poll flips it again.
+  const layoutEpoch = useRef(0);
   const refreshConversations = useCallback(async () => {
     const generation = snapshotGeneration.current;
+    const epoch = layoutEpoch.current;
     const requestSeq = beginWorkspaceRequest();
     let applied = false;
     try {
@@ -815,7 +819,7 @@ export function Workspace() {
           return conversation;
         });
         const fresh = new Set(merged.map((conversation) => conversation.id));
-        const withArchived = [...(layoutInFlight.current > 0 ? keepLocalLayout(merged, current) : merged), ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
+        const withArchived = [...(layoutInFlight.current > 0 || epoch !== layoutEpoch.current ? keepLocalLayout(merged, current) : merged), ...current.filter((conversation) => conversation.archived && !fresh.has(conversation.id))];
         return sameData(current, withArchived) ? current : withArchived;
       });
     } catch (cause) {
@@ -843,6 +847,7 @@ export function Workspace() {
 
   const commitSidebarLayout = useCallback((layout: SidebarIds) => {
     layoutInFlight.current += 1;
+    layoutEpoch.current += 1;
     setConversations(current => applyLayout(current, layout));
     layoutQueue.current = layoutQueue.current.then(async () => {
       let failed: unknown;
