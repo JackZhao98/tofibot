@@ -14,6 +14,8 @@ import { i18n, useTranslation } from "./i18n";
 import { formatNumber } from "./i18n/format";
 import { allowedSecretEnv, normalizeSecretEnvInput, SECRET_ENV_RESERVED_NAMES, secretEnvProblem } from "./secretEnvName";
 import { TaskIssueCard } from "./TaskIssueCard";
+import { Button } from "./ds/Button/Button";
+import "./ds/ApprovalCard/ApprovalCard.css";
 import "./question-card.css";
 import { intlLocale } from "./i18n/format";
 import { sameData } from "./sameData";
@@ -233,7 +235,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-      <form ref={attachForm} className={`question-card question-form ${active ? "is-pending" : "is-resolved"}`}
+      <form ref={attachForm} className={`question-card question-form tb-approval ${active ? "is-pending" : "is-resolved"}`}
         aria-labelledby={title} aria-describedby={active ? privacy : undefined} aria-busy={Boolean(busy)}
         autoComplete="off" noValidate onSubmit={event => { event.preventDefault(); void finish(); }}>
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
@@ -270,8 +272,8 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
             </div>}
           </div>}
           {archived ? <p className="field-note">{t("form.archived")}</p> : <div className="question-actions">
-            <button className="text-button" type="button" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? t("question.cancelling") : t("question.cancel")}</button>
-            <button className="primary-button" type="submit" disabled={Boolean(busy) || Boolean(schemaError) || Boolean(saveProblem)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</button>
+            <Button variant="ghost" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? t("question.cancelling") : t("question.cancel")}</Button>
+            <Button variant="primary" type="submit" disabled={Boolean(busy) || Boolean(schemaError) || Boolean(saveProblem)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</Button>
           </div>}
         </> : <div className="question-result" role="status">
           <span>{current.status === "answered" ? t("form.submitted") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>
@@ -336,7 +338,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   return <article className={`question-message${group ? " is-group" : " is-dm"}`} data-question-id={item.question_id} tabIndex={-1}>
     {group && <BotAvatar id={item.bot_id} mini />}
     <div className="question-body">{group && <div className="message-meta"><strong>{bot?.name ?? "Bot"}</strong></div>}
-      <form className={`question-card ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
+      <form className={`question-card tb-approval ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {active || foldAnswer ? <>
           {item.question_type === "text" ? <textarea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.answer_placeholder")} /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>
@@ -353,7 +355,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
             <p id={`${title}-other-note`} className={[...otherText.trim()].length > 4000 ? "error-text" : "field-note"}>{t("question.other_note", { limit: formatNumber(4000) })}</p>
           </div>}
           {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</p>}
-          {foldAnswer ? null : archived ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-actions"><button className="text-button" type="button" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</button><button className="primary-button" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</button></div>}
+          {foldAnswer ? null : archived ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-actions"><Button variant="ghost" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</Button><Button variant="primary" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</Button></div>}
         </> : <div className="question-result" role="status">{current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
         {error && <p className="error-text" role="alert">{error}</p>}
       </form>
