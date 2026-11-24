@@ -214,6 +214,7 @@ export const other: CatalogSection = {
     scheduledState("done", "Scheduled task, done quietly (nothing posted)", undefined, "scheduled-done-quiet", { posted: false }),
     scheduledState("failed", "Scheduled task, failed", "Synthetic: the provider timed out"),
     { id: "task-issue", kind: "inline", label: "Task issue card", context: ["catalog-column"], render: () => { const issue = presentTaskIssue({ run: failedRun, recordsComplete: true }); return issue ? <TaskIssueCard issue={issue} onAction={() => {}} onRetry={() => {}} /> : <p>no issue</p>; } },
+    { id: "task-issue-plan", kind: "inline", label: "Task issue card on its list", context: ["catalog-column"], render: () => { const issue = presentTaskIssue({ run: failedRun, recordsComplete: true }); return issue ? <TaskIssueCard issue={issue} steps={[{ id: "1", text: "Read the three invoices", state: "done" }, { id: "2", text: "Total them by vendor", state: "stopped" }, { id: "3", text: "Draft the reply", state: "not_done" }]} onAction={() => {}} onRetry={() => {}} /> : <p>no issue</p>; } },
     { id: "mail-pending-demo", kind: "inline", label: "Mail draft, pending (demo)", context: ["catalog-column"],
       render: () => <MailDraftCard draft={mailDraft("pending", { demo: true })} bot={bot("bot_mochi")} group={false} onChanged={async () => {}} /> },
     ...(["pending", "sent", "declined"] as const).map(status => ({ id: `mail-${status}`, kind: "inline" as const, label: `Mail draft, ${status}`, context: ["catalog-column"],

@@ -7,6 +7,8 @@
 .task-issue-heading h3{display:inline;font:inherit;font-weight:500;margin:0;min-width:0}
 .task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-1) 0 0;font:var(--type-meta)}
 .task-issue-fact{color:var(--danger-text)}
+.task-issue-step{display:block}
+.task-issue-heading h3.task-issue-reason{display:block;margin-block-start:var(--space-1);font:var(--type-meta);font-weight:500;color:var(--danger-text)}
 .task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;}
 .task-fact-link:hover{text-decoration-color:currentColor}
 .task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:3px}
