@@ -132,9 +132,13 @@ export function EnvironmentList({view, handlers, children, organization, thisMac
   const waiting = organization && !view.environments.some(isOrg);
   const row = (item: Environment) => <EnvironmentRow key={item.id} item={item} e2bError={item.kind === "e2b" && !organization ? view.e2b?.error : undefined} handlers={handlers} provided={isOrg(item)} templatePhase={item.kind === "e2b" ? view.e2b?.template_phase : ""} keyHint={item.kind === "e2b" && !organization ? view.e2b?.key_hint : ""}/>;
   let bot: ReactNode;
-  if (primary) bot = <SettingsCard className="env-list">{row(primary)}{settingUp.map(row)}
+  const move = view.move;
+  const moveLine = move && <div className="env-move" data-move={move.phase} role="status"><SettingsRow
+    label={<span className="env-name"><TofiIcon name={move.phase === "moving" ? "activity" : "alert"} size={18} aria-hidden="true"/><span className="env-move-text">{move.phase === "moving" ? t("devices.move.moving", {name: t(`devices.kind.${move.target === "e2b" ? "e2b" : "vm"}`)}) : t("devices.move.failed")}</span></span>}
+    description={move.phase === "failed" ? <span className="env-line env-reason" data-error-code={move.error_code}>{t(`environments.error.${reasonKey(move.error_code)}` as "environments.error.generic")}</span> : <span className="env-line">{t("devices.move.moving_note")}</span>}/></div>;
+  if (primary) bot = <SettingsCard className="env-list">{row(primary)}{settingUp.map(row)}{moveLine}
     {canAddE2B && <div className="env-row" data-offer="e2b"><SettingsRow label={<span className="env-name"><TofiIcon name="cloud" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.kind.e2b")}</span></span>} description={<span className="env-line">{t("devices.add.e2b_body")}</span>} control={<Button size="sm" data-add="e2b" onClick={offers.onAddE2B}>{t("devices.action.add")}</Button>}/></div>}
-    {spare && <div className="env-spare"><SettingsRow label={<span className="env-name"><TofiIcon name={kindIcon[spare.kind]} size={18} aria-hidden="true"/><span className="env-spare-text">{t("devices.second.ready", {name: t(`devices.kind.${spare.kind === "e2b" ? "e2b" : "vm"}`)})}</span></span>}
+    {spare && move?.phase !== "moving" && <div className="env-spare"><SettingsRow label={<span className="env-name"><TofiIcon name={kindIcon[spare.kind]} size={18} aria-hidden="true"/><span className="env-spare-text">{t("devices.second.ready", {name: t(`devices.kind.${spare.kind === "e2b" ? "e2b" : "vm"}`)})}</span></span>}
       control={<div className="env-controls"><Button size="sm" data-action="use" onClick={() => handlers.onAction("use", spare)}>{t("devices.second.switch")}</Button>{spare.actions.includes("remove") && <Button size="sm" variant="ghost" data-action="remove" onClick={() => handlers.onAction("remove", spare)}>{t("environments.action.remove")}</Button>}</div>}/></div>}
   </SettingsCard>;
   else if (waiting) bot = <SettingsCard className="env-list"><div className="env-row" data-environment="organization" data-kind={organization.via || "organization"} data-state="provided"><SettingsRow

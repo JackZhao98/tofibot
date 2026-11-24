@@ -495,6 +495,8 @@ type environmentsView struct {
 	E2B          e2bView           `json:"e2b"`
 	// Policy is the account's computer policy: whose Bot computer this is.
 	Policy capabilityView `json:"policy"`
+	// Move is a switch that moves the home directory, while it runs or after it failed (home_move.go).
+	Move *homeMoveView `json:"move,omitempty"`
 }
 
 // environmentState maps a computer state to the words the page shows.
@@ -524,7 +526,7 @@ func (s *Server) accountAdmin() bool {
 }
 
 func (s *Server) environmentsView(ctx context.Context) environmentsView {
-	out := environmentsView{Environments: []environmentItem{}, Policy: s.capabilitiesView()[capComputer]}
+	out := environmentsView{Environments: []environmentItem{}, Policy: s.capabilitiesView()[capComputer], Move: s.homeMove.view()}
 	if computerUsesOrgE2B(s.policy()[capComputer]) {
 		// The organization's computer is the only one listed: no own key, no choice, no add.
 		s.orgE2BEnvironmentView(ctx, &out)
@@ -855,17 +857,31 @@ func (s *Server) useEnvironment(w http.ResponseWriter, r *http.Request, id strin
 		if cur != nil && cur.Kind() == envKindE2B {
 			break
 		}
-		if cur != nil {
-			if _, err := s.DetachVM(r.Context(), detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
-				writeErr(w, http.StatusConflict, "busy", "The Bot computer could not be released. Try again.")
+		if cur == nil {
+			if err := s.attachProvider(p); err != nil {
+				writeErr(w, http.StatusConflict, "busy", "Could not switch the Bot computer. Try again.")
 				return
 			}
+			s.saveBotComputerChoice(envKindE2B)
+			break
 		}
-		if err := s.attachProvider(p); err != nil {
-			writeErr(w, http.StatusConflict, "busy", "Could not switch the Bot computer. Try again.")
+		// VM -> E2B: home moves while the VM is still the Bot computer; the switch happens only after it arrived.
+		if !s.startHomeMove(envKindE2B, func(ctx context.Context, bot, moveID string) error {
+			if err := s.moveHomeFunc()(ctx, s.attachedGuest(bot, moveID), standbyGuest(p, bot, moveID), moveID); err != nil {
+				return err
+			}
+			if _, err := s.DetachVM(ctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
+				return homeMoveError{"busy"}
+			}
+			if err := s.attachProvider(p); err != nil {
+				return homeMoveError{"busy"}
+			}
+			s.saveBotComputerChoice(envKindE2B)
+			return nil
+		}) {
+			writeErr(w, http.StatusConflict, "busy", "A switch is already in progress.")
 			return
 		}
-		s.saveBotComputerChoice(envKindE2B)
 	case computer.DefaultID, envKindVM:
 		if s.computerFactory == nil {
 			writeErr(w, http.StatusConflict, "not_available", "This account has no computer on this server.")
@@ -874,32 +890,66 @@ func (s *Server) useEnvironment(w http.ResponseWriter, r *http.Request, id strin
 		if cur != nil && cur.Kind() != envKindE2B {
 			break
 		}
-		if cur != nil {
-			if _, err := s.DetachVM(r.Context(), detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
-				writeErr(w, http.StatusConflict, "busy", "The Bot computer could not be released. Try again.")
+		if cur == nil {
+			if err := s.AttachVM(r.Context()); err != nil && !errors.Is(err, errComputerAttached) {
+				writeErr(w, http.StatusConflict, "busy", "Could not switch the Bot computer. Try again.")
 				return
 			}
-			if p := s.e2bCurrent(); p != nil {
-				go func() {
-					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-					defer cancel()
-					if err := p.Pause(ctx); err != nil {
-						log.Printf("[environments] pause E2B computer: %s", e2bErrorCode(err))
-					}
-				}()
-			}
+			s.saveBotComputerChoice(envKindVM)
+			break
 		}
-		if err := s.AttachVM(r.Context()); err != nil && !errors.Is(err, errComputerAttached) {
-			writeErr(w, http.StatusConflict, "busy", "Could not switch the Bot computer. Try again.")
+		// E2B -> VM: the VM can only be reached attached, so it is attached first and E2B is read beside it. A failed
+		// move puts E2B back as the Bot computer; E2B is paused only after its home arrived on the VM.
+		p := s.e2bCurrent()
+		if !s.startHomeMove(envKindVM, func(ctx context.Context, bot, moveID string) error {
+			if _, err := s.DetachVM(ctx, detachWaitDefault); err != nil && !errors.Is(err, errComputerNone) {
+				return homeMoveError{"busy"}
+			}
+			if err := s.AttachVM(ctx); err != nil && !errors.Is(err, errComputerAttached) {
+				_ = s.attachProvider(p)
+				return homeMoveError{"busy"}
+			}
+			if err := s.moveHomeFunc()(ctx, standbyGuest(p, bot, moveID), s.attachedGuest(bot, moveID), moveID); err != nil {
+				if _, derr := s.DetachVM(ctx, detachWaitDefault); derr == nil || errors.Is(derr, errComputerNone) {
+					_ = s.attachProvider(p)
+				}
+				return err
+			}
+			s.saveBotComputerChoice(envKindVM)
+			if err := p.Pause(ctx); err != nil {
+				log.Printf("[environments] pause E2B computer: %s", e2bErrorCode(err))
+			}
+			return nil
+		}) {
+			writeErr(w, http.StatusConflict, "busy", "A switch is already in progress.")
 			return
 		}
-		s.saveBotComputerChoice(envKindVM)
 	default:
 		writeErr(w, http.StatusNotFound, "not_found", "No such environment.")
 		return
 	}
 	s.touchWorkspace()
 	writeJSON(w, http.StatusAccepted, s.environmentsView(r.Context()))
+}
+
+// startHomeMove runs a switch that moves the home directory in the background; the view reports it (move.phase).
+// False when a switch is already running.
+func (s *Server) startHomeMove(target string, job func(ctx context.Context, bot, moveID string) error) bool {
+	if !s.homeMove.begin(target) {
+		return false
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), homeMoveDeadline+10*time.Minute)
+		defer cancel()
+		moveID := newHomeMoveID()
+		err := job(ctx, s.homeMoveBot(), moveID)
+		if err != nil {
+			log.Printf("[environments] home move %s to %s failed: %v", moveID, target, err)
+		}
+		s.homeMove.end(err)
+		s.touchWorkspace()
+	}()
+	return true
 }
 
 // forgetBotComputerRow deletes the Bot computer's row after its E2B computer

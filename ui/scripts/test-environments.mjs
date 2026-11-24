@@ -99,7 +99,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const page = await context.newPage();
     page.on("pageerror", error => errors.push(`pageerror: ${error.message}`));
     const calls = [];
-    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, policy: state?.policy, upgrade: state?.upgrade ?? "ok", afterUpgrade: state?.afterUpgrade, pairing: {status: "pending"}, settings: structuredClone(routingSettings)};
+    const scenario = {environments: state?.environments ?? [vm(), e2b(), mac()], add: state?.add, e2bState: state?.e2bState ?? null, put: state?.put, move: state?.move, policy: state?.policy, upgrade: state?.upgrade ?? "ok", afterUpgrade: state?.afterUpgrade, pairing: {status: "pending"}, settings: structuredClone(routingSettings)};
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url()), method = request.method(), path = url.pathname;
       if (url.origin !== origin) { await route.abort(); return; }
@@ -114,7 +114,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         return json(route,200,{items:scenario.settings});
       }
       if (path === "/api/preferences") return json(route, 200, {timezone: "America/Los_Angeles", timezone_configured: true});
-      if (path === "/api/environments" && method === "GET") return json(route, 200, body(scenario.environments, scenario.add, scenario.e2bState, scenario.policy));
+      if (path === "/api/environments" && method === "GET") return json(route, 200, {...body(scenario.environments, scenario.add, scenario.e2bState, scenario.policy), ...(scenario.move ? {move: scenario.move} : {})});
       if (path === "/api/environments/e2b" && method === "PUT") {
         const sent = JSON.parse(text);
         if (scenario.put === "invalid") return json(route, 400, {error: {code: "invalid_key", message: "E2B rejected the key"}});
@@ -266,6 +266,27 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(calls.at(-1), "DELETE /api/environments/e2b");
     await row(page, "e2b").waitFor({state: "detached"});
     await close();
+  }
+
+  // ---- 4b. A switch that moves the home folder: the confirmation says what moves; while it runs the page says so and
+  //          offers no second switch; a failure names its reason and says the current computer is unchanged.
+  {
+    const {page, close} = await open({tab: "computer"});
+    await rows(page).first().waitFor();
+    await page.locator(".env-spare").getByRole("button", {name: "Switch"}).click();
+    const confirm = page.getByRole("alertdialog");
+    assert.match((await confirm.innerText()).replace(/\s+/g, " "), /home folder .* moves to E2B cloud computer\. Installed software and browser sign-ins don't move/);
+    await confirm.getByRole("button", {name: "Cancel"}).click();
+    await close();
+    const moving = await open({tab: "computer"}, {state: {move: {phase: "moving", target: "e2b", error_code: ""}}});
+    await moving.page.locator('.env-move[data-move="moving"]').waitFor();
+    assert.match(await moving.page.locator(".env-move").innerText(), /Moving files to E2B cloud computer…/);
+    assert.equal(await moving.page.locator(".env-spare").count(), 0, "no second Switch while a switch runs");
+    await moving.close();
+    const failed = await open({tab: "computer"}, {state: {move: {phase: "failed", target: "e2b", error_code: "target_disk_full"}}});
+    await failed.page.locator('.env-move[data-move="failed"]').waitFor();
+    assert.match((await failed.page.locator(".env-move").innerText()).replace(/\s+/g, " "), /The switch did not finish\. The current computer is unchanged\. The new computer doesn't have enough free space for the home folder\./);
+    await failed.close();
   }
 
   // ---- 5. A Mac in the list (another Mac, or any Mac seen from a browser): Disconnect confirms, then DELETE /api/computers/{id}.

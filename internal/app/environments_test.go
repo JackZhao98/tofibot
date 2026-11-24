@@ -187,6 +187,8 @@ func TestSwitchTheBotComputerBetweenVMAndE2B(t *testing.T) {
 	vm := newFakeComputer(computer.DefaultID)
 	vm.kind = computer.KindFirecracker
 	s.computerFactory = func() (computer.Provider, error) { return vm, nil }
+	moves := 0
+	s.homeMover = func(context.Context, guestCall, guestCall, string) error { moves++; return nil }
 	if err := s.AttachVM(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -212,6 +214,11 @@ func TestSwitchTheBotComputerBetweenVMAndE2B(t *testing.T) {
 	if rec := providerRequest(t, s, http.MethodPost, "/api/environments/e2b/use", ""); rec.Code != http.StatusAccepted {
 		t.Fatalf("use e2b: %d %s", rec.Code, rec.Body.String())
 	}
+	// The switch moves the home folder in the background first (home_move.go).
+	envWait(t, "the switch to E2B", func() bool { return s.homeMove.view() == nil && s.botComputerIsE2B() })
+	if moves != 1 {
+		t.Fatalf("home moved %d times, want 1", moves)
+	}
 	if !s.botComputerIsE2B() || s.botComputerChoice() != envKindE2B {
 		t.Fatal("the E2B computer is not the Bot computer")
 	}
@@ -225,6 +232,10 @@ func TestSwitchTheBotComputerBetweenVMAndE2B(t *testing.T) {
 
 	if rec := providerRequest(t, s, http.MethodPost, "/api/environments/firecracker/use", ""); rec.Code != http.StatusAccepted {
 		t.Fatalf("use vm: %d %s", rec.Code, rec.Body.String())
+	}
+	envWait(t, "the switch back to the VM", func() bool { return s.homeMove.view() == nil && s.computer() == vm })
+	if moves != 2 {
+		t.Fatalf("home moved %d times, want 2", moves)
 	}
 	if s.computer() != vm || s.botComputerChoice() != envKindVM {
 		t.Fatal("the VM did not come back")
@@ -393,5 +404,32 @@ func TestE2BSecretsStayOutOfTheCredentialsList(t *testing.T) {
 		if rec := providerRequest(t, s, http.MethodDelete, "/api/computer/credentials/"+id, ""); rec.Code == http.StatusOK {
 			t.Fatalf("the credentials route deleted %s", id)
 		}
+	}
+}
+
+func TestAFailedHomeMoveKeepsTheCurrentBotComputer(t *testing.T) {
+	fake := &fakeE2B{}
+	fake.serve(t)
+	s := newRegistryServer(t)
+	vm := newFakeComputer(computer.DefaultID)
+	vm.kind = computer.KindFirecracker
+	s.computerFactory = func() (computer.Provider, error) { return vm, nil }
+	s.homeMover = func(context.Context, guestCall, guestCall, string) error { return homeMoveError{"target_disk_full"} }
+	if err := s.AttachVM(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if rec := providerRequest(t, s, http.MethodPut, "/api/environments/e2b", `{"api_key":"`+testE2BKey+`"}`); rec.Code != http.StatusOK {
+		t.Fatalf("key: %d %s", rec.Code, rec.Body.String())
+	}
+	envWait(t, "the template", func() bool { p := s.e2bCurrent(); return p != nil && p.Status().Phase == "ready" })
+	if rec := providerRequest(t, s, http.MethodPost, "/api/environments/e2b/use", ""); rec.Code != http.StatusAccepted {
+		t.Fatalf("use e2b: %d %s", rec.Code, rec.Body.String())
+	}
+	envWait(t, "the failed move", func() bool { v := s.homeMove.view(); return v != nil && v.Phase == "failed" })
+	if s.computer() != vm || s.botComputerIsE2B() {
+		t.Fatal("a failed move must leave the VM as the Bot computer")
+	}
+	if v := environments(t, s); v.Move == nil || v.Move.ErrorCode != "target_disk_full" {
+		t.Fatalf("view move = %+v", v.Move)
 	}
 }

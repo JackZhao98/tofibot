@@ -515,12 +515,16 @@
       "guest_outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn, um ihn weiter zu nutzen. Das Upgrade ersetzt diesen Computer; Dateien darauf werden entfernt.",
       "computer_upgrade_failed": "Der Computer konnte nicht aktualisiert werden. Versuchen Sie es erneut.",
       "not_outdated": "Dieser Computer ist bereits auf dem neuesten Stand.",
-      "computer_busy": "Der Computer ist ausgelastet. Versuchen Sie es erneut, wenn die laufende Arbeit beendet ist."
+      "computer_busy": "Der Computer ist ausgelastet. Versuchen Sie es erneut, wenn die laufende Arbeit beendet ist.",
+      "home_too_large": "Der Home-Ordner ist größer als 4 GB und kann nicht verschoben werden.",
+      "target_disk_full": "Auf dem neuen Computer ist nicht genug Platz für den Home-Ordner.",
+      "move_failed": "Der Home-Ordner konnte nicht kopiert werden. Nichts wurde geändert; versuchen Sie es erneut.",
+      "busy": "Der Bot-Computer ist belegt. Versuchen Sie es nach der aktuellen Aufgabe erneut."
     },
     "confirm": {
       "use": {
         "title": "{{name}} für Bots nutzen?",
-        "body": "Laufende Arbeit wird zuerst beendet. Danach nutzen alle Bots diesen Computer, der aktuelle wird inaktiv.",
+        "body": "Laufende Arbeit wird zuerst beendet. Der Home-Ordner (Dateien, die Bots erstellt und gespeichert haben) wird zu {{name}} verschoben. Installierte Software und Browser-Anmeldungen werden nicht verschoben; Bots melden sich dort erneut an. Der aktuelle Computer wird zurückgestellt.",
         "action": "Für Bots nutzen"
       },
       "remove": {
@@ -791,6 +795,11 @@
     "disconnect": {
       "title": "Trennen",
       "body": "Bots verlieren den Zugriff auf diesen Mac. Neu verbinden über Tofi auf dem Mac."
+    },
+    "move": {
+      "moving": "Dateien werden zu {{name}} verschoben…",
+      "moving_note": "Der Home-Ordner wird kopiert, dann wechseln die Bots. Bis dahin arbeitet der aktuelle Computer weiter.",
+      "failed": "Der Wechsel wurde nicht abgeschlossen. Der aktuelle Computer ist unverändert."
     }
   }
 }

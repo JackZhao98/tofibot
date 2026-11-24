@@ -383,6 +383,9 @@ type Server struct {
 	computerFactory func() (computer.Provider, error)
 	// e2bEnv is the account's E2B cloud computer, set up or not (environments.go).
 	e2bEnv e2bEnvironment
+	// homeMove is a switch between the VM and E2B that moves the home directory (home_move.go).
+	homeMove  homeMoveState
+	homeMover func(ctx context.Context, from, to guestCall, moveID string) error
 	// computerBeatCancel stops the heartbeat sweep of personal computers.
 	computerBeatCancel    context.CancelFunc
 	computerBeatDone      chan struct{}

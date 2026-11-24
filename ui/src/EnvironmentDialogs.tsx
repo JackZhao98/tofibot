@@ -22,7 +22,7 @@ const E2B_KEYS_URL = "https://e2b.dev/dashboard?tab=keys";
 /** The dialogs sit inside the page body, so the settings styles that scope to `.settings-page-body` still reach them. */
 const pageContainer = () => document.querySelector<HTMLElement>('.settings-content [data-page="computer"]');
 
-const knownErrors = ["invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable", "org_resource_missing", "not_ready", "guest_outdated_required", "computer_upgrade_failed", "not_outdated", "computer_busy"] as const;
+const knownErrors = ["home_too_large", "target_disk_full", "move_failed", "busy", "invalid_key", "e2b_unreachable", "e2b_limit", "image_missing", "template_build_failed", "sandbox_failed", "guest_unreachable", "sandbox_gone", "token_unreadable", "org_resource_missing", "not_ready", "guest_outdated_required", "computer_upgrade_failed", "not_outdated", "computer_busy"] as const;
 export const reasonKey = (code: string) => (knownErrors as readonly string[]).includes(code) ? code : "generic";
 
 /** Copy button with the same glyph the rest of the app uses; clipboard failures stay silent (the text is selectable). */
