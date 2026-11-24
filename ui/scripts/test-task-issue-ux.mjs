@@ -25,7 +25,7 @@ try {
  // The blocked step is red on the step itself; only the run-level overload raises a card.
  assert.equal(issue.kind,"provider_busy");assert(!issue.facts.join(" ").includes("本次工具调用未执行"));assert(!issue.secondary.join(" ").includes("执行前检查"));
  assert(html.includes('task-step is-not_executed is-problem'));assert(html.includes("task-step-problem"));assert(html.includes("执行前检查缺少必要信息"));assert(!html.includes("复制诊断信息"));
- assert.equal((html.match(/class="task-issue-card"/g)||[]).length,1);assert(!html.includes("data-valid-proposal"));assert(!html.includes('role="status"'));
+ assert.equal((html.match(/class="task-issue-card tb-plan"/g)||[]).length,1);assert(!html.includes("data-valid-proposal"));assert(!html.includes('role="status"'));
  const diagnostic=p.taskDiagnostics(issue);for(const secret of ["PRIVATE_SECRET","PRIVATE_BODY","PRIVATE_REASONING","synthetic@example.invalid"]) assert(!diagnostic.includes(secret));assert(diagnostic.includes("intent_provenance_unverified"));assert(diagnostic.includes("server_is_overloaded"));assert(diagnostic.includes("not_executed"));
  console.log("PASS 1: blocked step marked on the step, run-level overload card, diagnostic allowlist");
  // 2. Overload preserves completed facts and incomplete paging, never grants replay.

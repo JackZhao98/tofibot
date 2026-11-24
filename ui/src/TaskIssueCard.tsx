@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { TofiIcon } from "./icons";
 import { taskDiagnostics, type TaskIssueView } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
+import "./ds/StepList/StepList.css";
 import "./task-issue-card.css";
 
 /** Neutral section: the task's single announcement channel owns live speech. */
@@ -39,8 +40,10 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
       report(retry ? (cause instanceof Error && cause.message ? t("issue.retry_failed_reason", { error: cause.message }) : t("issue.retry_failed")) : t("issue.status_unavailable"));
     } finally { inFlight.current = false; setBusy(false); setRetrying(false); }
   }
-  return <section className="task-issue-card" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
-    <div className="task-issue-heading"><TofiIcon name={issue.kind === "tool_setup" ? "plug" : "alert"} size={20} aria-hidden="true" /><h3 id={heading} tabIndex={-1}>{issue.title}</h3></div>
+  // V3 4.4: a run failure reads as the failed step of a one-step StepList (kit paper, stamp cross, reason, one action, Details folded).
+  return <section className="task-issue-card tb-plan" data-issue-kind={issue.kind} data-issue-phase={issue.phase} aria-labelledby={heading} aria-busy={busy}>
+    <ol className="tb-plan-list"><li className="tb-plan-step is-failed"><span className="tb-plan-sig" aria-hidden="true"><i /></span><span className="tb-plan-body task-issue-body">
+    <div className="task-issue-heading"><h3 id={heading} className="tb-plan-text" tabIndex={-1}>{issue.title}</h3></div>
     {issue.facts.map((fact, index) => {
       const link = issue.links?.[index];
       // A named step opens its own record; the rest of the sentence stays plain text.
@@ -50,5 +53,6 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
     <div className="task-issue-actions">{issue.retryable && onRetry && <button type="button" className="primary-button" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{retrying ? t("issue.retrying") : t("issue.action.retry")}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy && !retrying ? t("issue.working") : issue.actionLabel}</button></div>
     <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
+    </span></li></ol>
   </section>;
 }

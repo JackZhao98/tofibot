@@ -1,11 +1,12 @@
 @layer legacy {
 .task-run-block{width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-3);color:var(--text-body);font:var(--type-body);overflow-wrap:anywhere}
 .task-run-phase,.task-run-identity{margin:0 0 var(--space-2);font:var(--type-row-title);color:var(--text-secondary)}
-.task-issue-card{position:relative;min-width:0;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);padding:var(--space-4)}
-.task-issue-heading{display:flex;align-items:flex-start;gap:var(--space-2);margin-block-end:var(--space-3)}
-.task-issue-heading>svg{flex:none;color:var(--status-error-text)}
-.task-issue-heading h3{font:var(--type-row-title);margin:0;min-width:0}
-.task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-2) 0 0;font:var(--type-body)}
+.task-issue-card{min-width:0;padding:16px 18px 12px}
+.task-issue-body{display:block;min-width:0}
+.task-issue-heading{margin:0}
+.task-issue-heading h3{display:inline;font:inherit;font-weight:500;margin:0;min-width:0}
+.task-issue-fact,.task-issue-context,.task-issue-feedback{margin:var(--space-1) 0 0;font:var(--type-meta)}
+.task-issue-fact{color:var(--danger-text)}
 .task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;}
 .task-fact-link:hover{text-decoration-color:currentColor}
 .task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:3px}
