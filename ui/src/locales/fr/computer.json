@@ -370,28 +370,6 @@
   "kind": {
     "vm": "VM intégrée"
   },
-  "none": {
-    "title": "Ce serveur n'a pas d'ordinateur Bot",
-    "body": "Les Bots fonctionnent sans : ils discutent, retiennent, suivent des planifications et utilisent les services connectés. Ce qui demande un vrai navigateur, un shell ou un bureau attend qu'un ordinateur Bot soit ajouté.",
-    "options": "Ajouter un ordinateur Bot",
-    "soon": "Bientôt",
-    "kvm": {
-      "name": "VM intégrée",
-      "what": "Faites tourner les ordinateurs Bot sur le matériel de ce serveur. L'hôte doit avoir KVM et au moins 4 Gio de mémoire.",
-      "run": "À exécuter sur l'hôte du serveur :",
-      "after": "Cette page se met à jour toute seule dès que l'ordinateur Bot est rattaché."
-    },
-    "own": {
-      "name": "Ton propre ordinateur",
-      "what": "Laissez un Bot travailler sur un Mac que vous possédez déjà. Installez-y l’app Tofi pour Mac et activez « Contrôler ce Mac à distance »."
-    },
-    "e2b": {
-      "name": "Ordinateur cloud E2B",
-      "what": "Loue un ordinateur Bot chez E2B avec ta propre clé.",
-      "add": "Ajouter un ordinateur cloud E2B"
-    },
-    "add": "Ajouter"
-  },
   "contents": {
     "title": "Ce qui se trouve sur cet ordinateur Bot",
     "description": "Ces éléments sont sur l’ordinateur Bot, pas sur le serveur. Si l’ordinateur Bot est réinitialisé ou remplacé, ils sont perdus.",
@@ -488,23 +466,15 @@
     }
   },
   "environments": {
-    "description": "Là où les Bots travaillent. L’ordinateur Bot sert tous les Bots ; un Mac les sert tant que le contrôle à distance est activé.",
     "unavailable": "Impossible de charger les environnements.",
     "stale": "Impossible d’actualiser les environnements. Dernier résultat affiché.",
     "retry": "Réessayer",
     "loading": "Chargement des environnements…",
-    "empty": "Aucun environnement pour l’instant. Ajoutez-en un pour que les Bots travaillent au-delà du chat.",
-    "add": "Ajouter un environnement",
-    "add_menu": {
-      "e2b": "Ordinateur cloud E2B",
-      "vm": "Ordinateur Bot sur ce serveur"
-    },
     "name": {
       "vm": "Ce serveur",
       "e2b": "Ordinateur cloud E2B",
       "mac": "Mac"
     },
-    "bot_computer": "Ordinateur Bot",
     "access": {
       "all_bots": "Utilisé par tous les Bots",
       "allowed_on_mac": "Utilisé par tous les Bots tant que le contrôle à distance est activé",
@@ -535,7 +505,6 @@
       "details": "Détails"
     },
     "more": "Autres actions pour {{name}}",
-    "attach_title": "Ordinateur Bot",
     "error": {
       "generic": "Impossible de terminer. Réessayez.",
       "invalid_key": "E2B n’a pas accepté la clé API.",
@@ -602,10 +571,6 @@
       "title": "Configurer l’ordinateur Bot",
       "provided_title": "Détails de l’ordinateur du Bot"
     },
-    "provided": "Fourni par votre organisation",
-    "provided_note": "Votre organisation fournit cet ordinateur de Bot. Sa clé et son image sont gérées par votre administrateur.",
-    "none_title": "Votre administrateur n’a pas attribué d’ordinateur de Bot",
-    "none_body": "Les Bots fonctionnent sans ordinateur tant qu’aucun n’est attribué. Vos Mac peuvent toujours être connectés.",
     "outdated": "Une image d’ordinateur plus récente est disponible. La mise à jour remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
     "image_preparing": "L’image d’ordinateur est en cours de construction. Cela prend quelques minutes.",
     "image_building": "Une image d’ordinateur plus récente est en cours de construction.",
@@ -619,7 +584,6 @@
       "in_use": "Un Bot l'utilise",
       "in_use_by": "Utilisé par {{name}}",
       "hotkey_taken": "Une autre app utilise le raccourci d’arrêt. Utilisez « Arrêter » sur cette ligne.",
-      "browser": "Pour ajouter un Mac, installez l’app Tofi pour Mac, ouvrez Réglages › Environnements et activez « Contrôler ce Mac à distance ».",
       "state": {
         "available": "Disponible",
         "in_use": "En cours d’utilisation",
@@ -777,5 +741,50 @@
     "empty_title": "Navigateur du Bot",
     "empty_body": "Les pages ouvertes par le Bot s’affichent ici. Vous pouvez aussi saisir une adresse.",
     "hand_back_short": "Rendre"
+  },
+  "devices": {
+    "bot": {
+      "title": "Ordinateur du Bot",
+      "description": "L’ordinateur sur lequel travaillent les Bots. Un par compte.",
+      "unassigned_title": "Aucun ordinateur de Bot attribué",
+      "unassigned_body": "Un administrateur attribue les ordinateurs de Bot. Discussions, mémoire, planifications et connexions fonctionnent sans.",
+      "managed": "Géré par votre organisation"
+    },
+    "kind": {
+      "vm": "VM intégrée",
+      "vm_sub": "S’exécute sur ce serveur",
+      "e2b": "Ordinateur cloud E2B",
+      "e2b_sub": "Clé {{hint}} · Facturé par E2B",
+      "e2b_billed": "Facturé par E2B"
+    },
+    "add": {
+      "vm_body": "VM Firecracker sur ce serveur. Nécessite KVM et 4 Gio de mémoire.",
+      "vm_member": "Attribué par un administrateur.",
+      "e2b_body": "S’exécute dans votre compte E2B. Facturé à la seconde par E2B ; en pause quand il est inactif."
+    },
+    "action": {
+      "setup": "Installer",
+      "add": "Ajouter"
+    },
+    "second": {
+      "ready": "{{name}} est prêt.",
+      "switch": "Basculer"
+    },
+    "mine": {
+      "title": "Mes appareils",
+      "description": "Les ordinateurs que vous avez connectés. Les Bots ne les utilisent qu’avec les accès accordés sur chacun.",
+      "empty_title": "Aucun appareil connecté",
+      "empty_body": "Installez Tofi pour Mac et connectez-vous à ce serveur. Le Mac apparaîtra ici.",
+      "disabled": "Ce serveur n’autorise pas les appareils personnels."
+    },
+    "cap": {
+      "remote": "Contrôle à distance",
+      "browser": "Navigateur",
+      "folders": "Dossiers"
+    },
+    "mac": {
+      "no_access": "Aucun accès accordé",
+      "last_seen": "Vu pour la dernière fois {{time}}"
+    }
   }
 }

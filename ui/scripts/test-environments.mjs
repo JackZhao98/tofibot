@@ -154,8 +154,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, calls, close} = await open({tab:"computer"});
     const macRow = row(page,"mac_ab12");
     await macRow.waitFor();
-    assert.deepEqual(await macRow.locator("[data-feature]").evaluateAll(items => items.map(item => item.dataset.status)), ["connected","disconnected","off","off"]);
-    for (const word of ["Built-in browser","Desktop control","Files","Commands","Connected","Disconnected","Off"]) assert.ok((await macRow.innerText()).includes(word));
+    // Devices: a Mac's row names what it is connected for (only the browser here); the feature badges are gone.
+    assert.equal(await macRow.locator("[data-feature]").count(), 0);
+    assert.match((await macRow.innerText()).replace(/\s+/g, " "), /Jack's MacBook Pro Browser/);
     for (const [key, label, choice] of [["environment_order_web","Preferred environment (web and mobile)","Mac"],["environment_order_app","Preferred environment (Mac app)","Bot computer"]]) {
       const control = page.getByRole("combobox",{name:label});
       await control.click(); await page.getByRole("option",{name:choice,exact:true}).click();
@@ -175,14 +176,15 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, close} = await open({tab: "computer"});
     await rows(page).first().waitFor();
-    assert.deepEqual(await names(page), ["This server", "E2B cloud computer", "Jack's MacBook Pro"]);
-    assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Environments");
-    assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Used by all Bots Ready/);
-    assert.equal(await page.locator(".env-tag").count(), 1, "one environment carries the Bot computer tag");
-    assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /E2B cloud computer Not in use Asleep/);
-    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Used by all Bots while remote control is on Connected: Built-in browser Disconnected: Desktop control Off: Files, Commands Online/, "access line, the features grouped by status, then the state");
+    // One Bot computer is drawn; the idle E2B beside it is a note with Switch and Remove. The Mac is under My devices.
+    assert.deepEqual(await names(page), ["Built-in VM", "Jack's MacBook Pro"]);
+    assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Devices");
+    assert.equal((await row(page, "firecracker").innerText()).replace(/\s+/g, " ").trim(), "Built-in VM Runs on this server Configure", "no tag, no access line, no Ready badge");
+    assert.equal(await page.locator(".env-tag").count(), 0);
+    assert.match((await page.locator(".env-spare").innerText()).replace(/\s+/g, " "), /E2B cloud computer is ready\. Switch Remove/);
+    assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Jack's MacBook Pro Browser/);
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);
-    assert.deepEqual(await buttons(row(page, "e2b")), ["use"], "remove sits in the row menu");
+    assert.deepEqual(await buttons(page.locator(".env-spare")), ["use", "remove"]);
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
     assert.equal(await page.locator(".resource-grid").count(), 0, "the size grid is behind Configure");
     assert.equal(await page.locator(".computer-contents, .device-pairing-code, .environment-summary").count(), 0, "no old cards");
@@ -200,7 +202,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(await buttons(row(page, "e2b")), ["retry"]);
     assert.equal(await row(page, "e2b").locator('[data-error-code="template_build_failed"]').innerText(), "E2B couldn't build the computer image.", "a named reason, one line");
     assert.match(await row(page, "e2b").locator(".env-reason-detail").innerText(), /image pull denied/);
-    assert.equal(await page.locator(".env-add").count(), 0, "nothing to add: no Add environment button");
+    assert.equal(await page.locator("[data-add]").count(), 0, "nothing to add");
     await close();
   }
 
@@ -208,9 +210,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, calls, scenario, close} = await open({tab: "computer"}, {state: {environments: [vm(), mac()], put: "invalid"}});
     await rows(page).first().waitFor();
-    await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer"], "no Your Mac item, and no host command item without add.vm_command");
-    await page.locator('.env-add-menu [data-add="e2b"]').click();
+    assert.deepEqual(await page.locator("[data-add]").evaluateAll(list => list.map(item => item.dataset.add)), ["e2b"], "only E2B can be added beside the VM; a Mac connects from the Mac");
+    await page.locator('[data-add="e2b"]').click();
     const dialog = page.getByRole("dialog", {name: "Add E2B cloud computer"});
     await dialog.waitFor();
     assert.equal(await dialog.locator("input[type=password]").evaluate(node => document.activeElement === node), true, "focus lands on the key field");
@@ -232,7 +233,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(calls.at(-1), 'PUT /api/environments/e2b {"api_key":"e2b_goodkey9","template_id":"tpl_cli_1"}');
     await row(page, "e2b").waitFor();
     assert.match((await row(page, "e2b").innerText()).replace(/\s+/g, " "), /Preparing/, "the E2B row shows preparing");
-    assert.equal(await page.locator(".env-add").count(), 0, "E2B is set up and a Mac is no menu item: nothing left to add");
+    assert.equal(await page.locator("[data-add]").count(), 0, "E2B is set up: nothing left to add");
     await close();
   }
 
@@ -240,7 +241,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   {
     const {page, calls, close} = await open({tab: "computer"});
     await rows(page).first().waitFor();
-    await row(page, "e2b").getByRole("button", {name: "Use for Bots"}).click();
+    await page.locator(".env-spare").getByRole("button", {name: "Switch"}).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.waitFor();
     assert.match(await confirm.innerText(), /Running work finishes first/);
@@ -248,13 +249,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await confirm.getByRole("button", {name: "Cancel"}).click();
     await confirm.waitFor({state: "detached"});
     assert.equal(calls.length, 0, "Cancel sends nothing");
-    await row(page, "e2b").getByRole("button", {name: "Use for Bots"}).click();
+    await page.locator(".env-spare").getByRole("button", {name: "Switch"}).click();
     await page.getByRole("alertdialog").getByRole("button", {name: "Use for Bots"}).click();
     await page.getByRole("alertdialog").waitFor({state: "detached"});
     assert.deepEqual(calls, ["POST /api/environments/e2b/use"]);
-    await page.locator('.env-row[data-environment="e2b"] .env-tag').waitFor();
-    assert.equal(await page.locator(".env-tag").count(), 1, "the tag moved to E2B");
-    assert.match((await row(page, "firecracker").innerText()).replace(/\s+/g, " "), /Not in use/);
+    await page.locator('.env-row[data-environment="e2b"][data-bot-computer]').waitFor();
+    assert.equal(await row(page, "firecracker").count(), 0, "the VM set aside is a note, not a row");
     // Remove, from the row menu.
     await row(page, "e2b").getByRole("button", {name: "More actions for E2B cloud computer"}).click();
     await page.getByRole("menuitem", {name: "Remove"}).or(page.locator(".env-menu button", {hasText: "Remove"})).first().click();
@@ -284,10 +284,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // ---- 6. Configure opens the size controls in a dialog; the host command item exists only with add.vm_command.
   {
     const {page, close} = await open({tab: "computer"}, {state: {environments: [], add: {e2b: true, mac: true, vm_command: "sudo tofi computer add kvm"}}});
-    await page.locator(".env-add").waitFor();
-    await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer", "Bot computer on this server"]);
-    await page.locator('.env-add-menu [data-add="vm"]').click();
+    await page.locator('[data-add="vm"]').waitFor();
+    assert.deepEqual(await page.locator("[data-add]").evaluateAll(list => list.map(item => item.dataset.add)), ["vm", "e2b"], "one row per kind, in the names the filled rows use");
+    await page.locator('[data-add="vm"]').click();
     const dialog = page.getByRole("dialog", {name: "Add a Bot computer on this server"});
     assert.equal((await dialog.locator("[data-computer-command]").innerText()).trim(), "sudo tofi computer add kvm");
     await dialog.getByRole("button", {name: "Close"}).click();
@@ -313,11 +312,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await toggle.isChecked(), false, "off until the person turns it on");
     assert.equal(await page.locator(".rc-block").getByText(RC.off).count(), 1);
     assert.equal(await page.locator('[data-environment="this-mac"]').count(), 0, "no this-Mac row while it is off");
-    assert.equal(await page.locator("[data-add-mac-note]").count(), 0, "the browser paragraph is not shown next to the switch");
     // No pairing code anywhere, no "Your Mac" add item, no Open Mac settings button, no pairing request.
-    await page.locator(".env-add").click();
-    assert.deepEqual(await page.locator(".env-add-menu button").allInnerTexts(), ["E2B cloud computer"], "no Your Mac menu item");
-    await page.keyboard.press("Escape");
+    assert.equal(await page.locator('[data-add="mac"]').count(), 0, "no Your Mac add item: a Mac connects from the Mac");
     assert.equal(await page.getByRole("button", {name: "Open Mac settings"}).count(), 0);
     assert.equal(await page.getByRole("button", {name: "Connect this Mac"}).count(), 0);
     if (shots) await page.screenshot({path: join(shots, "rc-off-1280.png")});
@@ -334,7 +330,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.match((await browserRow.innerText()).replace(/\s+/g, " "), /Connected: Built-in browser Disconnected: Desktop control Off: Files, Commands/);
     assert.equal(await toggle.isChecked(), true);
     assert.equal(await page.locator(".rc-block").getByText("Actions with consequences still ask you first.", {exact: false}).count(), 1);
-    assert.deepEqual(await names(page), ["This server", "E2B cloud computer"], "the paired Mac is shown once: the this-Mac row, not the list");
+    assert.deepEqual(await names(page), ["Built-in VM"], "the paired Mac is shown once: the this-Mac row, not the list");
     assert.ok(!calls.some(call => call.includes("/pairings")), "the page never creates a pairing code");
     assert.equal(await page.getByText(/[A-Z0-9]{7}/).filter({hasText: /^7Q4K9M2$/}).count(), 0);
     if (shots) await page.screenshot({path: join(shots, "rc-on-1280.png")});
@@ -464,22 +460,16 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await toggle.isDisabled(), true);
     assert.match(await off.page.locator(".rc-note").innerText(), /This server doesn't offer personal computers\./);
     await off.close();
-    const NOTE = "To add a Mac, install the Tofi Mac app, open Settings › Environments there and turn on Remote control this Mac.";
     for (const options of [{}, {desktop: true, bridgeless: true}]) {
       const plain = await open({tab: "computer"}, options);
       await rows(plain.page).first().waitFor();
       assert.equal(await plain.page.getByRole("switch", {name: RC.title}).count(), 0, "no switch without the bridge");
       assert.equal(await plain.page.locator(".rc-block").count(), 0);
-      assert.equal((await plain.page.locator("[data-add-mac-note]").innerText()).trim(), NOTE);
-      assert.deepEqual(await plain.page.locator(".env-add-menu button").count(), 0);
-      assert.deepEqual(await names(plain.page), ["This server", "E2B cloud computer", "Jack's MacBook Pro"], "the paired Mac stays in the list");
+      assert.deepEqual(await plain.page.locator('[data-add="mac"]').count(), 0);
+      assert.deepEqual(await names(plain.page), ["Built-in VM", "Jack's MacBook Pro"], "the paired Mac stays in the list");
       if (shots && !options.desktop) await plain.page.screenshot({path: join(shots, "rc-browser-1280.png")});
       await plain.close();
     }
-    const quiet = await open({tab: "computer"}, {state: {add: {e2b: true, mac: false, vm_command: ""}}});
-    await rows(quiet.page).first().waitFor();
-    assert.equal(await quiet.page.locator("[data-add-mac-note]").count(), 0, "no paragraph on a server without personal computers");
-    await quiet.close();
   }
 
   // Seven languages: every string the switch and the row use is in each catalog.
@@ -514,10 +504,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Provided, VM: the server drops use/remove and the E2B add; the row carries the organization mark.
     const provided = await open({tab: "computer"}, {state: {environments: [vm({actions: ["configure"]}), mac()], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "provided", source: "organization", via: "vm"}}});
     await rows(provided.page).first().waitFor();
-    assert.match((await row(provided.page, "firecracker").innerText()).replace(/\s+/g, " "), /This server Bot computer Provided by your organization Used by all Bots Ready/);
-    assert.equal(await row(provided.page, "firecracker").locator('[data-tag="organization"]').count(), 1);
+    assert.match((await row(provided.page, "firecracker").innerText()).replace(/\s+/g, " "), /^Built-in VM Managed by your organization Details$/);
     assert.deepEqual(await buttons(row(provided.page, "firecracker")), ["configure"], "only what the server allows: no Use for Bots, no Remove");
-    assert.equal(await provided.page.locator(".env-add").count(), 0, "no E2B to add while the organization provides the computer, and no Mac menu item");
+    assert.equal(await provided.page.locator("[data-add]").count(), 0, "no E2B to add while the organization provides the computer, and no Mac menu item");
     assert.equal(await provided.page.locator('[data-section="attach"]').count(), 0);
     if (shots) await provided.page.screenshot({path: join(shots, "policy-provided-1280.png")});
     await provided.close();
@@ -525,7 +514,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Provided, E2B, not attached yet: the page still says whose Bot computer it will be, with no control.
     const waiting = await open({tab: "computer"}, {state: {environments: [], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "provided", source: "organization", via: "e2b"}}});
     await waiting.page.locator('.env-row[data-environment="organization"]').waitFor();
-    assert.match((await waiting.page.locator('.env-row[data-environment="organization"]').innerText()).replace(/\s+/g, " "), /E2B cloud computer Bot computer Provided by your organization Your organization provides this Bot computer/);
+    assert.match((await waiting.page.locator('.env-row[data-environment="organization"]').innerText()).replace(/\s+/g, " "), /^E2B cloud computer Managed by your organization$/);
     assert.equal(await waiting.page.locator('.env-row[data-environment="organization"] button').count(), 0, "no controls on the organization's computer");
     assert.equal(await waiting.page.locator(".environments-page .computer-options, .environments-page [data-computer-command]").count(), 0, "no 'how to add' guide");
     await waiting.close();
@@ -533,7 +522,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // None: a banner, only the Mac, nothing to attach, the host command is not shown even to an administrator of this server.
     const none = await open({tab: "computer", computer: "detached"}, {state: {environments: [mac()], add: {e2b: false, mac: true, vm_command: ""}, policy: {mode: "none", source: "none"}}});
     await rows(none.page).first().waitFor();
-    assert.match(await none.page.locator(".settings-banner").innerText(), /Your administrator has not assigned a Bot computer/);
+    assert.match(await none.page.locator(".tb-empty").first().innerText(), /No Bot computer assigned/);
     assert.deepEqual(await names(none.page), ["Jack's MacBook Pro"]);
     assert.equal(await none.page.locator('[data-section="attach"]').count(), 0, "no way to attach a computer under 'none'");
     assert.ok(!/sudo tofi computer add kvm/.test(await none.page.locator(".environments-page").innerText()), "no host command under 'none'");
@@ -543,7 +532,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Control: the same detached computer under 'host' (today's behavior) still offers Attach.
     const host = await open({tab: "computer", computer: "detached"}, {state: {environments: [mac()], add: {e2b: true, mac: true, vm_command: ""}, policy: {mode: "host", source: "own"}}});
     await rows(host.page).first().waitFor();
-    await host.page.locator('[data-section="attach"]').waitFor();
+    await host.page.locator('[data-offer="vm"] .computer-attach').waitFor();
     assert.equal(await host.page.locator(".settings-banner").count(), 0, "no policy banner under 'host'");
     await host.close();
     console.log("PASS policy: provided names the organization with no key or switch, none leaves only the Mac side, host is unchanged");
@@ -565,7 +554,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const outdated = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy, afterUpgrade: upgraded}, member: true});
     await rows(outdated.page).first().waitFor();
     assert.equal(await rows(outdated.page).count(), 1, "the organization's computer is one row");
-    assert.match(await flat(row(outdated.page, "e2b")), /E2B cloud computer Bot computer Provided by your organization Used by all Bots/);
+    assert.match(await flat(row(outdated.page, "e2b")), /^E2B cloud computer Managed by your organization Newer computer image available\. .* Upgrade$/);
     assert.equal(await flat(row(outdated.page, "e2b").locator("[data-outdated]")), OUTDATED);
     assert.deepEqual(await buttons(row(outdated.page, "e2b")), ["upgrade"]);
     assert.ok(!/e2b_|…[A-Za-z0-9]{4}/.test(await outdated.page.locator(".environments-page").innerText()), "no key hint for the organization's computer");
@@ -611,7 +600,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const building = await open({tab: "computer"}, {state: {environments: [e2b({state: "preparing", actions: []})], add: addNone, e2bState: orgState({phase: "preparing", template_phase: "preparing"}), policy: orgPolicy}, member: true});
     await rows(building.page).first().waitFor();
     assert.equal(await rows(building.page).count(), 1, "no second 'waiting' row beside the preparing computer");
-    assert.match(await flat(row(building.page, "e2b")), /E2B cloud computer Bot computer Provided by your organization The computer image is being built\. This takes a few minutes\. Preparing/);
+    assert.match(await flat(row(building.page, "e2b")), /^E2B cloud computer Managed by your organization The computer image is being built\. This takes a few minutes\. Preparing$/);
     assert.ok(!/Not in use/.test(await flat(row(building.page, "e2b"))), "no 'Not in use' line on the organization's computer");
     assert.equal(await flat(row(building.page, "e2b").locator('[data-template="preparing"]')), "The computer image is being built. This takes a few minutes.");
     assert.equal(await row(building.page, "e2b").locator("button").count(), 0, "nothing to retry: the organization builds it once");

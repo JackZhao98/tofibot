@@ -368,28 +368,6 @@
   "kind": {
     "vm": "內建虛擬機"
   },
-  "none": {
-    "title": "這台伺服器還沒有 Bot 電腦",
-    "body": "沒有 Bot 電腦，Bot 照樣能聊天、記事、依排程執行任務、使用已連接的服務。需要真實瀏覽器、命令列或桌面的工作，要等新增 Bot 電腦後才能做。",
-    "options": "新增 Bot 電腦",
-    "soon": "即將推出",
-    "kvm": {
-      "name": "內建虛擬機",
-      "what": "在這台伺服器自己的硬體上執行 Bot 電腦。主機需要支援 KVM，且至少有 4 GiB 記憶體。",
-      "run": "在伺服器主機上執行：",
-      "after": "Bot 電腦接入後，本頁會自動更新。"
-    },
-    "own": {
-      "name": "你自己的電腦",
-      "what": "讓 Bot 在你已有的 Mac 上工作。在那台 Mac 上安裝 Tofi 桌面版，開啟「遠端控制這台 Mac」。"
-    },
-    "e2b": {
-      "name": "E2B 雲端電腦",
-      "what": "用你自己的金鑰向 E2B 租用一台 Bot 電腦。",
-      "add": "新增 E2B 雲端電腦"
-    },
-    "add": "新增"
-  },
   "contents": {
     "title": "這台 Bot 電腦上有什麼",
     "description": "這些內容存放在 Bot 電腦上，而不是伺服器上。Bot 電腦被清空或更換後，它們會遺失。",
@@ -476,23 +454,15 @@
     }
   },
   "environments": {
-    "description": "Bot 工作的地方。Bot 電腦供所有 Bot 使用；Mac 在遠端控制開啟時供它們使用。",
     "unavailable": "未能載入環境。",
     "stale": "未能重新整理環境，顯示的是上次的結果。",
     "retry": "重試",
     "loading": "正在載入環境…",
-    "empty": "還沒有環境。新增一個，Bot 才能在聊天之外工作。",
-    "add": "新增環境",
-    "add_menu": {
-      "e2b": "E2B 雲端電腦",
-      "vm": "這台伺服器上的 Bot 電腦"
-    },
     "name": {
       "vm": "這台伺服器",
       "e2b": "E2B 雲端電腦",
       "mac": "Mac"
     },
-    "bot_computer": "Bot 電腦",
     "access": {
       "all_bots": "所有 Bot 使用",
       "allowed_on_mac": "遠端控制開啟時，所有 Bot 都能使用",
@@ -523,7 +493,6 @@
       "details": "詳細資料"
     },
     "more": "{{name}} 的更多操作",
-    "attach_title": "Bot 電腦",
     "error": {
       "generic": "操作未完成，請重試。",
       "invalid_key": "E2B 不接受這個 API 金鑰。",
@@ -590,10 +559,6 @@
       "title": "設定 Bot 電腦",
       "provided_title": "Bot 電腦詳細資料"
     },
-    "provided": "由你的組織提供",
-    "provided_note": "這台 Bot 電腦由你的組織提供，金鑰與映像由管理員管理。",
-    "none_title": "管理員還沒有為你分配 Bot 電腦",
-    "none_body": "分配之前，Bot 不使用電腦運行；你的 Mac 仍可以連線。",
     "outdated": "有較新的電腦映像。更新會取代這台電腦，其中的檔案將被移除。",
     "image_preparing": "正在建置電腦映像，需要幾分鐘。",
     "image_building": "正在建置較新的電腦映像。",
@@ -607,7 +572,6 @@
       "in_use": "有 Bot 正在使用",
       "in_use_by": "{{name}} 正在使用",
       "hotkey_taken": "停止快速鍵被其他 App 佔用，請使用這一列的「停止」。",
-      "browser": "要新增 Mac：在那台 Mac 上安裝 Tofi 桌面版，打開 設定 › 環境，開啟「遠端控制這台 Mac」。",
       "state": {
         "available": "可用",
         "in_use": "使用中",
@@ -765,5 +729,50 @@
     "empty_title": "Bot 瀏覽器",
     "empty_body": "Bot 開啟的網頁會顯示在這裡。也可以自己輸入網址瀏覽。",
     "hand_back_short": "交還"
+  },
+  "devices": {
+    "bot": {
+      "title": "Bot 電腦",
+      "description": "Bot 的工作電腦，每個帳戶一台。",
+      "unassigned_title": "未分配 Bot 電腦",
+      "unassigned_body": "Bot 電腦由管理員分配。對話、記憶、排程與連線不受影響。",
+      "managed": "由組織統一管理"
+    },
+    "kind": {
+      "vm": "內建虛擬機",
+      "vm_sub": "執行於本伺服器",
+      "e2b": "E2B 雲端電腦",
+      "e2b_sub": "金鑰 {{hint}} · 由 E2B 計費",
+      "e2b_billed": "由 E2B 計費"
+    },
+    "add": {
+      "vm_body": "本伺服器上的 Firecracker 虛擬機，需要 KVM 與 4 GiB 記憶體。",
+      "vm_member": "由管理員分配。",
+      "e2b_body": "執行於你的 E2B 帳戶，由 E2B 按秒計費，閒置時暫停。"
+    },
+    "action": {
+      "setup": "安裝",
+      "add": "新增"
+    },
+    "second": {
+      "ready": "{{name}}已就緒。",
+      "switch": "切換"
+    },
+    "mine": {
+      "title": "我的裝置",
+      "description": "你已連接的電腦。Bot 僅在你逐台授予的權限內使用。",
+      "empty_title": "未連接裝置",
+      "empty_body": "安裝 Tofi for Mac 並登入本伺服器，這台 Mac 會出現在這裡。",
+      "disabled": "本伺服器未開放個人裝置。"
+    },
+    "cap": {
+      "remote": "遠端控制",
+      "browser": "瀏覽器",
+      "folders": "資料夾"
+    },
+    "mac": {
+      "no_access": "未授予權限",
+      "last_seen": "上次上線 {{time}}"
+    }
   }
 }
