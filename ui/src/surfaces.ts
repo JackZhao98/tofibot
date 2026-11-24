@@ -11,7 +11,7 @@
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
 export type WidgetId = "bot" | "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
-export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage";
+export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage" | "activity";
 export type PageId = "settings";
 export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 

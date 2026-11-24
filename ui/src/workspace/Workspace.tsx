@@ -422,7 +422,7 @@ export function Workspace() {
   // The sidebar view is the one surface the address carries (`?side=tasks`): it is replaced in place, never a history entry, and
   // `tofi:open-sidebar` opens one from anywhere.
   useEffect(() => {
-    const search = withSideParam(window.location.search, sidebarId === "conversation" || sidebarId === "usage" ? null : sidebarId);
+    const search = withSideParam(window.location.search, sidebarId === "conversation" || sidebarId === "usage" || sidebarId === "activity" ? null : sidebarId);
     if (search !== window.location.search) window.history.replaceState(window.history.state, "", window.location.pathname + search + window.location.hash);
   }, [sidebarId]);
   useEffect(() => subscribeSidebarDeepLinks(id => id === "terminal" ? openTerminalRef.current() : openSidebarId(id)), [openSidebarId]);
@@ -1153,6 +1153,8 @@ export function Workspace() {
   }, [computerShown, observable, closeWidgetId]);
   // The "command finished" line in the chat opens the Terminal tab of the Bot that ran the command.
   const [terminalBotId, setTerminalBotId] = useState<string | null>(null);
+  // V3 4.3: the run whose work the Activity sidebar view shows (opened from a reply's 工作过程 or a live line).
+  const [activityRunId, setActivityRunId] = useState<string | null>(null);
   useEffect(() => {
     const open = (event: Event) => {
       const botId = (event as CustomEvent<{ botId?: string }>).detail?.botId;
@@ -2166,10 +2168,10 @@ export function Workspace() {
     return signal?.thinking ? t("live.thinking_about", { headline: signal.thinking }) : run.status === "queued" ? t("live.waiting_start") : t("live.thinking");
   }
   const runHasActivity = (runId: string) => loadedToolActivities.some(activity => activity.run_id === runId) || terminalToolSummaries.some(summary => summary.run_id === runId && summary.tool_count > 0) || messageRecords.some(message => message.run_id === runId && message.kind === "progress");
-  function toggleRunActivity(runId: string) {
-    const opening = !revealedRuns.has(runId);
-    setRevealedRuns(current => { const next = new Set(current); if (opening) next.add(runId); else next.delete(runId); return next; });
-    if (opening) window.setTimeout(() => messageListRef.current?.querySelector<HTMLElement>(`[data-activity-run="${CSS.escape(runId)}"], [data-run-id="${CSS.escape(runId)}"]`)?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }), 60);
+  function openActivitySidebar(runId: string) { setActivityRunId(runId); openSidebarId("activity"); }
+  function toggleActivitySidebar(runId: string) {
+    if (sidebarId === "activity" && activityRunId === runId) { closeSidebarPanel(); return; }
+    openActivitySidebar(runId);
   }
   // Message actions follow the pointer and focus through one delegated handler each: no per-message listeners, no App state.
   const messageIdOf = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>(".message-block")?.dataset.messageId ?? "";
@@ -2228,8 +2230,8 @@ export function Workspace() {
   };
   const ownedAttemptKeys = new Set(taskOwners.flatMap(owner => owner.family.attempts.map(run => `${run.id}|${run.bot_id}|${run.conversation_id}`)));
   const ownedBy = (item: { run_id: string; bot_id: string; conversation_id: string }) => ownedAttemptKeys.has(`${item.run_id}|${item.bot_id}|${item.conversation_id}`);
-  function renderPlacement({ owner, key, segment }: OwnerPlacement) {
-    return <TaskRunBlock key={key} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onRetryRun={startRetry} retriedBy={retryChildByParent.get(owner.family.latest.id)} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
+  function renderPlacement({ owner, key, segment }: OwnerPlacement, activityOnly = false) {
+    return <TaskRunBlock key={key} activityOnly={activityOnly} segment={segment} replying={replyingRunIDs.has(owner.family.latest.id)} hideActivity={!showActivity} revealed={ownerRevealed(owner)} owner={owner} senderHead={active?.kind === "group" ? <SenderHead id={owner.family.latest.bot_id} name={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} /> : undefined} liveStatus={runLiveStatus(owner.family.latest)} onViewActivity={() => openActivitySidebar(owner.family.latest.id)} onRetryRun={startRetry} retriedBy={retryChildByParent.get(owner.family.latest.id)} tools={loadedToolActivities} questions={questions.items} drafts={mailDrafts.items} messages={messageRecords} summaries={terminalToolSummaries} details={toolDetailState} connected={linkConnected} botName={botById.get(owner.family.latest.bot_id)?.name ?? "Bot"} showName={active?.kind === "group"}
       onOpenTools={() => openSettings("connections")}
       onFeedback={text => window.dispatchEvent(new CustomEvent("tofi:task-feedback", {detail:{conversationId:owner.family.latest.conversation_id,text}}))}
       onRefresh={refreshTaskStatus} onLoadDetails={loadToolDetails}
@@ -2356,7 +2358,7 @@ export function Workspace() {
       setMessageActions("tap", tappedMessageActionsId() === messageId ? "" : messageId);
     },
     react: (messageId, anchor) => setReactionMenu({ messageId, x: anchor.left, y: anchor.top - 6, h: anchor.height + 12 }),
-    toggleActivity: runId => { setMessageActions("tap", ""); toggleRunActivity(runId); },
+    toggleActivity: runId => { setMessageActions("tap", ""); toggleActivitySidebar(runId); },
     reply: message => {
       if (!active) return;
       updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } }));
@@ -2452,7 +2454,7 @@ export function Workspace() {
   // layout the sidebar stays and re-scopes to the new conversation (the Archive stays as it is).
   const openFromPanel = (id: string) => { selectConversation(id); setMobileList(false); setSurfaces(state => closeCover(columnMode ? state : closeSidebar(state))); };
   const surfaceCtx: SurfaceCtx = {
-    active, activeBot, desktopBot, bots, conversations, botById, memoriesReady: loadedId === activeId, memoriesError: snapshotError, retryMemories: () => snapshotRetryNow.current?.(), memories, setMemories, terminalBotId, viewOnlyChat, setViewOnlyChat, refreshToken: scheduleRefresh, roster: taskView?.roster, lastMessageId: messages.at(-1)?.id,
+    active, activeBot, desktopBot, bots, conversations, botById, memoriesReady: loadedId === activeId, memoriesError: snapshotError, retryMemories: () => snapshotRetryNow.current?.(), memories, setMemories, terminalBotId, activityView: (owner => owner ? renderPlacement({ owner, key: `activity:${owner.key}` } as OwnerPlacement, true) : null)(activityRunId ? taskOwners.find(item => item.family.attempts.some(attempt => attempt.id === activityRunId)) : undefined), viewOnlyChat, setViewOnlyChat, refreshToken: scheduleRefresh, roster: taskView?.roster, lastMessageId: messages.at(-1)?.id,
     botCard: active?.kind === "dm" && activeBot ? { runs, activities: toolActivities, asked: new Set(questions.items.filter(question => question.status === "pending").map(question => question.run_id)), asleep: conversationMotion(active, activeBot.id) === "sleeping",
       computerState: computerStateLabel, memoryCount: memories.length, taskCount: taskItems.filter(task => task.bot_id === activeBot.id && !["done", "failed", "cancelled"].includes(task.status)).length,
       openComputer: desktopBot ? () => chooseComputer({ kind: "bot_computer", bot_id: desktopBot.id }) : undefined, openMemory: () => openSidebarId("memory"), openTasks: () => openSidebarId("tasks") } : undefined,
