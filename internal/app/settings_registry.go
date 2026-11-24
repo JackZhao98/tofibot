@@ -135,7 +135,7 @@ var settingsTabPages = []settingsPage{
 	// System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids
 	// are its folded groups, "followups" its Follow-ups subpage.
 	{"advanced", "settings:shell.page.advanced.name", []string{"version", "server", "behavior", "groups", "replies", "reviews", "tasks", "computer", "followups", "data", "diagnostics", "danger"}},
-	{"admin", "settings:shell.page.admin.name", []string{"accounts", "version"}},
+	{"admin", "settings:shell.page.admin.name", []string{"accounts"}},
 	{"admin-groups", "settings:shell.page.admin-groups.name", []string{"policy", "members"}},
 	{"admin-resources", "settings:shell.page.admin-resources.name", []string{"models", "computers", "storage", "backups", "web"}},
 	{"admin-design", "settings:shell.page.admin-design.name", []string{}},
@@ -147,6 +147,7 @@ var settingsTabPages = []settingsPage{
 // "general#primary" is not listed: the app opens the primary Bot's settings for it, or General when there is no Bot.
 var settingsLegacyLinks = map[string]string{
 	"environments":           "computer",
+	"admin#version":          "advanced#version",
 	"approvals":              "permissions",
 	"devices":                "computer",
 	"allowances":             "permissions",

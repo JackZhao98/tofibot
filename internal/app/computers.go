@@ -1160,7 +1160,15 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 		// Replace an outdated E2B computer with one made from the current image. The
 		// files on the old one are removed, so this runs only on the person's own
 		// request (the same consent as Retry after sandbox_gone), never by itself.
-		cur := s.computer()
+		// The E2B computer is upgraded whether it is the Bot computer or set aside beside the VM (the page offers
+		// Upgrade on both); a set-aside one runs nothing, so it is never busy.
+		var cur computer.Provider = s.computer()
+		attached := cur != nil && cur.Kind() == envKindE2B
+		if !attached {
+			if p := s.e2bCurrent(); p != nil {
+				cur = p
+			}
+		}
 		up, ok := cur.(computerUpgrader)
 		if cur == nil || !ok || cur.Kind() != envKindE2B {
 			writeErr(w, http.StatusNotFound, "not_configured", "this computer has no newer image to upgrade to")
@@ -1170,7 +1178,7 @@ func (s *Server) routeComputers(w http.ResponseWriter, r *http.Request, path str
 			refusePolicy(w, v.Mode != policyModeProvided)
 			return true
 		}
-		if s.computerInUse(cur.ID()) {
+		if attached && s.computerInUse(cur.ID()) {
 			writeErr(w, http.StatusConflict, "computer_busy", "The Bot computer is in use. Upgrade once it is idle.")
 			return true
 		}

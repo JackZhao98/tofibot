@@ -433,3 +433,27 @@ func TestAFailedHomeMoveKeepsTheCurrentBotComputer(t *testing.T) {
 		t.Fatalf("view move = %+v", v.Move)
 	}
 }
+
+func TestUpgradeReachesTheE2BComputerSetAsideBesideTheVM(t *testing.T) {
+	fake := &fakeE2B{}
+	fake.serve(t)
+	s := newRegistryServer(t)
+	vm := newFakeComputer(computer.DefaultID)
+	vm.kind = computer.KindFirecracker
+	s.computerFactory = func() (computer.Provider, error) { return vm, nil }
+	if err := s.AttachVM(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if rec := providerRequest(t, s, http.MethodPut, "/api/environments/e2b", `{"api_key":"`+testE2BKey+`"}`); rec.Code != http.StatusOK {
+		t.Fatalf("key: %d %s", rec.Code, rec.Body.String())
+	}
+	envWait(t, "the template", func() bool { p := s.e2bCurrent(); return p != nil && p.Status().Phase == "ready" })
+	// The VM is the Bot computer; Upgrade asks the E2B computer beside it, which has no newer image here.
+	rec := providerRequest(t, s, http.MethodPost, "/api/computers/firecracker/upgrade", "")
+	if rec.Code == http.StatusNotFound {
+		t.Fatalf("upgrade did not reach the set-aside E2B computer: %d %s", rec.Code, rec.Body.String())
+	}
+	if s.computer() != vm {
+		t.Fatal("upgrading the E2B computer touched the VM")
+	}
+}

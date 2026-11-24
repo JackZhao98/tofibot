@@ -76,8 +76,7 @@
     {
       "id": "admin",
       "sections": [
-        "accounts",
-        "version"
+        "accounts"
       ]
     },
     {
@@ -126,6 +125,7 @@
     "archive"
   ],
   "legacy_links": {
+    "admin#version": "advanced#version",
     "advanced#changes": "advanced#data",
     "advanced#debug": "advanced#diagnostics",
     "allowances": "permissions",
