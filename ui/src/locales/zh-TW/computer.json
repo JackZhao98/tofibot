@@ -768,11 +768,23 @@
     "cap": {
       "remote": "遠端控制",
       "browser": "瀏覽器",
-      "folders": "資料夾"
+      "folders": "資料夾",
+      "on": "已開啟",
+      "off": "未開啟",
+      "managed_there": "權限在該 Mac 的 Tofi 中管理。"
     },
     "mac": {
       "no_access": "未授予權限",
-      "last_seen": "上次上線 {{time}}"
+      "last_seen": "上次上線 {{time}}",
+      "this": "本機",
+      "not_connected": "未連接"
+    },
+    "remote": {
+      "blocked": "已封鎖的 Bot（{{count}}）"
+    },
+    "disconnect": {
+      "title": "中斷連接",
+      "body": "Bot 將無法使用這台 Mac。可在該 Mac 的 Tofi 中重新連接。"
     }
   }
 }

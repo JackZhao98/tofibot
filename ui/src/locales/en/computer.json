@@ -774,11 +774,23 @@
     "cap": {
       "remote": "Remote control",
       "browser": "Browser",
-      "folders": "Folders"
+      "folders": "Folders",
+      "on": "On",
+      "off": "Off",
+      "managed_there": "Access is managed in Tofi on that Mac."
     },
     "mac": {
       "no_access": "No access granted",
-      "last_seen": "Last seen {{time}}"
+      "last_seen": "Last seen {{time}}",
+      "this": "This Mac",
+      "not_connected": "Not connected"
+    },
+    "remote": {
+      "blocked": "Blocked Bots ({{count}})"
+    },
+    "disconnect": {
+      "title": "Disconnect",
+      "body": "Bots lose access to this Mac. Reconnect from Tofi on the Mac."
     }
   }
 }

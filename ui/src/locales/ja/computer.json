@@ -768,11 +768,23 @@
     "cap": {
       "remote": "リモート操作",
       "browser": "ブラウザ",
-      "folders": "フォルダ"
+      "folders": "フォルダ",
+      "on": "オン",
+      "off": "オフ",
+      "managed_there": "アクセスはその Mac の Tofi で管理します。"
     },
     "mac": {
       "no_access": "アクセス未許可",
-      "last_seen": "最終接続 {{time}}"
+      "last_seen": "最終接続 {{time}}",
+      "this": "この Mac",
+      "not_connected": "未接続"
+    },
+    "remote": {
+      "blocked": "ブロック中の Bot（{{count}}）"
+    },
+    "disconnect": {
+      "title": "接続を解除",
+      "body": "Bot はこの Mac を使えなくなります。Mac の Tofi から再接続できます。"
     }
   }
 }
