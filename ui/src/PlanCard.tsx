@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { BotAvatar } from "./BotAvatar";
+import { useBotGround } from "./useBotGround";
 import { attachmentUrl } from "./filePreviewModel";
 import { TofiIcon } from "./icons";
 import { LiveMark } from "./LiveMark";
@@ -10,6 +11,7 @@ import { EASE, MOTION } from "./motion";
 import { useTranslation } from "./i18n";
 import { dockEntries, familyPlan, finishedEntry, planEndedIncomplete, planHistory, type DockEntry, type DockStep, type StepState } from "./planModel";
 import type { Attachment, Bot, Run, WorkItem } from "./types";
+import "./ds/StepList/StepList.css";
 import "./plan-card.css";
 
 const Lightbox = lazy(() => import("./AttachmentLightbox"));
@@ -31,12 +33,17 @@ const curve = (value: string) => (value.match(/-?[\d.]+/g) ?? []).map(Number) as
 const enter = { duration: MOTION.base / 1000, ease: curve(EASE.out) };
 const leave = { duration: MOTION.panelOut / 1000, ease: curve(EASE.in) };
 
-function StepMark({ state, live }: { state: StepState; live: boolean }) {
-  if (state === "in_progress") return live ? <span className="plan-mark is-live"><LiveMark /></span> : <span className="plan-mark is-paused" />;
-  if (state === "done") return <span className="plan-mark is-done"><TofiIcon name="check" size={14} aria-hidden="true" /></span>;
-  if (state === "blocked" || state === "stopped") return <span className="plan-mark is-problem"><TofiIcon name={state === "stopped" ? "stop" : "alert"} size={12} aria-hidden="true" /></span>;
-  if (state === "skipped") return <span className="plan-mark is-skipped"><TofiIcon name="minus" size={12} aria-hidden="true" /></span>;
-  return <span className="plan-mark is-pending" />;
+/** V3 StepList signifiers (S19/S20): the stamp tick for done, the stamp cross for a step that stopped, a pulsing dot under the highlighter
+ *  for the current step (an ink ring while paused), a small dot for a to-do. The shapes come from ds/StepList/StepList.css. */
+function kitState(state: StepState, live: boolean) {
+  if (state === "in_progress") return live ? "active" : "waiting";
+  if (state === "done") return "done";
+  if (state === "blocked" || state === "stopped" || state === "skipped") return "failed";
+  return "pending";
+}
+
+function StepMark() {
+  return <span className="plan-mark tb-plan-sig" aria-hidden="true"><i /></span>;
 }
 
 /**
@@ -65,12 +72,18 @@ function StepPictures({ step }: { step: DockStep }) {
 export function PlanSteps({ steps, live = false, animate = false }: { steps: readonly DockStep[]; live?: boolean; animate?: boolean }) {
   const { t } = useTranslation("tasks");
   const items = steps.map(step => {
-    const body = <><StepMark state={step.state} live={live} /><span className="plan-step-text">{step.text}</span><span className="sr-only">{t(`plan.state.${step.state}`)}</span><StepPictures step={step} /></>;
+    const body = <><StepMark /><span className="plan-step-body"><span className="plan-step-text tb-plan-text">{step.text}</span><span className="sr-only">{t(`plan.state.${step.state}`)}</span><StepPictures step={step} /></span></>;
     return animate
-      ? <motion.li key={step.id} data-state={step.state} layout="position" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0, transition: enter }} exit={{ opacity: 0, transition: leave }} transition={enter}>{body}</motion.li>
-      : <li key={step.id} data-state={step.state}>{body}</li>;
+      ? <motion.li key={step.id} className={`tb-plan-step is-${kitState(step.state, live)}`} data-state={step.state} layout="position" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0, transition: enter }} exit={{ opacity: 0, transition: leave }} transition={enter}>{body}</motion.li>
+      : <li key={step.id} className={`tb-plan-step is-${kitState(step.state, live)}`} data-state={step.state}>{body}</li>;
   });
-  return <ol className="plan-steps">{animate ? <AnimatePresence initial={false}>{items}</AnimatePresence> : items}</ol>;
+  return <ol className="plan-steps tb-plan-list">{animate ? <AnimatePresence initial={false}>{items}</AnimatePresence> : items}</ol>;
+}
+
+/** The card is the StepList paper (S20): washi tape and current-step highlighter in the Bot's colour; a list that waits for you takes the ink edge. */
+function PaperItem({ entry, children }: { entry: DockEntry; children: ReactNode }) {
+  const ground = useBotGround(entry.botId) ?? "teal";
+  return <Accordion.Item value={entry.key} className={`plan-card tb-plan tb-bot--${ground}${entry.state === "waiting" ? " is-waiting" : ""}`} data-plan-state={entry.state} data-source={entry.source} data-run-id={entry.runId}>{children}</Accordion.Item>;
 }
 
 function CardHeader({ entry, open, group, botName }: { entry: DockEntry; open: boolean; group: boolean; botName: string }) {
@@ -158,12 +171,13 @@ export function PlanDock({ runs, tasks, botById, group, openTasks = 0, onOpenTas
       <Accordion.Root type="single" collapsible value={value} onValueChange={setChoice} className="plan-dock-cards">
         <AnimatePresence initial={false}>
           {shown.map(entry => <motion.div key={entry.key} className="plan-card-frame" layout="position" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: enter }} exit={{ opacity: 0, y: 8, transition: leave }} transition={enter}>
-            <Accordion.Item value={entry.key} className="plan-card" data-plan-state={entry.state} data-source={entry.source} data-run-id={entry.runId}>
+            <PaperItem entry={entry}>
+              <span className="tb-plan-tape" aria-hidden="true" />
               <CardHeader entry={entry} open={value === entry.key} group={group} botName={name(entry.botId)} />
               <Accordion.Content className="plan-card-body">
                 <PlanSteps steps={entry.steps} live={entry.state === "working"} animate />
               </Accordion.Content>
-            </Accordion.Item>
+            </PaperItem>
           </motion.div>)}
         </AnimatePresence>
       </Accordion.Root>
