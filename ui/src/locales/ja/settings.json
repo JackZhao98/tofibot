@@ -57,8 +57,8 @@
         "description": "プロバイダーと既定のモデル。"
       },
       "computer": {
-        "name": "環境",
-        "description": "クラウドのコンピューター、このサーバー、Mac"
+        "name": "デバイス",
+        "description": "Bot のコンピューターと接続済みのデバイス"
       },
       "usage": {
         "name": "使用量",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "動作",
         "description": "Tofi が自動で行うことを確認・調整"
-      },
-      "devices": {
-        "name": "その他のデバイス",
-        "description": "Tofi アプリのある Mac を接続"
       },
       "admin-groups": {
         "name": "グループ",

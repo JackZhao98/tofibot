@@ -111,7 +111,7 @@
     "fold": "Fold",
     "fold_aria": "Fold Bot computer to a strip",
     "unfold_aria": "Show Bot computer",
-    "outdated_required": "This computer's image is no longer supported. Upgrade it in Settings > Environments.",
+    "outdated_required": "This computer's image is no longer supported. Upgrade it in Settings > Devices.",
     "look": "Look",
     "look_aria": "Look at the Bot computer",
     "pip": {

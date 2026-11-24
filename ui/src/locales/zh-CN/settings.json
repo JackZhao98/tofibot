@@ -57,8 +57,8 @@
         "description": "模型服务商与默认模型。"
       },
       "computer": {
-        "name": "环境",
-        "description": "云电脑、这台服务器和你的 Mac"
+        "name": "设备",
+        "description": "Bot 电脑与已连接的设备"
       },
       "usage": {
         "name": "用量",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "行为",
         "description": "查看并调整 Tofi 代你自动做的事"
-      },
-      "devices": {
-        "name": "其他设备",
-        "description": "连接装有 Tofi 应用的 Mac"
       },
       "admin-groups": {
         "name": "用户组",

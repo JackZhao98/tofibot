@@ -110,7 +110,7 @@
     "fold": "접기",
     "fold_aria": "Bot 컴퓨터를 막대로 접기",
     "unfold_aria": "Bot 컴퓨터 보기",
-    "outdated_required": "이 컴퓨터의 이미지는 더 이상 지원되지 않습니다. 설정 > 환경에서 업그레이드하세요.",
+    "outdated_required": "이 컴퓨터의 이미지는 더 이상 지원되지 않습니다. 설정 > 기기에서 업그레이드하세요.",
     "look": "보기",
     "look_aria": "Bot 컴퓨터 보기",
     "pip": {

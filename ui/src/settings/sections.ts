@@ -10,7 +10,6 @@ export const SETTINGS_SECTIONS = {
   permissions: ["mode", "standing", "remembered", "advanced"],
   models: ["providers", "defaults", "more"],
   computer: ["resources", "environment", "keys"],
-  devices: ["devices"],
   usage: ["spend", "usage", "storage"],
   // System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids are its
   // folded groups, "followups" its Follow-ups subpage.

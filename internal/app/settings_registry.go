@@ -131,7 +131,6 @@ var settingsTabPages = []settingsPage{
 	{"permissions", "settings:shell.page.permissions.name", []string{"mode", "standing", "remembered", "advanced"}},
 	{"models", "settings:shell.page.models.name", []string{"providers", "defaults", "more"}},
 	{"computer", "settings:shell.page.computer.name", []string{"resources", "environment", "keys"}},
-	{"devices", "settings:shell.page.devices.name", []string{"devices"}},
 	{"usage", "settings:shell.page.usage.name", []string{"spend", "usage", "storage"}},
 	// System holds Behavior (the automatic behaviors) as a subpage: "behavior" is its common rows, the five group ids
 	// are its folded groups, "followups" its Follow-ups subpage.

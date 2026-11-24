@@ -57,8 +57,8 @@
         "description": "Fournisseurs et modèle par défaut."
       },
       "computer": {
-        "name": "Environnements",
-        "description": "Ordinateurs cloud, ce serveur et vos Mac"
+        "name": "Appareils",
+        "description": "Ordinateur du Bot et appareils connectés"
       },
       "usage": {
         "name": "Utilisation",
@@ -75,10 +75,6 @@
       "automation": {
         "name": "Comportement",
         "description": "Voir et ajuster ce que Tofi fait tout seul"
-      },
-      "devices": {
-        "name": "Autres appareils",
-        "description": "Connecter un Mac avec l’app Tofi"
       },
       "admin-groups": {
         "name": "Groupes",
