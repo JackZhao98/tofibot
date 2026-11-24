@@ -6,7 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 )
 
 // fakeGuestFiles answers files.export_chunk from src and files.import_chunk into dst, the way the guest does:
@@ -89,6 +92,9 @@ func TestHomeMoveStateOneAtATimeAndNamedFailure(t *testing.T) {
 	m.end(nil)
 	if m.view() != nil {
 		t.Fatal("a finished move leaves no view")
+	}
+	if got := homeMoveCode(fmt.Errorf("wrapped: %w", &e2b.Error{Code: "invalid_key"})); got != "invalid_key" {
+		t.Fatalf("an E2B refusal names its own reason, got %q", got)
 	}
 	if homeMoveCode(errors.New("other")) != "move_failed" {
 		t.Fatal("an unnamed error is move_failed")

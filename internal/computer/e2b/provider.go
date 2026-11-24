@@ -309,6 +309,16 @@ func (p *Provider) update(fn func(*State)) error {
 	return p.cfg.Store.SaveState(st)
 }
 
+// keyRejected asks a team-level question (list one sandbox) to tell a revoked key from a 401 about one sandbox,
+// which is not a verdict on the key.
+func (p *Provider) keyRejected(ctx context.Context) bool {
+	check, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+	defer cancel()
+	_, err := p.api.call(check, http.MethodGet, "/v2/sandboxes?limit=1", nil, nil, nil, CodeUnreachable, http.StatusOK)
+	var e *Error
+	return errors.As(err, &e) && (e.Status == http.StatusUnauthorized || e.Status == http.StatusForbidden)
+}
+
 func (p *Provider) fail(code, msg string) {
 	_ = p.update(func(s *State) { s.Phase, s.ErrorCode, s.Error = PhaseFailed, code, msg })
 }
@@ -945,9 +955,17 @@ func (p *Provider) create(ctx context.Context) error {
 
 // ensure makes the sandbox running and reachable. It never runs concurrently
 // with itself, so parallel actions cannot create two sandboxes.
-func (p *Provider) ensure(ctx context.Context) error {
+func (p *Provider) ensure(ctx context.Context) (err error) {
 	p.ensureMu.Lock()
 	defer p.ensureMu.Unlock()
+	// A key E2B no longer accepts (revoked, rotated) makes the computer failed with that reason: the page must not
+	// keep showing a ready computer nothing can reach.
+	defer func() {
+		var e *Error
+		if errors.As(err, &e) && e.Code == CodeInvalidKey && p.keyRejected(ctx) {
+			p.fail(CodeInvalidKey, e.Message)
+		}
+	}()
 	if err := p.RefreshTemplate(ctx); err != nil {
 		return err
 	}

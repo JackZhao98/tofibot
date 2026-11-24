@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 )
 
 const (
@@ -42,6 +43,11 @@ func homeMoveCode(err error) string {
 	var named homeMoveError
 	if errors.As(err, &named) {
 		return named.code
+	}
+	// E2B's own refusal (a revoked key, the account's limit) is the reason the person can act on.
+	var upstream *e2b.Error
+	if errors.As(err, &upstream) && upstream.Code != "" {
+		return upstream.Code
 	}
 	return "move_failed"
 }
