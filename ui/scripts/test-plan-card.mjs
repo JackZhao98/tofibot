@@ -225,8 +225,8 @@ try {
       const card = page.locator(".plan-card").first();
       assert.equal(await card.locator(".plan-card-trigger").getAttribute("aria-expanded"), "true", `${engineName}: a single card opens`);
       assert.equal(await card.locator(".plan-steps li").count(), 5);
-      assert.equal(await card.locator('li[data-state="in_progress"] .live-mark').count(), 1, `${engineName}: one live mark, on the step in progress`);
-      assert.equal(await page.locator(".plan-dock .live-mark").count(), 1, `${engineName}: no second live mark in the card`);
+      assert.equal(await card.locator('li[data-state="in_progress"].is-active').count(), 1, `${engineName}: one live mark, on the step in progress`);
+      assert.equal(await page.locator(".plan-dock .live-mark, .plan-dock .tb-plan-step.is-active").count(), 1, `${engineName}: no second live mark in the card`);
       assert.match(await card.locator(".plan-card-count").textContent(), /2 of 5/);
       await page.evaluate(plan => window.__emit("run_plan", plan), dmPlan(2, LEDGER.map(([text], i) => [text, i < 3 ? "done" : i === 3 ? "in_progress" : "pending"])));
       await page.waitForFunction(() => document.querySelector(".plan-card-count")?.textContent.includes("3 of 5"));
