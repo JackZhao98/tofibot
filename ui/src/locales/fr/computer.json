@@ -780,11 +780,23 @@
     "cap": {
       "remote": "Contrôle à distance",
       "browser": "Navigateur",
-      "folders": "Dossiers"
+      "folders": "Dossiers",
+      "on": "Activé",
+      "off": "Désactivé",
+      "managed_there": "L’accès se gère dans Tofi sur ce Mac."
     },
     "mac": {
       "no_access": "Aucun accès accordé",
-      "last_seen": "Vu pour la dernière fois {{time}}"
+      "last_seen": "Vu pour la dernière fois {{time}}",
+      "this": "Ce Mac",
+      "not_connected": "Non connecté"
+    },
+    "remote": {
+      "blocked": "Bots bloqués ({{count}})"
+    },
+    "disconnect": {
+      "title": "Déconnecter",
+      "body": "Les Bots perdent l’accès à ce Mac. Reconnectez-le depuis Tofi sur le Mac."
     }
   }
 }

@@ -774,11 +774,23 @@
     "cap": {
       "remote": "Fernsteuerung",
       "browser": "Browser",
-      "folders": "Ordner"
+      "folders": "Ordner",
+      "on": "An",
+      "off": "Aus",
+      "managed_there": "Der Zugriff wird in Tofi auf diesem Mac verwaltet."
     },
     "mac": {
       "no_access": "Kein Zugriff erteilt",
-      "last_seen": "Zuletzt online {{time}}"
+      "last_seen": "Zuletzt online {{time}}",
+      "this": "Dieser Mac",
+      "not_connected": "Nicht verbunden"
+    },
+    "remote": {
+      "blocked": "Blockierte Bots ({{count}})"
+    },
+    "disconnect": {
+      "title": "Trennen",
+      "body": "Bots verlieren den Zugriff auf diesen Mac. Neu verbinden über Tofi auf dem Mac."
     }
   }
 }

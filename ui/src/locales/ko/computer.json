@@ -768,11 +768,23 @@
     "cap": {
       "remote": "원격 제어",
       "browser": "브라우저",
-      "folders": "폴더"
+      "folders": "폴더",
+      "on": "켜짐",
+      "off": "꺼짐",
+      "managed_there": "권한은 해당 Mac의 Tofi에서 관리합니다."
     },
     "mac": {
       "no_access": "권한 없음",
-      "last_seen": "마지막 접속 {{time}}"
+      "last_seen": "마지막 접속 {{time}}",
+      "this": "이 Mac",
+      "not_connected": "연결 안 됨"
+    },
+    "remote": {
+      "blocked": "차단된 Bot ({{count}})"
+    },
+    "disconnect": {
+      "title": "연결 해제",
+      "body": "Bot이 이 Mac을 사용할 수 없게 됩니다. Mac의 Tofi에서 다시 연결할 수 있습니다."
     }
   }
 }

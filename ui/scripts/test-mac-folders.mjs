@@ -99,6 +99,9 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?lang=${lang}`);
     await page.locator(".environments-page").waitFor({timeout: 20000});
+    // Devices: folders live in this Mac's detail view, opened from its row under My devices.
+    await page.locator("[data-this-mac] button").click();
+    await page.locator('[data-mac-detail="this-mac"]').waitFor();
     return {page, close: () => context.close(), calls: () => page.evaluate(() => window.__calls.filter(call => call[0] !== "status"))};
   }
   const block = page => page.locator('[data-section="mac-folders"]');
