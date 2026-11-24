@@ -22,7 +22,7 @@ try {
   const render = item => renderToStaticMarkup(createElement(TimezoneProvider, null, createElement(QuestionCard, { item, bot: { id: "b", name: "tofi" }, onChanged: async () => {} })));
 
   const offered = render(card({ standing: { server: "notion", tool: "notion-update-page" } }));
-  assert.match(offered, /class="approval-always"[^>]*>Always allow</, "an eligible call offers Always allow in the action row");
+  assert.match(offered, /class="[^"]*approval-always"[^>]*>(?:<span[^>]*>)?Always allow</, "an eligible call offers Always allow in the action row");
   assert.ok(offered.indexOf("approval-decline") < offered.indexOf("approval-always") && offered.indexOf("approval-accept") < offered.indexOf("approval-always"), "it sits next to Approve and Deny");
   assert.ok(offered.includes("tofi") && offered.includes("notion-update-page") && offered.includes("also when it works on its own") && offered.includes("on a schedule"), "the hint names the Bot and tool and says it also applies when the Bot works on its own, for example on a schedule");
 
