@@ -1,0 +1,14 @@
+/* V3 4.5: the approval card on the kit ApprovalCard (ds/ApprovalCard). The product keeps its structure; these rules
+   only bridge it to the kit: fact rows wrapped in a div sit in the kit's two-column grid, the actions use kit Buttons. */
+@layer legacy {
+.approval-card.tb-approval { width: 100%; box-sizing: border-box; }
+.approval-card .tb-facts > div { display: contents; }
+.approval-card .approval-verified { padding: 0; border: 0; background: none; }
+.approval-card .approval-verified h4 { margin: 0 0 6px; color: var(--muted); font: 600 12px/1.4 var(--font-body); }
+.approval-card .approval-facts.is-secondary { background: transparent; }
+.approval-card .approval-actions { gap: 8px; padding: 0; margin-top: 12px; }
+.approval-card .approval-result { margin-top: 0; }
+@media (max-width: 560px) { .approval-card .approval-actions > .tb-btn { min-height: 44px; } }
+/* Resolved: the folded rows take no grid gap, so the card is the title and its stamp. */
+.approval-card.tb-approval.is-resolved > .approval-fold { display: none; }
+}
