@@ -1571,6 +1571,10 @@
       "environment_failover": {
         "name": "自動切換環境",
         "what": "瀏覽器無法啟動時，繼續使用下一個可用環境。"
+      },
+      "computer_image_auto_update": {
+        "name": "自動更新雲端電腦",
+        "what": "有新的電腦映像時，在 E2B 電腦閒置時依新映像重建。home 資料夾會保留；已安裝的軟體和瀏覽器登入以新映像為準。"
       }
     },
     "option": {

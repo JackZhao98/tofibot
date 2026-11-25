@@ -1585,6 +1585,10 @@
       "environment_failover": {
         "name": "Automatischer Umgebungswechsel",
         "what": "Wenn ein Browser nicht starten kann, in der nächsten verfügbaren Umgebung fortfahren."
+      },
+      "computer_image_auto_update": {
+        "name": "Cloud-Computer aktuell halten",
+        "what": "Erscheint ein neueres Computer-Image, wird der E2B-Computer im Leerlauf daraus neu aufgebaut. Der Home-Ordner bleibt erhalten; installierte Software und Browser-Anmeldungen kommen aus dem neuen Image."
       }
     },
     "option": {

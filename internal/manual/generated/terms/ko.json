@@ -53,6 +53,8 @@
   "settings:automation.item.completion_review.what": "도구를 쓴 뒤, Bot은 답장하기 전에 실제 결과와 대조해 답을 한 번 더 점검합니다.",
   "settings:automation.item.computer_idle_off_minutes.name": "클라우드 컴퓨터 유휴 시 끄기",
   "settings:automation.item.computer_idle_off_minutes.what": "E2B 컴퓨터가 이 시간(분) 동안 아무 작업도 하지 않으면 꺼집니다(일시 중지). 파일은 유지되며 Bot이 필요할 때 켜집니다. E2B는 실행 중에 요금이 부과됩니다.",
+  "settings:automation.item.computer_image_auto_update.name": "클라우드 컴퓨터 자동 업데이트",
+  "settings:automation.item.computer_image_auto_update.what": "새 컴퓨터 이미지가 나오면 E2B 컴퓨터가 유휴 상태일 때 새 이미지로 다시 만듭니다. home 폴더는 유지되며, 설치한 소프트웨어와 브라우저 로그인은 새 이미지 기준입니다.",
   "settings:automation.item.conversation_model.name": "대화 모델",
   "settings:automation.item.conversation_model.what": "채팅, 그룹 작업, 예약 실행, 도구를 쓰는 모든 작업을 맡습니다. Bot에 직접 지정한 모델이 우선합니다.",
   "settings:automation.item.desktop_engine.name": "데스크톱 제어",

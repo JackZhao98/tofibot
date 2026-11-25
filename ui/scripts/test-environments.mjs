@@ -190,11 +190,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await close();
   }
 
-  // ---- 1b. The idle second computer keeps every action the server offers: an outdated one can still be upgraded.
+  // ---- 1b. The idle second computer says it updates by itself; there is no Upgrade button.
   {
     const {page, close} = await open({tab: "computer"}, {state: {environments: [vm(), e2b({guest_outdated: true, actions: ["use", "upgrade", "remove"]}), mac()]}});
     await page.locator(".env-spare").waitFor();
-    assert.deepEqual(await buttons(page.locator(".env-spare")), ["use", "upgrade", "remove"]);
+    // No Upgrade button: an outdated E2B computer updates by itself while idle and keeps its home folder.
+    assert.deepEqual(await buttons(page.locator(".env-spare")), ["use", "remove"]);
     assert.equal(await page.locator(".env-spare [data-outdated]").count(), 1, "the outdated note is on the idle computer's line");
     assert.deepEqual(await buttons(row(page, "mac_ab12")), [], "disconnect sits in the row menu");
     assert.equal(await page.locator(".resource-grid").count(), 0, "the size grid is behind Configure");
@@ -578,53 +579,36 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const orgE2b = (extra = {}) => e2b({state: "ready", bot_computer: true, access: "all_bots", actions: [], ...extra});
     const addNone = {e2b: false, mac: false, vm_command: ""};
     const flat = async locator => (await locator.innerText()).replace(/\s+/g, " ").trim();
-    const OUTDATED = "Newer computer image available. Updating replaces this computer; files on it are removed.";
+    const OUTDATED = "Newer computer image available. It updates by itself while idle; the home folder is kept.";
 
-    // Provided and outdated: the note, the organization mark, no key hint, and Upgrade behind a destructive confirmation.
-    const upgraded = [orgE2b({state: "starting"})];
-    const outdated = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy, afterUpgrade: upgraded}, member: true});
+    // Outdated: a note that it updates by itself and keeps the home folder; no Upgrade button and no confirmation
+    // (owner 2026-11-24). The person's own E2B computer is the same row.
+    const outdated = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy}, member: true});
     await rows(outdated.page).first().waitFor();
     assert.equal(await rows(outdated.page).count(), 1, "the organization's computer is one row");
-    assert.match(await flat(row(outdated.page, "e2b")), /^E2B cloud computer Managed by your organization Newer computer image available\. .* Upgrade$/);
     assert.equal(await flat(row(outdated.page, "e2b").locator("[data-outdated]")), OUTDATED);
-    assert.deepEqual(await buttons(row(outdated.page, "e2b")), ["upgrade"]);
+    assert.deepEqual(await buttons(row(outdated.page, "e2b")), [], "no Upgrade button");
     assert.ok(!/e2b_|…[A-Za-z0-9]{4}/.test(await outdated.page.locator(".environments-page").innerText()), "no key hint for the organization's computer");
-    if (shots) await outdated.page.screenshot({path: join(shots, "upgrade-available-1280.png")});
-    await row(outdated.page, "e2b").getByRole("button", {name: "Upgrade"}).click();
-    const confirm = outdated.page.getByRole("alertdialog");
-    await confirm.waitFor();
-    assert.match(await flat(confirm), /Upgrade E2B cloud computer\? The computer is replaced with one from the current image\. Files on it are removed and can't be recovered\./);
-    assert.equal(await confirm.getByRole("button", {name: "Upgrade and remove files"}).evaluate(node => node.classList.contains("tb-btn--danger")), true, "the confirming action has the destructive tone");
-    assert.equal(await confirm.evaluate(node => document.activeElement === node.querySelector(".tb-btn--secondary")), true, "Cancel has the focus first");
-    if (shots) await outdated.page.screenshot({path: join(shots, "upgrade-confirm-1280.png")});
-    await confirm.getByRole("button", {name: "Cancel"}).click();
-    assert.deepEqual(outdated.calls.filter(call => call.includes("upgrade")), [], "Cancel sends nothing");
-    await row(outdated.page, "e2b").getByRole("button", {name: "Upgrade"}).click();
-    await outdated.page.getByRole("alertdialog").getByRole("button", {name: "Upgrade and remove files"}).click();
-    await outdated.page.locator('.env-row[data-environment="e2b"][data-state="starting"]').waitFor();
-    assert.deepEqual(outdated.calls.filter(call => call.includes("upgrade")), ["POST /api/computers/firecracker/upgrade"]);
-    assert.equal(await outdated.page.locator("[data-outdated]").count(), 0, "the note goes with the upgrade");
+    if (shots) await outdated.page.screenshot({path: join(shots, "image-outdated-1280.png")});
     await outdated.close();
-
-    // The person's own E2B computer is the same component: the same note, button and confirmation.
     const own = await open({tab: "computer"}, {state: {environments: [vm({bot_computer: false, access: "none", actions: ["use"]}), orgE2b({guest_outdated: true, actions: ["wake", "upgrade", "remove"]})], e2bState: {configured: true, key_hint: "e2b_…a1b2", phase: "ready", error_code: "", error: "", template_phase: "ready", guest_outdated: true}}});
     await rows(own.page).first().waitFor();
     assert.equal(await flat(row(own.page, "e2b").locator("[data-outdated]")), OUTDATED);
-    assert.deepEqual(await buttons(row(own.page, "e2b")), ["wake", "upgrade"], "Remove stays in the row menu; Upgrade is a button");
-    assert.equal(await row(own.page, "e2b").locator('[data-tag="organization"]').count(), 0);
-    await row(own.page, "e2b").getByRole("button", {name: "Upgrade"}).click();
-    await own.page.getByRole("alertdialog").getByRole("button", {name: "Upgrade and remove files"}).waitFor();
+    assert.deepEqual(await buttons(row(own.page, "e2b")), ["wake"], "Remove stays in the row menu; no Upgrade");
     await own.close();
-
-    // Below the server minimum: failed, the named reason, and Upgrade is the only action.
+    // Below the server minimum: failed, the named reason says it updates by itself; nothing to press.
     const required = await open({tab: "computer"}, {state: {environments: [orgE2b({state: "failed", error_code: "guest_outdated_required", guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy}, member: true});
     await rows(required.page).first().waitFor();
     assert.match(await flat(row(required.page, "e2b")), /Failed/);
-    assert.match(await flat(row(required.page, "e2b").locator("[data-error-code]")), /^This computer's image is no longer supported\. Upgrade it to keep using it\. Upgrading replaces this computer; files on it are removed\.$/);
+    assert.equal(await flat(row(required.page, "e2b").locator("[data-error-code]")), "This computer's image is no longer supported. It updates by itself while idle; the home folder is kept.");
     assert.equal(await required.page.locator("[data-outdated]").count(), 0, "one sentence about the image, not two");
-    assert.deepEqual(await buttons(row(required.page, "e2b")), ["upgrade"]);
-    if (shots) await required.page.screenshot({path: join(shots, "upgrade-required-1280.png")});
+    assert.deepEqual(await buttons(row(required.page, "e2b")), []);
     await required.close();
+    // An update in progress, and one that did not finish.
+    const updating = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true})], add: addNone, e2bState: orgState({guest_outdated: true}), move: {phase: "moving", target: "e2b_update", error_code: ""}}});
+    await updating.page.locator('.env-move[data-move="moving"]').waitFor();
+    assert.match(await flat(updating.page.locator(".env-move")), /^Updating the E2B cloud computer… It is rebuilt from the newer image\. The home folder is kept/);
+    await updating.close();
 
     // The image is being built: a row that says so, with no duplicate "waiting" row and nothing to press; once a computer
     // exists a newer image being built is a note too.
@@ -658,19 +642,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await rows(view.page).first().waitFor();
       assert.match(await flat(row(view.page, "e2b").locator("[data-error-code]")), pattern, code);
       assert.ok(!/upstream detail/.test(await view.page.locator(".environments-page").innerText()));
-      await view.close();
-    }
-
-    // The upgrade's own refusals are named in a banner; the page keeps the row.
-    for (const [code, pattern] of [["computer_busy", /The computer is busy\. Try again when running work finishes\./], ["not_outdated", /This computer is already up to date\./], ["computer_upgrade_failed", /Couldn't upgrade the computer\. Try again\./]]) {
-      const view = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy, upgrade: code}, member: true});
-      await rows(view.page).first().waitFor();
-      await row(view.page, "e2b").getByRole("button", {name: "Upgrade"}).click();
-      await view.page.getByRole("alertdialog").getByRole("button", {name: "Upgrade and remove files"}).click();
-      await view.page.locator(".settings-banner.is-error").waitFor();
-      assert.match(await flat(view.page.locator(".settings-banner")), pattern, code);
-      assert.ok(!/upstream detail/.test(await view.page.locator(".environments-page").innerText()));
-      assert.equal(await rows(view.page).count(), 1);
       await view.close();
     }
 

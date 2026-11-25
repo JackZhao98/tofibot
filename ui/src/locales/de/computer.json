@@ -512,7 +512,7 @@
       "token_unreadable": "Der gespeicherte Schlüssel ist nicht lesbar. Füge den E2B-Schlüssel erneut hinzu.",
       "org_resource_missing": "Ihre Organisation hat diesen Computer nicht bereitgestellt. Wenden Sie sich an einen Administrator.",
       "not_ready": "Das Computer-Image ist noch nicht bereit. Versuchen Sie es in einigen Minuten erneut.",
-      "guest_outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Aktualisieren Sie ihn, um ihn weiter zu nutzen. Das Upgrade ersetzt diesen Computer; Dateien darauf werden entfernt.",
+      "guest_outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Es wird im Leerlauf automatisch aktualisiert; der Home-Ordner bleibt erhalten.",
       "computer_upgrade_failed": "Der Computer konnte nicht aktualisiert werden. Versuchen Sie es erneut.",
       "not_outdated": "Dieser Computer ist bereits auf dem neuesten Stand.",
       "computer_busy": "Der Computer ist ausgelastet. Versuchen Sie es erneut, wenn die laufende Arbeit beendet ist.",
@@ -569,7 +569,7 @@
       "title": "Bot-Computer konfigurieren",
       "provided_title": "Details zum Bot-Computer"
     },
-    "outdated": "Ein neueres Computer-Image ist verfügbar. Die Aktualisierung ersetzt diesen Computer; Dateien darauf werden entfernt.",
+    "outdated": "Neueres Computer-Image verfügbar. Es wird im Leerlauf automatisch aktualisiert; der Home-Ordner bleibt erhalten.",
     "image_preparing": "Das Computer-Image wird gebaut. Das dauert einige Minuten.",
     "image_building": "Ein neueres Computer-Image wird gebaut.",
     "rc": {
@@ -799,7 +799,10 @@
     "move": {
       "moving": "Dateien werden zu {{name}} verschoben…",
       "moving_note": "Der Home-Ordner wird kopiert, dann wechseln die Bots. Bis dahin arbeitet der aktuelle Computer weiter.",
-      "failed": "Der Wechsel wurde nicht abgeschlossen. Der aktuelle Computer ist unverändert."
+      "failed": "Der Wechsel wurde nicht abgeschlossen. Der aktuelle Computer ist unverändert.",
+      "updating": "Der E2B-Cloud-Computer wird aktualisiert…",
+      "updating_note": "Er wird aus dem neueren Image neu aufgebaut. Der Home-Ordner bleibt erhalten; Bots warten, bis er zurück ist.",
+      "update_failed": "Der E2B-Cloud-Computer konnte nicht aktualisiert werden. Der Home-Ordner bleibt erhalten; es wird später erneut versucht."
     }
   }
 }

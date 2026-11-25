@@ -518,7 +518,7 @@
       "token_unreadable": "La clé enregistrée est illisible. Ajoutez à nouveau la clé E2B.",
       "org_resource_missing": "Votre organisation n’a pas provisionné cet ordinateur. Contactez un administrateur.",
       "not_ready": "L’image d’ordinateur n’est pas encore prête. Réessayez dans quelques minutes.",
-      "guest_outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Mettez-le à niveau pour continuer à l’utiliser. La mise à niveau remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
+      "guest_outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Elle se met à jour d’elle-même pendant l’inactivité ; le dossier home est conservé.",
       "computer_upgrade_failed": "Impossible de mettre l’ordinateur à niveau. Réessayez.",
       "not_outdated": "Cet ordinateur est déjà à jour.",
       "computer_busy": "L’ordinateur est occupé. Réessayez quand le travail en cours sera terminé.",
@@ -575,7 +575,7 @@
       "title": "Configurer l’ordinateur Bot",
       "provided_title": "Détails de l’ordinateur du Bot"
     },
-    "outdated": "Une image d’ordinateur plus récente est disponible. La mise à jour remplace cet ordinateur ; les fichiers qu’il contient sont supprimés.",
+    "outdated": "Une image plus récente est disponible. Elle s’installe d’elle-même pendant l’inactivité ; le dossier home est conservé.",
     "image_preparing": "L’image d’ordinateur est en cours de construction. Cela prend quelques minutes.",
     "image_building": "Une image d’ordinateur plus récente est en cours de construction.",
     "rc": {
@@ -805,7 +805,10 @@
     "move": {
       "moving": "Déplacement des fichiers vers {{name}}…",
       "moving_note": "Le dossier home est copié, puis les Bots basculent. D’ici là, l’ordinateur actuel continue de fonctionner.",
-      "failed": "Le basculement n’a pas abouti. L’ordinateur actuel est inchangé."
+      "failed": "Le basculement n’a pas abouti. L’ordinateur actuel est inchangé.",
+      "updating": "Mise à jour de l’ordinateur cloud E2B…",
+      "updating_note": "Il est reconstruit à partir de l’image plus récente. Le dossier home est conservé ; les Bots attendent son retour.",
+      "update_failed": "L’ordinateur cloud E2B n’a pas pu être mis à jour. Le dossier home est conservé ; une nouvelle tentative aura lieu plus tard."
     }
   }
 }
