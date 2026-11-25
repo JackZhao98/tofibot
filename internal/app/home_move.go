@@ -163,6 +163,9 @@ func waitGuestState(ctx context.Context, call guestCall, file string) error {
 
 func homeMoveDir(moveID string) string { return "/workspace/home/uploads/.tofi-move-" + moveID }
 
+// The detached jobs run in a subshell with every stream redirected: a background list that keeps the call's stdout
+// open makes the guest wait for the whole tar (and time the call out at 120 s).
+//
 // packHome packs /workspace/home on a computer into parts under its move folder and returns the part names (the
 // sums file lists them) and the size of home. tar exits 1 when a file changed while it was read (a Bot still
 // working): the archive is still complete for every other file, so that counts as done.
@@ -179,7 +182,7 @@ func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int
 	if used > homeMoveMaxBytes {
 		return nil, used, homeMoveError{"home_too_large"}
 	}
-	pack := fmt.Sprintf(`mkdir -p %[1]s && setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' >/dev/null 2>&1 &`, dir, homeMovePartBytes)
+	pack := fmt.Sprintf(`mkdir -p %[1]s && (setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' </dev/null >/dev/null 2>&1 &)`, dir, homeMovePartBytes)
 	if out, err := guestShell(ctx, from, pack, 30); err != nil || out.ExitCode != 0 {
 		return nil, used, guestStepError("could not start packing", out, err)
 	}
@@ -223,7 +226,7 @@ func unpackHome(ctx context.Context, to guestCall, moveID string) error {
 	if err != nil || check.ExitCode != 0 {
 		return errors.New("parts did not match")
 	}
-	unpack := fmt.Sprintf(`setsid nohup sh -c 'cd %[1]s && cat part.* | tar --no-same-owner -xzf - -C /workspace; rc=$?; if [ $rc -eq 0 ]; then echo done > unpacked; else echo failed:$rc > unpacked; fi' >/dev/null 2>&1 &`, dir)
+	unpack := fmt.Sprintf(`(setsid nohup sh -c 'cd %[1]s && cat part.* | tar --no-same-owner -xzf - -C /workspace; rc=$?; if [ $rc -eq 0 ]; then echo done > unpacked; else echo failed:$rc > unpacked; fi' </dev/null >/dev/null 2>&1 &)`, dir)
 	if out, err := guestShell(ctx, to, unpack, 30); err != nil || out.ExitCode != 0 {
 		return guestStepError("could not start unpacking", out, err)
 	}
