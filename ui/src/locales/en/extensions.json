@@ -490,6 +490,7 @@
       "refresh_failed": "Couldn't refresh the tool list."
     },
     "explain": "Runs without asking: tools the service marks read only, or you mark. Asks when unsure: each call is reviewed, so what you asked for runs and the rest asks you first. Always asks me: you decide every call.",
+    "default_note": "The default for every Bot. Each Bot can set its own in its settings.",
     "group": {
       "read_only": "Runs without asking",
       "write": "Asks when unsure",

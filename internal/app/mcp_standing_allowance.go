@@ -337,7 +337,7 @@ func (s *Server) grantStandingAllowance(q Question, actor string) (MCPStandingAl
 	if err != nil {
 		return MCPStandingAllowance{}, err
 	}
-	probe := extensions.MCPCallApproval{Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}
+	probe := extensions.MCPCallApproval{BotID: q.BotID, Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}
 	if !s.standingTierOK(probe) {
 		return MCPStandingAllowance{}, errRememberStale
 	}
@@ -406,7 +406,7 @@ func (s *Server) listStandingAllowances() ([]MCPStandingAllowance, error) {
 		a.State = "server_changed"
 		if s.extensions != nil && changedAt == "" {
 			if current, currentCredential, ok := s.extensions.MCPServerIdentity(a.Server); ok && current == fingerprint && currentCredential == credential {
-				view := s.extensions.MCPToolTier(a.Server, a.Tool)
+				view := s.extensions.MCPToolTierForBot(a.BotID, a.Server, a.Tool)
 				switch {
 				case view.Digest == "" || view.Digest != digest:
 					a.State = "tool_changed"
@@ -525,6 +525,9 @@ func (s *Server) deleteMCPServer(name string) error {
 	}
 	// A connection added later under the same name starts open, not with a stale choice.
 	if e := s.store.clearConnectionAccessForServer(name); e != nil {
+		return e
+	}
+	if e := s.store.clearBotToolTiersForServer(name); e != nil {
 		return e
 	}
 	return err

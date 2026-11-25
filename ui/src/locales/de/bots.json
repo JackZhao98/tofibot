@@ -159,7 +159,7 @@
   },
   "skills": {
     "title": "Skills",
-    "hint": "Skills, die dieser Bot nutzen kann. Ein Skill aus der Bibliothek ist aus, bis du ihn hier einschaltest; der Bot kann ihn auch selbst einschalten. Offizielle Skills sind an, solange du sie nicht ausschaltest.",
+    "hint": "Bibliotheks-Skills starten aus, offizielle Skills an. Der Bot kann seine eigenen schalten.",
     "loading": "Skills werden geladen …",
     "empty": "Die Bibliothek enthält noch keine Skills. Füge sie unter Einstellungen › Skills hinzu.",
     "official_title": "Offizielle Skills",
@@ -219,52 +219,25 @@
   "tools": {
     "connections": {
       "title": "Verbindungen",
-      "hint": "Schalte eine Verbindung aus, damit dieser Bot sie nicht nutzt. Neue Verbindungen sind für alle Bots zunächst an.",
+      "hint": "Aus hält diesen Bot von einer Verbindung fern. Neue starten an.",
       "loading": "Wird geladen…",
       "error": "Verbindungen konnten nicht geladen werden. Versuche es erneut.",
       "none": "Noch keine Verbindungen.",
       "add": "In den Einstellungen hinzufügen",
       "switch": "{{bot}} darf {{connection}} nutzen",
       "open": "{{connection}} in den Einstellungen öffnen",
-      "save_failed": "Speichern fehlgeschlagen. Versuche es erneut.",
-      "allowed_one": "{{count}} immer erlaubt",
-      "allowed_other": "{{count}} immer erlaubt"
+      "save_failed": "Speichern fehlgeschlagen. Versuche es erneut."
     },
     "skills": {
       "manage": "Bibliothek verwalten"
     },
-    "web": {
-      "title": "Web",
-      "search": "Suche",
-      "fetch": "Abruf",
-      "on": "An · {{chain}}",
-      "search_none": "Aus · keine Quelle eingerichtet",
-      "configure": "Quellen einrichten"
-    },
-    "computer": {
-      "title": "Umgebungen",
-      "none": "Noch kein Bot-Computer. Füge in den Einstellungen einen hinzu, damit Bots surfen und Code ausführen können.",
-      "manage": "Umgebungen verwalten",
-      "always": "Immer",
-      "mac": "Wenn du ihn auf dem Mac erlaubst",
-      "error": "Umgebungen konnten nicht gelesen werden."
-    },
-    "builtin": {
-      "title": "Integriert",
-      "summary": "Was jeder Bot kann",
-      "items": "Dateien und Anhänge · Bilder · Gedächtnis · Aufgaben und Zeitpläne · Menschen fragen · Arbeitsbereich verwalten (bei Bedarf)"
-    },
-    "permissions": {
-      "title": "Berechtigungen für diesen Bot",
-      "manage": "Alle Berechtigungen",
-      "empty": "Nichts ist ohne Nachfrage erlaubt. Wähle bei einer Freigabe „Immer erlauben“, um eine hinzuzufügen.",
-      "allowed": "Erlaubt {{time}}",
-      "used_one": "{{count}} Mal genutzt",
-      "used_other": "{{count}} Mal genutzt",
-      "remembered_one": "In {{count}} Chat gemerkt",
-      "remembered_other": "In {{count}} Chats gemerkt",
-      "remembered_none": "In Chats gemerkt: nichts",
-      "error": "Berechtigungen konnten nicht geladen werden. Versuche es erneut."
+    "tier": {
+      "show": "Werkzeugrechte für {{connection}}",
+      "label": "{{bot}} bei {{tool}}",
+      "follow": "Standard · {{tier}}",
+      "changed": "Das Werkzeug hat sich seit deiner Einstellung geändert.",
+      "error": "Werkzeuge konnten nicht geladen werden. Versuche es erneut.",
+      "empty": "Noch keine Werkzeuge gefunden."
     }
   }
 }

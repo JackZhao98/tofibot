@@ -161,7 +161,7 @@
   },
   "skills": {
     "title": "Skills",
-    "hint": "Les Skills que ce Bot peut utiliser. Un Skill de la bibliothèque reste désactivé tant que vous ne l’activez pas ici ; le Bot peut aussi l’activer lui-même. Les Skills officiels sont activés sauf si vous les désactivez.",
+    "hint": "Les Skills de la bibliothèque démarrent désactivés, les officiels activés. Le Bot peut changer les siens.",
     "loading": "Chargement des Skills…",
     "empty": "La bibliothèque ne contient pas encore de Skills. Ajoutez-en dans Réglages › Skills.",
     "official_title": "Skills officiels",
@@ -222,55 +222,25 @@
   "tools": {
     "connections": {
       "title": "Connexions",
-      "hint": "Désactivez une connexion pour que ce Bot ne l'utilise pas. Une nouvelle connexion est activée pour tous les Bots.",
+      "hint": "Désactivée, une connexion reste hors de portée de ce Bot. Les nouvelles démarrent activées.",
       "loading": "Chargement…",
       "error": "Impossible de charger les connexions. Réessayez.",
       "none": "Aucune connexion pour l'instant.",
       "add": "Ajouter dans les réglages",
       "switch": "Autoriser {{bot}} à utiliser {{connection}}",
       "open": "Ouvrir {{connection}} dans les réglages",
-      "save_failed": "Enregistrement impossible. Réessayez.",
-      "allowed_one": "{{count}} toujours autorisé",
-      "allowed_many": "{{count}} toujours autorisés",
-      "allowed_other": "{{count}} toujours autorisés"
+      "save_failed": "Enregistrement impossible. Réessayez."
     },
     "skills": {
       "manage": "Gérer la bibliothèque"
     },
-    "web": {
-      "title": "Web",
-      "search": "Recherche",
-      "fetch": "Récupération",
-      "on": "Activé · {{chain}}",
-      "search_none": "Désactivé · aucune source configurée",
-      "configure": "Configurer les sources"
-    },
-    "computer": {
-      "title": "Environnements",
-      "none": "Pas encore d'ordinateur Bot. Ajoutez-en un dans les réglages pour que les Bots puissent naviguer et exécuter du code.",
-      "manage": "Gérer les environnements",
-      "always": "Toujours",
-      "mac": "Quand vous l’autorisez sur ce Mac",
-      "error": "Impossible de lire les environnements."
-    },
-    "builtin": {
-      "title": "Intégrés",
-      "summary": "Ce que chaque Bot sait faire",
-      "items": "Fichiers et pièces jointes · Images · Mémoire · Tâches et planifications · Demander à une personne · Administration de l'espace (à la demande)"
-    },
-    "permissions": {
-      "title": "Autorisations de ce Bot",
-      "manage": "Toutes les autorisations",
-      "empty": "Rien n'est autorisé sans demander. Choisissez « Toujours autoriser » sur une demande pour en ajouter une.",
-      "allowed": "Autorisé {{time}}",
-      "used_one": "utilisé {{count}} fois",
-      "used_many": "utilisé {{count}} fois",
-      "used_other": "utilisé {{count}} fois",
-      "remembered_one": "Mémorisé dans {{count}} conversation",
-      "remembered_many": "Mémorisé dans {{count}} conversations",
-      "remembered_other": "Mémorisé dans {{count}} conversations",
-      "remembered_none": "Mémorisé dans les conversations : rien",
-      "error": "Impossible de charger les autorisations. Réessayez."
+    "tier": {
+      "show": "Droits des outils de {{connection}}",
+      "label": "{{bot}} pour {{tool}}",
+      "follow": "Par défaut · {{tier}}",
+      "changed": "L’outil a changé depuis votre réglage.",
+      "error": "Impossible de charger les outils. Réessayez.",
+      "empty": "Aucun outil détecté pour l’instant."
     }
   }
 }

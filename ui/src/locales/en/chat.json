@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bot settings sections",
-    "back": "All sections",
     "avatar_title": "Avatar",
     "avatar_hint": "How this cat looks in the list and in chat.",
     "name_required": "A name is required.",
@@ -89,19 +88,20 @@
     "export_action": "Export",
     "delete_hint": "Removes this Bot and its chat. This can't be undone.",
     "section": {
-      "identity": "Identity",
-      "role": "Role",
-      "model": "Model",
+      "identity": "Profile",
+      "role": "Role and model",
+      "tools": "Tools",
       "secrets": "Secrets",
-      "advanced": "Advanced",
-      "tools": "Tools"
+      "export": "Export",
+      "danger": "Danger zone"
     },
     "desc": {
       "identity": "Avatar, name and Primary Assistant.",
-      "role": "What this Bot is responsible for. It reads this before every reply.",
-      "model": "Which model this Bot runs on and how much it thinks.",
-      "advanced": "System prompt, export and delete.",
-      "tools": "What {{name}} can use. Connections and Skills are yours to switch; the rest follows workspace settings."
+      "role": "What this Bot does and what runs it.",
+      "tools": "Connections, tool permissions and Skills for this Bot.",
+      "secrets": "Secrets this Bot keeps.",
+      "export": "Share file, data export and system prompt.",
+      "danger": "Delete this Bot."
     },
     "role_count_one": "{{count}} character",
     "role_count_other": "{{count}} characters",

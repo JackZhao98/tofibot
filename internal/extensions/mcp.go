@@ -145,6 +145,15 @@ type Config struct {
 	// a server's fingerprint or credential target, or removed it. It runs under
 	// the configuration fence and must not call back into the Manager.
 	ServerIdentityChanged func(server string)
+	// BotToolTier reports the tier the owner set for one Bot on one tool, with
+	// the digest of the tool definition it was set for. ok is false when the
+	// Bot follows the global tier, which is every Bot until its own is set.
+	// It is a short local lookup: it runs under the configuration fence.
+	BotToolTier func(botID, server, tool string) (tier, digest string, ok bool)
+	// BotToolTierRaised reports whether any Bot has a tier of its own on the
+	// tool that is not read_only, so a recorded step of that tool is not taken
+	// for an observation.
+	BotToolTierRaised func(server, tool string) bool
 }
 
 type Manager struct {
@@ -202,10 +211,13 @@ const maxCachedSchemaBytes = maxSchemaPageBytes - 4096
 // MCPCallApproval is an execution-time request for one exact tool call.
 // Approval must occur before the remote CallTool request is sent.
 type MCPCallApproval struct {
-	Description   string // Untrusted remote metadata, never policy authority.
-	Schema        json.RawMessage
-	Server        string
-	Tool          string
+	Description string // Untrusted remote metadata, never policy authority.
+	Schema      json.RawMessage
+	Server      string
+	Tool        string
+	// BotID is the Bot the call runs for; its own tier, when it has one, is
+	// part of the tier the proposal is bound to.
+	BotID         string
 	ConfigVersion string
 	Arguments     json.RawMessage
 	// ReadOnlyHint is the remote tool's readOnlyHint annotation as captured.
@@ -463,7 +475,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 		// .enabled.json state file is intentionally ignored.
 		p.Diagnostics = append(p.Diagnostics, skillDiags...)
 		if discoverable {
-			lazyTools, lazyClose := lazyDiscoverableMCPTools(ctx, m, servers, m.cfg.DiscoveryTimeout, m.cfg.MaxToolResult, cachedTools, gate, enforceApproval)
+			lazyTools, lazyClose := lazyDiscoverableMCPTools(ctx, botID, m, servers, m.cfg.DiscoveryTimeout, m.cfg.MaxToolResult, cachedTools, gate, enforceApproval)
 			oldClose := p.close
 			p.close = func() error {
 				e1 := lazyClose()
@@ -512,7 +524,7 @@ func (m *Manager) prepareMode(ctx context.Context, botID string, scoped, discove
 	}
 	if discoverable {
 		p.Instructions = discoveryInstructions(servers, nil)
-		lazyTools, lazyClose := lazyDiscoverableMCPTools(ctx, m, servers, m.cfg.DiscoveryTimeout, m.cfg.MaxToolResult, cachedTools, gate, enforceApproval)
+		lazyTools, lazyClose := lazyDiscoverableMCPTools(ctx, botID, m, servers, m.cfg.DiscoveryTimeout, m.cfg.MaxToolResult, cachedTools, gate, enforceApproval)
 		oldClose := p.close
 		p.close = func() error {
 			e1 := lazyClose()

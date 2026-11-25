@@ -13,8 +13,8 @@
 .cover-body .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
 @keyframes cover-scrim-out { to { opacity:0; } }
 @media (max-width:767px) {
-  .cover-scrim { padding:0; }
-  .cover-window, .cover-window.is-wide { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; }
+  /* The kit scrim keeps its own padding (unlayered, so a rule here cannot clear it): the window fills what it leaves. */
+  .cover-window, .cover-window.is-wide { width:calc(100vw - 48px); height:calc(100dvh - 48px); max-height:calc(100dvh - 48px); }
   .cover-body .detail-content { padding:16px 18px 24px; }
 }
 @media (prefers-reduced-motion:reduce) {

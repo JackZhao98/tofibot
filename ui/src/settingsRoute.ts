@@ -1,5 +1,5 @@
 import {
-  BOT_SETTINGS_SECTIONS, CONNECTION_SECTIONS, GROUP_SETTINGS_SECTIONS, LEGACY_SETTINGS_LINKS, SETTINGS_SECTIONS,
+  BOT_SETTINGS_SECTIONS, CONNECTION_SECTIONS, LEGACY_BOT_SETTINGS_SECTIONS, GROUP_SETTINGS_SECTIONS, LEGACY_SETTINGS_LINKS, SETTINGS_SECTIONS,
   type BotSettingsSection, type GroupSettingsSection, type SettingsTabId,
 } from "./settings/sections";
 
@@ -51,7 +51,7 @@ export function readSettingsLink(pathname: string, hash = "", search = ""): Sett
   const bot = /^\/b\/([^/]+)\/settings\/?$/.exec(pathname);
   if (bot) {
     const botId = safeId(bot[1]);
-    return botId ? { kind: "bot-settings", botId, section: (sectionFrom(hash, BOT_SETTINGS_SECTIONS) ?? "identity") as BotSettingsSection } : null;
+    return botId ? { kind: "bot-settings", botId, section: (sectionFrom(hash, BOT_SETTINGS_SECTIONS) ?? LEGACY_BOT_SETTINGS_SECTIONS[hash.replace(/^#/, "")] ?? "identity") as BotSettingsSection } : null;
   }
   const group = /^\/g\/([^/]+)\/settings\/?$/.exec(pathname);
   if (group) {

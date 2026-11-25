@@ -1,53 +1,55 @@
-import { Button } from "./ds/Button/Button";
+import * as Collapsible from "@radix-ui/react-collapsible";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { api, request } from "./api";
-import { BotAvatar } from "./BotAvatar";
-import { BotInspector } from "./BotInspector";
+import { request } from "./api";
 import { BotSkills } from "./BotSkills";
-import { readEnvironments, type Environment } from "./environments";
+import { Button } from "./ds/Button/Button";
+import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { SettingsSection } from "./ds/SettingsSection/SettingsSection";
 import { displayName, markName, presetFor } from "./connections/names";
 import { message, type MCP } from "./connections/shared";
 import { storedKind, type ConnectionKind } from "./connections/status";
-import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
-import { formatDateTime } from "./i18n/format";
 import { TofiIcon } from "./icons";
+import { Select } from "./Select";
 import { ServiceMark } from "./ServiceMark";
 import { openConnectionDeepLink } from "./settings/deepLinks";
-import { SettingsSwitch, StatusBadge, type BadgeState } from "./settings/components";
-import type { StandingAllowance } from "./StandingAllowances";
-import type { WebSourceEntry, WebToolsView } from "./types";
+import { SettingsSwitch } from "./settings/components";
 import "./extensions-system.css";
 import "./bot-tools.css";
 
 /**
- * Bot settings > Tools (docs/design/tools-and-connections.md section 3.4): what this Bot can use, in one place. Connections and
- * Skills are the owner's to switch here; Web, Computer and Built in state what follows workspace settings; the last group lists what
- * this Bot may do without asking. Lazy chunk `botSettings`.
+ * Bot settings > Tools: what this Bot can use and how often it asks. Connections are open or closed for this Bot; each open one lists
+ * its tools with this Bot's own tier (it follows the connection's tier until the owner sets one); Skills are switched here too. All of
+ * it saves on change and applies from the next run. Lazy chunk `botSettings`.
  */
 export type BotConnectionRow = {
   server: string; name: string; mark: string;
   /** From the stored check; null before any check ran (no status is shown). */
-  kind: ConnectionKind | null; tools?: number; allowed: number;
+  kind: ConnectionKind | null; tools?: number;
   /** This Bot may use it. A paused connection is closed to every Bot whatever this says. */
   enabled: boolean;
 };
+
+export type BotTierValue = "read_only" | "write" | "high_risk";
+/** One tool as this Bot sees it: `tier` is what applies, `global_tier` what the connection says, `bot_tier` this Bot's own choice. */
+export type BotToolTier = { name: string; tier: BotTierValue; global_tier?: BotTierValue; bot_tier?: BotTierValue; bot_changed?: boolean };
+/** null while loading. */
+export type BotTierState = { tools: BotToolTier[] | null; error: boolean; saving: string };
 
 export type BotToolsViewProps = {
   botName: string;
   /** null while loading. */
   connections: BotConnectionRow[] | null; connectionsError: string; saving: string;
   onToggle: (server: string, next: boolean) => void; onOpenConnection: (server: string) => void; onAddConnection: () => void;
+  /** Tier lists by connection; a connection with no entry has not been opened yet. */
+  tiers: Record<string, BotTierState>; onOpenTiers: (server: string) => void; onSetTier: (server: string, tool: string, tier: BotTierValue | "") => void;
   skills: ReactNode; onOpenSkills: () => void;
-  web: WebToolsView | null; onOpenWeb: () => void;
-  /** What this Bot can work in: null while loading, "error" when the read failed. */
-  environments: Environment[] | "error" | null; onOpenComputer: () => void;
-  inspector: ReactNode;
-  allowances: StandingAllowance[] | null; leaving: string[]; onGone: (id: string) => void; remembered: number; revoking: string; permissionsError: string; serverName: (server: string) => string;
-  onRevoke: (item: StandingAllowance) => void; onOpenPermissions: () => void;
+  /** Starts open (the catalog draws every state). */
+  openTiers?: string[];
 };
 
-const envBadge: Record<Environment["state"], BadgeState> = { ready: "ok", online: "ok", starting: "testing", resuming: "testing", preparing: "testing", asleep: "asleep", offline: "asleep", stopped: "asleep", standby: "asleep", unknown: "asleep", failed: "bad" };
+const TIER_WORD = { read_only: "extensions:tools.tier.read_only", write: "extensions:tools.tier.write", high_risk: "extensions:tools.tier.high_risk" } as const;
 
 /** The status words are the Connections page's own. */
 function kindKey(kind: ConnectionKind) {
@@ -61,104 +63,56 @@ function kindKey(kind: ConnectionKind) {
   }
 }
 
-/** "Claude native → Tavily → Brave": the sources the chain will try, in order. */
-function chainText(entries: WebSourceEntry[]) {
-  return entries.filter(entry => entry.enabled && (entry.status === "ready" || entry.status === "always")).map(entry => entry.label).join(" → ");
-}
-
-function Group({ id, title, hint, action, children }: { id: string; title: string; hint?: string; action?: ReactNode; children: ReactNode }) {
-  return <section className="bt-group" data-group={id} aria-label={title}>
-    <header className="bt-group-head"><div><h3>{title}</h3>{hint && <p>{hint}</p>}</div>{action}</header>
-    {children}
-  </section>;
-}
-
-function LinkButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button type="button" className="bt-link" onClick={onClick}>{children}<TofiIcon name="chevron-right" size={14} aria-hidden="true" /></button>;
+function TierRows({ server, botName, state, onSetTier }: { server: string; botName: string; state: BotTierState; onSetTier: BotToolsViewProps["onSetTier"] }) {
+  const { t } = useTranslation(["bots", "extensions"]);
+  if (state.error) return <p className="error-text" role="alert">{t("bots:tools.tier.error")}</p>;
+  if (state.tools === null) return <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>;
+  if (state.tools.length === 0) return <p className="field-note">{t("bots:tools.tier.empty")}</p>;
+  return <ul className="bt-tools">
+    {state.tools.map(tool => {
+      const global = tool.global_tier ?? tool.tier;
+      return <li key={tool.name} className="bt-tool" data-tool={tool.name} data-own={tool.bot_tier ? "true" : undefined}>
+        <span className="bt-tool-copy"><code>{tool.name}</code>{tool.bot_changed && <small className="bt-warning">{t("bots:tools.tier.changed")}</small>}</span>
+        <Select size="sm" className="bt-tier" aria-label={t("bots:tools.tier.label", { tool: tool.name, bot: botName })} disabled={state.saving === tool.name} value={tool.bot_tier ?? ""}
+          onValueChange={value => onSetTier(server, tool.name, value as BotTierValue | "")}
+          options={[{ value: "", label: t("bots:tools.tier.follow", { tier: t(TIER_WORD[global]) }) }, ...(Object.keys(TIER_WORD) as BotTierValue[]).map(value => ({ value, label: t(TIER_WORD[value]) }))]} />
+      </li>;
+    })}
+  </ul>;
 }
 
 /** Presentational: everything arrives as props so every state can be drawn without a server. */
 export function BotToolsView(p: BotToolsViewProps) {
-  const { t } = useTranslation(["bots", "extensions", "settings", "computer"]);
-  // The Bot computer is always available to a Bot; a Mac only where the person allowed this Bot on it (decided on the Mac).
-  const usable = Array.isArray(p.environments) ? p.environments.filter(item => item.bot_computer || item.kind === "mac") : [];
-  const searchLine = !p.web ? "" : !p.web.search_offered ? t("bots:tools.web.search_none") : t("bots:tools.web.on", { chain: chainText(p.web.search) });
-  const fetchLine = !p.web ? "" : t("bots:tools.web.on", { chain: chainText(p.web.fetch) });
-  const when = (value: string) => formatDateTime(value);
+  const { t } = useTranslation(["bots", "extensions"]);
   return <div className="bot-tools">
-    <Group id="connections" title={t("bots:tools.connections.title")} hint={t("bots:tools.connections.hint")}>
-      {p.connections === null && <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>}
-      {p.connectionsError && <p className="error-text" role="alert">{p.connectionsError}</p>}
-      {p.connections !== null && p.connections.length === 0 && <div className="bt-empty"><p>{t("bots:tools.connections.none")}</p><LinkButton onClick={p.onAddConnection}>{t("bots:tools.connections.add")}</LinkButton></div>}
-      {p.connections !== null && p.connections.length > 0 && <ul className="bt-list">
-        {p.connections.map(row => {
-          const paused = row.kind === "paused";
-          const summary = [row.kind ? t(kindKey(row.kind)) : "", row.tools ? t("extensions:connections.row.tools", { count: row.tools }) : "", row.allowed > 0 ? t("bots:tools.connections.allowed", { count: row.allowed }) : ""].filter(Boolean).join(" · ");
-          return <li key={row.server} className="bt-row bt-conn" data-server={row.server} data-off={!row.enabled || paused ? "true" : undefined} data-paused={paused ? "true" : undefined}>
+    <SettingsSection id="connections" title={t("bots:tools.connections.title")} description={t("bots:tools.connections.hint")}>
+      {p.connections === null && <p className="field-note bt-pad" role="status">{t("bots:tools.connections.loading")}</p>}
+      {p.connectionsError && <p className="error-text bt-pad" role="alert">{p.connectionsError}</p>}
+      {p.connections !== null && p.connections.length === 0 && <div className="bt-empty"><p>{t("bots:tools.connections.none")}</p><Button size="sm" onClick={p.onAddConnection}>{t("bots:tools.connections.add")}</Button></div>}
+      {p.connections?.map(row => {
+        const paused = row.kind === "paused";
+        const off = !row.enabled || paused;
+        const summary = [row.kind ? t(kindKey(row.kind)) : "", row.tools ? t("extensions:connections.row.tools", { count: row.tools }) : ""].filter(Boolean).join(" · ");
+        const state = p.tiers[row.server];
+        return <Collapsible.Root key={row.server} className="bt-conn" data-server={row.server} data-off={off ? "true" : undefined} data-paused={paused ? "true" : undefined} defaultOpen={p.openTiers?.includes(row.server)} onOpenChange={open => { if (open) p.onOpenTiers(row.server); }}>
+          <div className="bt-conn-head">
             <ServiceMark name={row.mark} />
             <span className="bt-row-copy"><strong>{row.name}</strong>{summary && <small>{summary}</small>}</span>
             <SettingsSwitch label={t("bots:tools.connections.switch", { connection: row.name, bot: p.botName })} checked={row.enabled && !paused} disabled={paused || p.saving === row.server} busy={p.saving === row.server} showSaved={false} onChange={next => p.onToggle(row.server, next)} />
-            <button type="button" className="bt-open" aria-label={t("bots:tools.connections.open", { connection: row.name })} data-hint={t("bots:tools.connections.open", { connection: row.name })} onClick={() => p.onOpenConnection(row.server)}><TofiIcon name="chevron-right" size={16} aria-hidden="true" /></button>
-          </li>;
-        })}
-      </ul>}
-    </Group>
-
-    <Group id="skills" title={t("bots:skills.title")} action={<LinkButton onClick={p.onOpenSkills}>{t("bots:tools.skills.manage")}</LinkButton>}>
-      {p.skills}
-    </Group>
-
-    <Group id="web" title={t("bots:tools.web.title")} action={<LinkButton onClick={p.onOpenWeb}>{t("bots:tools.web.configure")}</LinkButton>}>
-      {p.web === null ? <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p> : <dl className="bt-facts">
-        <div><dt>{t("bots:tools.web.search")}</dt><dd>{searchLine}</dd></div>
-        <div><dt>{t("bots:tools.web.fetch")}</dt><dd>{fetchLine}</dd></div>
-      </dl>}
-    </Group>
-
-    <Group id="computer" title={t("bots:tools.computer.title")} action={<LinkButton onClick={p.onOpenComputer}>{t("bots:tools.computer.manage")}</LinkButton>}>
-      {p.environments === null && <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>}
-      {p.environments === "error" && <p className="error-text" role="alert">{t("bots:tools.computer.error")}</p>}
-      {Array.isArray(p.environments) && usable.length === 0 && <p className="bt-line">{t("bots:tools.computer.none")}</p>}
-      {usable.length > 0 && <ul className="bt-list">
-        {usable.map(item => <li key={item.id} className="bt-row bt-env" data-environment={item.id} data-kind={item.kind}>
-          <TofiIcon name={item.kind === "mac" ? "laptop" : item.kind === "e2b" ? "cloud" : "server"} size={18} aria-hidden="true" />
-          <span className="bt-row-copy"><strong>{item.name || t(`computer:environments.name.${item.kind}`)}</strong><small>{t(item.kind === "mac" ? "bots:tools.computer.mac" : "bots:tools.computer.always")}</small></span>
-          <StatusBadge state={envBadge[item.state]}>{t(`computer:environments.state.${item.state}`)}</StatusBadge>
-        </li>)}
-      </ul>}
-    </Group>
-
-    <Group id="builtin" title={t("bots:tools.builtin.title")}>
-      <Disclosure title={t("bots:tools.builtin.summary")}>
-        <p className="bt-line">{t("bots:tools.builtin.items")}</p>
-        {p.inspector}
-      </Disclosure>
-    </Group>
-
-    <Group id="permissions" title={t("bots:tools.permissions.title")} action={<LinkButton onClick={p.onOpenPermissions}>{t("bots:tools.permissions.manage")}</LinkButton>}>
-      {p.allowances === null && <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>}
-      {p.permissionsError && <p className="error-text" role="alert">{p.permissionsError}</p>}
-      {p.allowances !== null && p.allowances.length === 0 && <p className="bt-line">{t("bots:tools.permissions.empty")}</p>}
-      {p.allowances !== null && p.allowances.length > 0 && <ul className="bt-list">
-        {p.allowances.map(item => <li key={item.id} className="bt-allow" data-allowance-id={item.id} data-state={item.state} data-leaving={p.leaving.includes(item.id) ? "true" : undefined}
-          onTransitionEnd={event => { if (event.target === event.currentTarget && p.leaving.includes(item.id)) p.onGone(item.id); }}>
-          <div className="bt-collapse"><div className="bt-row">
-            <span className="bt-allow-avatar"><BotAvatar id={item.bot_id} mini /></span>
-            <span className="bt-row-copy">
-              <strong><code>{item.tool}</code> <span className="bt-server">{p.serverName(item.server)}</span></strong>
-              <small>{t("bots:tools.permissions.allowed", { time: when(item.created_at) })}{item.use_count > 0 ? ` · ${t("bots:tools.permissions.used", { count: item.use_count })}` : ""}</small>
-              {item.state !== "active" && <small className="bt-warning">{t(`settings:permissionsPage.standing.${item.state}`)}</small>}
-            </span>
-            <Button size="sm" className="bs-button" disabled={Boolean(p.revoking) || p.leaving.includes(item.id)} onClick={() => p.onRevoke(item)}>{p.revoking === item.id ? t("settings:permissionsPage.standing.revoking") : t("settings:permissionsPage.standing.revoke")}</Button>
-          </div></div>
-        </li>)}
-      </ul>}
-      {p.allowances !== null && <p className="bt-line bt-remembered">{p.remembered > 0 ? t("bots:tools.permissions.remembered", { count: p.remembered }) : t("bots:tools.permissions.remembered_none")}</p>}
-    </Group>
+            {!off && <Collapsible.Trigger className="bt-tiers-trigger" aria-label={t("bots:tools.tier.show", { connection: row.name })} data-hint={t("bots:tools.tier.show", { connection: row.name })}><TofiIcon name="chevron-down" size={16} aria-hidden="true" /></Collapsible.Trigger>}
+            <IconButton size="sm" icon="chevron-right" label={t("bots:tools.connections.open", { connection: row.name })} onClick={() => p.onOpenConnection(row.server)} />
+          </div>
+          {!off && <CollapsibleContent><div className="bt-tiers">{state ? <TierRows server={row.server} botName={p.botName} state={state} onSetTier={p.onSetTier} /> : null}</div></CollapsibleContent>}
+        </Collapsible.Root>;
+      })}
+    </SettingsSection>
+    <SettingsSection id="skills" title={t("bots:skills.title")} description={t("bots:skills.hint")} actions={<Button size="sm" onClick={p.onOpenSkills}>{t("bots:tools.skills.manage")}</Button>}>
+      <div className="bt-pad">{p.skills}</div>
+    </SettingsSection>
   </div>;
 }
 
-/** Bot settings > Tools, wired: reads the connections, this Bot's access, the web chains and its allowances. */
+/** Bot settings > Tools, wired: the connections and this Bot's access, each connection's tool tiers when opened, and the Skills. */
 export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   bot: { id: string; name: string }; refreshToken?: number;
   /** Runs `go` once the cover may close (unsaved changes are asked about first). */
@@ -166,26 +120,18 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   onOpenSettings: (tab: "skills" | "models" | "computer" | "permissions" | "connections") => void;
 }) {
   const { t } = useTranslation("bots");
-  const [environments, setEnvironments] = useState<Environment[] | "error" | null>(null);
   const [servers, setServers] = useState<MCP[] | null>(null);
   const [access, setAccess] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [saving, setSaving] = useState("");
-  const [web, setWeb] = useState<WebToolsView | null>(null);
-  const [allowances, setAllowances] = useState<StandingAllowance[] | null>(null);
-  const [remembered, setRemembered] = useState(0);
-  const [permissionsError, setPermissionsError] = useState("");
-  const [revoking, setRevoking] = useState("");
-  const [leaving, setLeaving] = useState<string[]>([]);
+  const [tiers, setTiers] = useState<Record<string, BotTierState>>({});
+  const opened = useRef<Set<string>>(new Set());
   const alive = useRef(true);
   const id = encodeURIComponent(bot.id);
   const load = useCallback(async () => {
-    const [list, mine, sources, granted, places] = await Promise.allSettled([
+    const [list, mine] = await Promise.allSettled([
       request<{ servers: MCP[] }>("/api/extensions/mcp"),
       request<{ connections: { server: string; enabled: boolean }[] }>(`/api/bots/${id}/connections`),
-      api.webTools(),
-      request<{ allowances?: StandingAllowance[]; remembered?: unknown[] }>(`/api/standing-allowances?bot=${id}`),
-      readEnvironments(),
     ]);
     if (!alive.current) return;
     if (list.status === "fulfilled" && mine.status === "fulfilled") {
@@ -193,20 +139,21 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
       setAccess(Object.fromEntries((mine.value.connections ?? []).map(row => [row.server, row.enabled])));
       setError("");
     } else { setServers(current => current ?? []); setError(t("tools.connections.error")); }
-    if (sources.status === "fulfilled" && Array.isArray(sources.value.search) && Array.isArray(sources.value.fetch)) setWeb(sources.value);
-    setEnvironments(current => places.status === "fulfilled" ? places.value.environments : current ?? "error");
-    if (granted.status === "fulfilled") { setAllowances(granted.value.allowances ?? []); setRemembered(granted.value.remembered?.length ?? 0); setPermissionsError(""); }
-    else { setAllowances(current => current ?? []); setPermissionsError(t("tools.permissions.error")); }
   }, [id, t]);
+  const loadTiers = useCallback(async (server: string) => {
+    try {
+      const value = await request<{ tools?: BotToolTier[] }>(`/api/bots/${id}/tool-tiers/${encodeURIComponent(server)}`);
+      if (alive.current) setTiers(current => ({ ...current, [server]: { tools: value.tools ?? [], error: false, saving: "" } }));
+    } catch { if (alive.current) setTiers(current => ({ ...current, [server]: { tools: current[server]?.tools ?? null, error: true, saving: "" } })); }
+  }, [id]);
   useEffect(() => {
-    alive.current = true; setServers(null); setAllowances(null); setEnvironments(null); void load();
-    const focus = () => { if (!document.hidden) void load(); };
-    const changed = () => void load();
+    alive.current = true; setServers(null); setTiers({}); opened.current = new Set(); void load();
+    const focus = () => { if (!document.hidden) { void load(); opened.current.forEach(server => void loadTiers(server)); } };
+    const changed = () => { void load(); opened.current.forEach(server => void loadTiers(server)); };
     window.addEventListener("focus", focus);
-    window.addEventListener("tofi:standing-allowances-changed", changed);
     window.addEventListener("tofi:connections-changed", changed);
-    return () => { alive.current = false; window.removeEventListener("focus", focus); window.removeEventListener("tofi:standing-allowances-changed", changed); window.removeEventListener("tofi:connections-changed", changed); };
-  }, [load, refreshToken]);
+    return () => { alive.current = false; window.removeEventListener("focus", focus); window.removeEventListener("tofi:connections-changed", changed); };
+  }, [load, loadTiers, refreshToken]);
 
   async function toggle(server: string, next: boolean) {
     if (saving) return;
@@ -216,31 +163,26 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
     catch (cause) { if (alive.current) { setAccess(current => ({ ...current, [server]: !next })); setError(message(cause) || t("tools.connections.save_failed")); } }
     finally { if (alive.current) setSaving(""); }
   }
-  async function revoke(item: StandingAllowance) {
-    if (revoking) return;
-    setRevoking(item.id); setPermissionsError("");
+  function openTiers(server: string) {
+    if (opened.current.has(server)) return;
+    opened.current.add(server);
+    setTiers(current => ({ ...current, [server]: { tools: null, error: false, saving: "" } }));
+    void loadTiers(server);
+  }
+  async function setTier(server: string, tool: string, tier: BotTierValue | "") {
+    setTiers(current => current[server] ? { ...current, [server]: { ...current[server], saving: tool } } : current);
     try {
-      await request(`/api/standing-allowances/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-      if (!alive.current) return;
-      // The row folds away over --m-panel-out; with reduced motion there is nothing to wait for.
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setAllowances(list => (list ?? []).filter(entry => entry.id !== item.id));
-      else setLeaving(list => [...list, item.id]);
-    }
-    catch (cause) { if (alive.current) setPermissionsError(message(cause)); }
-    finally { if (alive.current) setRevoking(""); }
+      await request(`/api/bots/${id}/tool-tiers/${encodeURIComponent(server)}/${encodeURIComponent(tool)}`, { method: "PUT", body: JSON.stringify({ tier }) });
+      await loadTiers(server);
+    } catch { if (alive.current) setTiers(current => current[server] ? { ...current, [server]: { ...current[server], saving: "", error: true } } : current); }
   }
 
-  const gone = (id: string) => { setAllowances(list => (list ?? []).filter(entry => entry.id !== id)); setLeaving(list => list.filter(entry => entry !== id)); };
-  const names = new Map((servers ?? []).map(server => [server.name, displayName(server, presetFor(server))]));
   const rows: BotConnectionRow[] | null = servers === null ? null : servers.map(server => {
     const name = displayName(server, presetFor(server));
-    return { server: server.name, name, mark: markName(server, name), kind: storedKind(server), tools: server.status?.tool_count, enabled: access[server.name] !== false, allowed: (allowances ?? []).filter(item => item.server === server.name && item.state === "active" && !leaving.includes(item.id)).length };
+    return { server: server.name, name, mark: markName(server, name), kind: storedKind(server), tools: server.status?.tool_count, enabled: access[server.name] !== false };
   });
   return <BotToolsView botName={bot.name} connections={rows} connectionsError={error} saving={saving}
     onToggle={(server, next) => void toggle(server, next)} onOpenConnection={server => leaveTo(() => openConnectionDeepLink({ server }))} onAddConnection={() => leaveTo(() => onOpenSettings("connections"))}
-    skills={<BotSkills botId={bot.id} refreshToken={refreshToken} bare />} onOpenSkills={() => leaveTo(() => onOpenSettings("skills"))}
-    web={web} onOpenWeb={() => leaveTo(() => onOpenSettings("connections"))} environments={environments} onOpenComputer={() => leaveTo(() => onOpenSettings("computer"))}
-    inspector={<BotInspector botId={bot.id} tools />}
-    allowances={allowances} leaving={leaving} onGone={gone} remembered={remembered} revoking={revoking} permissionsError={permissionsError} serverName={server => names.get(server) ?? server}
-    onRevoke={item => void revoke(item)} onOpenPermissions={() => leaveTo(() => onOpenSettings("permissions"))} />;
+    tiers={tiers} onOpenTiers={openTiers} onSetTier={(server, tool, tier) => void setTier(server, tool, tier)}
+    skills={<BotSkills botId={bot.id} refreshToken={refreshToken} bare />} onOpenSkills={() => leaveTo(() => onOpenSettings("skills"))} />;
 }

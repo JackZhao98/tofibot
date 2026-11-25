@@ -176,10 +176,10 @@ var settingsLegacyLinks = map[string]string{
 var botSettingsPages = []settingsPage{
 	{"identity", "chat:botSettings.section.identity", nil},
 	{"role", "chat:botSettings.section.role", nil},
-	{"model", "chat:botSettings.section.model", nil},
 	{"tools", "chat:botSettings.section.tools", nil},
 	{"secrets", "chat:botSettings.section.secrets", nil},
-	{"advanced", "chat:botSettings.section.advanced", nil},
+	{"export", "chat:botSettings.section.export", nil},
+	{"danger", "chat:botSettings.section.danger", nil},
 }
 
 var groupSettingsPages = []settingsPage{
@@ -268,18 +268,23 @@ func buildSettingsRegistry() []SettingDef {
 	d = bot("bot.avatar", KindString, riskOwn, "identity", "identity", "chat:botSettings.avatar_title")
 	d.MaxRunes = 512
 	add(d)
-	d = bot("bot.model", KindModel, riskConfirm, "model", "model", "settings:model.label")
+	d = bot("bot.model", KindModel, riskConfirm, "role", "role", "settings:model.label")
 	add(d)
-	d = bot("bot.reasoning_effort", KindEffort, riskConfirm, "model", "model", "settings:model.effort_label")
+	d = bot("bot.reasoning_effort", KindEffort, riskConfirm, "role", "role", "settings:model.effort_label")
 	add(d)
 	d = bot("bot.skills", KindBotList, riskOwn, "tools", "tools", "settings:shell.page.skills.name")
 	d.Tools = []string{"skill_enable", "skill_disable"}
 	add(d)
 	d = bot("bot.connections", KindBotList, riskConfirm, "tools", "tools", "settings:shell.page.connections.name")
 	add(d)
+	// One tool of one connection, for one Bot: "global" follows the connection's own tier. A Bot may ask for it, and it always
+	// takes a card, for its own tier as for another Bot's.
+	d = bot("bot.tool_tier", KindEnum, RiskSpec{Self: RiskConfirm, Other: RiskConfirm}, "tools", "tools", "extensions:tools.tier.write")
+	d.Options = []string{"global", "read_only", "write", "high_risk"}
+	add(d)
 	d = bot("bot.archived", KindBool, riskConfirm, "identity", "identity", "chat:botSettings.archived_title")
 	add(d)
-	d = bot("bot.delete", KindAction, riskConfirm, "advanced", "advanced", "chat:header.delete_bot")
+	d = bot("bot.delete", KindAction, riskConfirm, "danger", "danger", "chat:header.delete_bot")
 	d.Audit = true
 	add(d)
 	d = entry("bot.memory", ScopeBot, KindCollection, RiskSpec{}, "/b/{bot}?side=memory", "memory", "work:memory.title")

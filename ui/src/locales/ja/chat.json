@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bot 設定のセクション",
-    "back": "すべてのセクション",
     "avatar_title": "アバター",
     "avatar_hint": "この猫がリストやチャットでどう見えるか。",
     "name_required": "名前を入力してください。",
@@ -89,19 +88,20 @@
     "export_action": "書き出す",
     "delete_hint": "この Bot とそのチャットを削除します。元に戻せません。",
     "section": {
-      "identity": "アイデンティティ",
-      "role": "役割",
-      "model": "モデル",
+      "identity": "プロフィール",
+      "role": "役割とモデル",
+      "tools": "ツール",
       "secrets": "シークレット",
-      "advanced": "詳細",
-      "tools": "ツール"
+      "export": "エクスポート",
+      "danger": "危険な操作"
     },
     "desc": {
       "identity": "アバター、名前、メインアシスタント。",
-      "role": "この Bot の担当範囲。返信のたびに読み込まれます。",
-      "model": "この Bot が使うモデルと推論の深さ。",
-      "advanced": "システムプロンプト、書き出し、削除。",
-      "tools": "{{name}} が使えるもの。接続とスキルは自分で切り替えられ、それ以外はワークスペース設定に従います。"
+      "role": "この Bot の役割と使うモデル。",
+      "tools": "この Bot の接続、ツール権限、スキル。",
+      "secrets": "この Bot が保管するシークレット。",
+      "export": "共有ファイル、データの書き出し、システムプロンプト。",
+      "danger": "この Bot を削除します。"
     },
     "role_count_other": "{{count}} 文字",
     "ground_label": "アバターの色",

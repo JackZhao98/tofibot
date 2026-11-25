@@ -298,7 +298,8 @@
         "revert": "The value from before the earlier change comes back.",
         "change": "The setting changes.",
         "bot_skills": "Another Bot's skills change.",
-        "bot_avatar": "Another Bot's avatar changes."
+        "bot_avatar": "Another Bot's avatar changes.",
+        "bot_tool_tier": "How often this Bot asks before it uses this tool changes."
       }
     },
     "standing_decision": "Approved by this Bot's standing allowance; no one was asked. The step below shows whether it ran."

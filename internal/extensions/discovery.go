@@ -166,7 +166,7 @@ func discoverableMCPTools(runCtx context.Context, available []runtime.Tool) []ru
 
 // lazyDiscoverableMCPTools keeps remote I/O out of run preparation. Connections
 // belong to this run and are cached per server, including successful empty lists.
-func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[string]MCPServerConfig, timeout time.Duration, _ int, cachedTools []CachedMCPTool, approvalGate MCPCallGate, enforceApproval bool) ([]runtime.Tool, func() error) {
+func lazyDiscoverableMCPTools(runCtx context.Context, botID string, m *Manager, servers map[string]MCPServerConfig, timeout time.Duration, _ int, cachedTools []CachedMCPTool, approvalGate MCPCallGate, enforceApproval bool) ([]runtime.Tool, func() error) {
 	life, stopLife := context.WithCancel(runCtx)
 	gate := make(chan struct{}, 1)
 	gate <- struct{}{}
@@ -810,7 +810,7 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		// Only the resolved read_only tier (owner override, or model
 		// classification merged with annotations) establishes read-only risk.
 		// Remote annotations alone, descriptions and model arguments cannot.
-		if ok && m.toolReadOnly(source.server, servers[source.server], source.remoteName) {
+		if ok && m.toolReadOnlyForBot(botID, source.server, servers[source.server], source.remoteName) {
 			i.Risk = tooloutcome.Observation
 		}
 		return i
@@ -877,8 +877,8 @@ func lazyDiscoverableMCPTools(runCtx context.Context, m *Manager, servers map[st
 		schema, _ := json.Marshal(t.Parameters)
 		// The tier is resolved from the disk store, not the run snapshot, so a
 		// tier change never stalls a run: the retry carries the new binding.
-		tier := m.tiers.resolve(source.server, servers[source.server], source.remoteName)
-		proposal := MCPCallApproval{Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint, DestructiveHint: tier.DestructiveHint, Tier: tier.Tier, TierBinding: tier.Binding}
+		tier := m.resolveForBot(botID, source.server, servers[source.server], source.remoteName)
+		proposal := MCPCallApproval{BotID: botID, Server: source.server, Tool: source.remoteName, ConfigVersion: metadataFingerprint(source.server, servers[source.server]), Arguments: append(json.RawMessage(nil), in.Arguments...), Description: t.Description, Schema: schema, ReadOnlyHint: source.readOnlyHint, DestructiveHint: tier.DestructiveHint, Tier: tier.Tier, TierBinding: tier.Binding}
 		claimedDispatch := false
 		proposal.OnClaim = func() { claimedDispatch = true }
 		proposal.Recheck = func(checkCtx context.Context) error {

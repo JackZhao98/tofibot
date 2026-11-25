@@ -297,6 +297,12 @@ export function workspace(options: AppOptions): Synthetic {
     // Bot settings > Tools: the connections, this Bot's access to each, the web chains and its allowances.
     if (p === "/api/extensions/mcp" && method === "GET") return json({ servers: options.connections === "none" ? [] : CONNECTIONS });
     if (/^\/api\/bots\/[^/]+\/connections$/.test(p)) return json({ connections: options.connections === "none" ? [] : CONNECTIONS.map(item => ({ server: item.name, enabled: item.name !== "github" })) });
+    if (/^\/api\/bots\/[^/]+\/tool-tiers\/[^/]+\/[^/]+$/.test(p)) return json({ ok: true, next_run: true });
+    if (/^\/api\/bots\/[^/]+\/tool-tiers\/[^/]+$/.test(p)) return json({ tools: [
+      { name: "create_page", tier: "write", global_tier: "write", source: "default" },
+      { name: "delete_page", tier: "high_risk", global_tier: "write", bot_tier: "high_risk", source: "bot" },
+      { name: "search", tier: "read_only", global_tier: "read_only", source: "provider" },
+    ] });
     if (p === "/api/web-tools") return json(WEB_TOOLS);
     if (p === "/api/standing-allowances") return json({ allowances: options.connections === "none" ? [] : [{ id: "al_1", bot_id: "bot_mochi", bot_name: "Mochi", server: "notion", tool: "create_page", state: "active", created_at: at(-4000), use_count: 5, last_used_at: at(-30) }], remembered: [] });
     const botRead = /^\/api\/bots\/[^/]+\/(skills|secrets|debug-preview)$/.exec(p);

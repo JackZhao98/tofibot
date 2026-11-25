@@ -10,6 +10,8 @@ import { BotTools } from "./BotTools";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { getBotAvatarConfig, getBotGround, saveBotAvatarConfig, saveBotGround, type Ground } from "./avatarStore";
+import { SettingsSection } from "./ds/SettingsSection/SettingsSection";
+import { SettingsShell as Frame, type SettingsShellGroup } from "./ds/SettingsShell/SettingsShell";
 import { SwatchPicker } from "./ds/SwatchPicker/SwatchPicker";
 import { TextArea } from "./ds/TextArea/TextArea";
 import { TextInput } from "./ds/TextInput/TextInput";
@@ -18,14 +20,14 @@ import { DirtyBar, LeaveConfirm } from "./CoverForm";
 import { coverContainer, requestCoverClose, useCover, useCoverGuard } from "./coverGuard";
 import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon, type TofiIconName } from "./icons";
-import { followsGlobal } from "./modelCatalog";
+import type { TofiIconName } from "./icons";
 import { ModelFields } from "./ModelSettings";
 import { OverlayPopover, pressToggle } from "./overlays/OverlayHost";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import { takeSettingsSection } from "./settings/pendingSection";
-import { roleOf } from "./botRole";
+import { LEGACY_BOT_SETTINGS_SECTIONS } from "./settings/sections";
 import { jumpWhenReady } from "./settings/sectionJump";
+import { SettingsCard, SettingsRow } from "./settings/components";
 import type { BotSkillListing } from "./skillLibrary";
 import { usePreviousWhileFading } from "./surfacePresence";
 import type { SettingsTab } from "./SettingsShell";
@@ -33,31 +35,17 @@ import type { Bot } from "./types";
 import "./bot-settings.css";
 
 /**
- * Bot settings, the cover (docs/design/widgets-and-sidebar.md section 5): one page with a section list on the left (a list that
- * pushes the page on phones). Identity, Role and Model are one form with one dirty bar; Tools and Secrets save on their own.
- * Lazy chunk `botSettings`.
+ * Bot settings, the cover: the kit settings frame with six sections. Profile, Role and model are one form with one dirty bar; Tools
+ * (connections, tool tiers and Skills for this Bot) and Secrets save on their own. Lazy chunk `botSettings`.
  */
 const SECTIONS: readonly { id: SectionId; icon: TofiIconName }[] = [
-  { id: "identity", icon: "id-card" }, { id: "role", icon: "edit" }, { id: "model", icon: "sliders" },
-  { id: "tools", icon: "plug" }, { id: "secrets", icon: "key" }, { id: "advanced", icon: "settings" },
+  { id: "identity", icon: "id-card" }, { id: "role", icon: "sliders" }, { id: "tools", icon: "plug" },
+  { id: "secrets", icon: "key" }, { id: "export", icon: "download" }, { id: "danger", icon: "alert" },
 ];
-type SectionId = "identity" | "role" | "model" | "tools" | "secrets" | "advanced";
+type SectionId = "identity" | "role" | "tools" | "secrets" | "export" | "danger";
 type Draft = { name: string; instructions: string; model: string; effort: string };
 const FADE_MS = 140;
 const GROUND_NAMES = ["tomato", "mustard", "teal", "grape", "lime"] as const;
-const narrowQuery = "(max-width: 899px)";
-
-function useNarrow() {
-  const [narrow, setNarrow] = useState(() => typeof matchMedia === "function" && matchMedia(narrowQuery).matches);
-  useEffect(() => {
-    const query = matchMedia(narrowQuery);
-    const update = () => setNarrow(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return narrow;
-}
 
 /** The share file names the library Skills the Bot has on, and nothing else about them. */
 async function shareBotPackage(bot: Bot) {
@@ -67,13 +55,6 @@ async function shareBotPackage(bot: Bot) {
     names = (listing.skills ?? []).filter(skill => skill.enabled && !skill.builtin).map(skill => skill.name);
   } catch { /* a share file without skill names is still a valid share file */ }
   downloadBotPackage(buildBotPackage(bot, names));
-}
-
-function Row({ title, hint, children, danger }: { title: string; hint?: string; children?: ReactNode; danger?: boolean }) {
-  return <div className="bs-row" data-danger={danger || undefined}>
-    <div className="bs-row-copy"><strong>{title}</strong>{hint && <small>{hint}</small>}</div>
-    {children}
-  </div>;
 }
 
 /** The cat is not centred in its drawing box (a loaf sits low, a tall cat leans): the tile shifts it by the measured centre. */
@@ -89,13 +70,11 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
 }) {
   const { t } = useTranslation("chat");
   const cover = useCover();
-  const narrow = useNarrow();
   const [section, setSection] = useState<SectionId>("identity");
-  const [view, setView] = useState<"list" | "page">("list");
   const [visited, setVisited] = useState<readonly SectionId[]>(["identity"]);
   const fading = usePreviousWhileFading(section, FADE_MS);
 
-  // Identity, Role and Model: one form. The saved values are the Bot itself; a refresh that arrives while nothing is edited is adopted.
+  // Profile and Role and model: one form. The saved values are the Bot itself; a refresh that arrives while nothing is edited is adopted.
   const saved: Draft = { name: bot.name, instructions: bot.instructions, model: bot.model, effort: bot.reasoning_effort ?? "" };
   const [draft, setDraft] = useState<Draft>(saved);
   const baseline = useRef<Draft>(saved);
@@ -134,29 +113,17 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   const afterLeave = useRef<(() => void) | null>(null);
   useCoverGuard(dirty, () => setAsking(true));
 
-  // Phones: the section list, then a page. Wide: both, and the list marks the page.
-  const heading = useRef<HTMLHeadingElement>(null);
-  const items = useRef<Record<string, HTMLButtonElement | null>>({});
-  const entered = useRef(false);
-  useEffect(() => {
-    if (!narrow) return;
-    if (view === "page") heading.current?.focus({ preventScroll: true });
-    else if (entered.current) items.current[section]?.focus({ preventScroll: true });
-    entered.current = true;
-    // Focus follows the view, not the section.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, narrow]);
   /** A link out of the cover: it closes first (asking about unsaved changes), then `go` runs. */
   const leaveTo = (go: () => void) => { afterLeave.current = go; requestCoverClose(go); };
   const open = (id: SectionId) => {
     setSection(id);
     setVisited(current => current.includes(id) ? current : [...current, id]);
-    setView("page");
   };
 
-  // A link to one section (`/b/<id>/settings#model`) opens the cover on it.
+  // A link to one section (`/b/<id>/settings#role`) opens the cover on it.
   useEffect(() => {
-    const target = takeSettingsSection("bot-settings");
+    const asked = takeSettingsSection("bot-settings");
+    const target = asked && (LEGACY_BOT_SETTINGS_SECTIONS[asked] ?? asked);
     if (!target || !SECTIONS.some(item => item.id === target)) return;
     open(target as SectionId);
     return jumpWhenReady(() => document.querySelector(".bot-settings .bs-sections"), target);
@@ -171,77 +138,53 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
   const [styleOpen, setStyleOpen] = useState(false);
   const styleButton = useRef<HTMLButtonElement>(null);
   const [makingPrimary, setMakingPrimary] = useState(false);
-
-  const follows = followsGlobal(draft.model);
-  const effective = bot.effective_model;
-  const modelLine = follows
-    ? (effective ? `${t("botPanel.follows_global")} · ${effective}` : t("botPanel.follows_global"))
-    : t("botSettings.model_pinned", { model: draft.model });
-  const role = roleOf(draft.instructions);
-  const listHint: Partial<Record<SectionId, string>> = { identity: draft.name.trim() || bot.name, role: role || t("botPanel.no_role"), model: modelLine };
+  const name = draft.name.trim() || bot.name;
 
   const body: Record<SectionId, ReactNode> = {
     identity: <div className="bs-stack">
-      <div className="bs-row bs-avatar-row">
-        <span className="bs-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
-        <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small>
-          <SwatchPicker className="bs-swatches" label={t("botSettings.ground_label")} value={ground} onChange={pickGround} options={GROUND_NAMES.map(id => ({ value: id, label: t(`botSettings.ground.${id}`) }))} /></div>
-        <Button ref={styleButton} className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</Button>
-      </div>
-      <label className="bs-field"><span>{t("botPanel.name")}</span>
-        <TextInput value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />
-        {!canSave && <small className="bs-field-error" role="alert">{t("botSettings.name_required")}</small>}
-      </label>
-      {(bot.is_primary || !bot.archived) && <Row title={t("botSettings.primary_title")} hint={bot.is_primary ? t("primary.bot_panel_note") : t("botSettings.primary_off")}>
-        {bot.is_primary ? <PrimaryBadge /> : <Button className="bs-button" disabled={makingPrimary} onClick={() => { setMakingPrimary(true); void onMakePrimary(bot.id).finally(() => setMakingPrimary(false)); }}>{t("primary.make")}</Button>}
-      </Row>}
-      {bot.archived && <Row title={t("botSettings.archived_title")} hint={t("botSettings.archived_body")} />}
+      <SettingsCard>
+        <SettingsRow label={t("botSettings.avatar_title")} description={t("botSettings.avatar_hint")} inline control={<>
+          <span className="bs-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
+          <Button ref={styleButton} size="sm" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</Button>
+        </>} />
+        <SettingsRow label={t("botSettings.ground_label")} inline control={<SwatchPicker label={t("botSettings.ground_label")} value={ground} onChange={pickGround} options={GROUND_NAMES.map(id => ({ value: id, label: t(`botSettings.ground.${id}`) }))} />} />
+        <SettingsRow label={t("botPanel.name")} labelFor="bs-name" description={canSave ? undefined : t("botSettings.name_required")} control={
+          <TextInput id="bs-name" value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />} />
+        {(bot.is_primary || !bot.archived) && <SettingsRow label={t("botSettings.primary_title")} description={bot.is_primary ? t("primary.bot_panel_note") : t("botSettings.primary_off")} inline control={
+          bot.is_primary ? <PrimaryBadge /> : <Button size="sm" disabled={makingPrimary} onClick={() => { setMakingPrimary(true); void onMakePrimary(bot.id).finally(() => setMakingPrimary(false)); }}>{t("primary.make")}</Button>} />}
+        {bot.archived && <SettingsRow label={t("botSettings.archived_title")} description={t("botSettings.archived_body")} />}
+      </SettingsCard>
     </div>,
     role: <div className="bs-stack">
-      <label className="bs-field"><span className="sr-only">{t("botPanel.instructions")}</span>
-        <TextArea rows={10} value={draft.instructions} disabled={busy} placeholder={t("botPanel.instructions_placeholder")} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} />
-        <small className="bs-count">{t("botSettings.role_count", { count: draft.instructions.length })}</small>
-      </label>
-    </div>,
-    model: <div className="bs-stack">
-      <ModelFields disabled={busy} model={draft.model} effort={draft.effort} onChange={(model, effort) => setDraft(current => ({ ...current, model, effort }))} />
-      <p className="bs-model-line">{modelLine}{bot.effective_reasoning_effort && follows ? ` · ${bot.effective_reasoning_effort}` : ""}</p>
+      <SettingsSection title={t("botPanel.instructions")}>
+        <div className="bs-field">
+          <TextArea rows={10} aria-label={t("botPanel.instructions")} value={draft.instructions} disabled={busy} placeholder={t("botPanel.instructions_placeholder")} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} />
+          <small className="bs-count">{t("botSettings.role_count", { count: draft.instructions.length })}</small>
+        </div>
+      </SettingsSection>
+      <ModelFields layout="rows" disabled={busy} model={draft.model} effort={draft.effort} onChange={(model, effort) => setDraft(current => ({ ...current, model, effort }))} />
     </div>,
     tools: <BotTools bot={bot} refreshToken={refreshToken} leaveTo={leaveTo} onOpenSettings={onOpenSettings} />,
     secrets: <div className="bs-stack"><BotSecrets botId={bot.id} /></div>,
-    advanced: <div className="bs-stack">
+    export: <div className="bs-stack">
+      <SettingsCard>
+        <SettingsRow label={t("botPanel.export_share")} description={t("botSettings.share_hint")} inline control={<Button size="sm" onClick={() => void shareBotPackage(bot)}>{t("botSettings.export_action")}</Button>} />
+        <SettingsRow label={t("botPanel.export_data")} description={t("botSettings.data_hint")} inline control={<Button size="sm" onClick={() => onExportData(bot.id)}>{t("botSettings.export_action")}</Button>} />
+      </SettingsCard>
       <BotInspector botId={bot.id} />
-      <Row title={t("botPanel.export_share")} hint={t("botSettings.share_hint")}><Button className="bs-button" onClick={() => void shareBotPackage(bot)}>{t("botSettings.export_action")}</Button></Row>
-      <Row title={t("botPanel.export_data")} hint={t("botSettings.data_hint")}><Button className="bs-button" onClick={() => onExportData(bot.id)}>{t("botSettings.export_action")}</Button></Row>
-      <Row title={t("header.delete_bot")} hint={t("botSettings.delete_hint")} danger><Button variant="danger" className="bs-button is-danger" onClick={() => { cover.close(); onDelete(); }}>{t("header.delete_bot")}</Button></Row>
+    </div>,
+    danger: <div className="bs-stack">
+      <SettingsCard>
+        <SettingsRow label={t("header.delete_bot")} description={t("botSettings.delete_hint")} inline control={<Button variant="danger" size="sm" onClick={() => { cover.close(); onDelete(); }}>{t("header.delete_bot")}</Button>} />
+      </SettingsCard>
     </div>,
   };
 
   const title = (id: SectionId) => t(`botSettings.section.${id}`);
-  const describe = (id: SectionId) => id === "tools" ? t("botSettings.desc.tools", { name: bot.name }) : id === "identity" || id === "role" || id === "model" || id === "advanced" ? t(`botSettings.desc.${id}`) : "";
-  return <div className="bot-settings" data-view={view} data-narrow={narrow || undefined}>
-    <nav className="bs-nav" aria-label={t("botSettings.nav")} inert={narrow && view === "page" || undefined}>
-      <div className="bs-who">
-        <span className="bs-who-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
-        <span className="bs-who-copy"><strong>{draft.name.trim() || bot.name}</strong><small>{modelLine}</small></span>
-      </div>
-      <div className="bs-nav-list">
-        {SECTIONS.map(item => <button key={item.id} ref={node => { items.current[item.id] = node; }} type="button" className="bs-nav-item" data-section={item.id} aria-current={section === item.id ? "page" : undefined} onClick={() => open(item.id)}>
-          <Icon name={item.icon} size={19} /><span className="bs-nav-label">{title(item.id)}</span>
-          {listHint[item.id] && <small className="bs-nav-hint">{listHint[item.id]}</small>}
-          <Icon className="bs-nav-chevron" name="chevron-right" size={15} />
-        </button>)}
-      </div>
-    </nav>
-    <div className="bs-page" inert={narrow && view === "list" || undefined}>
-      <header className="bs-head">
-        <button type="button" className="bs-back" aria-label={t("botSettings.back")} data-hint={t("botSettings.back")} onClick={() => setView("list")}><Icon name="chevron-left" size={20} /></button>
-        <div className="bs-head-copy">
-          <h3 ref={heading} tabIndex={-1}>{title(section)}</h3>
-          {describe(section) && <p>{describe(section)}</p>}
-        </div>
-        <span className="bs-saved" data-on={justSaved || undefined} role="status">{justSaved ? t("cover.saved") : ""}</span>
-      </header>
+  const groups: SettingsShellGroup[] = [{ id: "bot", items: SECTIONS.map(item => ({ value: item.id, label: title(item.id), icon: item.icon })) }];
+  return <div className="bot-settings">
+    <Frame flush groups={groups} active={section} onNavigate={value => open(value as SectionId)} navLabel={t("botSettings.nav")} crumb={name} title={title(section)}
+      status={justSaved ? t("cover.saved") : undefined} hooks={{ root: "bs-frame", nav: "bs-nav", link: "bs-nav-item", content: "bs-content" }}>
       <div className="bs-scroll">
         <div className="bs-sections">
           {SECTIONS.map(({ id }) => visited.includes(id) && <section key={id} className="bs-section" data-section={id} data-state={id === section ? "in" : id === fading ? "out" : "off"} hidden={id !== section && id !== fading} inert={id !== section || undefined} aria-label={title(id)}>
@@ -249,8 +192,8 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
           </section>)}
         </div>
       </div>
-      <DirtyBar open={dirty} busy={busy} error={error} canSave={canSave} onDiscard={discard} onSave={() => void save()} />
-    </div>
+    </Frame>
+    <DirtyBar open={dirty} busy={busy} error={error} canSave={canSave} onDiscard={discard} onSave={() => void save()} />
     <OverlayPopover open={styleOpen} onOpenChange={setStyleOpen} className="bot-style-pop" anchor={styleButton} container={coverContainer()} side="bottom" align="start" sideOffset={8} aria-label={t("botPanel.style")}>
       <BotAvatarPicker botId={bot.id} config={avatar} onChange={next => { const saved = saveBotAvatarConfig(bot.id, next); pushBotAvatar(request, bot.id, saved); setAvatar(saved); }} />
     </OverlayPopover>

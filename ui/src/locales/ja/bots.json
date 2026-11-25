@@ -157,7 +157,7 @@
   },
   "skills": {
     "title": "Skill",
-    "hint": "この Bot が使える Skill です。ライブラリの Skill はここでオンにするまで使われません（Bot が自分でオンにすることもあります）。公式 Skill は、オフにしない限りオンです。",
+    "hint": "ライブラリのスキルは最初オフ、公式スキルは最初オンです。Bot 自身も切り替えられます。",
     "loading": "Skill を読み込み中…",
     "empty": "ライブラリに Skill はまだありません。「設定 › Skills」で追加してください。",
     "official_title": "公式 Skill",
@@ -216,49 +216,25 @@
   "tools": {
     "connections": {
       "title": "接続",
-      "hint": "接続をオフにすると、この Bot はそれを使えません。新しい接続はすべての Bot でオンから始まります。",
+      "hint": "オフにすると、この Bot はその接続を使いません。新しい接続は最初からオンです。",
       "loading": "読み込み中…",
       "error": "接続を読み込めませんでした。もう一度お試しください。",
       "none": "接続はまだありません。",
       "add": "設定で追加",
       "switch": "{{bot}} に {{connection}} の使用を許可",
       "open": "設定で {{connection}} を開く",
-      "save_failed": "保存できませんでした。もう一度お試しください。",
-      "allowed_other": "常に許可 {{count}} 件"
+      "save_failed": "保存できませんでした。もう一度お試しください。"
     },
     "skills": {
       "manage": "ライブラリを管理"
     },
-    "web": {
-      "title": "ウェブ",
-      "search": "検索",
-      "fetch": "取得",
-      "on": "オン · {{chain}}",
-      "search_none": "オフ · ソース未設定",
-      "configure": "ソースを設定"
-    },
-    "computer": {
-      "title": "環境",
-      "none": "Bot コンピューターはまだありません。設定で追加すると、Bot がブラウズやコード実行をできます。",
-      "manage": "環境を管理",
-      "always": "常に利用可",
-      "mac": "その Mac で許可したとき",
-      "error": "環境を読み込めませんでした。"
-    },
-    "builtin": {
-      "title": "組み込み",
-      "summary": "すべての Bot ができること",
-      "items": "ファイルと添付 · 画像 · メモリ · タスクとスケジュール · 人への確認 · ワークスペース管理(必要時)"
-    },
-    "permissions": {
-      "title": "この Bot の権限",
-      "manage": "すべての権限",
-      "empty": "確認なしで許可しているものはありません。承認カードで「常に許可」を選ぶと追加されます。",
-      "allowed": "許可日時 {{time}}",
-      "used_other": "{{count}} 回使用",
-      "remembered_other": "{{count}} 件のチャットで記憶",
-      "remembered_none": "チャットで記憶したもの: なし",
-      "error": "権限を読み込めませんでした。もう一度お試しください。"
+    "tier": {
+      "show": "{{connection}} のツール権限",
+      "label": "{{tool}} での {{bot}} の権限",
+      "follow": "既定 · {{tier}}",
+      "changed": "設定後にツールが変更されました。",
+      "error": "ツールを読み込めませんでした。もう一度お試しください。",
+      "empty": "まだツールが見つかっていません。"
     }
   }
 }

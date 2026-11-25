@@ -296,7 +296,8 @@
         "revert": "更早那次更改之前的值会恢复。",
         "change": "该设置会改变。",
         "bot_skills": "另一个 Bot 的技能会改变。",
-        "bot_avatar": "另一个 Bot 的头像会改变。"
+        "bot_avatar": "另一个 Bot 的头像会改变。",
+        "bot_tool_tier": "这个 Bot 使用该工具前的询问频率会改变。"
       }
     },
     "standing_decision": "由此 Bot 的常驻许可批准，未询问任何人。下方步骤会显示是否已执行。"

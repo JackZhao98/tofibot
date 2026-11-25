@@ -112,6 +112,20 @@ func init() {
 		}
 		return SettingValue{Value: on, Options: all}, nil
 	})
+	bindSettingRead("bot.tool_tier", func(ctx context.Context, sr settingRun, t Target) (SettingValue, error) {
+		list := sr.s.extensions.ListToolTiersForBot(t.BotID, t.Connection)
+		for _, tool := range list.Tools {
+			if tool.RemoteName != t.Tool {
+				continue
+			}
+			own := tool.BotTier
+			if own == "" {
+				own = "global"
+			}
+			return SettingValue{Value: own, Default: "global", Options: []string{"global", "read_only", "write", "high_risk"}, Note: "runs as " + string(tool.Tier) + "; the connection's own tier is " + string(tool.GlobalTier)}, nil
+		}
+		return SettingValue{}, sql.ErrNoRows
+	})
 	bindSettingRead("bot.connections", func(ctx context.Context, sr settingRun, t Target) (SettingValue, error) {
 		if sr.s.extensions == nil {
 			return SettingValue{Value: []string{}}, nil

@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bot 설정 섹션",
-    "back": "모든 섹션",
     "avatar_title": "아바타",
     "avatar_hint": "이 고양이가 목록과 채팅에서 보이는 모습입니다.",
     "name_required": "이름을 입력하세요.",
@@ -89,19 +88,20 @@
     "export_action": "내보내기",
     "delete_hint": "이 Bot과 채팅을 삭제합니다. 되돌릴 수 없습니다.",
     "section": {
-      "identity": "정체성",
-      "role": "역할",
-      "model": "모델",
+      "identity": "프로필",
+      "role": "역할과 모델",
+      "tools": "도구",
       "secrets": "시크릿",
-      "advanced": "고급",
-      "tools": "도구"
+      "export": "내보내기",
+      "danger": "위험 구역"
     },
     "desc": {
       "identity": "아바타, 이름, 기본 어시스턴트.",
-      "role": "이 Bot이 맡는 일. 답장하기 전에 매번 읽습니다.",
-      "model": "이 Bot이 쓰는 모델과 추론 깊이.",
-      "advanced": "시스템 프롬프트, 내보내기, 삭제.",
-      "tools": "{{name}}이(가) 사용할 수 있는 것. 연결과 스킬은 직접 켜고 끄며, 나머지는 워크스페이스 설정을 따릅니다."
+      "role": "이 Bot의 역할과 쓰는 모델.",
+      "tools": "이 Bot의 연결, 도구 권한, 스킬.",
+      "secrets": "이 Bot이 보관하는 시크릿.",
+      "export": "공유 파일, 데이터 내보내기, 시스템 프롬프트.",
+      "danger": "이 Bot을 삭제합니다."
     },
     "role_count_other": "{{count}}자",
     "ground_label": "아바타 색",

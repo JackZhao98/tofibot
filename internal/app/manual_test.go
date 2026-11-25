@@ -279,11 +279,11 @@ func TestManualToolIndexReadSearchExplain(t *testing.T) {
 	}
 
 	// A page carries the link with this Bot's id, the title in the person's words and its see-also titles.
-	page, o := e.manualCall(`{"action":"read","page":"bot-settings/model"}`)
+	page, o := e.manualCall(`{"action":"read","page":"bot-settings/role"}`)
 	if o != nil {
 		t.Fatal(o)
 	}
-	if page["link"] != "/b/"+e.bot.ID+"/settings#model" || page["title"] != "Bot settings › Model" {
+	if page["link"] != "/b/"+e.bot.ID+"/settings#role" || page["title"] != "Bot settings › Role and model" {
 		t.Fatalf("read: %+v", page)
 	}
 	body, _ := page["body"].(string)

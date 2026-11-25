@@ -59,6 +59,7 @@ var settingEffects = map[string]string{
 	"disconnect":          "Bots lose access to this connection and the tools you always allowed on it stop being allowed.",
 	"tier_looser":         "This tool will run with less asking.",
 	"connection_access":   "The connections this Bot may use change.",
+	"bot_tool_tier":       "How often this Bot asks before it uses this tool changes.",
 	"members":             "The group's members change. A member that leaves ends its open tasks in the group.",
 	"model":               "The model or its reasoning effort changes from the next message. This changes cost and quality.",
 	"primary":             "This Bot takes your general chores first.",
@@ -96,6 +97,8 @@ func settingEffectCode(d SettingDef, t Target, oldText, newText string, revert b
 		return "tier_looser"
 	case d.Key == "bot.connections":
 		return "connection_access"
+	case d.Key == "bot.tool_tier":
+		return "bot_tool_tier"
 	case d.Key == "conversation.members":
 		return "members"
 	case d.Key == "bot.model" || d.Key == "bot.reasoning_effort" || d.Key == "models.default_model" || d.Key == "models.default_effort" || strings.HasSuffix(d.Key, "_model"):

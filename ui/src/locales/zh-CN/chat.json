@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bot 设置分区",
-    "back": "全部分区",
     "avatar_title": "头像",
     "avatar_hint": "这只猫在列表和聊天里的样子。",
     "name_required": "名称不能为空。",
@@ -89,19 +88,20 @@
     "export_action": "导出",
     "delete_hint": "删除这个 Bot 和它的聊天，无法撤销。",
     "section": {
-      "identity": "身份",
-      "role": "职能",
-      "model": "模型",
+      "identity": "资料",
+      "role": "职能与模型",
+      "tools": "工具",
       "secrets": "密钥",
-      "advanced": "高级",
-      "tools": "工具"
+      "export": "导出",
+      "danger": "危险操作"
     },
     "desc": {
       "identity": "头像、名称和主助理。",
-      "role": "这个 Bot 负责什么。它在每次回复前都会读到这里。",
-      "model": "这个 Bot 用哪个模型，思考多深。",
-      "advanced": "系统提示词、导出和删除。",
-      "tools": "{{name}} 能用什么。连接和技能由你开关,其余跟随工作区设置。"
+      "role": "这个 Bot 的职能与所用模型。",
+      "tools": "此 Bot 的连接、工具权限和技能。",
+      "secrets": "这个 Bot 保存的密钥。",
+      "export": "分享文件、数据导出和系统提示词。",
+      "danger": "删除这个 Bot。"
     },
     "role_count_other": "{{count}} 个字符",
     "ground_label": "头像底色",

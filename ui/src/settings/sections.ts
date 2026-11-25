@@ -24,8 +24,10 @@ export type SettingsTabId = keyof typeof SETTINGS_SECTIONS;
 export const SETTINGS_TAB_IDS = Object.keys(SETTINGS_SECTIONS) as SettingsTabId[];
 
 /** Sections of one Bot's settings cover (`BotSettingsPanel`). */
-export const BOT_SETTINGS_SECTIONS = ["identity", "role", "model", "tools", "secrets", "advanced"] as const;
+export const BOT_SETTINGS_SECTIONS = ["identity", "role", "tools", "secrets", "export", "danger"] as const;
 export type BotSettingsSection = (typeof BOT_SETTINGS_SECTIONS)[number];
+/** Links made before the sections were merged: Model is part of Role, Advanced became Export. */
+export const LEGACY_BOT_SETTINGS_SECTIONS: Readonly<Record<string, BotSettingsSection>> = { model: "role", advanced: "export" };
 
 /** Sections of a group's settings cover (`GroupSettingsPanel`). */
 export const GROUP_SETTINGS_SECTIONS = ["general", "members"] as const;

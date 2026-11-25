@@ -118,7 +118,7 @@ func settingsToolParameters() map[string]any {
 		"bot_id":          map[string]any{"type": "string", "description": "Keys of scope bot: the Bot the key belongs to; this Bot when omitted."},
 		"conversation_id": map[string]any{"type": "string", "description": "Keys of scope conversation: the conversation; this conversation when omitted."},
 		"connection":      map[string]any{"type": "string", "description": "Keys of scope connection: the connection name."},
-		"tool":            map[string]any{"type": "string", "description": "connection.tool_tier: the tool of the connection."},
+		"tool":            map[string]any{"type": "string", "description": "connection.tool_tier and bot.tool_tier: the tool of the connection."},
 		"value":           map[string]any{"description": "set: a string, boolean, integer or array of strings, as the kind of the key requires."},
 		"change_id":       map[string]any{"type": "string", "description": "revert: the change to undo."},
 	}, []string{"action"})
@@ -177,6 +177,16 @@ func (sr settingRun) resolveTarget(d SettingDef, in settingsToolInput) (Target, 
 				return t, settingsNotFound("bot_id", "No Bot has this ID. Use list with scope bot, or the Bots in the workspace, to find it.")
 			}
 			return t, err
+		}
+		if d.Key == "bot.tool_tier" {
+			t.Connection = strings.TrimSpace(in.Connection)
+			t.Tool = strings.TrimSpace(in.Tool)
+			if t.Connection == "" || t.Tool == "" {
+				return t, tooloutcome.New(tooloutcome.NeedInformation, "settings_target_required", "not_executed", "This key is one tool of one connection for a Bot: pass connection and tool.", "repair_arguments").Err()
+			}
+			if sr.s.extensions == nil || !sr.s.mcpServerExists(t.Connection) {
+				return t, settingsNotFound("connection", "No connection has this name. Use status to see the connections.")
+			}
 		}
 	case ScopeConversation:
 		t.ConversationID = strings.TrimSpace(in.ConversationID)
