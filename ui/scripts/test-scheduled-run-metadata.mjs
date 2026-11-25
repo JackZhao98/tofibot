@@ -43,7 +43,7 @@ try {
 
   const missing = scheduledRunMetadata(message, undefined, undefined, schedule, "UTC");
   assert.equal(missing.plannedAt, undefined, "message creation is not a planned trigger time");
-  assert.equal(missing.plannedTime, "待确认");
+  assert.equal(missing.plannedTime, "--:--", "an unknown planned time shows --:-- on the leaf (b19ae052)");
   assert.equal(missing.statusAt, undefined);
   assert.equal(missing.metadata, "定时任务");
   assert.equal(derive({ ...run, updated_at: "not-a-date" }).statusTime, undefined);

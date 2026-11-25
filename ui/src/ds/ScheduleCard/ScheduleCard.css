@@ -4,6 +4,9 @@
 .tb-sched-leaf::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 11px; border-radius: 7px 7px 0 0; background: var(--lime); }
 .tb-sched.is-run .tb-sched-leaf::before { background: var(--teal); }
 .tb-sched.is-error .tb-sched-leaf::before { background: var(--danger); }
+/* A leaf used on its own (the product's scheduled run) carries the state itself. */
+.tb-sched-leaf.is-run::before { background: var(--teal); }
+.tb-sched-leaf.is-error::before { background: var(--danger); }
 .tb-sched-rings::before, .tb-sched-rings::after { content: ""; position: absolute; top: -4px; width: 4px; height: 10px; border-radius: 3px; background: var(--ink-soft); box-shadow: 0 0 0 1.5px var(--surface); }
 .tb-sched-rings::before { left: 15px; } .tb-sched-rings::after { right: 15px; }
 .tb-sched-leaf b { font: 600 17px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import type { RunStatus } from "./types";
 import { useTranslation } from "./i18n";
+import "./ds/ScheduleCard/ScheduleCard.css";
 import "./scheduled-run.css";
 import { MOTION, EASE } from "./motion";
 import { MessageMarkdown } from "./MessageMarkdown";
@@ -37,7 +38,8 @@ const reduceMotion = () => typeof window.matchMedia === "function" && window.mat
 
 /** Shared ticket used by the conversation and the explicitly synthetic Lab. */
 export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, quiet = false, resultText, resultSources, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
-  const { t } = useTranslation("schedules");
+  const { t, i18n } = useTranslation("schedules");
+  const plannedDay = (() => { const d = plannedAt ? new Date(plannedAt) : null; return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(i18n.language, { weekday: "short" }) : ""; })();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string>();
@@ -84,9 +86,9 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
   }
 
   return <article ref={ticketRef} className={`scheduled-run is-${tone}`} aria-labelledby={titleId}>
+    {/* V3 4.7: the kit calendar leaf (rings, the time, the day); its band follows the run's state. */}
     <div className="scheduled-run-stub" title={plannedTimeDescription}>
-      <TofiIcon name="clock" size={22} aria-hidden="true" />
-      <time dateTime={plannedAt} aria-label={plannedTimeDescription}>{plannedTime}</time>
+      <span className={`tb-sched-leaf is-${tone === "running" ? "run" : tone === "error" ? "error" : "done"}`}><span className="tb-sched-rings" aria-hidden="true" /><b><time dateTime={plannedAt} aria-label={plannedTimeDescription}>{plannedTime}</time></b>{plannedDay && <small aria-hidden="true">{plannedDay}</small>}</span>
     </div>
     <div className="scheduled-run-body">
       <button type="button" className="scheduled-run-toggle" aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded(value => !value)}>
