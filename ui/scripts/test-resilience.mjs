@@ -219,7 +219,7 @@ await check("an unreachable server at startup is retried within seconds", async 
   const page = await context.newPage();
   await page.goto(origin + "/");
   await page.waitForTimeout(1500);
-  const shown = await page.locator(".owner-error, .startup-error").first().innerText().catch(() => "");
+  const shown = await page.locator(".tb-banner--error, .startup-error").first().innerText().catch(() => "");
   assert.ok(!/failed to fetch|load failed/i.test(shown), `raw browser text on the startup screen: ${shown}`);
   mock.down = false;
   const took = await waitFor(async () => (await page.locator(".conversation-row").count()) > 0, 12000, "the workspace after the server answered");

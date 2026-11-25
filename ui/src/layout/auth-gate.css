@@ -1,0 +1,33 @@
+/* Sign-in, first-run setup and the password checklist (V3 PR 7.1). The look is the kit's: Card on the dot ground (tb-dots), Brand,
+   Field, TextInput, Button, Banner and Select. This sheet places them: the centred column, the language switch in the corner and the
+   rule lines under the password. The Mac title row clearance stays here because the sheet outlives the surface (8.1). */
+@layer legacy {
+.owner-gate{position:relative;min-height:100dvh;display:grid;place-items:center;box-sizing:border-box;padding:calc(var(--gate-clear,64px) + env(safe-area-inset-top)) 24px calc(var(--gate-clear,64px) + env(safe-area-inset-bottom));color:var(--ink)}
+.owner-gate>.native-titlebar{position:absolute}
+.owner-card{width:min(420px,100%);box-sizing:border-box}
+.owner-body{display:grid;gap:16px;padding:28px 30px 30px}
+.owner-body>.tb-brand{justify-self:center;margin-bottom:12px}
+.owner-card h1{margin:0;text-align:center;color:var(--ink);font:700 26px/1.3 var(--font-display);letter-spacing:-.02em}
+.owner-subtitle{margin:-6px 0 6px;color:var(--ink-soft);font:14px/1.55 var(--font-body);text-align:center}
+.owner-step{margin:-8px 0 0;text-align:center}
+.owner-card form{display:grid;gap:16px}
+.owner-hint{margin:0;color:var(--ink-soft);font:14px/1.55 var(--font-body)}
+.owner-hint code{padding:1px 6px;border:1px solid var(--line);border-radius:6px;background:var(--code-bg);color:var(--code-ink);font:12.5px var(--font-mono);white-space:nowrap}
+.owner-card .tb-btn{width:100%}
+.owner-switch{display:block;margin-top:12px;text-align:center;color:var(--muted);font-size:13px;text-decoration:none}
+.owner-switch:hover{color:var(--ink)}
+.owner-pw{display:grid;gap:10px}
+.pw-rules{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+.pw-rules li{display:flex;align-items:center;gap:8px;color:var(--muted);font:12px/1.45 var(--font-body);transition:color var(--m-quick) var(--ease-out)}
+.pw-rules li[data-state="ok"]{color:var(--lime-text)}
+.pw-rules li[data-state="bad"]{color:var(--danger-text)}
+.auth-language{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));z-index:var(--z-raised);display:block;margin:0}
+.owner-gate .auth-language button.ui-select-trigger{width:auto;max-width:calc(100vw - 32px)}
+@media(max-width:767px){
+  .owner-gate{padding-inline:16px}
+  .auth-language{top:max(10px,env(safe-area-inset-top));right:12px}
+  .owner-body{padding:22px 20px 24px}
+  .owner-card h1{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){.pw-rules li{transition:none}}
+}

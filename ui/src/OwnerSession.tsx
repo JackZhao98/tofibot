@@ -1,7 +1,11 @@
 import { createContext, Fragment, lazy, Suspense, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AccountMenu, preloadPanel } from "./lazyPanels";
-import { CATS, EmptyCat } from "./EmptyCat";
-import { BrandLogo } from "./BrandLogo";
+import { Brand } from "./ds/Brand/Brand";
+import { Button } from "./ds/Button/Button";
+import { Card } from "./ds/Card/Card";
+import { Banner } from "./ds/Banner/Banner";
+import { Field } from "./ds/Field/Field";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { BootScreen } from "./BootScreen";
 import { useAppearance } from "./InteractionSystem";
 import { arrowOpens, pressToggle } from "./overlays/OverlayHost";
@@ -14,6 +18,8 @@ import { Avatar } from "./ds/Avatar/Avatar";
 import { SidebarRow } from "./ds/SidebarRow/SidebarRow";
 import "./account-menu.css";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
+import "./layout/auth-gate.css";
+import "./ds/Ground/Ground.css";
 
 // First-run setup and the password checklist are only ever drawn on the gate: keep them out of the entry bundle.
 const OwnerSetup = lazy(() => import("./OwnerSetup").then(module => ({ default: module.OwnerSetup })));
@@ -107,15 +113,16 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
   const finishAuth = async () => { setExpired(false); sessionRef.current = null; setSession(null); setChecked(false); await refresh(); };
   const mustChange = Boolean(session?.authenticated && session?.owner?.must_change_password);
   const allowed = checked && session && (!session.enabled || session.authenticated) && !mustChange;
-  return <SessionContext.Provider value={{ session, logout, hosting }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : !session && !error ? <BootScreen label={t("gate.connecting")} /> : <div className="owner-gate">
+  return <SessionContext.Provider value={{ session, logout, hosting }}>{allowed ? <Fragment key={`${instanceID}:${session?.owner?.id ?? "legacy"}`}>{children}</Fragment> : !session && !error ? <BootScreen label={t("gate.connecting")} /> : <div className="owner-gate tb-dots">
     <div className="native-titlebar" aria-hidden="true" />
     <AuthLanguageSwitch />
-    <section className="owner-card">
-      <BrandLogo variant="calico" />
-      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><EmptyCat look={CATS.nori} pose="asleep" size={72} name="gate-offline" /><p className="owner-error" role="alert">{error}</p><button className="primary-button" onClick={() => void refresh()}>{t("gate.reconnect")}</button></> : null}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <Suspense fallback={null}><OwnerSetup onDone={finishAuth} /></Suspense> : <>
+    <Card className="owner-card" pad={false}>
+     <div className="owner-body">
+      <Brand size={44} />
+      {!session ? <><h1>{t("gate.connect_title")}</h1>{error ? <><Banner tone="error">{error}</Banner><Button variant="primary" onClick={() => void refresh()}>{t("gate.reconnect")}</Button></> : null}</> : session.setup_required && session.password_transport_allowed && !mustChange ? <Suspense fallback={null}><OwnerSetup onDone={finishAuth} /></Suspense> : <>
         <h1>{mustChange ? t("gate.title.set_password") : session.setup_required ? t("gate.title.welcome_new") : expired ? t("gate.title.sign_in_again") : t("gate.title.welcome_back")}</h1>
         <p className="owner-subtitle">{mustChange ? t("gate.subtitle.change_initial") : session.setup_required ? t("gate.subtitle.create_admin") : t("gate.subtitle.sign_in")}</p>
-        {!session.password_transport_allowed ? <p className="owner-error" role="alert">{t("error.password_transport_required")}</p> : <form onSubmit={async event => {
+        {!session.password_transport_allowed ? <Banner tone="error">{t("error.password_transport_required")}</Banner> : <form onSubmit={async event => {
           event.preventDefault(); if (pending) return;
           const form = event.currentTarget;
           const data = new FormData(form);
@@ -127,16 +134,17 @@ export function OwnerSessionGate({ children }: { children: ReactNode }) {
           } catch (cause) { setError(cause instanceof Error ? cause.message : t("error.login_failed")); }
           finally { setPending(false); }
         }}>
-          {mustChange ? <label>{t("field.current_initial_password")}<input name="current_password" type="password" autoComplete="current-password" required disabled={pending}/></label>
-            : <label>{t("field.identifier")}<input name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></label>}
-          <label>{t("field.password")}<input name="password" type="password" autoComplete={mustChange ? "new-password" : "current-password"} required minLength={mustChange ? 12 : undefined} maxLength={1024} disabled={pending} aria-describedby={mustChange ? rulesID : undefined} onChange={mustChange ? event => setNewPassword(event.target.value) : undefined} /></label>
+          {mustChange ? <Field label={t("field.current_initial_password")}><TextInput name="current_password" type="password" autoComplete="current-password" required disabled={pending} /></Field>
+            : <Field label={t("field.identifier")}><TextInput name="identifier" autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus disabled={pending} /></Field>}
+          <Field label={t("field.password")}><TextInput name="password" type="password" autoComplete={mustChange ? "new-password" : "current-password"} required minLength={mustChange ? 12 : undefined} maxLength={1024} disabled={pending} aria-describedby={mustChange ? rulesID : undefined} onChange={mustChange ? event => setNewPassword(event.target.value) : undefined} /></Field>
           {mustChange && <Suspense fallback={null}><PasswordChecklist id={rulesID} password={newPassword} username={session.owner?.username ?? ""} email={session.owner?.email ?? ""} /></Suspense>}
-          {error && <p className="owner-error" role="alert">{error}</p>}
-          <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : t("gate.submit.sign_in")}</button>
+          {error && <Banner tone="error">{error}</Banner>}
+          <Button type="submit" variant="primary" busy={pending} disabled={pending}>{pending ? t("gate.submit.wait") : mustChange ? t("gate.submit.update_password") : t("gate.submit.sign_in")}</Button>
         </form>}
       </>}
       {isDesktop && <a className="owner-switch" href="/__desktop/setup">{t("gate.switch_server")}</a>}
-    </section>
+     </div>
+    </Card>
   </div>}</SessionContext.Provider>;
 }
 

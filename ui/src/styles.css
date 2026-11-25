@@ -21,7 +21,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .muted{color:var(--muted);line-height:1.65}
 .small-text{font-size:12px}
 
-:is(.owner-card,.settings-section)>form,
+:is(.settings-section)>form,
 form:is(.memory-create,.schedule-form,.extension-form,.resource-form,.credential-form,.question-card,.work-create){display:grid;gap:10px}
 
 .workspace{height:var(--viewport-height,100dvh);min-height:0;display:flex;flex-direction:column;overflow:hidden}
