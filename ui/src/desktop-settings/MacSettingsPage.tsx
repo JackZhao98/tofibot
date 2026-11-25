@@ -5,6 +5,7 @@ import { useTranslation } from "../i18n";
 import { Banner, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "../settings/components";
 import { Button } from "../ds/Button/Button";
 import { LinkButton } from "../desktop-pages/LinkButton";
+import { MacFrame } from "../desktop-pages/MacFrame";
 import { RemoteControlBlock } from "../RemoteControl";
 import { useRemoteControl } from "../useRemoteControl";
 
@@ -50,14 +51,7 @@ export function MacSettingsPage() {
   }, [api, canRead, t]);
   useEffect(() => { document.title = `${t("mac.title")} · Tofi`; }, [t]);
 
-  return <div className="workspace mac-settings">
-    <div className="mac-settings-titlebar" aria-hidden="true" />
-    <main className="settings-page-body"><div className="mac-settings-inner">
-      <header className="mac-settings-head">
-        <h1>{t("mac.title")}<span className="mac-dev-tag">{t("mac.inDevelopment")}</span></h1>
-        <LinkButton className="mac-settings-back" href="/" icon="arrow-left">{t("mac.back")}</LinkButton>
-      </header>
-
+  return <MacFrame title={t("mac.title")} tag={t("mac.inDevelopment")} back={<LinkButton className="mac-settings-back" href="/" icon="arrow-left">{t("mac.back")}</LinkButton>}>
       {!canRead && <Banner tone="warn" title={t("mac.unavailable")} />}
       {error && <Banner tone="error" title={error} />}
       {status?.lastError && <Banner tone="error" title={t("mac.error.last")}>{message(status.lastError)}</Banner>}
@@ -72,8 +66,7 @@ export function MacSettingsPage() {
           <SettingsRow label={t("mac.local.run")} control={<LinkButton href="/__desktop/local-run" icon="terminal">{t("mac.local.run")}</LinkButton>} />
         </SettingsCard>
       </SettingsSection>
-    </div></main>
-  </div>;
+  </MacFrame>;
 }
 
 /** Local permissions are changed only through the current document's native bridge. */

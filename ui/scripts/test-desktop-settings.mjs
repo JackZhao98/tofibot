@@ -85,7 +85,7 @@ try {
     const { page, context } = await open({ lang });
     await ready(page);
     assert.equal((await page.locator("h1").first().evaluate(node => node.firstChild.textContent)).trim(), L(lang, "title"), `${lang}: title text`);
-    assert.equal((await page.locator(".mac-dev-tag").innerText()).trim(), L(lang, "inDevelopment"), `${lang}: In development mark`);
+    assert.equal((await page.locator(".tb-settings-tag").innerText()).trim(), L(lang, "inDevelopment"), `${lang}: In development mark`);
     assert.equal((await page.locator(".mac-settings-back").innerText()).trim(), L(lang, "back"), `${lang}: back link`);
     assert.equal(await page.locator(".mac-settings-back").getAttribute("href"), "/", `${lang}: back link goes to /`);
     for (const section of ["local.title"]) {
