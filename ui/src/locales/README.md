@@ -86,6 +86,18 @@ Language changes re-render the tree from `main.tsx`. A `memo`ized component that
   (`Run <code>sudo tofi setup-secret</code> …`). Never numbered tags, never HTML strings with `dangerouslySetInnerHTML`.
 - Punctuation follows the language: full-width in Chinese/Japanese, `…` (one character) for progress, no trailing period on buttons and labels in en.
 
+### Copy rules (V3)
+
+- Short, in the register of a trading desk or an editor, not a help page: a label names the result ("Save draft", not "Click here to save your draft").
+- No parenthetical explanations. If a word needs a bracket to be understood, use a better word or drop the line.
+- No redundant descriptions: do not repeat the label in the line under it, and do not describe what a control visibly does. A hint is for a
+  field that is unfamiliar or risky, and it is one line.
+- Say a status only when it is not the normal one ("Paused", "Needs you"); never write "Saved" or "Connected" on every healthy row.
+- Name the target in a destructive action ("Delete Ledger Cat"), and say what is lost in one sentence.
+- Do not leave an empty string: delete the key from the language that lacks it (the checker allows a missing key and fails on an empty one).
+  A removed surface takes its keys with it, in all seven languages in the same commit.
+- An id is never copy. Show a name or a link, or nothing.
+
 ### Tone
 
 Concise, human, direct. Say what happened and what to do next.

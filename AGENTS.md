@@ -214,11 +214,33 @@ add their own styles on top; a thing used in many places is defined once.
 
 # Web UI: skin and kit
 
+Design wins (owner, 2026-11-17). The V3 design (`docs/design/ds-v3-frozen-2026-11-17`, built in `ui/src/ds/`) is the source of how the web UI
+looks and moves. Where the product differs from it, the product changes to match; the old rule that the current web page wins over a mock
+is gone. A part the design does not draw takes the nearest kit component, never a look of its own. Kept on purpose, with the owner's name
+on each: the boot screen frost and breathing logo, the permission coach, the black and white logos, no live cats outside the header (Q3),
+the Mac title-row geometry.
+
+How it is held:
+- One look, three layers. The skin (`skin/v3.tokens.json`, generated `v3.css` and `structure.css`) holds every colour, material, radius,
+  font and the motion and spacing scale. The kit (`ds/`, unlayered) draws every component from skin roles. A product sheet in
+  `@layer legacy` or `layout/` only places things. A new surface is kit parts plus a layout sheet; it adds no colour, no
+  `:root` token and no `html:not([data-desktop])` rule (the Mac app is not a fork).
+- Guards, all run by `ci-local`: `test:ds-boundary` (no look on a `.tb-*` outside `ds/`), `test:css-layers` (every product rule in a
+  layer, ratchets), `test:selectors-alive` (a script may not name a class nothing draws), `test:skin-sync` (generated files match the
+  source; every read property is defined), `test:skin-palette` (no literal colour), `test:skin-contrast`, `test:skin-sensitivity` (every
+  catalog state follows the skin), `test:motion-tokens`, `test:lazy-css`. Ratchet baselines only fall; lower them in the commit that
+  removes the code. `test:skin-snapshot` (local) proves a "no visual change" PR keeps every computed style against `origin/main`.
+- The widget model (PR 5.3 and after): a conversation opens widgets (`bot`, `computer`, `terminal`, `conversation`, `artifacts`) in a fixed
+  column beside the chat, one sidebar and one cover at a time; the state is `ui/src/surfaces.ts` and the section "Web UI side panels" below holds the
+  rules. Each widget is a kit part (the Bot card, the ScreenPanel for the computer), not a panel with its own chrome.
+- A surface is done when it renders in the catalog (`ui/src/catalog`, including its 390 px state), passes the guards, and has its strings in
+  all seven languages (`ui/src/locales/README.md` has the copy rules).
+
 Where things live:
 - `ui/src/skin/`: the skin. `v3.tokens.json` is the one source. `build:skin` writes `v3.css`, `structure.css`, `tokens.ts` and
   the two probe skins (`probe-a.css`, `probe-b.css`). Do not edit generated files. `roles.css` (hand-written) holds the
   component roles `--c-*`; add a role only with its first use. `skin.ts` `applySkin` is the only writer of `data-skin` and
-  `data-theme`. `DEFAULT_SKIN` is `v3` (PR 1.1). Every entry loads `skin/default.css`: structure, `v3.css`, `roles.css`, `v2-bridge.css` (V2 names resolve to V3 roles; `test:skin-sync` fails on a V2 name with no mapping) and `base.css` (body, selection, scrollbars, caret, focus ring, text fields). Fonts: `skin/fonts.css`. The V2 skin (`legacy.css`, `data-skin="legacy"`) is gone (PR 2.1): `v3` is the only product skin, and `?skin=` in dev takes `v3` only.
+  `data-theme`. `DEFAULT_SKIN` is `v3` (PR 1.1). Every entry loads `skin/default.css`: structure, `v3.css`, `roles.css` and `base.css` (body, selection, scrollbars, caret, focus ring, text fields). Fonts: `skin/fonts.css`. The V2 skin (`legacy.css`, `data-skin="legacy"`) is gone (PR 2.1) and so is the V2 name bridge (PR 9.1): every custom property a sheet reads is a V3 role or structure token, or one the sheet sets itself (`test:skin-sync` fails on a name nothing defines). `v3` is the only product skin, and `?skin=` in dev takes `v3` only.
 - `ui/src/ds/`: the V3 kit. One folder per component (`.tsx` and `.css`), class names `tb-*`. Kit CSS is not in a layer, so it
   wins over `legacy` and `vendor`. Kit code reads skin roles only (`var(--ink)`, `var(--c-...)`), never a literal.
 - `ui/src/forced.css` and `forced-focus.css`: rules that must force a result (reduced motion, forced colours, drag
