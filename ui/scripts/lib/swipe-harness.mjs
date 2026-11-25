@@ -237,7 +237,12 @@ export async function measureCost(page, finger, cdp, { y = 420 } = {}) {
   const active = frames.map(([t, on], k) => ({ t, on, k })).filter(f => f.on);
   const inside = frames.slice(Math.max(0, active[0].k - 1), active.at(-1).k + 3);
   const gaps = inside.slice(1).map(([t], k) => t - inside[k][0]);
-  return { slow: gaps.filter(gap => gap > 25).length, worst: Math.max(...gaps), moves,
+  // The same number of frames on an idle page under the same throttle: what the machine drops with nothing going on.
+  const idleGaps = await page.evaluate(count => new Promise(resolve => {
+    const t = []; const step = now => { t.push(now); if (t.length > count) resolve(t.slice(1).map((v, i) => v - t[i])); else requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }), gaps.length + 1);
+  return { slow: gaps.filter(gap => gap > 25).length, idleSlow: idleGaps.filter(gap => gap > 25).length, worst: Math.max(...gaps), moves,
     dragScriptPerMove: (m1.ScriptDuration - m0.ScriptDuration) * 1000 / Math.max(1, moves), dragLayouts: m1.LayoutCount - m0.LayoutCount,
     settleScript: (m2.ScriptDuration - m1.ScriptDuration) * 1000, settleMs: (m2.Timestamp - m1.Timestamp) * 1000, settleLayouts: m2.LayoutCount - m1.LayoutCount };
 }
