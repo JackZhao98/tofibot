@@ -178,7 +178,7 @@ try {
     assert.equal(await single.count(), 1);
     const box = await single.boundingBox();
     assert.ok(box.width <= 240 && box.height <= 240 && box.width >= 96, JSON.stringify(box));
-    assert.equal(await single.locator(".attachment-thumb").evaluate(el => getComputedStyle(el).borderRadius), "14px");
+    assert.equal(await single.locator(".attachment-thumb").evaluate(el => getComputedStyle(el).borderRadius), "8px", "V3: the kit attachment radius (--radius-sm)");
   });
 
   await step("code block has header, copy and fold", async () => {
