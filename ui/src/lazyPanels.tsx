@@ -17,7 +17,6 @@ const loaders = {
   memory: () => import("./MemoryPanel"),
   archive: () => import("./ArchivePanel"),
   artifacts: () => import("./ArtifactsPanel"),
-  usageWidget: () => import("./UsageWidget"),
   viewOnly: () => import("./ViewOnlyChat"),
   remembered: () => import("./RememberedApprovals"),
   deleteDialog: () => import("./DeleteConversationDialog"),
@@ -91,7 +90,6 @@ export const MemoryPanel = chunk("memory", module => module.MemoryPanel);
 export const ArchivePanel = chunk("archive", module => module.ArchivePanel);
 export const ArtifactsPanel = chunk("artifacts", module => module.ArtifactsPanel);
 export const ArtifactsWidget = chunk("artifacts", module => module.ArtifactsWidget);
-export const UsageWidget = chunk("usageWidget", module => module.UsageWidget);
 export const ViewOnlyChat = chunk("viewOnly", module => module.ViewOnlyChat);
 export const RememberedApprovalsSheet = chunk("remembered", module => module.RememberedApprovalsSheet);
 export const DeleteConversationDialog = chunk("deleteDialog", module => module.DeleteConversationDialog);
@@ -155,7 +153,6 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
   [".header-more", "botSettings"],
   [".header-more", "coverShell"],
   [".header-more", "surfaceViews"],
-  [".header-more", "usageWidget"],
   [".conversation-row", "botSettings"],
   [".search-trigger", "searchPalette"],
   [".chat-identity", "contextCard"],
@@ -176,7 +173,7 @@ const entryPoints: Array<[selector: string, chunk: PanelChunk]> = [
 const WARM_START_MS = 500;
 const WARM_STEP_MS = 200;
 export function warmPanelsWhenIdle(): () => void {
-  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "usageWidget", "work", "memory", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
+  const order: PanelChunk[] = ["settings", "taskActivity", "toolSteps", "desktop", "contextCard", "sidebarShell", "coverShell", "surfaceViews", "botSettings", "artifacts", "work", "memory", "archive", "viewOnly", "remembered", "deleteDialog", "reassignPrimary", "permissionCoach", "updateBanner", "questionCard", "stopMenu", "searchPalette"];
   let timer = window.setTimeout(function step() {
     const next = order.shift();
     if (!next) return;

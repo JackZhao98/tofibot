@@ -163,14 +163,11 @@ for (const theme of themes) {
     await shot("bs-phone-3-dirty-bar", 200);
     await context.close();
   }
-  // ---- group: settings cover, members widget, new group dialog ----
+  // ---- group: settings cover, new group dialog ----
   {
     const { context, page, writes } = await open(theme, 1280, { group: true });
     const shot = async (name, wait = 700) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${theme}-1280-${name}.png` }); };
-    await page.locator(".chat-identity").click(); await page.locator(".members-widget").waitFor();
-    await shot("widget-members", 900);
-    check(await page.locator(".mw-member").count() === 2, `${theme}: the roster lists both members`);
-    await page.locator(".mw-gear").click(); await page.locator(".group-settings").waitFor();
+    await page.locator(".chat-identity").click(); await page.locator(".group-settings").waitFor();
     await shot("group-settings", 900);
     await page.locator(".gs-field input").fill("Launch crew 2"); await page.waitForTimeout(400);
     await shot("group-settings-dirty", 200);

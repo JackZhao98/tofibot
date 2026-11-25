@@ -1,37 +1,26 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
 import { TofiIcon as Icon } from "./icons";
 import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
 import { useLeaving } from "./surfacePresence";
-import { WidgetGripContext, type WidgetGripApi } from "./widgetGrip";
-import { SortableList, SortableStatus, useSortableItem } from "./SortableList";
-import { GripGlyph } from "./GripGlyph";
 import "./context-column.css";
 
-const TITLE_KEY = { bot: "botCard.title", computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", members: "contextCard.title.members", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts", usage: "contextCard.title.usage" } as const;
+const TITLE_KEY = { bot: "botCard.title", computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts" } as const;
 
 /**
  * One widget in the column inside the chat (docs/design/widgets-and-sidebar.md): title on the left; fold and close on
  * the right. A folded widget keeps its content mounted (a live computer session must survive it) and only hides it.
  * `leaving` is set while the widget plays its exit; the card stays in place until the motion is over.
  */
-/** The grip button; the same markup in a card header and in the computer's cluster, styled by the container. */
-function WidgetGrip({ grip, className }: { grip: WidgetGripApi; className: string }) {
-  return <button ref={grip.ref} type="button" className={`${className} widget-grip`} aria-label={grip.label} data-hint={grip.hint} aria-keyshortcuts="Space Alt+ArrowUp Alt+ArrowDown" {...grip.attributes} {...grip.activator}><GripGlyph /></button>;
-}
-
-export function ContextCard({ id, order, collapsed = false, leaving = false, focusN = 0, moveStep, onToggle, onClose, children }: {
-  id: WidgetId; order: number; collapsed?: boolean; leaving?: boolean; focusN?: number; moveStep: (step: -1 | 1) => void; onToggle: (id: string) => void; onClose: (id: string) => void; children: ReactNode;
+export function ContextCard({ id, order, collapsed = false, leaving = false, focusN = 0, onToggle, onClose, children }: {
+  id: WidgetId; order: number; collapsed?: boolean; leaving?: boolean; focusN?: number; onToggle: (id: string) => void; onClose: (id: string) => void; children: ReactNode;
 }) {
   const { t } = useTranslation("chat");
   const title = t(TITLE_KEY[id]);
   const ref = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const sortable = useSortableItem(id, leaving || (id === "computer" && collapsed), moveStep, leaving);
-  const grip: WidgetGripApi = { label: t("widgetOrder.grip", { title }), hint: t("widgetOrder.grip_hint"),
-    ref: sortable.setActivatorNodeRef, attributes: sortable.attributes, activator: sortable.activator, wasDragged: sortable.wasDragged };
   useEffect(() => {
     if (focusN <= 0) return;
     ref.current?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -47,52 +36,27 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   // The computer is the bare monitor: no header row. Its title is the chin's status text (and a hidden heading for focus), it closes
   // with the chin's chevron and folds into its own strip (docs/design/widgets-and-sidebar.md section 6).
   const bare = id === "computer";
-  const keyFromHeader = (event: ReactKeyboardEvent<HTMLElement>) => { if (event.altKey) grip.activator.onKeyDown?.(event); };
-  return <div ref={sortable.setNodeRef} className="widget-slot" data-dragging={sortable.isDragging || undefined} data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ ...sortable.style, transition: leaving ? undefined : sortable.style.transition, order }}><Collapsible.Root open={bare || !collapsed} onOpenChange={() => onToggle(id)} asChild><section ref={ref} className={`context-card${collapsed && id !== "computer" ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
-    {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header" onMouseDown={event => { if (!(event.target as Element).closest("button")) grip.activator.onMouseDown?.(event); }}
-      onTouchStart={event => { if (!(event.target as Element).closest("button")) grip.activator.onTouchStart?.(event); }} onKeyDown={keyFromHeader}>
-      {/* The title is the fold control: "Title ⌄", the chevron right after the words, turning as the card folds. A press on it that travels
-          (or is held) is a drag of the card instead (dnd-kit activation), so a click still folds. */}
-      <h2 ref={heading} tabIndex={-1}><Collapsible.Trigger asChild><button type="button" className="context-card-fold" aria-label={foldLabel} data-hint={foldLabel}
-        {...grip.activator} onClick={event => { if (grip.wasDragged()) event.preventDefault(); }}><span>{title}</span><Icon name="chevron-down" size={14} /></button></Collapsible.Trigger></h2>
-      <span className="context-card-actions"><WidgetGrip grip={grip} className="context-card-button context-card-grip" />
+  return <div className="widget-slot" data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><Collapsible.Root open={bare || !collapsed} onOpenChange={() => onToggle(id)} asChild><section ref={ref} className={`context-card${collapsed && id !== "computer" ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
+    {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header">
+      {/* The title is the fold control: "Title ⌄", the chevron right after the words, turning as the card folds. */}
+      <h2 ref={heading} tabIndex={-1}><Collapsible.Trigger asChild><button type="button" className="context-card-fold" aria-label={foldLabel} data-hint={foldLabel}><span>{title}</span><Icon name="chevron-down" size={14} /></button></Collapsible.Trigger></h2>
+      <span className="context-card-actions">
       <button type="button" className="context-card-button context-card-close" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button></span>
     </header>}
-    <CollapsibleContent forceMount className="context-card-body" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{bare ? <WidgetGripContext.Provider value={grip}>{children}</WidgetGripContext.Provider> : children}</div></CollapsibleContent>
+    <CollapsibleContent forceMount className="context-card-body" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{children}</div></CollapsibleContent>
   </section></Collapsible.Root></div>;
 }
 
-/** Fixed DOM order preserves live video; CSS order and dnd-kit transforms place the cards. */
-export function WidgetColumn({ ids, order, folded, focus, covered, onFold, onClose, onMove, render }: {
-  ids: readonly WidgetId[]; order: readonly WidgetId[]; folded: readonly WidgetId[]; focus: { id: string | null; n: number }; covered: boolean;
-  onFold: (id: string) => void; onClose: (id: WidgetId) => void; onMove: (id: WidgetId, to: number) => void; render: (id: WidgetId, leaving: boolean) => ReactNode;
+/** The fixed order: the Bot card, the computer, the Terminal, the read-only chat, Artifacts. The DOM keeps that order (a live video must not move), CSS `order` places the cards. */
+export function WidgetColumn({ ids, folded, focus, covered, onFold, onClose, render }: {
+  ids: readonly WidgetId[]; folded: readonly WidgetId[]; focus: { id: string | null; n: number }; covered: boolean;
+  onFold: (id: string) => void; onClose: (id: WidgetId) => void; render: (id: WidgetId, leaving: boolean) => ReactNode;
 }) {
   const { t } = useTranslation("chat");
   const { shown, leaving } = useLeaving(ids, WIDGET_ORDER, 220);
-  const visual = sortWidgets(shown, order);
-  // The Bot card has no grip and no fold and is always first: it takes no part in the order the person sets.
-  const live = visual.filter(id => !leaving.has(id) && id !== "bot");
-  const lead = ids.includes("bot") ? 1 : 0;
-  const [announce, setAnnounce] = useState("");
-  const spoke = useRef(0);
-  const say = (id: string, index: number) => t("widgetOrder.moved", { title: t(TITLE_KEY[id as WidgetId]), position: index + 1, count: live.length });
-  const dragging = useCallback((active: boolean) => {
-    document.documentElement.toggleAttribute("data-widget-dragging", active);
-  }, []);
-  const step = (id: WidgetId, delta: -1 | 1) => {
-    const from = live.indexOf(id), to = from + delta;
-    if (to < 0 || to >= live.length) {
-      setAnnounce(t(from === 0 ? "widgetOrder.at_top" : "widgetOrder.at_bottom", { title: t(TITLE_KEY[id]) }) + (spoke.current++ % 2 ? "\u200b" : ""));
-      return;
-    }
-    onMove(id, to + lead);
-    setAnnounce(say(id, to) + (spoke.current++ % 2 ? "\u200b" : ""));
-  };
+  const visual = sortWidgets(shown);
   if (!shown.length) return null;
-  return <SortableList items={live} onMove={(id, to) => onMove(id as WidgetId, to + lead)} announce={say} instructions={t("widgetOrder.grip_hint")} onDragging={dragging}>
-    <aside className={`detail-pane context-panel context-column widget-column visible${covered ? " is-covered" : ""}`} aria-label={t("detail.label")}>
-      {shown.map(id => { const node = render(id, leaving.has(id)); if (node && id === "bot") return <div key={id} className="widget-slot bot-slot" data-slot="bot" data-leaving={leaving.has(id) || undefined} inert={leaving.has(id) || undefined} style={{ order: visual.indexOf(id) }}>{node}</div>; return node && <ContextCard key={id} id={id} order={visual.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} moveStep={delta => step(id, delta)} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
-    </aside>
-    <SortableStatus>{announce}</SortableStatus>
-  </SortableList>;
+  return <aside className={`detail-pane context-panel context-column widget-column visible${covered ? " is-covered" : ""}`} aria-label={t("detail.label")}>
+    {shown.map(id => { const node = render(id, leaving.has(id)); if (node && id === "bot") return <div key={id} className="widget-slot bot-slot" data-slot="bot" data-leaving={leaving.has(id) || undefined} inert={leaving.has(id) || undefined} style={{ order: visual.indexOf(id) }}>{node}</div>; return node && <ContextCard key={id} id={id} order={visual.indexOf(id)} collapsed={folded.includes(id)} leaving={leaving.has(id)} focusN={focus.id === id ? focus.n : 0} onToggle={onFold} onClose={onClose as (id: string) => void}>{node}</ContextCard>; })}
+  </aside>;
 }

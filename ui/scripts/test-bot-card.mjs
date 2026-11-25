@@ -255,14 +255,15 @@ try {
     await context.close();
   }
 
-  // A group chat is unchanged: the name shows, no halo, and the cat opens the Members widget (no Bot card).
+  // A group chat is unchanged: the name shows, no halo, and the cat opens the group settings (no Bot card).
   {
     const { context, page, errors } = await openWorkspace(browser, origin, newState(), { group: true });
     assert.equal(await page.locator(".chat-header .tb-chathead-halo").count(), 0, "a group header has no halo");
     assert.equal(await page.locator(".chat-header .tb-chathead-name").evaluate(node => node.getBoundingClientRect().width > 20), true, "a group header shows its name");
     await page.locator(".chat-header .tb-chathead-cat").click();
-    await page.locator('.widget-column [data-card="members"]').waitFor();
+    await page.locator(".cover-window").waitFor();
     assert.equal(await page.locator(".bot-card").count(), 0, "a group opens no Bot card");
+    assert.equal(await page.locator(".widget-column [data-card]").count(), 0, "and no widget");
     assert.deepEqual(errors, []);
     await context.close();
   }

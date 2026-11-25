@@ -1,0 +1,4 @@
+/* The spend Banner above the composer: it keeps the chat column's width and a gap to the field. */
+@layer legacy {
+.spend-banner { box-sizing:border-box; width:100%; max-width:var(--chat-max); margin:0 auto var(--space-2); }
+}

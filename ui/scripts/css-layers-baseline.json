@@ -48,13 +48,6 @@
     "important": 2,
     "tokenDef": 0
   },
-  "context-column.css": {
-    "global": 1,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "copy-feedback.css": {
     "global": 0,
     "rootBump": 6,

@@ -28,7 +28,7 @@ function useSwitches(): React.RefObject<Switches> {
  * The automatic life of the widgets (docs/design/widgets-and-sidebar.md sections 2.1, 3, 6): the Artifacts widget opens when the first
  * file a Bot made arrives in this conversation; the Computer widget opens when a Bot takes the desktop here, folds into its strip 30 s
  * after the Bot lets go, and stays closed for a run the person closed it in; with three or more widgets open on a short window the ones at the bottom of the
- * person's order fold (never the computer), except the ones the person unfolded. Nothing here moves focus or closes a cover.
+ * fixed order fold (never the computer), except the ones the person unfolded. Nothing here moves focus or closes a cover.
  */
 export function useWidgetAutomation({ activeId, ready, messages, columnMode, hasComputer, externalComputer = false, surfaces, setSurfaces, botRunId, holderKind, bigComputer, phoneSheet, memory }: {
   activeId?: string; ready: boolean; messages: readonly Message[]; columnMode: boolean; hasComputer: boolean; externalComputer?: boolean; surfaces: Surfaces;
@@ -109,8 +109,8 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
     return () => window.clearTimeout(timer);
   }, [computerOpen, computerFolded, botRunId, holderKind, bigComputer, columnMode, externalComputer, setSurfaces]);
 
-  // Space: three or more widgets on a short window. The bottom one of the person's order folds first (the Usage widget, then Artifacts
-  // and Members in the default order); the next follows only if the column still overflows. The computer never folds this way.
+  // Space: three or more widgets on a short window. The bottom one of the fixed order folds first (Artifacts,
+  // then the Terminal); the next follows only if the column still overflows. The computer never folds this way.
   const unfolded = useRef(new Map<string, Set<WidgetId>>());
   const latest = useRef(surfaces);
   latest.current = surfaces;
@@ -123,7 +123,7 @@ export function useWidgetAutomation({ activeId, ready, messages, columnMode, has
       if (next) setSurfaces(state => state.widgets.length < 3 ? state : setWidgetFolded(state, next, true));
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [columnMode, short, activeId, surfaces.widgets, surfaces.folded, surfaces.order, setSurfaces]);
+  }, [columnMode, short, activeId, surfaces.widgets, surfaces.folded, setSurfaces]);
 
   const noteClose = useCallback((id: WidgetId) => {
     if (id === "computer" && lastRun.current && activeId) suppressedRunsOf(memory.current, activeId).add(lastRun.current);
