@@ -198,6 +198,18 @@ func waitGuestState(ctx context.Context, call guestCall, file string) error {
 	return errors.New("guest step timed out")
 }
 
+// Download caches stay behind: they rebuild on first use and are about a third of a typical home.
+var homeMoveCaches = []string{".npm", ".cache"}
+
+var homeMoveSkipDu, homeMoveSkipTar = func() (string, string) {
+	var du, tar []string
+	for _, c := range homeMoveCaches {
+		du = append(du, "--exclude='"+c+"'")
+		tar = append(tar, `--exclude="home/`+c+`"`)
+	}
+	return strings.Join(du, " "), strings.Join(tar, " ")
+}()
+
 func homeMoveDir(moveID string) string { return "/workspace/home/uploads/.tofi-move-" + moveID }
 
 // The detached jobs run in a subshell with every stream redirected: a background list that keeps the call's stdout
@@ -208,7 +220,7 @@ func homeMoveDir(moveID string) string { return "/workspace/home/uploads/.tofi-m
 // working): the archive is still complete for every other file, so that counts as done.
 func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int64, error) {
 	dir := homeMoveDir(moveID)
-	size, err := guestShell(ctx, from, "du -sb --exclude='uploads/.tofi-move-*' /workspace/home | cut -f1", 60)
+	size, err := guestShell(ctx, from, "du -sb --exclude='uploads/.tofi-move-*' "+homeMoveSkipDu+" /workspace/home | cut -f1", 60)
 	if err != nil {
 		return nil, 0, guestStepError("could not measure home", size, err)
 	}
@@ -219,7 +231,7 @@ func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int
 	if used > homeMoveMaxBytes {
 		return nil, used, homeMoveError{"home_too_large"}
 	}
-	pack := fmt.Sprintf(`mkdir -p %[1]s && (setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' </dev/null >/dev/null 2>&1 &)`, dir, homeMovePartBytes)
+	pack := fmt.Sprintf(`mkdir -p %[1]s && (setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" %[3]s -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' </dev/null >/dev/null 2>&1 &)`, dir, homeMovePartBytes, homeMoveSkipTar)
 	if out, err := guestShell(ctx, from, pack, 30); err != nil || out.ExitCode != 0 {
 		return nil, used, guestStepError("could not start packing", out, err)
 	}
