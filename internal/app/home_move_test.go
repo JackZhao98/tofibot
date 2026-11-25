@@ -100,3 +100,18 @@ func TestHomeMoveStateOneAtATimeAndNamedFailure(t *testing.T) {
 		t.Fatal("an unnamed error is move_failed")
 	}
 }
+
+func TestAFailedMoveClearsWhenThePersonActs(t *testing.T) {
+	var m homeMoveState
+	m.begin("e2b")
+	m.end(homeMoveError{"move_failed"})
+	m.clear()
+	if m.view() != nil {
+		t.Fatal("a stale failure must go once the person changes the E2B computer")
+	}
+	m.begin("e2b")
+	m.clear()
+	if v := m.view(); v == nil || v.Phase != "moving" {
+		t.Fatal("a running move is never cleared")
+	}
+}

@@ -694,6 +694,8 @@ func (s *Server) computerPolicyRefusal(w http.ResponseWriter) bool {
 }
 
 func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
+	// A changed or removed E2B computer answers the earlier failure: the page stops showing it.
+	s.homeMove.clear()
 	if s.computerPolicyRefusal(w) {
 		return
 	}
@@ -787,6 +789,8 @@ func (s *Server) putE2BKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removeE2B(w http.ResponseWriter, r *http.Request) {
+	// A changed or removed E2B computer answers the earlier failure: the page stops showing it.
+	s.homeMove.clear()
 	if s.computerPolicyRefusal(w) {
 		return
 	}
