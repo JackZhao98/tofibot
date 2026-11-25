@@ -4,3 +4,9 @@
 .tb-empty-title { margin: 0; font: 700 18px/1.2 var(--font-display); }
 .tb-empty-text { margin: 0; max-width: 34ch; color: var(--ink-soft); font: 400 14px/1.5 var(--font-body); }
 .tb-empty-action { margin-top: 8px; }
+/* Product callers hand the kit their own p, h2 and button children (src/EmptyCat.tsx), so those read like the parts above. */
+.tb-empty > p { margin: 0; max-width: 34ch; color: var(--ink-soft); font: 400 14px/1.5 var(--font-body); }
+.tb-empty > h2 { margin: 0; font: 700 18px/1.2 var(--font-display); }
+.tb-empty > button { margin-top: 8px; }
+.tb-empty.is-compact { padding: 14px 12px; border-style: none; }
+.tb-empty.is-compact .tb-empty-art img { width: 56px; }

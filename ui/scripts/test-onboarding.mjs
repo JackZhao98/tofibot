@@ -172,9 +172,8 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     await sheet(page).waitFor();
     await page.locator(".onb-welcome h2").waitFor();
     await page.waitForTimeout(1500);
-    assert.equal(await page.locator("[data-empty-cat='onboarding-miso'][data-live='true'], [data-empty-cat='onboarding-yuzu'][data-live='true'], [data-empty-cat='onboarding-nori'][data-live='true']").count(), 3, "three live cats on the welcome step");
-    assert.equal(await page.locator(".onb-bubble").count(), 3);
-    assert.ok((await page.locator("[data-empty-cat][data-live='true']").count()) <= 6, "at most six live cats");
+    assert.equal(await page.locator(".onb-welcome .onb-art img").count(), 1, "one still calico on the welcome step");
+    assert.equal(await page.locator("[data-live]").count(), 0, "no live cats or speech bubbles");
     if (phone) assert.ok(Math.abs((await sheet(page).boundingBox()).height - height) <= 2, "the sheet fills the phone screen");
     else assert.equal(Math.round((await sheet(page).boundingBox()).width), 680, "680px sheet on desktop");
     assert.ok((await overflow(page)) <= 0, "no horizontal scroll on the welcome step");
@@ -216,7 +215,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     assert.ok((await overflow(page)) <= 0);
     if (strict) await assertNoTruncation(page, "chatgpt waiting");
     await shoot(page, "3-chatgpt-waiting");
-    await page.locator(".onb-code-actions .secondary-button").click();
+    await page.locator(".onb-code-actions .tb-btn--secondary").click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), CODE, "Copy code copies the code");
     await page.locator(".onb-foot .onb-quiet").click();
     await page.locator(".onb-code").waitFor({ state: "detached" });
@@ -599,7 +598,7 @@ try {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     state.codexConnectFails = true;
     const { page, context } = await open(state);
-    await page.locator(".onb-foot .primary-button").click();
+    await page.locator(".onb-foot .tb-btn--primary").click();
     await page.getByText(/can.t reach OpenAI/).waitFor();
     assert.equal(await page.getByText(/cancelled or timed out/).count(), 0);
     await context.close();
@@ -799,24 +798,23 @@ try {
     pass("organization-provided models: the model step passes itself on, or waits for the administrator without a key field or dead button");
   }
 
-  // Reduced motion: no transitions or animations; the bubbles and the waiting dot are simply there.
+  // Reduced motion: no transitions or animations; the waiting dot is simply there.
   {
     const state = makeServer();
     const { page, context } = await open(state, { reduced: true });
     await sheet(page).waitFor();
-    await page.locator(".onb-bubble").first().waitFor();
+    await page.locator(".onb-art").waitFor();
     const motion = await page.evaluate(() => {
       const names = selector => [...document.querySelectorAll(selector)].map(node => getComputedStyle(node).animationName);
-      return { step: names(".onb-step"), bubble: names(".onb-bubble"), scrim: names(".onb-scrim"), opacity: [...document.querySelectorAll(".onb-bubble")].map(node => getComputedStyle(node).opacity) };
+      return { step: names(".onb-step"), scrim: names(".onb-scrim") };
     });
-    assert.deepEqual([...new Set([...motion.step, ...motion.bubble, ...motion.scrim])], ["none"], "no animation runs");
-    assert.deepEqual([...new Set(motion.opacity)], ["1"], "bubbles show at once");
+    assert.deepEqual([...new Set([...motion.step, ...motion.scrim])], ["none"], "no animation runs");
     await page.getByRole("button", { name: /set up your crew/ }).click();
     await page.getByRole("button", { name: "Continue with ChatGPT" }).click();
     await page.locator(".onb-waiting i").waitFor();
     assert.equal(await page.locator(".onb-waiting i").evaluate(node => getComputedStyle(node).animationName), "none", "the waiting dot does not breathe");
     await context.close();
-    pass("reduced motion: nothing animates, bubbles and dot show statically");
+    pass("reduced motion: nothing animates, the dot shows statically");
   }
 
   // German: the longest labels wrap instead of being cut, on desktop and on a phone.

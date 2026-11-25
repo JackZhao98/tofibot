@@ -68,9 +68,6 @@
   "ds/legacy-aliases.css": {
     "aliasRule": 23
   },
-  "empty-states.css": {
-    "bridgeUse": 8
-  },
   "environments.css": {
     "bridgeUse": 1,
     "webFork": 1
@@ -127,7 +124,7 @@
     "bridgeUse": 9
   },
   "onboarding.css": {
-    "bridgeUse": 55
+    "bridgeUse": 49
   },
   "permission-coach.css": {
     "bridgeUse": 12

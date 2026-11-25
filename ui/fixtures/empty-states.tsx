@@ -25,8 +25,6 @@ import { ExtensionPanel } from "../src/ExtensionPanel";
 import { ComputerCredentials } from "../src/ComputerCredentials";
 import { TerminalPanel } from "../src/TerminalPanel";
 import { ViewOnlyChat } from "../src/ViewOnlyChat";
-import { OwnerSessionGate } from "../src/OwnerSession";
-import { CATS, EmptyCat, EmptyState } from "../src/EmptyCat";
 import { TimezoneProvider } from "../src/UserTimezone";
 
 // Synthetic only: every /api read answers with empty collections, and no other origin is contacted.
@@ -68,9 +66,6 @@ function Case() {
     case "credentials-env-empty": return <Frame><ComputerCredentials bots={[]} /></Frame>;
     case "terminal-empty": return <Frame><div style={{ height: 420, display: "grid" }}><TerminalPanel botId="b1" botName="Synthetic" onClose={noop} /></div></Frame>;
     case "view-only-empty": return <Frame><ViewOnlyChat target={{ source: conversation, target: conversation }} bots={[]} onClose={noop} card /></Frame>;
-    case "gate-offline": return <OwnerSessionGate><p>app</p></OwnerSessionGate>;
-    case "many": return <Frame><div className="many">{Array.from({ length: 14 }, (_, index) => <EmptyState key={index} name={`many-${index}`} look={CATS.mochi} pose="curious"><p>Synthetic</p></EmptyState>)}</div></Frame>;
-    case "scroll": return <div style={{ padding: 16 }}><EmptyCat look={CATS.mochi} pose="awake" name="top" /><div style={{ height: 3000 }} /><EmptyCat look={CATS.miso} pose="awake" name="bottom" /></div>;
     default: return <p>unknown state</p>;
   }
 }

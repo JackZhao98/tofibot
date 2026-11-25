@@ -1,8 +1,7 @@
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, request } from "./api";
-import type { CatHandle } from "./CatStage";
-import { CATS, EmptyCat } from "./EmptyCat";
+import { Button } from "./ds/Button/Button";
 import { TofiIcon } from "./icons";
 import { Disclosure } from "./InteractionPrimitives";
 import { effortLabels } from "./ModelSettings";
@@ -37,23 +36,6 @@ export type OnboardingProps = {
   /** Setup is done: close and open the first Bot. */
   onFinish: (botId?: string) => void;
 };
-
-/** Runs `play` on a cat as soon as its live slot has mounted it (a cat off screen never mounts). */
-function useCatAction(handle: { current: CatHandle | null }, action: "wave" | "happy" | "wake", delay: number, enabled = true) {
-  useEffect(() => {
-    if (!enabled || typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let cancelled = false;
-    let attempts = 0;
-    const tick = () => {
-      if (cancelled) return;
-      const cat = handle.current?.get();
-      if (!cat) { if (++attempts < 30) timer = window.setTimeout(tick, 100); return; }
-      void (async () => { if (action === "wave" && cat.getState().idle === "asleep") await handle.current?.play("wake"); await handle.current?.play(action); })();
-    };
-    let timer = window.setTimeout(tick, delay);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [handle, action, delay, enabled]);
-}
 
 export function Onboarding(props: OnboardingProps) {
   const { t } = useTranslation("chat");
@@ -105,25 +87,16 @@ const noop = () => {};
 
 function Welcome({ titleId, onStart, onSkip }: { titleId: string; onStart: () => void; onSkip: () => void }) {
   const { t } = useTranslation("chat");
-  const left = useRef<CatHandle | null>(null), middle = useRef<CatHandle | null>(null), right = useRef<CatHandle | null>(null);
-  // The three wake and wave one after another, 250ms apart; the bubbles pop with them.
-  useCatAction(left, "wave", 250);
-  useCatAction(middle, "wave", 500);
-  useCatAction(right, "wave", 750);
   return (
     <>
       <div className="onb-body onb-welcome">
-        <div className="onb-cats" aria-hidden="true">
-          <span className="onb-cat-slot"><i className="onb-bubble" style={{ "--n": 0 } as React.CSSProperties}>{t("onboarding.bubble_hi")}</i><EmptyCat look={CATS.miso} pose="awake" name="onboarding-miso" className="onb-cat" ref={left} /></span>
-          <span className="onb-cat-slot"><i className="onb-bubble" style={{ "--n": 1 } as React.CSSProperties}>{t("onboarding.bubble_welcome")}</i><EmptyCat look={CATS.yuzu} pose="awake" name="onboarding-yuzu" className="onb-cat" ref={middle} /></span>
-          <span className="onb-cat-slot"><i className="onb-bubble" style={{ "--n": 2 } as React.CSSProperties}>{t("onboarding.bubble_hello")}</i><EmptyCat look={CATS.nori} pose="awake" name="onboarding-nori" className="onb-cat" ref={right} /></span>
-        </div>
+        <div className="onb-art" aria-hidden="true"><img src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="96" height="96" decoding="async" /></div>
         <h2 id={titleId} className="onb-title">{t("onboarding.welcome_title")}</h2>
         <p className="onb-lede">{t("onboarding.welcome_body")}</p>
       </div>
       <footer className="onb-foot onb-foot-welcome">
-        <button type="button" className="onb-quiet" onClick={onSkip}>{t("onboarding.skip_for_now")}</button>
-        <button type="button" className="primary-button onb-primary" data-autofocus onClick={onStart}>{t("onboarding.welcome_start")} <TofiIcon name="arrow-right" size={16} /></button>
+        <Button variant="ghost" className="onb-quiet" onClick={onSkip}>{t("onboarding.skip_for_now")}</Button>
+        <Button variant="primary" className="onb-primary" type="button" iconAfter="arrow-right" data-autofocus onClick={onStart}>{t("onboarding.welcome_start")}</Button>
       </footer>
     </>
   );
@@ -168,7 +141,6 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   const alive = useRef(true);
   const provided = usePolicy().provided("ai_models");
   const [checking, setChecking] = useState(false);
-  const cat = useRef<CatHandle | null>(null);
   const keyInput = useRef<HTMLInputElement>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; run.current++; }; }, []);
   useEffect(() => { onConnected(phase === "connected"); }, [phase, onConnected]);
@@ -286,8 +258,6 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
     catch { setDefaults(previous); setSaveError(true); }
   }
 
-  useCatAction(cat, "happy", 450, phase === "connected");
-
   const connected = phase === "connected";
   const busy = phase === "waiting" || phase === "checking" || serverBusy;
   const labels = effortLabels();
@@ -305,7 +275,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
     body = (
       <>
         <div className="onb-connected" role="status">
-          <EmptyCat look={CATS.yuzu} pose="awake" name="onboarding-connected" className="onb-connected-cat" ref={cat} />
+          <img className="onb-connected-cat" src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="72" height="72" decoding="async" aria-hidden="true" />
           <div>
             <strong><TofiIcon name="check-circle" size={18} /> {providerName || t("onboarding.model_generic")}</strong>
             <p>{t("onboarding.connected_ready")}</p>
@@ -374,7 +344,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
                 <span className="onb-code-label">{t("onboarding.code_label")}</span>
                 <code className="onb-code">{session.code}</code>
                 <div className="onb-code-actions">
-                  <button type="button" className="secondary-button" onClick={() => void copyCode()}><TofiIcon name="copy" size={15} /> {copied ? t("onboarding.copied") : t("onboarding.copy_code")}</button>
+                  <Button variant="secondary" icon="copy" onClick={() => void copyCode()}>{copied ? t("onboarding.copied") : t("onboarding.copy_code")}</Button>
                   <a className="onb-link" href={session.url} target="_blank" rel="noopener noreferrer">{t("onboarding.open_sign_in")}</a>
                 </div>
               </>}
@@ -400,13 +370,13 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   }
 
   let foot: ReactNode;
-  if (provided) foot = <><button type="button" className="onb-quiet" onClick={onBack}>{t("onboarding.back")}</button>{!modelConfigured && <button type="button" className="primary-button onb-primary" data-autofocus disabled={checking} onClick={() => { setChecking(true); void onModelChanged().finally(() => { if (alive.current) setChecking(false); }); }}>{checking ? t("onboarding.key_checking_short") : t("onboarding.waiting_check")}</button>}</>;
-  else if (connected) foot = <><span /><button type="button" className="primary-button onb-primary" data-autofocus onClick={onNext}>{t("onboarding.next")} <TofiIcon name="arrow-right" size={16} /></button></>;
-  else if (phase === "waiting" && choice === "chatgpt") foot = <><button type="button" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.waiting")}</button></>;
-  else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><button type="button" className="primary-button onb-primary" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</button></>;
-  else if (choice === "server") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-server-form" className="primary-button onb-primary" disabled={serverBusy}>{serverBusy ? t("onboarding.key_checking_short") : t("onboarding.server_connect")}</button></>;
-  else if (choice === "key") foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="submit" form="onb-key-form" className="primary-button onb-primary" disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</button></>;
-  else foot = <><button type="button" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</button><button type="button" className="primary-button onb-primary" disabled>{t("onboarding.next")}</button></>;
+  if (provided) foot = <><Button variant="ghost" className="onb-quiet" onClick={onBack}>{t("onboarding.back")}</Button>{!modelConfigured && <Button variant="primary" className="onb-primary" type="button" data-autofocus disabled={checking} onClick={() => { setChecking(true); void onModelChanged().finally(() => { if (alive.current) setChecking(false); }); }}>{checking ? t("onboarding.key_checking_short") : t("onboarding.waiting_check")}</Button>}</>;
+  else if (connected) foot = <><span /><Button variant="primary" className="onb-primary" type="button" iconAfter="arrow-right" data-autofocus onClick={onNext}>{t("onboarding.next")}</Button></>;
+  else if (phase === "waiting" && choice === "chatgpt") foot = <><Button variant="ghost" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</Button><Button variant="primary" className="onb-primary" type="button" disabled>{t("onboarding.waiting")}</Button></>;
+  else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><Button variant="primary" className="onb-primary" type="button" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</Button></>;
+  else if (choice === "server") foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="submit" form="onb-server-form" disabled={serverBusy}>{serverBusy ? t("onboarding.key_checking_short") : t("onboarding.server_connect")}</Button></>;
+  else if (choice === "key") foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="submit" form="onb-key-form" disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</Button></>;
+  else foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="button" disabled>{t("onboarding.next")}</Button></>;
 
   return (
     <>
