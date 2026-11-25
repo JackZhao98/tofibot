@@ -162,9 +162,6 @@
   "scheduled-task-row.css": {
     "bridgeUse": 1
   },
-  "search-palette.css": {
-    "bridgeUse": 6
-  },
   "sender-groups.css": {
     "bridgeUse": 2,
     "rootToken": 1,
