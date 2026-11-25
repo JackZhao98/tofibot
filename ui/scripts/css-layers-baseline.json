@@ -184,7 +184,7 @@
   "sender-groups.css": {
     "global": 1,
     "rootBump": 0,
-    "webFork": 4,
+    "webFork": 1,
     "important": 0,
     "tokenDef": 1
   },
@@ -212,7 +212,7 @@
   "v2-app.css": {
     "global": 0,
     "rootBump": 14,
-    "webFork": 24,
+    "webFork": 21,
     "important": 0,
     "tokenDef": 0
   },
