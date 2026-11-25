@@ -1,3 +1,5 @@
+import { FileGlyph, type FileKind as KitFileKind } from "./ds/FileTile/parts";
+import "./ds/FileTile/FileTile.css";
 import Lightbox from "./AttachmentLightbox";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { isDesktop, type NativeFile } from "./desktop";
@@ -5,12 +7,15 @@ import type { Attachment } from "./types";
 import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 import { FileTile } from "./FileTile";
-import { attachmentUrl, dedupeAttachments, type AttachmentProblem, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf } from "./filePreviewModel";
+import { attachmentUrl, dedupeAttachments, type AttachmentProblem, type FileKind, fileKind, fileSize, isPreviewable, openFilePreview, rememberAttachments, targetOf, tileLabel } from "./filePreviewModel";
 import { galleryColumns, hasPreview, imageSize, rememberImageSize, singleBox, thumbnailUrl } from "./attachmentImages";
 import "./message-attachment.css";
 
 /** Loaded the first time a download reports a problem; most messages never need it. */
 const AttachmentNotice = lazy(() => import("./AttachmentNotice").then(module => ({ default: module.AttachmentNotice })));
+
+/** V3 3.7: the product's file kinds on the kit glyph's hues. */
+const kitKind: Record<FileKind, KitFileKind> = { md: "md", txt: "text", code: "code", csv: "sheet", tsv: "sheet", json: "code", pdf: "pdf", image: "image", xlsx: "sheet", docx: "doc", pptx: "slides", zip: "archive", audio: "audio", video: "video", other: "text" };
 
 const isImage = (a: Attachment) => a.mime.startsWith("image/") && a.mime !== "image/svg+xml";
 /** The shared viewer is ready before a touch or keyboard activation. */
@@ -35,8 +40,8 @@ function FileCard({ attachment }: { attachment: Attachment }) {
   const url = attachmentUrl(attachment.id);
   const kind = fileKind(attachment.name, attachment.mime);
   if (attachment.pending) return <div className="delivered-attachment is-file is-pending">
-    <div className="attachment-file-row">
-      <FileTile name={attachment.name} kind={kind} />
+    <div className="attachment-file-row tb-file">
+      <FileGlyph kind={kitKind[kind]} ext={tileLabel(attachment.name, kind)} />
       <div className="attachment-file-open"><b className="attachment-name">{attachment.name}</b><small>{[fileSize(attachment.size), t(attachment.pending.failed ? "attachment.upload_failed_short" : "attachment.uploading_short")].join(" · ")}</small></div>
     </div>
     <UploadProgress pending={attachment.pending} name={attachment.name} />
@@ -52,8 +57,8 @@ function FileCard({ attachment }: { attachment: Attachment }) {
     finally { setBusy(false); }
   }
   return <div className="delivered-attachment is-file">
-    <div className="attachment-file-row">
-      <FileTile name={attachment.name} kind={kind} />
+    <div className="attachment-file-row tb-file">
+      <FileGlyph kind={kitKind[kind]} ext={tileLabel(attachment.name, kind)} />
       <button type="button" className="attachment-file-open" onClick={() => openFilePreview(targetOf(attachment))} aria-label={t("attachment.open_preview", { name: attachment.name })} draggable={isDesktop ? Boolean(nativeFile) : undefined} onDragStart={event => { if (!isDesktop) return; event.preventDefault(); if (nativeFile) window.tofiDesktop?.dragAttachment(nativeFile.handle); }}>
         <b className="attachment-name">{attachment.name}</b>
         <small>{[attachment.expired_at ? t("attachment.expired") : fileSize(attachment.size), attachment.kept_by ? t("attachment.kept_by", { name: attachment.kept_by }) : ""].filter(Boolean).join(" · ")}</small>

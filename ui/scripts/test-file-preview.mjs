@@ -143,16 +143,16 @@ try {
     assert.ok(size.includes(`${Buffer.byteLength(files.md_new.body)} B`), `newest size shown: ${size}`);
   });
 
-  await step("file row is 300px with a colored tile per type and an always-visible download", async () => {
-    const row = page.locator(".delivered-attachment.is-file").first();
+  await step("file row is the kit file row: a hue per kind, the format on the glyph, an always-visible download", async () => {
+    // V3 3.7: the row is the kit .tb-file (340px at most) with the kit glyph (one hue per kind, the format in mono).
+    const row = page.locator(".attachment-file-row").first();
     const box = await row.boundingBox();
-    assert.equal(Math.round(box.width), 300);
-    const tones = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const t = r.querySelector(".file-tile"); return [r.querySelector(".attachment-name").textContent, { tone: t.dataset.fileTone, label: t.textContent, bg: getComputedStyle(t.querySelector(".ft-label")).backgroundColor }]; })));
-    assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "sheet", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "sheet", "bundle.zip": "archive", "tool.py": "code", "huge.log": "txt" });
-    assert.equal(tones["model.xlsx"].label, "XLSX"); assert.equal(tones["paper.pdf"].label, "PDF"); assert.equal(tones["tool.py"].label, "PY");
-    assert.notEqual(tones["model.xlsx"].bg, tones["paper.pdf"].bg);
-    // Each type has its own tile colour from the skin (V3 changed the values; the test checks the rule, not a hex).
-    assert.notEqual(tones["paper.pdf"].bg, tones["model.xlsx"].bg); for (const name of ["paper.pdf", "model.xlsx"]) assert.notEqual(tones[name].bg, "rgba(0, 0, 0, 0)");
+    assert.ok(box.width <= 340.5, `row ${box.width}px`);
+    const glyphs = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".attachment-file-row")].map(r => { const g = r.querySelector(".tb-file-glyph"); return [r.querySelector(".attachment-name").textContent, { hue: [...g.classList].find(c => c.startsWith("tb-file--")), label: g.textContent, bg: getComputedStyle(g).backgroundColor }]; })));
+    assert.deepEqual(Object.fromEntries(Object.entries(glyphs).map(([k, v]) => [k, v.label])), { "frevana-seo-analysis.md": "MD", "notes.txt": "TXT", "data.csv": "CSV", "config.json": "JSON", "paper.pdf": "PDF", "model.xlsx": "XLSX", "bundle.zip": "ZIP", "tool.py": "PY", "huge.log": "TXT" });
+    assert.notEqual(glyphs["model.xlsx"].hue, glyphs["paper.pdf"].hue, "a sheet and a PDF have different hues");
+    assert.equal(glyphs["data.csv"].hue, glyphs["model.xlsx"].hue, "CSV and XLSX share the sheet hue");
+    if (process.env.FILE_PREVIEW_SHOTS) await page.locator(".attachment-file-row").first().evaluate(el => el.closest(".message-list, main, body").scrollIntoView()).then(() => page.screenshot({path: process.env.FILE_PREVIEW_SHOTS + "/file-rows.png"}));
     const dl = page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("a.attachment-download");
     assert.equal(await dl.isVisible(), true); assert.equal(await dl.getAttribute("download"), "notes.txt");
     assert.match(await dl.getAttribute("href"), /\/api\/attachments\/att_txt$/);
