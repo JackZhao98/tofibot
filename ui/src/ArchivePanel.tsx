@@ -7,7 +7,7 @@ import { BotAvatar } from "./BotAvatar";
 import type { Bot, Conversation } from "./types";
 import { i18n, useTranslation } from "./i18n";
 import { errorText } from "./i18n/errors";
-import { RowLead } from "./workspace/SidebarRows";
+import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
 
 type Props = {
   onClose: () => void;
@@ -82,7 +82,7 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
     {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : shown.length === 0 ? <p className="field-note" role="status">{t("archive.no_match")}</p> : <div className="archive-list">{shown.map((conversation) => {
       const bot = conversation.kind === "dm" ? bots.find((item) => item.id === conversation.bot_id || item.dm_conversation_id === conversation.id) : undefined;
       return <article className="archive-card" key={conversation.id}>
-        {bot ? <BotAvatar id={bot.id} mini /> : <RowLead name={conversation.name} botId={conversation.id} group working={false} size={28} />}
+        {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span>}
         <div className="archive-card-copy"><button type="button" className="archive-open" onClick={() => onOpen(conversation.id)}>{conversation.name}</button><small>{conversation.kind === "group" ? t("archive.group_meta", { count: conversation.bot_ids.length }) : t("archive.dm_meta")}</small></div>
         <div className="archive-card-actions"><Button variant="danger" size="sm" disabled={busyId !== null} onClick={() => onDelete(conversation)}>{bot ? t("archive.delete_bot") : t("archive.delete_group")}</Button><Button size="sm" disabled={busyId !== null} onClick={() => void restore(conversation)}>{busyId === conversation.id ? t("archive.restoring") : t("archive.restore")}</Button></div>
       </article>;

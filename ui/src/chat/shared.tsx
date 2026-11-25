@@ -1,11 +1,13 @@
 import { readReplyMarker } from "../replyMarker";
 import { dateTimeFormat } from "../timezone";
+import { LazyGroupAvatar as GroupAvatar } from "../LazyGroupAvatar";
 import { intlLocale } from "../i18n/format";
 import { BotAvatar, type AvatarMotion } from "../BotAvatar";
 import type { Message } from "../types";
 import { lazy } from "react";
 
-export function Avatar({ id, mini = false, motion }: { label: string; id: string; mini?: boolean; motion?: AvatarMotion }) {
+export function Avatar({ id, group = false, mini = false, motion, members }: { label: string; id: string; group?: boolean; mini?: boolean; motion?: AvatarMotion; members?: string[] }) {
+  if (group) return <span className={`avatar group-avatar ${mini ? "mini" : ""}`} aria-hidden="true"><GroupAvatar ids={members ?? []} iconSize={mini ? 14 : 19} /></span>;
   return <BotAvatar id={id} mini={mini} motion={motion} />;
 }
 /**

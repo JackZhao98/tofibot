@@ -11,11 +11,13 @@ import { AttachmentNotice } from "../../AttachmentNotice";
 import { useState } from "react";
 import { fileKind } from "../../filePreviewModel";
 import { EmptyState } from "../../EmptyCat";
+import GroupAvatar from "../../GroupAvatar";
 import { Avatar } from "../../ds/Avatar/Avatar";
 import { Banner } from "../../ds/Banner/Banner";
 import { Button } from "../../ds/Button/Button";
 import { SidebarRow } from "../../ds/SidebarRow/SidebarRow";
 import { FinishSetupChip } from "../../OnboardingChrome";
+import { catalog, normalizeConfig, paletteOptions, type AvatarConfig } from "../../lib/tofi-avatar/index.js";
 import { at, bot, mailDraft } from "../world";
 import type { Message, Run } from "../../types";
 import type { CatalogSection, CatalogState } from "../types";
@@ -32,6 +34,20 @@ const settingsRow = (compact = false) => <SidebarRow as="button" compact={compac
 const identityRow = (options: { compact?: boolean; offline?: boolean } = {}) => <SidebarRow as="button" compact={options.compact} className="sidebar-account-identity" data-hint="Example"
   avatar={<Avatar className="sidebar-account-monogram" name="Example" tone="cobalt" size={34} status={options.offline ? "offline" : "online"} />} label="Example" meta={options.offline ? <span className="sidebar-account-lost">Live connection lost</span> : "tofi.example.test:8443"} />;
 
+/** A look for member `n`: shape and coat both vary with it, so a cluster never repeats a cat. */
+const look = (n: number): AvatarConfig => {
+  const shape = catalog.shapes[n % catalog.shapes.length].id;
+  const pattern = catalog.patterns[(n * 3) % catalog.patterns.length].id;
+  const palettes = paletteOptions(pattern);
+  return normalizeConfig({ shape, pattern, palette: palettes[(n * 2) % palettes.length].id });
+};
+const cluster = (count: number, offset: number) => ({ ids: Array.from({ length: count }, (_, i) => `catalog_member_${offset + i}`), configs: Array.from({ length: count }, (_, i) => look(offset + i)) });
+const Box = ({ size, ...props }: { size: number; ids: string[]; configs: AvatarConfig[] }) => <span style={{ display: "inline-block", width: size, height: size }}><GroupAvatar {...props} /></span>;
+const groupAvatars = (id: string, label: string, offset: number): CatalogState => ({ id, kind: "inline", label,
+  note: "1, 2, 3 and 4 members at the sidebar size (44 px) and the pin size (64 px); static, no autoplay",
+  render: () => <div style={{ display: "grid", gap: 18 }}>{[44, 64].map(size => <div key={size} style={{ display: "flex", gap: 22, alignItems: "center" }}>
+    {[1, 2, 3, 4].map(count => <Box key={count} size={size} {...cluster(count, offset + count * 4)} />)}</div>)}</div> });
+
 export const rows: CatalogSection = {
   id: "rows", number: "6", title: "Sidebar conversation rows",
   states: [
@@ -43,6 +59,12 @@ export const rows: CatalogSection = {
     { id: "rail-unread", kind: "app", label: "Collapsed rail: unread count", note: "Juno: the count badge, top-right of the avatar", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_juno")); } },
     { id: "rail-question", kind: "app", label: "Collapsed rail: question waiting", note: "Miso: the waiting stamp, same corner as the count", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.focus(ROW("dm_miso")); } },
     { id: "rail-hover", kind: "app", label: "Collapsed rail: hover tooltip", note: "lighter fill, the name in a black hint to the right of the rail", app: { path: "/", indicators: true }, widths: ["desktop"], drive: async step => { await step.click(".sidebar-toggle"); await step.wait(400); await step.hover(ROW("dm_nori")); await step.wait(800); } },
+    groupAvatars("group-avatars", "Group avatars, set A", 0),
+    groupAvatars("group-avatars-b", "Group avatars, set B (other shapes and coats)", 9),
+    { id: "group-avatar-shapes", kind: "inline", label: "Every shape as one head", note: "each cat cropped to its face at 44 px and 64 px",
+      render: () => <div style={{ display: "grid", gap: 18 }}>{[44, 64].map(size => <div key={size} style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        {catalog.shapes.map((shape, index) => { const config = normalizeConfig({ shape: shape.id, pattern: catalog.patterns[index % catalog.patterns.length].id, palette: paletteOptions(catalog.patterns[index % catalog.patterns.length].id)[0].id }); return <Box key={shape.id} size={size} ids={[`catalog_shape_${shape.id}`]} configs={[config]} />; })}</div>)}</div> },
+    { id: "group-avatar-empty", kind: "inline", label: "Group with no Bot member", note: "keeps the people icon", render: () => <span style={{ display: "inline-grid", width: 44, height: 44, placeItems: "center" }}><GroupAvatar ids={[]} /></span> },
     { id: "active", kind: "app", label: "Current row", app: GROUP, widths: ["desktop"] },
     { id: "hover", kind: "app", label: "Hover", app: LIST, force: [{ selector: ROW("dm_miso"), state: "hover" }] },
     { id: "focus", kind: "app", label: "Keyboard focus", app: LIST, drive: async step => { await step.focus(ROW("dm_miso")); } },
