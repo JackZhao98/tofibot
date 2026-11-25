@@ -9,5 +9,4 @@
 .memory-search { display:grid; gap:6px; margin-bottom:12px; }
 .memory-add{margin-bottom:12px}
 .memory-create{margin-bottom:16px}
-.memory-create :is(input,textarea),.memory-edit :is(input,textarea){min-width:0;max-width:100%;box-sizing:border-box}
 }

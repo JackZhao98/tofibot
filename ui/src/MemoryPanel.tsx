@@ -1,3 +1,5 @@
+import { TextArea } from "./ds/TextArea/TextArea";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { Button } from "./ds/Button/Button";
 import { useState } from "react";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -36,9 +38,9 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
       ? { title: t("memory.edit.title_aria"), description: t("memory.edit.description_aria"), content: t("memory.edit.content_aria") }
       : { title: t("memory.create.title_aria"), description: t("memory.create.description_aria"), content: t("memory.create.content_aria") };
     return <>
-      <label>{t("memory.field.title")}<input aria-label={aria.title} maxLength={120} required={!isEdit} value={input.title} disabled={busy} onChange={event => change({ ...input, title: event.target.value })} /></label>
-      <label>{t("memory.field.description")}<textarea aria-label={aria.description} maxLength={280} required={!isEdit} rows={2} value={input.description} disabled={busy} onChange={event => change({ ...input, description: event.target.value })} /></label>
-      <label>{t("memory.field.content")}<textarea aria-label={aria.content} required rows={4} value={input.content} disabled={busy} onChange={event => change({ ...input, content: event.target.value })} placeholder={t("memory.field.content_placeholder")} /></label>
+      <label>{t("memory.field.title")}<TextInput aria-label={aria.title} maxLength={120} required={!isEdit} value={input.title} disabled={busy} onChange={event => change({ ...input, title: event.target.value })} /></label>
+      <label>{t("memory.field.description")}<TextArea aria-label={aria.description} maxLength={280} required={!isEdit} rows={2} value={input.description} disabled={busy} onChange={event => change({ ...input, description: event.target.value })} /></label>
+      <label>{t("memory.field.content")}<TextArea aria-label={aria.content} required rows={4} value={input.content} disabled={busy} onChange={event => change({ ...input, content: event.target.value })} placeholder={t("memory.field.content_placeholder")} /></label>
     </>;
   }
   const visible = memories.filter(item => [item.title, item.description, item.content].some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
@@ -50,7 +52,7 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
       {fields(draft, setDraft)}
       <Button type="submit" variant="primary" size="sm" disabled={!ready(draft) || busy}>{t("memory.save_memory")}</Button>
     </form>}
-    {!!memories.length && <label className="memory-search">{t("memory.search")}<input type="search" aria-label={t("memory.search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
+    {!!memories.length && <label className="memory-search">{t("memory.search")}<TextInput type="search" aria-label={t("memory.search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
     <div className="memory-list">{visible.map(memory => {
       const display = memoryDisplay(memory);
       return <div className="memory-card" key={memory.id}>{editing === memory.id ? <form className="memory-edit" onSubmit={event => { event.preventDefault(); if (!edit.content.trim()) return; const patch = contentEditPatch(baseline, edit); if (!patch) { setEditing(null); return; } void save(() => onUpdate(memory.id, patch), () => setEditing(null)); }}>
