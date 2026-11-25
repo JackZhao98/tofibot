@@ -1,4 +1,4 @@
-// Screenshots of the Terminal and Bot conversation widgets (owner 2026-11-14: cards in the widget column, not a sidebar panel).
+// Screenshots of the Terminal widget (owner 2026-11-14: cards in the widget column, not a sidebar panel).
 // Synthetic data only. Run: PLAYWRIGHT_MODULE=<playwright/index.mjs> node scripts/shot-widget-cards.mjs   (SHOT_DIR, THEMES=light,dark)
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -53,13 +53,7 @@ for (const theme of themes) {
   // Terminal: the "command finished" line opens it for a Bot.
   await page.evaluate(id => window.dispatchEvent(new CustomEvent("tofi:open-terminal", { detail: { botId: id } })), BOT.id);
   await page.locator('.context-card[data-card="terminal"] .terminal-screen').waitFor({ timeout: 8000 });
-  // Bot conversation: the link under the notice.
-  await page.locator(".message-reference button, .message-notice button").last().click();
-  await page.locator('.context-card[data-card="conversation"] .view-only-message-list').waitFor({ timeout: 8000 });
-  await page.waitForTimeout(700);
-  const glass = await page.evaluate(() => [...document.querySelectorAll('.context-card[data-card="conversation"] :is(.view-only-chat-header,.view-only-chat-footer)')].map(el => getComputedStyle(el).backdropFilter));
-  if (glass.some(value => value && value !== "none")) errors.push(`${theme}: glass on the conversation card: ${glass}`);
-  if (await page.locator(".sidebar-shell .terminal-panel, .sidebar-shell .view-only-chat").count()) errors.push(`${theme}: a sidebar panel opened`);
+  if (await page.locator(".sidebar-shell .terminal-panel").count()) errors.push(`${theme}: a sidebar panel opened`);
   await page.screenshot({ path: resolve(out, `cards-${theme}@2x.png`) });
   await page.locator(".widget-column").screenshot({ path: resolve(out, `column-${theme}@2x.png`) });
   await context.close();

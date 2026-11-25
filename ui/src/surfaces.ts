@@ -10,13 +10,13 @@
  *
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
-export type WidgetId = "bot" | "computer" | "terminal" | "conversation" | "artifacts";
-export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "activity";
+export type WidgetId = "bot" | "computer" | "terminal" | "artifacts";
+export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "activity";
 export type PageId = "settings";
 export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 
 /** The fixed order, top to bottom. It never depends on which widget was opened first, and it is the order the column draws its nodes in. */
-export const WIDGET_ORDER: readonly WidgetId[] = ["bot", "computer", "terminal", "conversation", "artifacts"];
+export const WIDGET_ORDER: readonly WidgetId[] = ["bot", "computer", "terminal", "artifacts"];
 
 /** `ids` in the fixed order. */
 export const sortWidgets = (ids: readonly WidgetId[]): WidgetId[] => WIDGET_ORDER.filter(id => ids.includes(id));

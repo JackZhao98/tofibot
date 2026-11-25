@@ -36,7 +36,7 @@ export function SidebarShell({ id, expanded, focusN = 0, onExpand, onClose, cont
     </header>
     <div className="sidebar-shell-body">
       {fading && <div key={`out-${fading}`} className="sidebar-layer" data-leaving="" aria-hidden="true" inert>{content(fading)}</div>}
-      <div key={id} className={`sidebar-layer${id === "terminal" || id === "conversation" ? " is-fill" : ""}`}>{content(id)}</div>
+      <div key={id} className={`sidebar-layer${id === "terminal" ? " is-fill" : ""}`}>{content(id)}</div>
     </div>
   </section>;
 }

@@ -17,8 +17,8 @@ try {
   const run = (...steps) => steps.reduce((state, step) => step(state), empty());
 
   // The default order, whatever the opening order; one of each; at most four.
-  assert.deepEqual(WIDGET_ORDER, ["bot", "computer", "terminal", "conversation", "artifacts"]);
-  const orders = [["artifacts", "terminal", "computer"], ["terminal", "artifacts", "computer"], ["computer", "artifacts", "terminal"], ["artifacts", "artifacts", "computer", "computer"], ["conversation", "artifacts", "terminal", "computer"]];
+  assert.deepEqual(WIDGET_ORDER, ["bot", "computer", "terminal", "artifacts"]);
+  const orders = [["artifacts", "terminal", "computer"], ["terminal", "artifacts", "computer"], ["computer", "artifacts", "terminal"], ["artifacts", "artifacts", "computer", "computer"], ["artifacts", "terminal", "computer"]];
   for (const opened of orders) {
     const state = run(...opened.map(id => s => openWidget(s, id)));
     assert.deepEqual(state.widgets, [...WIDGET_ORDER].filter(id => opened.includes(id)), `order for ${opened}`);
@@ -148,24 +148,24 @@ try {
   assert.equal(suppressedRunsOf(memory, "C").size, 0);
 
   // The order is fixed (V3 5.3): whatever the opening order, the column draws Bot card, computer, Terminal, read-only chat, Artifacts.
-  const ALL = ["conversation", "artifacts", "terminal", "computer"];
+  const ALL = ["artifacts", "terminal", "computer"];
   const four = run(...ALL.map(id => s => openWidget(s, id)));
-  assert.deepEqual(four.widgets, ["computer", "terminal", "conversation", "artifacts"], "opened in any order, drawn in the fixed one");
+  assert.deepEqual(four.widgets, ["computer", "terminal", "artifacts"], "opened in any order, drawn in the fixed one");
   assert.equal("order" in four, false, "there is no saved order");
   assert.equal("moveWidget" in S, false, "widgets are not reordered");
   assert.deepEqual(S.sortWidgets(["artifacts", "bot", "computer"]), ["bot", "computer", "artifacts"], "the Bot card is always first");
   const memo = new Map();
   stashWidgets(memo, "A", four);
-  assert.deepEqual(enterConversation(idle, memo, "A").widgets, ["computer", "terminal", "conversation", "artifacts"], "a remembered set comes back in the fixed order");
+  assert.deepEqual(enterConversation(idle, memo, "A").widgets, ["computer", "terminal", "artifacts"], "a remembered set comes back in the fixed order");
   // Space rule: from the bottom of the order up, never the computer, never one the person unfolded; the first fold is unconditional.
   assert.equal(spaceFoldTarget(run(s => openWidget(s, "computer"), s => openWidget(s, "terminal")), { overflow: true }), null, "two widgets: nothing to fold");
   assert.equal(spaceFoldTarget(run(s => openWidget(s, "computer"), s => openWidget(s, "terminal"), s => openWidget(s, "artifacts")), { overflow: false }), "artifacts", "three: Artifacts first");
   const artifactsFolded = setWidgetFolded(four, "artifacts", true);
-  assert.equal(spaceFoldTarget(four, { overflow: false }), "artifacts", "four: Artifacts first");
+  assert.equal(spaceFoldTarget(four, { overflow: false }), "artifacts", "three: Artifacts first");
   assert.equal(spaceFoldTarget(artifactsFolded, { overflow: false }), null, "the next fold waits for an overflow");
-  assert.equal(spaceFoldTarget(artifactsFolded, { overflow: true }), "conversation");
-  assert.equal(spaceFoldTarget(artifactsFolded, { overflow: true, skip: new Set(["conversation"]) }), "terminal", "one the person unfolded is skipped");
-  assert.equal(spaceFoldTarget(setWidgetFolded(setWidgetFolded(setWidgetFolded(four, "artifacts", true), "conversation", true), "terminal", true), { overflow: true }), null, "the Bot computer never folds this way");
+  assert.equal(spaceFoldTarget(artifactsFolded, { overflow: true }), "terminal");
+  assert.equal(spaceFoldTarget(artifactsFolded, { overflow: true, skip: new Set(["terminal"]) }), null, "one the person unfolded is skipped");
+  assert.equal(spaceFoldTarget(setWidgetFolded(setWidgetFolded(four, "artifacts", true), "terminal", true), { overflow: true }), null, "the Bot computer never folds this way");
   assert.deepEqual(escapeTarget(four), { layer: "widget", id: "artifacts" }, "Escape closes from the bottom up");
   assert.deepEqual(escapeTarget(run(s => openWidget(s, "computer"))), { layer: "widget", id: "computer" }, "alone, the computer closes");
 

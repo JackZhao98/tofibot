@@ -8,47 +8,10 @@
 
 .workspace .artifacts-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 18px 0 20px; }
 .workspace .artifacts-toolbar .artifacts-tabs { flex: 0 1 auto; }
-.workspace .artifacts-toolbar .artifacts-tabs button { flex: 1 1 auto; white-space: nowrap; }
 .workspace .artifacts-toolbar .artifacts-search { flex: 1 1 220px; min-width: 0; }
-.workspace .artifacts-tabs {
-  display: flex;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--line-soft);
-  border-radius: 11px;
-  background: var(--sunk);
-}
-.workspace .artifacts-tabs button {
-  flex: 1 1 0;
-  min-height: 34px;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink-soft);
-  font: 600 13px/1.2 var(--display);
-  transition: background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out);
-}
-.workspace .artifacts-tabs button:hover { color: var(--ink); }
-.workspace .artifacts-tabs button[aria-selected="true"] { border: 2px solid var(--line); background: var(--clay); box-shadow: var(--shadow-sm); color: var(--on-block); }
 .workspace .artifacts-uploads { margin: 0; }
 /* In a cover or a widget the heading is the frame's own (title and close live there). */
 .workspace :is(.cover-body,.context-card) .detail-content.artifacts-panel > .detail-heading { display: none; }
-.workspace .artifacts-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 11px;
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-  background: var(--sunk);
-  color: var(--muted);
-}
-.workspace .artifacts-search input[type="search"] { flex: 1; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 8px 0; border: 0; border-radius: 0; box-shadow: none !important; background: transparent; color: var(--ink); font: 13px/1.4 var(--body); }
-.workspace .artifacts-search input[type="search"]:focus-visible { outline: none; }
-.workspace .artifacts-search:focus-within { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
-
 /* Compact tiles follow the panel width and stop growing at 200px. */
 .workspace .detail-content.artifacts-panel { container-type: inline-size; }
 .workspace .artifacts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 200px)); gap: 12px; margin: 0; padding: 0; list-style: none; }

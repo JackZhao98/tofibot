@@ -9,7 +9,7 @@
     "bridgeUse": 8
   },
   "artifacts-panel.css": {
-    "bridgeUse": 14
+    "bridgeUse": 10
   },
   "bot-secrets.css": {
     "bridgeUse": 2
@@ -33,19 +33,13 @@
     "bridgeUse": 4
   },
   "context-column.css": {
-    "bridgeUse": 3
+    "bridgeUse": 2
   },
   "conversation-workspace.css": {
     "bridgeUse": 12
   },
   "copy-feedback.css": {
     "bridgeUse": 1
-  },
-  "cover-form.css": {
-    "bridgeUse": 1
-  },
-  "cover-shell.css": {
-    "bridgeUse": 3
   },
   "day-one.css": {
     "bridgeUse": 5
@@ -174,7 +168,7 @@
     "bridgeUse": 1
   },
   "sidebar-shell.css": {
-    "bridgeUse": 3
+    "bridgeUse": 1
   },
   "skill-library.css": {
     "bridgeUse": 6
