@@ -50,17 +50,17 @@ export async function exerciseBrowserEntry(browser, origin, checkControls) {
     await page.goto(origin);
     await pickSource(page, '[data-browser-toggle="mac-synthetic"]');
     await page.locator('[data-browser-source="mac-synthetic"]').waitFor();
-    assert.match(await page.locator('.bot-browser-panel .desktop-chin').innerText(), /Your Mac · Bot browser/);
+    assert.match(await page.locator('.bot-browser-panel .tb-device-source').innerText(), /Your Mac · Bot browser/);
     const mounted = await mountedStreamCounts(page, '__streamRequests');
     assert.deepEqual(await page.evaluate(() => [...new Set(window.__streamRequests)]), ['/api/computers/mac-synthetic/browser/stream']);
     await page.locator('.bot-browser-panel .desktop-enlarge').click();
     await page.locator('.desktop-floating-shell.is-expanded').waitFor();
-    await page.waitForFunction(() => document.activeElement?.closest('.desktop-window-controls'));
+    await page.waitForFunction(() => document.activeElement?.closest('.tb-device-ctl'));
     if (checkControls) { await page.evaluate(() => {document.documentElement.dataset.desktop="darwin";}); await checkControls(page); }
     assert.deepEqual(await page.evaluate(() => ({requests: window.__streamRequests.length, aborts: window.__aborts})), mounted, 'enlarge keeps the same mounted stream without a request or abort');
     if (!vm) assert.equal(state.requests.some(p => /^\/api\/computer\//.test(p) || p.includes('/firecracker/')), false, 'Mac entry never starts or polls a VM');
     // The enlarged shell covers the header; shrink it before choosing another source.
-    await page.locator('.bot-browser-panel .desktop-window-controls button').nth(1).click();
+    await page.locator('.bot-browser-panel .tb-device-ctl button').first().click();
     await page.waitForFunction(() => !document.querySelector('.desktop-floating-shell.is-expanded'));
     if (vm) {
       await pickSource(page, '[data-computer-toggle]');
@@ -79,7 +79,7 @@ export async function exerciseBrowserEntry(browser, origin, checkControls) {
     const secondMounted = await mountedStreamCounts(page, '__streamRequests');
     assert.deepEqual(await page.evaluate(() => ({requests: window.__streamRequests.filter(url => url === '/api/computers/mac-synthetic/browser/stream').length, aborts: window.__streamAborts.filter(url => url === '/api/computers/mac-synthetic/browser/stream').length})), {requests: mounted.requests, aborts: mounted.aborts + 1}, 'leaving the first source aborts its live stream exactly once without reopening it');
     assert.equal(await page.locator('.bot-browser-panel').count(), 1, 'one source at a time');
-    await page.locator('.bot-browser-panel .desktop-window-controls button').first().click();
+    await page.locator('.bot-browser-panel .tb-device-ctl button').last().click();
     await page.waitForFunction(baseline => window.__aborts === baseline.aborts + 1 && window.__streamRequests.length === baseline.requests, secondMounted);
     rows = [];
     await page.waitForTimeout(1100);
@@ -148,7 +148,7 @@ async function automaticCases(browser, origin) {
   row={...row,state:'working',activity:{bot_id:'bot-synthetic',run_id:'run-auto',conversation_id:'conv-synthetic'}};
   await page.clock.runFor(1500);
   await page.locator('.bot-browser-panel').waitFor();
-  await page.locator('.bot-browser-panel .desktop-window-controls button').first().click();
+  await page.locator('.bot-browser-panel .tb-device-ctl button').last().click();
   await page.clock.runFor(2000);
   assert.equal(await page.locator('.bot-browser-panel').count(),0,'manual close suppresses this run');
   row={...row,activity:{...row.activity,run_id:'run-next'}};

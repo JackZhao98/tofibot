@@ -65,7 +65,6 @@ form[aria-busy=true]{cursor:progress}
  .top-icon-button,.icon-button,.ghost-button{width:40px;height:40px;min-width:40px}
 }
 :root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
-:root[data-theme="dark"] .computer-detail.is-expanded{background:var(--surface)}
 :root[data-theme="dark"] .message-content code{background:var(--hover);color:var(--ink)}
 :root[data-theme="dark"] .composer-row,:root[data-theme="dark"] .tool-activity-details{background:var(--surface-2)}
 /* Group messages read top-down: avatar beside the sender name, then the message body. */
@@ -76,13 +75,9 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 .computer-detail:not(.is-expanded)>.detail-heading{order:0}
 .computer-detail:not(.is-expanded)>.computer-info{order:4}
 .computer-detail:not(.is-expanded)>.computer-info:not(:has(.error-text)):not(:has(button)){display:none}
-.computer-detail:not(.is-expanded)>.computer-screen-wrap,.desktop-launch-preview{order:1}
 .computer-detail:not(.is-expanded)>.computer-aux-fields{order:5}
-.computer-detail:not(.is-expanded) .computer-screen-wrap{margin:16px 0 0;padding:0;border:0;background:var(--desktop-controls-solid);border-radius:16px;overflow:hidden}
 .computer-detail:not(.is-expanded) .remote-desktop-surface{aspect-ratio:8/5;display:grid;place-items:center;border-radius:16px}
 .computer-detail:not(.is-expanded) .computer-screen{width:100%;height:100%;max-height:none;object-fit:contain}
-.desktop-launch-preview{width:100%;aspect-ratio:16/9;display:grid;place-items:center;border:1px solid var(--desktop-controls-edge);border-radius:16px;margin:16px 0 0}
-:is(#_,.desktop-launch-preview){background:var(--desktop-controls-solid);color:var(--desktop-controls-ink)}
 .computer-tools>summary{font-size:12px;color:var(--muted)}
 .bot-identity-card{position:relative;z-index:var(--z-popover);width:280px;padding:18px}
 .identity-card-anchor{display:inline-flex;border-radius:10px;outline-offset:4px}
@@ -112,8 +107,6 @@ html[data-desktop] .message-avatar .avatar{width:38px;height:38px}
 html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
 html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
 @keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}
-.computer-screen-wrap{background:var(--surface-2);border-color:var(--line)}
-.computer-detail.is-expanded .computer-screen-wrap{background:var(--desktop-controls-solid);border:1px solid var(--desktop-controls-edge);padding:8px;border-radius:14px}
 .computer-detail.is-expanded .remote-control-bar{color:var(--desktop-controls-ink);padding:4px 4px 10px}
 .computer-detail.is-expanded .remote-control-bar button{background:var(--desktop-controls-edge);color:var(--desktop-controls-ink);border:1px solid var(--desktop-controls-edge);font-size:12px;min-height:30px;padding:6px 10px}
 /* Composer uses one 48px vertical rhythm; textarea is block-level to avoid

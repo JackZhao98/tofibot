@@ -83,7 +83,7 @@ try {
     assert.equal(await shell(page, "is-expanded").count(), 0, "the button opens the small window first");
     await page.waitForTimeout(2200);
     assert.doesNotMatch(await page.locator(".desktop-placeholder-line").innerText(), /\d+\s?(s|秒)\b|·/, "the status line has no seconds counter");
-    assert.equal(await page.locator(".desktop-placeholder-grid").count(), 1, "dot texture present");
+    assert.equal(await page.locator(".tb-device-empty").count(), 1, "the panel draws its dot ground");
     assert.equal(await page.getByRole("switch").count(), 0, "the Bot / You switch belongs to the big window");
     await shot(page, "small-loading-light-1440");
     // Hibernation states are named, not shown as a generic boot.
@@ -226,12 +226,12 @@ try {
     await flush(page);
     within(await ratio(page), "small ready");
     await shot(page, "small-ready-light-1440");
-    // Hover reveals the glass controls, 10px inside the top-left corner: close, then enlarge.
+    // Hover reveals the panel's glass controls, 8px inside the top-right corner of the screen: enlarge, then close.
     await page.locator("[data-desktop-frame]").hover();
-    const controls = await page.locator(".desktop-window-controls").boundingBox();
-    const smallDetail = await page.locator(".computer-detail").boundingBox();
-    assert.ok(Math.abs(controls.x - smallDetail.x - 10) <= 3 && Math.abs(controls.y - smallDetail.y - 10) <= 3, "controls sit 10px inside the screen's top-left corner");
-    assert.deepEqual(await page.locator(".desktop-window-controls .desktop-control-button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))), ["Close Bot computer", "Enlarge Bot computer"], "two controls, close then enlarge");
+    const controls = await page.locator(".tb-device-ctl").boundingBox();
+    const smallScreen = await page.locator("[data-desktop-frame]").boundingBox();
+    assert.ok(Math.abs(smallScreen.x + smallScreen.width - (controls.x + controls.width) - 8) <= 3 && Math.abs(controls.y - smallScreen.y - 8) <= 3, "controls sit 8px inside the screen's top-right corner");
+    assert.deepEqual(await page.locator(".tb-device-ctl button").evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label"))), ["Enlarge Bot computer", "Close Bot computer"], "two controls, enlarge then close");
     await page.waitForTimeout(1100); // the CRT reveal of the first picture
     await page.evaluate(() => { window.__flips.length = 0; });
     await page.locator("[data-desktop-frame]").click({ position: { x: 40, y: 80 } });
@@ -249,12 +249,12 @@ try {
     await shell(page, "is-small").waitFor();
     assert.equal(await shell(page, "is-expanded").count(), 0, "Escape shrinks big to small");
     await page.locator("[data-desktop-frame]").hover();
-    await page.locator(".desktop-control-expand").click();
+    await page.locator(".tb-device-ctl").getByRole("button", { name: /^(Enlarge|Shrink) Bot computer$/ }).click();
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Shrink Bot computer" }).click();
     await shell(page, "is-small").waitFor();
     // Close from big removes the window entirely; the header button always reopens small.
-    await page.locator(".desktop-control-expand").click();
+    await page.locator(".tb-device-ctl").getByRole("button", { name: /^(Enlarge|Shrink) Bot computer$/ }).click();
     await shell(page, "is-expanded").waitFor();
     await page.getByRole("button", { name: "Close Bot computer" }).click();
     await page.waitForFunction(() => !document.querySelector(".desktop-floating-shell"));

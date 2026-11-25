@@ -88,7 +88,7 @@ try {
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));
     await live(page);
     assert.equal(await page.locator('[data-card="computer"] .context-card-header').count(), 0, "the Bot computer is the bare monitor: no header row");
-    assert.equal(await page.locator('[data-card="computer"] .desktop-chin').count(), 1);
+    assert.equal(await page.locator('[data-card="computer"] .desktop-chin-text').count(), 1);
     assert.equal(await page.evaluate(() => document.activeElement?.closest("[data-card]") === null), true, "no focus taken");
     if (shots) await page.screenshot({ path: `${shots}/computer-auto-bot-1440.png` });
     // The Bot lets go: it does not close itself, and folds only after 30 s.
@@ -99,14 +99,14 @@ try {
     // The small screen has no fold button, no capsule, no chin controls and no shadow; the fold is the 30 s one (the video element is the same node throughout).
     for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-chin-hide", ".desktop-driver-switch", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
     assert.equal(await page.locator(".computer-detail").evaluate(node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\) 0px 0px 0px 1px/, "none")), "none", "no shadow under the small computer");
-    await page.evaluate(() => { window.__screen = document.querySelector(".computer-screen-wrap"); });
+    await page.evaluate(() => { window.__screen = document.querySelector(".tb-device-screen"); });
     await poll(page, () => document.querySelector(".computer-detail.is-folded"), null, 40000);
     await page.waitForTimeout(500);
     assert.equal(await page.locator(".computer-detail.is-folded").count(), 1);
     const strip = await page.locator(".computer-detail").boundingBox();
     assert.ok(Math.abs(strip.height - 56) <= 1, `the strip is 56px (${strip.height})`);
-    assert.equal(await page.evaluate(() => window.__screen === document.querySelector(".computer-screen-wrap") && document.contains(window.__screen)), true, "the screen stays mounted while folded");
-    const thumb = await page.locator(".computer-screen-wrap").boundingBox();
+    assert.equal(await page.evaluate(() => window.__screen === document.querySelector(".tb-device-screen") && document.contains(window.__screen)), true, "the screen stays mounted while folded");
+    const thumb = await page.locator(".tb-device-screen").boundingBox();
     assert.ok(thumb.width <= 80 && thumb.height <= 44 && thumb.x < strip.x + strip.width / 3, "a small live thumbnail sits on the left");
     assert.ok(await page.locator(".desktop-chin-text").isVisible(), "the status text is visible in the strip");
     assert.equal(await page.locator(".desktop-driver-switch").count(), 0, "the Bot / You switch lives in the big window only");
@@ -125,7 +125,7 @@ try {
     await poll(page, () => !document.querySelector(".computer-detail.is-folded"), null, 6000);
     // Closing in a run suppresses the same run, not the next.
     await page.locator(".computer-detail").hover();
-    await page.locator(".computer-hide-button").click();
+    await page.locator(".tb-device-ctl").getByRole("button", { name: "Close Bot computer" }).click();
     await poll(page, () => !document.querySelector('[data-card="computer"]'));
     await page.waitForTimeout(2500);
     assert.deepEqual(await cards(page), [], "closed by hand, it does not reopen for the same run");

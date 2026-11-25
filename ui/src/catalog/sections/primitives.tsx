@@ -39,7 +39,7 @@ const buttonStates: CatalogState[] = buttons.map(className => ({
   // These are native buttons with product classes, not copied component markup.
   render: () => <div className="mcp-settings"><div className="catalog-specimens">{["Rest", "Hover", "Focus", "Pressed", "Disabled"].map((state, index) => <span key={state}>
     <small>{state} </small><button type="button" aria-label={`${className} ${state}`} disabled={index === 4} data-specimen={index} className={className}>
-      {/close-button|icon-button|desktop-control-button/.test(className) ? <TofiIcon name={className.includes("close") ? "close" : "monitor"} size={18}/> : "Example"}
+      {/close-button|icon-button/.test(className) ? <TofiIcon name={className.includes("close") ? "close" : "monitor"} size={18}/> : "Example"}
     </button></span>)}</div></div>,
   force: [{ selector: '[data-specimen="1"]', state: "hover" }, { selector: '[data-specimen="2"]', state: "focus" }, { selector: '[data-specimen="3"]', state: "active" }],
 }));
@@ -49,7 +49,7 @@ export const primitives: CatalogSection = {
     ...buttonStates,
     { id: "workspace-toast", kind: "inline", label: "Radix toast · Retry, F8, swipe to dismiss", render: () => <WorkspaceToast onRetry={() => {}} /> },
     { id: "file-drop", kind: "inline", label: "Dropzone · settings file picker", render: () => <FilePicker label="Choose file" onFile={() => {}} /> },
-    ...(["rest", "hover", "focus"] as const).map(state => ({ ...computer.states[0], id: `desktop-control-button-${state}`, label: `.desktop-control-button · ${state}`, force: state === "rest" ? [] : [{ selector: ".desktop-control-button", state }] })),
+    ...(["rest", "hover", "focus"] as const).map(state => ({ ...computer.states[0], id: `desktop-control-button-${state}`, label: `.tb-device-btn · ${state}`, force: state === "rest" ? [] : [{ selector: ".tb-device-btn", state }] })),
     { id: "controls", kind: "inline", label: "Form controls · rest", render: () => <Controls/> },
     { id: "controls-hover", kind: "inline", label: "Form controls · hover", render: () => <Controls/>, force: [{ selector: "input,textarea,button", state: "hover" }] },
     { id: "controls-focus", kind: "inline", label: "Form controls · focus ring", render: () => <Controls/>, force: [{ selector: "input,textarea,button", state: "focus" }] },

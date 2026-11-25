@@ -1,4 +1,5 @@
 import { DriverSwitch } from "./ds/DriverSwitch/DriverSwitch";
+import { ScreenPanel } from "./ds/ScreenPanel/ScreenPanel";
 import { useDebugMode } from "./debugMode";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
@@ -764,13 +765,10 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
   const turningOff = powerBusy || info?.state === "hibernating";
   const powerHint = powerChanging ? (turningOff ? t("desktop.power.turning_off") : t("desktop.power.turning_on"))
     : powerHeld ? t("desktop.power.held") : poweredOn ? t("desktop.power.off_hint") : t("desktop.power.on_hint");
-  const powerButton = info?.can_sleep === true && !passivePreview && <button key="power" type="button"
-    className={`desktop-control-button desktop-control-power is-${powerChanging ? "changing" : poweredOn ? "on" : "off"}`}
+  const powerButton = info?.can_sleep === true && !passivePreview ? <button key="power" type="button"
+    className={`tb-device-btn desktop-control-power is-${powerChanging ? "changing" : poweredOn ? "on" : "off"}`}
     aria-pressed={poweredOn} aria-label={t("desktop.power.label")} data-hint={powerHint} title={powerHint}
-    disabled={powerChanging || powerHeld} onClick={() => void (poweredOn ? turnOff() : wake())}><PowerGlyph size={16} /></button>;
-  const expandButton = !sheet && <button key="expand" type="button" className="desktop-control-button desktop-control-expand" aria-label={expanded ? t("desktop.shrink_aria") : t("desktop.expand_aria")} title={expanded ? t("desktop.shrink") : t("desktop.expand")} onClick={() => setExpanded(!expanded)}><span className={`desktop-expand-glyph${expanded ? " is-expanded" : ""}`} aria-hidden="true" /></button>;
-  const closeButton = <button key="close" type="button" className="desktop-control-button computer-hide-button" aria-label={t("desktop.close_aria")} data-hint={!expanded ? t("desktop.close") : undefined} title={expanded ? t("desktop.close") : undefined} onClick={() => closePanel("hide")}><TofiIcon name="close" size={16} /></button>;
-  const windowButtons = expanded ? [powerButton, expandButton, closeButton] : [closeButton, expandButton, powerButton];
+    disabled={powerChanging || powerHeld} onClick={() => void (poweredOn ? turnOff() : wake())}><PowerGlyph size={16} /></button> : undefined;
   // The small screen is one button: the middle of it enlarges. The hint (glyph and words) fades in over a soft scrim on hover and focus.
   const enlargeButton = !expanded && !folded && <button type="button" className="desktop-enlarge" aria-label={t("desktop.expand_aria")} onClick={() => setExpanded(true)}>
     <span className="desktop-enlarge-hint" aria-hidden="true"><span className="desktop-expand-glyph" />{t("desktop.enlarge_hint")}</span>
@@ -797,7 +795,7 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     setPowerNote("");
     try {
       await api.computerSleep();
-      const screen = screenRef.current?.querySelector<HTMLElement>(".remote-desktop-surface, .desktop-launch-preview");
+      const screen = screenRef.current?.querySelector<HTMLElement>(".remote-desktop-surface, .tb-device-empty");
       // The CRT boot in reverse: fold to a bright line, then out. The next info shows the computer off in its place.
       const fold = screen && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? screen.animate([
         { transform: "scale(1, 1)", filter: "brightness(1)" },
@@ -847,31 +845,36 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     if (expanded) void controlRef.current?.acquire();
     else { setExpanded(true); setTakePending(true); }
   };
-  // A drop hanging from the bezel's bottom edge holds the cat ⇄ you switch (Motion Lab · 电脑, fused into the frame).
-  // Only the big window shows the group; the small one and the strip keep the status text for the screen reader and the strip.
-  const controlBar = expanded ? <div className={`desktop-chin is-${capsule.tone}`}>
-    <span className="desktop-drop" aria-hidden="true" />
-    <button type="button" className="desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
-    <span className="sr-only desktop-chin-text" role="status">{capsule.text}</span>
+  // The chin holds the cat / you switch. Only the big window shows it; the folded strip shows the status text in its place, and the
+  // small form keeps the status for the screen reader only.
+  const stripped = folded && !expanded;
+  const statusText = <span className={stripped ? "desktop-chin-text" : "sr-only desktop-chin-text"} role="status">{capsule.text}</span>;
+  const chin = passivePreview ? undefined : expanded ? <>
+    <button type="button" className="tb-device-btn desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
+    {statusText}
     <DriverSwitch className="desktop-driver-switch" driver={humanControlled ? "you" : "bot"} idle={!humanControlled && ["idle", "booting", "error"].includes(capsule.tone)} disabled={!switchEnabled}
       label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} youLabel={t("desktop.control.you")} bot={<BotAvatar id={switchBot} mini />} onToggle={toggleDriver} />
-  </div> : <div className={`desktop-chin is-${capsule.tone}`}><span className="sr-only desktop-chin-text" role="status">{capsule.text}</span></div>;
+  </> : stripped ? statusText : undefined;
 
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${folded && !expanded ? " is-folded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
     {!passivePreview && expanded && !sheet && <div className="desktop-expanded-scrim" aria-hidden="true" onClick={() => setExpanded(false)} />}
 
-    {!passivePreview && <div className="desktop-window-controls">{windowButtons}</div>}
     {(error || connectionLost) && (imageURL || debug) && <p className="error-banner" role="alert">{connectionLost ? t("desktop.error.connection_lost") : error}</p>}
     {powerNote && <p className="error-banner desktop-power-note" role="alert">{powerNote}</p>}
     {!botWorking && info && (debug || info.state !== "ready" && imageURL) && <div className="computer-info"><div className="computer-info-main"><strong>{known(stateKeys, info.state) ? t(stateKeys[info.state]) : t("desktop.state.other", { state: info.state })}</strong><small>{info.phase && info.state !== "error" && info.state !== "stopped" ? t("desktop.phase_label", { phase: phaseText(info.phase) }) : t("desktop.state_synced")}</small></div>{info.guest_outdated_required ? <small className="error-text" data-guest-outdated-required="">{t("desktop.outdated_required")}</small> : info.error_code === "org_resource_missing" ? <small className="error-text" data-error-code="org_resource_missing">{t("environments.error.org_resource_missing")}</small> : info.error && <small className="error-text">{info.error}</small>}{(info.state === "error" || info.state === "stopped") && !info.guest_outdated_required && <button className="secondary-button" disabled={busy} onClick={() => void retry()}>{t("desktop.retry_prepare")}</button>}</div>}
-    {imageURL && <div data-desktop-frame="" className={`computer-screen-wrap desktop-presence-frame desktop-preview-surface desktop-live-screen${humanControlled ? " is-human-controlled" : ""}`}><RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor="hidden" enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl>{wakeOverlay && <div className="desktop-wake-overlay"><DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /></div>}{enlargeButton}</div>}
-    {!imageURL && <div className="desktop-preview-surface desktop-launch-surface" data-desktop-frame="">
+    {!passivePreview && !expanded && !stripped && statusText}
+    <ScreenPanel size={stripped ? "strip" : expanded ? "large" : "small"} driver={driver || null} className="desktop-device"
+      power={powerButton} expandLabel={passivePreview || sheet ? undefined : expanded ? t("desktop.shrink_aria") : t("desktop.expand_aria")} expanded={expanded} onExpand={() => setExpanded(!expanded)}
+      closeLabel={passivePreview ? undefined : t("desktop.close_aria")} onClose={() => closePanel("hide")}
+      screenClassName={imageURL ? `desktop-live-screen${humanControlled ? " is-human-controlled" : ""}` : undefined} screenProps={{ "data-desktop-frame": "" }}
+      placeholder={imageURL ? undefined : <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop}
+        action={info?.state === "hibernated" && !waking && !passivePreview ? { label: t("desktop.power.turn_on"), onClick: () => void wake() } : undefined} />}
+      overlay={imageURL && wakeOverlay ? <DesktopPlaceholder tone="resuming" status={wakeStatus} botId={ownership?.owner?.bot_id ?? botId} /> : undefined}
+      chin={chin}>
+      {imageURL ? <RemoteDesktopControl key={selectedBotId} controlRef={controlRef} onControlChange={setHumanControlled} botId={selectedBotId} enabled={!passivePreview && !!screenReady && !busy} blocked={passivePreview || showOwnershipStatus && Boolean(ownership?.owner && !humanControlled)} takeoverRun={showOwnershipStatus && !ownershipUnavailable && ownership?.owner?.kind === "bot" ? { id: ownership.owner.run_id, name: botLabel(ownership.owner.bot_id), botId: ownership.owner.bot_id } : undefined} expanded={expanded} onExpand={() => setExpanded(true)} waiting={!!ownership?.waiting.length}>{videoState !== "stopped" && (videoState !== "fallback" || !fallbackFrameReady) ? <DesktopVideo key={`${selectedBotId}:${videoSession}`} botId={selectedBotId} cursor="hidden" enabled={!!ready && (viewerState === "connected" || preserveViewerRef.current) && desktopActive} poster={imageURL} onState={videoStateChanged}  /> : <img className="computer-screen" src={imageURL} alt={t("desktop.screen_alt")}  />}<DesktopPointerMarker presence={desktopPresence} humanControlled={humanControlled || !screenReady || busy} botLabel={botLabel} /></RemoteDesktopControl> : null}
       {enlargeButton}
-      <DesktopPlaceholder tone={placeholder.tone} status={placeholder.status} botId={ownership?.owner?.bot_id ?? botId} onRetry={retryDesktop}
-        action={info?.state === "hibernated" && !waking && !passivePreview ? { label: t("desktop.power.turn_on"), onClick: () => void wake() } : undefined} />
-    </div>}
-    {!passivePreview && controlBar}
+    </ScreenPanel>
     {folded && onUnfold && <button type="button" className="desktop-strip-open" aria-label={t("desktop.unfold_aria")} onClick={onUnfold} />}
     {debug && !passivePreview && <fieldset className="computer-aux-fields" disabled={humanControlled}><details className="computer-tools"><summary>{t("desktop.tools.title")}</summary><div className="computer-tools-body"><div className="computer-key-row"><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Return" })}>Enter</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "Escape" })}>Esc</button><button className="secondary-button" disabled={busy || !controlsReady} onClick={() => void perform("desktop.key", { key: "c", modifiers: ["ctrl"] })}>Ctrl+C</button></div><label>{t("desktop.tools.open_browser")}<input disabled={busy || !controlsReady} value={url} onChange={event => setURL(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && controlsReady && !busyRef.current && url.trim()) { event.preventDefault(); void perform("browser.navigate", { url }); } }} placeholder="https://…" /></label><label>{t("desktop.tools.run_shell", { name: botName })}<textarea disabled={busy || connectionLost || !ready} value={command} onChange={event => setCommand(event.target.value)} rows={3} placeholder={t("desktop.tools.shell_placeholder")} /></label><button className="primary-button" disabled={busy || connectionLost || !ready || !command.trim()} onClick={() => void perform("shell.exec", { command })}>{t("desktop.tools.run")}</button>{output && <pre className="computer-output">{output}</pre>}{info && <details className="computer-technical"><summary>{t("desktop.tools.technical")}</summary><dl><div><dt>{t("desktop.tools.workspace")}</dt><dd>{info.workspace_root || "/workspace"}</dd></div><div><dt>{t("desktop.tools.browser")}</dt><dd>{info.browser || "Google Chrome"}</dd></div></dl></details>}</div></details></fieldset>}
   </div>;

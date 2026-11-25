@@ -102,7 +102,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     const press = (event: PointerEvent) => {
       draggedRef.current = false;
       pressAtRef.current = { x: event.clientX, y: event.clientY };
-      if ((event.target as Element).closest(".desktop-window-controls, .desktop-control-button")) {
+      if ((event.target as Element).closest(".tb-device-ctl")) {
         event.stopImmediatePropagation();
         return;
       }
@@ -196,7 +196,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     if (!returnFocusRef.current) returnFocusRef.current = focusedElement instanceof HTMLElement ? focusedElement : null;
     const shell = shellRef.current;
     const frame = window.requestAnimationFrame(() => {
-      shell?.querySelector<HTMLElement>('button:not([disabled])')?.focus({ preventScroll: true });
+      (shell?.querySelector<HTMLElement>('.tb-device-ctl button:not([disabled])') ?? shell?.querySelector<HTMLElement>('button:not([disabled])'))?.focus({ preventScroll: true });
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -227,7 +227,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
   const foldFromRef = useRef<{ detail: DOMRect; margin: number; wrap?: DOMRect } | null>(null);
   if (foldedRef.current !== folded && !foldFromRef.current) {
     const detail = shellRef.current?.querySelector<HTMLElement>(detailSelector);
-    foldFromRef.current = detail ? { detail: detail.getBoundingClientRect(), margin: parseFloat(getComputedStyle(detail).marginBottom) || 0, wrap: detail.querySelector<HTMLElement>(".computer-screen-wrap, .desktop-launch-surface")?.getBoundingClientRect() } : null;
+    foldFromRef.current = detail ? { detail: detail.getBoundingClientRect(), margin: parseFloat(getComputedStyle(detail).marginBottom) || 0, wrap: detail.querySelector<HTMLElement>(".tb-device-screen")?.getBoundingClientRect() } : null;
   }
   useLayoutEffect(() => {
     const was = foldedRef.current;
@@ -239,7 +239,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
     // Measure the new form before any animation starts: an animated bezel height squeezes the screen inside it.
     const to = detail.getBoundingClientRect();
     const margin = parseFloat(getComputedStyle(detail).marginBottom) || 0;
-    const wrap = detail.querySelector<HTMLElement>(".computer-screen-wrap, .desktop-launch-surface");
+    const wrap = detail.querySelector<HTMLElement>(".tb-device-screen");
     const now = wrap?.getBoundingClientRect();
     const timing = { duration: MOTION.base, easing: EASE.settle };
     detail.animate([{ height: `${from.detail.height}px`, marginBottom: `${from.margin}px`, overflow: "hidden" }, { height: `${to.height}px`, marginBottom: `${margin}px`, overflow: "hidden" }], timing);
@@ -249,7 +249,7 @@ export function FloatingDesktop({ expanded, small = false, sheet = false, docked
       { width: `${now.width}px`, height: `${now.height}px`, aspectRatio: "auto", clipPath: `inset(0 round ${folded ? 8 : 12}px)` },
     ], timing);
     // The strip's text and switch, or the chin, arrive after the screen has mostly moved.
-    for (const item of detail.querySelectorAll<HTMLElement>(folded ? ".desktop-chin-text, .desktop-driver-switch" : ".desktop-chin")) item.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, delay: MOTION.base * 0.4, fill: "backwards" });
+    for (const item of detail.querySelectorAll<HTMLElement>(folded ? ".desktop-chin-text" : ".tb-device-chin")) item.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, delay: MOTION.base * 0.4, fill: "backwards" });
   }, [folded]);
 
   const shell = <div ref={shellRef} className={`desktop-floating-shell${expanded ? " is-expanded" : ""}${folded && docked && !expanded ? " is-folded" : ""}${small ? " is-small" : ""}${expanded && sheet ? " is-sheet" : ""}${docked ? " is-docked" : ""}`} style={pipActive ? { "--pip-width": `${pipWidth}px` } as CSSProperties : undefined}
