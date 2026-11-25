@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useCallback, useEffect, useState } from "react";
 import { CATS, EmptyState } from "./EmptyCat";
 import { api } from "./api";
@@ -83,7 +84,7 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
       return <article className="archive-card" key={conversation.id}>
         {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span>}
         <div className="archive-card-copy"><button type="button" className="archive-open" onClick={() => onOpen(conversation.id)}>{conversation.name}</button><small>{conversation.kind === "group" ? t("archive.group_meta", { count: conversation.bot_ids.length }) : t("archive.dm_meta")}</small></div>
-        <div className="archive-card-actions"><button type="button" className="danger-link" disabled={busyId !== null} onClick={() => onDelete(conversation)}>{bot ? t("archive.delete_bot") : t("archive.delete_group")}</button><button type="button" className="secondary-button" disabled={busyId !== null} onClick={() => void restore(conversation)}>{busyId === conversation.id ? t("archive.restoring") : t("archive.restore")}</button></div>
+        <div className="archive-card-actions"><Button variant="danger" size="sm" disabled={busyId !== null} onClick={() => onDelete(conversation)}>{bot ? t("archive.delete_bot") : t("archive.delete_group")}</Button><Button size="sm" disabled={busyId !== null} onClick={() => void restore(conversation)}>{busyId === conversation.id ? t("archive.restoring") : t("archive.restore")}</Button></div>
       </article>;
     })}</div>}
   </div>;

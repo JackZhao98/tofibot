@@ -4,6 +4,7 @@ import { useTranslation } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { hasPendingWorkExecution, startWorkExecution, workExecutionActive, workExecutionClosed, workExecutionStatusKeys } from "./workExecutionState";
 import type { WorkItem } from "./types";
+import { Button } from "./ds/Button/Button";
 import "./work-execution.css";
 
 type Props = {
@@ -49,9 +50,9 @@ export function WorkExecution(props: Props) {
       {execution.result?.trim() ? <><p className="work-execution-result">{codeText(execution.result_code, "work") ?? execution.result}</p><p className="work-execution-note">{t("execution.check_result")}</p></> : <p className="work-execution-note">{t("execution.no_result")}</p>}
     </>}
     <div className="work-execution-actions">
-      {active ? <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, stop)}>{t("execution.stop")}</button>
-        : <button type="button" disabled={pending || readOnly || closed} onClick={() => void mutate(item.id, start)}>{pending ? t("execution.working") : unresolved ? t("execution.retry_confirm") : execution ? t("execution.rerun") : t("execution.start")}</button>}
-      {active && unresolved && <button type="button" disabled={pending || readOnly} onClick={() => void mutate(item.id, start)}>{t("execution.retry_confirm")}</button>}
+      {active ? <Button size="sm" disabled={pending || readOnly} onClick={() => void mutate(item.id, stop)}>{t("execution.stop")}</Button>
+        : <Button size="sm" disabled={pending || readOnly || closed} onClick={() => void mutate(item.id, start)}>{pending ? t("execution.working") : unresolved ? t("execution.retry_confirm") : execution ? t("execution.rerun") : t("execution.start")}</Button>}
+      {active && unresolved && <Button size="sm" disabled={pending || readOnly} onClick={() => void mutate(item.id, start)}>{t("execution.retry_confirm")}</Button>}
     </div>
     {readOnly ? <p className="work-execution-note">{t("execution.archived")}</p> : closed && <p className="work-execution-note">{t("execution.reopen_note")}</p>}
   </section>;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePreviousWhileFading } from "./surfacePresence";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon } from "./icons";
+import { IconButton } from "./ds/IconButton/IconButton";
 import type { SidebarId } from "./surfaces";
 import "./sidebar-shell.css";
 
@@ -31,8 +31,8 @@ export function SidebarShell({ id, expanded, focusN = 0, onExpand, onClose, cont
   return <section className="sidebar-shell" data-sidebar={id} aria-label={title}>
     <header className="sidebar-shell-header">
       <h2 key={id} ref={heading} tabIndex={-1}>{title}</h2>
-      <button type="button" className="context-card-button sidebar-shell-expand" aria-pressed={expanded} aria-label={expandLabel} data-hint={expandLabel} onClick={onExpand}><Icon name={expanded ? "chevron-right" : "chevron-left"} size={16} /></button>
-      <button type="button" className="context-card-button" aria-label={t("sidebar.close_panel", { title })} data-hint={t("sidebar.close_panel", { title })} onClick={onClose}><Icon name="close" size={16} /></button>
+      <IconButton size="sm" className="sidebar-shell-expand" icon={expanded ? "chevron-right" : "chevron-left"} label={expandLabel} aria-pressed={expanded} onClick={onExpand} />
+      <IconButton size="sm" icon="close" label={t("sidebar.close_panel", { title })} onClick={onClose} />
     </header>
     <div className="sidebar-shell-body">
       {fading && <div key={`out-${fading}`} className="sidebar-layer" data-leaving="" aria-hidden="true" inert>{content(fading)}</div>}

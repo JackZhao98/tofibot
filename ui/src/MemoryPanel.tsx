@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useState } from "react";
 import { CATS, EmptyState } from "./EmptyCat";
 import { TofiIcon as Icon } from "./icons";
@@ -44,21 +45,21 @@ export function MemoryPanel({ memories, scope = "bot", onClose, onCreate, onUpda
   return <div className="detail-content">
     <div className="detail-heading"><h2>{scope === "group" ? t("memory.heading.group") : t("memory.heading.bot")}</h2><button className="close-button" aria-label={t("memory.close_aria")} onClick={onClose}><Icon name="close" size={18} /></button></div>
     {error && <p className="error-text" role="alert">{error}</p>}
-    <button type="button" className="secondary-button memory-add" aria-expanded={creating} onClick={() => setCreating(value => !value)}>{t("memory.add")}</button>
+    <Button size="sm" className="memory-add" aria-expanded={creating} onClick={() => setCreating(value => !value)}>{t("memory.add")}</Button>
     {creating && <form className="memory-create" onSubmit={event => { event.preventDefault(); if (ready(draft)) void save(() => onCreate(draft), () => { setDraft(empty); setCreating(false); }); }}>
       {fields(draft, setDraft)}
-      <button className="secondary-button" disabled={!ready(draft) || busy}>{t("memory.save_memory")}</button>
+      <Button type="submit" variant="primary" size="sm" disabled={!ready(draft) || busy}>{t("memory.save_memory")}</Button>
     </form>}
     {!!memories.length && <label className="memory-search">{t("memory.search")}<input type="search" aria-label={t("memory.search")} value={query} onChange={event => setQuery(event.target.value)} /></label>}
     <div className="memory-list">{visible.map(memory => {
       const display = memoryDisplay(memory);
       return <div className="memory-card" key={memory.id}>{editing === memory.id ? <form className="memory-edit" onSubmit={event => { event.preventDefault(); if (!edit.content.trim()) return; const patch = contentEditPatch(baseline, edit); if (!patch) { setEditing(null); return; } void save(() => onUpdate(memory.id, patch), () => setEditing(null)); }}>
         {fields(edit, setEdit, true)}
-        <div className="card-actions"><button disabled={!edit.content.trim() || busy}>{t("memory.save")}</button><button type="button" disabled={busy} onClick={() => setEditing(null)}>{t("memory.cancel")}</button></div>
+        <div className="card-actions"><Button type="submit" variant="primary" size="sm" disabled={!edit.content.trim() || busy}>{t("memory.save")}</Button><Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(null)}>{t("memory.cancel")}</Button></div>
       </form> : <>
         <strong className="memory-title">{display.title}</strong><p className="memory-description">{display.description}</p>
         <details className="memory-details"><summary>{t("memory.view_full")}</summary><p>{memory.content}</p></details>
-        <div className="memory-footer">{debug && <span>{t("memory.revision", { revision: memory.revision })}</span>}<span><button disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>{t("memory.edit_action")}</button><ConfirmAction label={t("memory.delete")} question={t("memory.delete_question")} disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
+        <div className="memory-footer">{debug && <span>{t("memory.revision", { revision: memory.revision })}</span>}<span><Button variant="ghost" size="sm" disabled={busy} onClick={() => { const initial = { title: memory.title || "", description: memory.description || "", content: memory.content }; setEditing(memory.id); setBaseline(initial); setEdit(initial); setError(""); }}>{t("memory.edit_action")}</Button><ConfirmAction label={t("memory.delete")} question={t("memory.delete_question")} disabled={busy} onConfirm={() => save(() => onDelete(memory.id), () => {})} /></span></div>
       </>}</div>;
     })}{!visible.length && !!memories.length && <EmptyState name="memory-no-match" className="panel-empty is-compact" look={CATS.azuki} pose="curious"><p>{t("memory.no_match")}</p></EmptyState>}{!memories.length && <EmptyState name="memory-empty" className="panel-empty web-memory-empty is-card" look={CATS.mochi} pose="asleep" size={72} title={t("memory.empty_title")}><p>{scope === "group" ? t("memory.empty.group") : t("memory.empty.bot")}</p></EmptyState>}</div>
   </div>;
