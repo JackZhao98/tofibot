@@ -125,7 +125,6 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .detail-content{padding:24px 21px}
 .archive-list{display:grid;gap:9px;margin-top:18px}
 .archive-card{display:flex;align-items:center;gap:9px;padding:10px}
-.archive-group-mark{display:grid;place-items:center;width:28px;height:28px;flex:0 0 auto;border-radius:9px;color:var(--muted);background:var(--surface-2);font-size:11px}
 .archive-card-copy{min-width:0;flex:1;display:grid;gap:4px}
 .archive-card-copy strong{color:var(--ink);font-size:12px;overflow-wrap:anywhere}
 .archive-card-copy small{color:var(--muted);font-size:10px}

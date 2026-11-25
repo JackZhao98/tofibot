@@ -437,7 +437,7 @@ Drawing (PR 5.1): every place in the sidebar is a kit `SidebarRow` (`ds/SidebarR
 the group id (`workspace/SidebarRows.tsx`); the label is the name (`.contact-name`, the primary tag after it), the meta is the last message, and the one status slot is a
 count (unread) or a stamp (`needs` for a waiting question, `error` for a failure), never both (`rowStatus`; priority rule in `rowIndicator.ts`). There is no time on a row.
 A pinned row is the same row with `pin-tile` in place of `conversation-row` and `data-dnd-zone="dock"`, under the `.tb-eyebrow` of `PinDock`; there are no large tiles.
-`GroupAvatar` stays for the message avatars and the archive list until PR 3.x and 5.6 (it keeps `group-avatar.css`). The header buttons are kit `IconButton`s: the
+`GroupAvatar` is deleted: a group is its initials disc (kit `Avatar`, `RowLead`) in the sidebar and the archive list. The header buttons are kit `IconButton`s: the
 collapse toggle and Search sit in `.sidebar-toggle-slot` / `.search-slot` (the Mac title row places and un-drags the slots, because the kit owns the button's
 `transition`), the New menu trigger is the `.create-menu-anchor` child. The footer is the update `Banner` (info; one icon button in the rail), the finish-setup row,
 a Settings row and the account row (`sidebar-account-identity`, the blue `Avatar` with the presence dot, the address as its meta). The layout around the kit is

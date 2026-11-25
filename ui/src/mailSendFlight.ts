@@ -1,9 +1,16 @@
 import { prefersReducedMotion } from "./motion/reduced";
-import { SPRINGS, springEasing } from "./motion/legacy/spring";
+import { calcGeneratorDuration, generateLinearEasing, spring } from "motion";
 import "./mail-send-flight.css";
 import { postmarkDate, postmarkSVG } from "./postmark";
-import { EASE } from "./motion";
+import { EASE, SPRING } from "./motion";
 import { layerRoot } from "./layers";
+
+// A spring baked into a CSS linear() easing over its own settling time, so a plain WAAPI animation gets the overshoot.
+function springEasing(config: { stiffness: number; damping: number; mass: number }) {
+  const generator = spring({ keyframes: [0, 1], ...config });
+  const settle = Math.min(calcGeneratorDuration(generator), 3000);
+  return { easing: generateLinearEasing(progress => generator.next(progress * settle).value, settle) };
+}
 
 async function finish(animation: Animation) { try { await animation.finished; } catch { /* element removed */ } }
 
@@ -52,7 +59,7 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
     const envelopeCenterX = targetX + envelopeWidth / 2;
     const envelopeCenterY = targetY + envelopeWidth * .3;
     envelope.style.visibility = "visible";
-    const rise = envelope.animate({ transform:["translateY(160%) rotate(-8deg)","none"], opacity:[0,1] }, { duration:650, easing:springEasing(SPRINGS.toy).easing, fill:"forwards" });
+    const rise = envelope.animate({ transform:["translateY(160%) rotate(-8deg)","none"], opacity:[0,1] }, { duration:650, easing:springEasing(SPRING.mailToy).easing, fill:"forwards" });
     const insert = packet.animate({ transform:["none",`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY-70}px) scale(.7) rotate(-3deg)`,`translate(${envelopeCenterX-packetCenterX}px,${envelopeCenterY-packetCenterY}px) scale(${envelopeWidth/rect.width * .82})`], opacity:[1,1,0] }, { duration:760, easing:EASE.out, fill:"forwards" });
     await Promise.all([finish(rise),finish(insert)]);
     packet.style.visibility = "hidden";
@@ -61,10 +68,10 @@ export async function flyMailDraft(letter: HTMLElement): Promise<void> {
     await finish(inner.animate({ transform:["none",`translateY(${envelopeWidth * .31}px)`] }, { duration:380, easing:EASE.in, fill:"forwards" }));
     const flap = envelope.querySelector<HTMLElement>(".mail-flight-envelope-flap")!;
     flap.classList.add("is-front");
-    await finish(flap.animate({ transform:["rotateX(180deg)","rotateX(0deg)"] }, { duration:560, easing:springEasing(SPRINGS.morph).easing, fill:"forwards" }));
+    await finish(flap.animate({ transform:["rotateX(180deg)","rotateX(0deg)"] }, { duration:560, easing:springEasing(SPRING.mailMorph).easing, fill:"forwards" }));
     flap.style.transform = "rotateX(0deg)";
     const stamp = envelope.querySelector<HTMLElement>(".mail-flight-envelope-stamp")!;
-    await finish(stamp.animate({ opacity:[0,1], transform:["translate(-40px,-65px) scale(2.2) rotate(-24deg)","rotate(6deg)"] }, { duration:420, easing:springEasing(SPRINGS.toy).easing, fill:"forwards" }));
+    await finish(stamp.animate({ opacity:[0,1], transform:["translate(-40px,-65px) scale(2.2) rotate(-24deg)","rotate(6deg)"] }, { duration:420, easing:springEasing(SPRING.mailToy).easing, fill:"forwards" }));
     const postmark = envelope.querySelector<HTMLElement>(".mail-flight-envelope-postmark")!;
     await finish(postmark.animate({ opacity:[0,.92], transform:["scale(1.7) rotate(-34deg)","scale(1) rotate(-10deg)"] }, { duration:240, easing:EASE.out, fill:"forwards" }));
     await new Promise(resolve => window.setTimeout(resolve, 560));
