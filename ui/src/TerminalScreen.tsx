@@ -6,22 +6,26 @@ import {i18n,useTranslation} from "./i18n";
 
 export type TerminalChunk={data_base64:string;next_cursor:number;gap?:boolean;closed?:boolean;drained?:boolean};
 type Props={sessionId:string;controlled:boolean;read:(cursor:number,signal:AbortSignal)=>Promise<TerminalChunk>;onInput:(data:string)=>void;onResize:(cols:number,rows:number)=>void;onError:(message:string)=>void};
+/** The skin's mono face; xterm needs a concrete list, so the custom property is read, not referenced. */
+function readTerminalFont(){return getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim()||'ui-monospace, "SFMono-Regular", Consolas, monospace'}
 function readTerminalTheme(){
  const style=getComputedStyle(document.documentElement);
  const color=(name:string)=>style.getPropertyValue(name).trim();
  const palette={red:color("--danger-text"),green:color("--green-text"),yellow:color("--honey-text"),blue:color("--focus"),magenta:color("--iris-text"),cyan:color("--lagoon-text")};
- return {...palette,brightRed:palette.red,brightGreen:palette.green,brightYellow:palette.yellow,brightBlue:palette.blue,brightMagenta:palette.magenta,brightCyan:palette.cyan,background:color("--surface"),foreground:color("--text"),cursor:color("--text"),cursorAccent:color("--surface"),selectionBackground:color("--selected-bg"),black:color("--text"),brightBlack:color("--text-soft"),white:color("--text"),brightWhite:color("--text")};
+ return {...palette,brightRed:palette.red,brightGreen:palette.green,brightYellow:palette.yellow,brightBlue:palette.blue,brightMagenta:palette.magenta,brightCyan:palette.cyan,background:color("--sunk"),foreground:color("--text"),cursor:color("--text"),cursorAccent:color("--sunk"),selectionBackground:color("--selected-bg"),black:color("--text"),brightBlack:color("--text-soft"),white:color("--text"),brightWhite:color("--text")};
 }
 export function TerminalScreen(props:Props){
  const {t}=useTranslation("computer");
  const host=useRef<HTMLDivElement>(null);const terminal=useRef<Terminal|null>(null);const latest=useRef(props);latest.current=props;
  useEffect(()=>{
   if(!host.current)return;
-  const term=new Terminal({fontFamily:'"SFMono-Regular", Consolas, "Liberation Mono", monospace',fontSize:13,lineHeight:1.3,cursorBlink:false,disableStdin:!latest.current.controlled,scrollback:4000,theme:readTerminalTheme()});
+  const term=new Terminal({fontFamily:readTerminalFont(),fontSize:13,lineHeight:1.3,cursorBlink:false,disableStdin:!latest.current.controlled,scrollback:4000,theme:readTerminalTheme()});
   const fit=new FitAddon();term.loadAddon(fit);term.open(host.current);terminal.current=term;
-  const syncTheme=()=>{term.options.theme=readTerminalTheme()};
+  const syncTheme=()=>{term.options.theme=readTerminalTheme();term.options.fontFamily=readTerminalFont()};
+  // The skin's face is a web font: cell size is measured again once it has loaded.
+  void document.fonts?.ready.then(()=>{if(host.current){syncTheme();fit.fit()}});
   const themeObserver=new MutationObserver(syncTheme);
-  themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme","data-skin"]});
   const resize=()=>{fit.fit();if(latest.current.controlled)latest.current.onResize(term.cols,term.rows)};
   const observer=new ResizeObserver(resize);observer.observe(host.current);resize();
   const subscription=term.onData(data=>{if(latest.current.controlled)latest.current.onInput(data)});

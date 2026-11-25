@@ -24,7 +24,3 @@ Open this page: [{{ui:settings:shell.page.computer.name}}](/settings/computer)
 **{{ui:settings:automation.item.desktop_idle_seconds.name}}.** {{ui:settings:automation.item.desktop_idle_seconds.what}}
 
 **{{ui:settings:automation.item.environment_failover.name}}.** {{ui:settings:automation.item.environment_failover.what}}
-
-**{{ui:settings:automation.item.environment_order_app.name}}.** {{ui:settings:automation.item.environment_order_app.what}}
-
-**{{ui:settings:automation.item.environment_order_web.name}}.** {{ui:settings:automation.item.environment_order_web.what}}
