@@ -11,7 +11,7 @@
 .desktop-floating-shell .desktop-control-button:disabled{opacity:.35;cursor:not-allowed}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap{position:relative;width:100%;aspect-ratio:8/5;max-height:none;margin:0;padding:0;border:2px solid var(--desktop-bezel);border-radius:16px;background:var(--desktop-screen);overflow:hidden;transition:border-color var(--m-panel-in) var(--ease-out),box-shadow var(--m-flight) var(--ease-out)}
 .desktop-floating-shell .computer-detail:not(.is-expanded) .computer-screen-wrap .remote-preview-hint{display:none}
-.desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent!important}
+:is(#_,html) .desktop-floating-shell .computer-detail:not(.is-expanded) .desktop-launch-preview{width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:14px;background:transparent}
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-expanded{position:fixed;z-index:var(--z-dialog);top:16px;left:max(16px,calc((100vw - 1120px)/2));translate:none;transform:none;display:flex;width:min(1120px,calc(100vw - 32px));height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);box-sizing:border-box;flex-direction:column;gap:0;padding:18px 20px 20px;border:3px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:var(--shadow),var(--float-shadow);overflow:auto;pointer-events:auto}
 .desktop-floating-shell .computer-detail.is-expanded .desktop-control-button{border:0;background:transparent;color:var(--ink)}
 .desktop-floating-shell .computer-detail.is-expanded .computer-screen-wrap{display:flex;min-height:0;flex:1;flex-direction:column;margin:8px 0 0;padding:8px;border:1px solid var(--line);border-radius:16px;background:var(--desktop-screen)}
@@ -20,7 +20,7 @@
 .desktop-floating-shell :is(button,input,textarea,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
 .desktop-presence-actor{position:absolute;z-index:4;top:10px;left:10px;display:grid;place-items:center;width:40px;height:40px;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:14px;background:var(--desktop-actor-glass);box-shadow:var(--float-shadow);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .desktop-presence-actor .avatar{width:32px;height:32px;background:transparent}
-.desktop-bot-starting{cursor:default!important}
+:is(#_,html) .desktop-bot-starting{cursor:default}
 .desktop-bot-starting .avatar{width:84px;height:84px}
 .desktop-bot-starting .tofi-avatar{filter:drop-shadow(0 8px 20px color-mix(in srgb,var(--desktop-screen) 50%,transparent))}
 .desktop-floating-shell .computer-screen-wrap{position:relative}
@@ -50,8 +50,8 @@
 .desktop-pointer-arrow path{fill:var(--lagoon);stroke:var(--desktop-controls-solid);stroke-width:1.5;stroke-linejoin:round}
 .web-desktop-pointer-name{position:absolute;left:16px;top:17px;max-width:140px;padding:2px 7px;overflow:hidden;border-radius:6px;background:var(--lagoon);color:var(--on-block);font:600 10px/1.4 var(--body);white-space:nowrap;text-overflow:ellipsis}
 .desktop-click-ring{position:absolute;width:16px;height:16px;left:-8px;top:-8px;border:2px solid var(--desktop-pointer-ink);border-radius:50%;box-shadow:0 0 0 2px var(--desktop-pointer-surface);background:color-mix(in srgb,var(--desktop-pointer-surface) 20%,transparent);animation:desktop-confirmed-click var(--m-flight) var(--ease-out) both}
-.computer-detail.is-driven-by-you .desktop-live-screen{border-color:var(--clay)!important;box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)!important}
-.computer-detail.is-driven-by-bot .desktop-live-screen{border-color:var(--lagoon)!important;box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)!important}
+:is(#_,html) .computer-detail.is-driven-by-you .desktop-live-screen{border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
+:is(#_,html) .computer-detail.is-driven-by-bot .desktop-live-screen{border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
 @keyframes desktop-confirmed-click{from{transform:scale(.65);opacity:.2}45%{transform:scale(1.5);opacity:1}to{transform:scale(1);opacity:1}}
 @media(prefers-reduced-motion:reduce){
   .web-desktop-pointer{transition:none}
@@ -126,7 +126,7 @@
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-driven-by-bot{--bezel-edge:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 1px var(--lagoon),0 0 60px color-mix(in srgb,var(--lagoon) 45%,transparent)}
 .desktop-floating-shell .desktop-presence-canvas>.computer-detail.is-driven-by-you{--bezel-edge:var(--clay);border-color:var(--clay);box-shadow:0 0 0 1px var(--clay),0 0 60px color-mix(in srgb,var(--clay) 40%,transparent)}
 /* clip-path, not overflow, rounds the screen: the CRT boot's transformed layer escapes overflow clipping. */
-.desktop-floating-shell .computer-detail :is(.computer-screen-wrap,.desktop-launch-surface){border:0!important;border-radius:12px!important;box-shadow:none!important;clip-path:inset(0 round 12px)}
+:is(#_,html) .desktop-floating-shell .computer-detail :is(.computer-screen-wrap,.desktop-launch-surface){border:0;border-radius:12px;box-shadow:none;clip-path:inset(0 round 12px)}
 
 /* top:100% is the inner edge of the 2px bezel border, so the drop's 2px top band lies exactly on it. */
 .desktop-chin{position:absolute;z-index:3;top:100%;left:50%;display:flex;align-items:center;justify-content:center;gap:8px;width:172px;height:44px;padding:0 0 4px;translate:-50% 0;box-sizing:border-box;color:var(--desktop-controls-ink)}
@@ -141,21 +141,11 @@
 .desktop-chin-hide{display:grid;place-items:center;width:26px;height:26px;flex:none;padding:0;border:1px solid var(--desktop-controls-edge);border-radius:50%;background:transparent;color:var(--desktop-controls-ink);}
 .desktop-chin-hide:hover{background:var(--desktop-controls-hover)}
 .desktop-boot-phase{color:var(--desktop-controls-ink);font:var(--type-status);opacity:.8}
-.desktop-floating-shell .desktop-bot-starting{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+:is(#_,html) .desktop-floating-shell .desktop-bot-starting{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 
 /* The switch: the thumb is the hand on the mouse. It springs to the cat or to you and takes that side's color. */
-.desktop-driver-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;align-items:center;width:100px;height:34px;flex:none;padding:3px;border:1px solid var(--desktop-controls-edge);border-radius:999px;background:var(--desktop-switch-track);}
-.desktop-driver-switch:disabled{opacity:.45;cursor:default}
-.desktop-driver-thumb{position:absolute;top:3px;left:4px;width:44px;height:26px;border-radius:999px;background:var(--lagoon);transition:transform var(--m-panel-in) var(--ease-spring),background-color var(--m-panel-in) var(--ease-out)}
-.desktop-driver-thumb svg{position:absolute;top:-6px;right:-4px;width:14px;height:14px;padding:2px;border-radius:50%;background:var(--surface);color:var(--ink);box-sizing:border-box;box-shadow:var(--desktop-switch-badge-shadow)}
-.desktop-driver-switch.is-you .desktop-driver-thumb{transform:translateX(47px);background:var(--clay)}
-.desktop-chin:is(.is-idle,.is-booting,.is-error) .desktop-driver-switch.is-bot .desktop-driver-thumb{background:var(--desktop-switch-idle)}
-.desktop-driver-side{position:relative;z-index:1;display:grid;place-items:center;height:26px}
-.desktop-driver-side .avatar{width:22px;height:22px;background:transparent}
-.desktop-driver-side.is-you{font:700 12px/1 var(--display);color:var(--desktop-controls-ink)}
-.desktop-driver-switch.is-you .desktop-driver-side.is-you{color:var(--on-block)}
-:is(.desktop-chin-hide,.desktop-driver-switch):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
-@media(prefers-reduced-motion:reduce){.desktop-driver-thumb{transition:none}.desktop-status-dot{animation:none!important}}
+.desktop-chin-hide:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){:is(#_,html) .desktop-status-dot{animation:none}}
 /* Clicking the dimmed area around the enlarged screen shrinks it back. */
 .desktop-expanded-scrim{position:fixed;inset:0;z-index:-1;cursor:zoom-out}
 /* Control notices and errors float over the top of the screen instead of pushing it inside the bezel. */
@@ -197,8 +187,8 @@
 
 /* The Tofi desktop standing in for a screen with no picture: dot texture, the cat, one status line. */
 .desktop-wake-overlay{position:absolute;inset:0;z-index:3}
-.desktop-floating-shell .computer-detail .desktop-wake-overlay>.desktop-launch-preview.desktop-placeholder{background:var(--desktop-screen)!important}
-.desktop-launch-surface>.desktop-launch-preview.desktop-placeholder,.desktop-wake-overlay>.desktop-launch-preview.desktop-placeholder{position:absolute;inset:0;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,2cqw,14px);width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:0;overflow:hidden;padding:0 12px;box-sizing:border-box;text-align:center;background:var(--desktop-screen)!important;color:var(--desktop-controls-ink)!important}
+:is(#_,html) .desktop-floating-shell .computer-detail .desktop-wake-overlay>.desktop-launch-preview.desktop-placeholder{background:var(--desktop-screen)}
+:is(#_,html) .desktop-launch-surface>.desktop-launch-preview.desktop-placeholder,:is(#_,html) .desktop-wake-overlay>.desktop-launch-preview.desktop-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,2cqw,14px);width:100%;height:100%;aspect-ratio:auto;margin:0;border:0;border-radius:0;overflow:hidden;padding:0 12px;box-sizing:border-box;text-align:center;background:var(--desktop-screen);color:var(--desktop-controls-ink)}
 .desktop-placeholder-grid{position:absolute;inset:0;background-image:radial-gradient(circle,color-mix(in srgb,var(--desktop-controls-ink) 18%,transparent) 1px,transparent 1.5px);background-size:18px 18px;background-position:center;-webkit-mask-image:radial-gradient(ellipse at 50% 46%,#000 25%,transparent 85%);mask-image:radial-gradient(ellipse at 50% 46%,#000 25%,transparent 85%)}
 .desktop-placeholder-cat,.desktop-placeholder-line,.desktop-placeholder-retry{position:relative}
 .desktop-placeholder-retry{z-index:3}
@@ -217,7 +207,7 @@
    big window only). The drop, the chevron and the corner buttons are gone; the whole strip is one button that brings the monitor back. */
 .workspace .desktop-floating-shell.is-docked.is-folded .desktop-presence-canvas>.computer-detail.is-folded{
   display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;column-gap:10px;height:56px;margin-bottom:0;padding:6px 8px 6px 6px;box-sizing:border-box;overflow:hidden}
-.desktop-floating-shell .computer-detail.is-folded :is(.computer-screen-wrap,.desktop-launch-surface){grid-area:1/1;order:0;display:grid;place-items:center;width:72px;height:40px;aspect-ratio:auto;min-height:0;border-radius:8px!important;clip-path:inset(0 round 8px);pointer-events:none}
+:is(#_,html) .desktop-floating-shell .computer-detail.is-folded :is(.computer-screen-wrap,.desktop-launch-surface){grid-area:1/1;order:0;display:grid;place-items:center;width:72px;height:40px;aspect-ratio:auto;min-height:0;border-radius:8px;clip-path:inset(0 round 8px);pointer-events:none}
 .computer-detail.is-folded .computer-screen-wrap :is(.remote-desktop,.remote-desktop-surface){width:100%;height:100%;min-height:0;aspect-ratio:auto}
 .computer-detail.is-folded .computer-screen-wrap :is(video,canvas,img,.computer-screen){width:100%;height:100%;object-fit:contain}
 .computer-detail.is-folded .computer-screen-wrap .remote-desktop-surface{display:grid;place-items:center;overflow:hidden}

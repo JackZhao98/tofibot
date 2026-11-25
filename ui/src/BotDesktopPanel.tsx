@@ -1,4 +1,4 @@
-import * as Switch from "@radix-ui/react-switch";
+import { DriverSwitch } from "./ds/DriverSwitch/DriverSwitch";
 import { useDebugMode } from "./debugMode";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
@@ -853,12 +853,8 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     <span className="desktop-drop" aria-hidden="true" />
     <button type="button" className="desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
     <span className="sr-only desktop-chin-text" role="status">{capsule.text}</span>
-    <Switch.Root checked={humanControlled} className={`desktop-driver-switch is-${humanControlled ? "you" : "bot"}`} disabled={!switchEnabled}
-      aria-label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} data-hint={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} onCheckedChange={toggleDriver}>
-      <span className="desktop-driver-thumb" aria-hidden="true"><TofiIcon name="mouse" size={11} /></span>
-      <span className="desktop-driver-side is-bot" aria-hidden="true"><BotAvatar id={switchBot} mini /></span>
-      <span className="desktop-driver-side is-you" aria-hidden="true">{t("desktop.control.you")}</span>
-    </Switch.Root>
+    <DriverSwitch className="desktop-driver-switch" driver={humanControlled ? "you" : "bot"} idle={!humanControlled && ["idle", "booting", "error"].includes(capsule.tone)} disabled={!switchEnabled}
+      label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} youLabel={t("desktop.control.you")} bot={<BotAvatar id={switchBot} mini />} onToggle={toggleDriver} />
   </div> : <div className={`desktop-chin is-${capsule.tone}`}><span className="sr-only desktop-chin-text" role="status">{capsule.text}</span></div>;
 
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${folded && !expanded ? " is-folded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>

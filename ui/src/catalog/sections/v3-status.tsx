@@ -1,7 +1,10 @@
 // V3 kit, group 2: Badge, Tag, Kbd, Banner, Notice, Toast, Progress, Skeleton, EmptyState.
 import { Badge, type BadgeTone } from "../../ds/Badge/Badge";
 import { Banner, type BannerTone } from "../../ds/Banner/Banner";
+import { BotAvatar } from "../../ds/BotAvatar/BotAvatar";
 import { Button } from "../../ds/Button/Button";
+import { DriverSwitch } from "../../ds/DriverSwitch/DriverSwitch";
+import { ScreenPanel } from "../../ds/ScreenPanel/ScreenPanel";
 import { EmptyState } from "../../ds/EmptyState/EmptyState";
 import { Kbd } from "../../ds/Kbd/Kbd";
 import { Notice } from "../../ds/Notice/Notice";
@@ -76,4 +79,17 @@ export const status: CatalogState[] = [
       <EmptyState title="No files" art={<img src="/brand/tofi-logo-calico.svg" alt="" />}>Files a Bot sends appear here.</EmptyState>
       <EmptyState title="Nothing here" />
     </div></Dots> },
+  { id: "screen-panel", kind: "inline", label: "ScreenPanel · small and large, at rest, Bot driving, you driving",
+    render: () => <Dots><div className="catalog-stack" style={{ maxWidth: 420 }}>
+      <ScreenPanel size="small" title="Bot computer" placeholder="The computer is off" expandLabel="Enlarge" closeLabel="Close" chin={<Button variant="secondary" size="sm">Turn on</Button>} />
+      <ScreenPanel size="small" title="Bot computer" driver="bot" placeholder="Mochi is working" expandLabel="Enlarge" closeLabel="Close" chin={<DriverSwitch driver="bot" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Take control" />} />
+      <ScreenPanel size="large" title="Bot computer" driver="you" source="Your Mac" placeholder="You are driving" expandLabel="Shrink" expanded closeLabel="Close" chin={<DriverSwitch driver="you" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Hand back" />} />
+    </div></Dots> },
+  { id: "driver-switch", kind: "inline", label: "DriverSwitch · Bot, you, idle, disabled",
+    render: () => <Dots><Row>
+      <Specimen label="bot"><DriverSwitch driver="bot" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Take control" /></Specimen>
+      <Specimen label="you"><DriverSwitch driver="you" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Hand back" /></Specimen>
+      <Specimen label="idle"><DriverSwitch driver="bot" idle bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Take control" /></Specimen>
+      <Specimen label="disabled"><DriverSwitch driver="bot" disabled bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Take control" /></Specimen>
+    </Row></Dots> },
 ];
