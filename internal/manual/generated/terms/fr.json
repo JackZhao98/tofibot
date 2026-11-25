@@ -53,6 +53,8 @@
   "settings:automation.item.completion_review.what": "Après avoir utilisé des outils, un Bot confronte une fois sa réponse aux résultats réels avant de l’envoyer.",
   "settings:automation.item.computer_idle_off_minutes.name": "Extinction de l'ordinateur cloud inactif",
   "settings:automation.item.computer_idle_off_minutes.what": "Un ordinateur E2B inactif depuis ce nombre de minutes s'éteint (pause). Ses fichiers sont conservés et il redémarre quand un Bot en a besoin. E2B facture tant qu'il tourne.",
+  "settings:automation.item.computer_image_auto_update.name": "Garder l’ordinateur cloud à jour",
+  "settings:automation.item.computer_image_auto_update.what": "Quand une image plus récente sort, l’ordinateur E2B est reconstruit à partir d’elle pendant qu’il est inactif. Le dossier home est conservé ; les logiciels installés et les connexions du navigateur viennent de la nouvelle image.",
   "settings:automation.item.conversation_model.name": "Modèle de conversation",
   "settings:automation.item.conversation_model.what": "Gère les discussions, le travail en groupe, les exécutions planifiées et tout ce qui utilise des outils. Le modèle propre à un Bot reste prioritaire.",
   "settings:automation.item.desktop_engine.name": "Contrôle du bureau",

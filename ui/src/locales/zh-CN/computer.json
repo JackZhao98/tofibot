@@ -506,7 +506,7 @@
       "token_unreadable": "无法读取已保存的密钥。请重新添加 E2B 密钥。",
       "org_resource_missing": "你的组织尚未配置这台电脑。请联系管理员。",
       "not_ready": "电脑镜像尚未就绪。请几分钟后重试。",
-      "guest_outdated_required": "这台电脑的镜像已不再受支持。请升级后继续使用。升级会替换这台电脑，其中的文件将被删除。",
+      "guest_outdated_required": "这台电脑的镜像已不再受支持。空闲时会自动更新，home 文件夹会保留。",
       "computer_upgrade_failed": "无法升级这台电脑。请重试。",
       "not_outdated": "这台电脑已是最新。",
       "computer_busy": "电脑正忙。请在运行中的任务结束后重试。",
@@ -563,7 +563,7 @@
       "title": "配置 Bot 电脑",
       "provided_title": "Bot 电脑详情"
     },
-    "outdated": "有较新的电脑镜像。更新会替换这台电脑，其中的文件将被删除。",
+    "outdated": "有新的电脑镜像。空闲时会自动更新，home 文件夹会保留。",
     "image_preparing": "正在构建电脑镜像，需要几分钟。",
     "image_building": "正在构建较新的电脑镜像。",
     "rc": {
@@ -793,7 +793,10 @@
     "move": {
       "moving": "正在把文件搬到{{name}}…",
       "moving_note": "先复制 home 文件夹，再切换 Bot。搬完前当前电脑照常工作。",
-      "failed": "切换没有完成，当前电脑未变。"
+      "failed": "切换没有完成，当前电脑未变。",
+      "updating": "正在更新 E2B 云电脑…",
+      "updating_note": "正按新镜像重建。home 文件夹会保留；更新完前 Bot 会等待。",
+      "update_failed": "E2B 云电脑更新未完成。home 文件夹已保留，稍后会再试。"
     }
   }
 }

@@ -512,7 +512,7 @@
       "token_unreadable": "The saved key can't be read. Add the E2B key again.",
       "org_resource_missing": "Your organization hasn't provisioned this computer. Contact an administrator.",
       "not_ready": "The computer image isn't ready yet. Try again in a few minutes.",
-      "guest_outdated_required": "This computer's image is no longer supported. Upgrade it to keep using it. Upgrading replaces this computer; files on it are removed.",
+      "guest_outdated_required": "This computer's image is no longer supported. It updates by itself while idle; the home folder is kept.",
       "computer_upgrade_failed": "Couldn't upgrade the computer. Try again.",
       "not_outdated": "This computer is already up to date.",
       "computer_busy": "The computer is busy. Try again when running work finishes.",
@@ -569,7 +569,7 @@
       "title": "Configure Bot computer",
       "provided_title": "Bot computer details"
     },
-    "outdated": "Newer computer image available. Updating replaces this computer; files on it are removed.",
+    "outdated": "Newer computer image available. It updates by itself while idle; the home folder is kept.",
     "image_preparing": "The computer image is being built. This takes a few minutes.",
     "image_building": "A newer computer image is being built.",
     "rc": {
@@ -799,7 +799,10 @@
     "move": {
       "moving": "Moving files to {{name}}…",
       "moving_note": "The home folder is copied, then Bots switch over. The current computer keeps working until then.",
-      "failed": "The switch did not finish. The current computer is unchanged."
+      "failed": "The switch did not finish. The current computer is unchanged.",
+      "updating": "Updating the E2B cloud computer…",
+      "updating_note": "It is rebuilt from the newer image. The home folder is kept; Bots wait until it is back.",
+      "update_failed": "The E2B cloud computer could not be updated. The home folder is kept and the update is tried again later."
     }
   }
 }

@@ -161,49 +161,34 @@ func waitGuestState(ctx context.Context, call guestCall, file string) error {
 	return errors.New("guest step timed out")
 }
 
-// moveHome copies /workspace/home from one computer to another. It never deletes anything outside its own folder.
-func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
-	dir := "/workspace/home/uploads/.tofi-move-" + moveID
-	cleanup := func() {
-		c, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_, _ = guestShell(c, from, "rm -rf "+dir, 30)
-		_, _ = guestShell(c, to, "rm -rf "+dir, 30)
-	}
-	defer cleanup()
+func homeMoveDir(moveID string) string { return "/workspace/home/uploads/.tofi-move-" + moveID }
 
-	// Size and space first: the target holds the parts and the unpacked home at once.
+// packHome packs /workspace/home on a computer into parts under its move folder and returns the part names (the
+// sums file lists them) and the size of home. tar exits 1 when a file changed while it was read (a Bot still
+// working): the archive is still complete for every other file, so that counts as done.
+func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int64, error) {
+	dir := homeMoveDir(moveID)
 	size, err := guestShell(ctx, from, "du -sb --exclude='uploads/.tofi-move-*' /workspace/home | cut -f1", 60)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	used, err := strconv.ParseInt(strings.TrimSpace(size.Stdout), 10, 64)
 	if err != nil {
-		return errors.New("could not measure home")
+		return nil, 0, errors.New("could not measure home")
 	}
 	if used > homeMoveMaxBytes {
-		return homeMoveError{"home_too_large"}
+		return nil, used, homeMoveError{"home_too_large"}
 	}
-	free, err := guestShell(ctx, to, "df -B1 --output=avail /workspace | tail -1", 30)
-	if err != nil {
-		return err
-	}
-	if avail, e := strconv.ParseInt(strings.TrimSpace(free.Stdout), 10, 64); e != nil || avail < 2*used+homeMoveSpare {
-		return homeMoveError{"target_disk_full"}
-	}
-
-	// Pack on the old computer. tar exits 1 when a file changed while it was read (a Bot still working): the
-	// archive is still complete for every other file, so that counts as done.
 	pack := fmt.Sprintf(`mkdir -p %[1]s && setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' >/dev/null 2>&1 &`, dir, homeMovePartBytes)
 	if out, err := guestShell(ctx, from, pack, 30); err != nil || out.ExitCode != 0 {
-		return errors.New("could not start packing")
+		return nil, used, errors.New("could not start packing")
 	}
 	if err := waitGuestState(ctx, from, dir+"/state"); err != nil {
-		return err
+		return nil, used, err
 	}
 	sums, err := guestShell(ctx, from, "cat "+dir+"/sums", 30)
 	if err != nil || sums.ExitCode != 0 {
-		return errors.New("could not read the part list")
+		return nil, used, errors.New("could not read the part list")
 	}
 	var parts []string
 	for _, line := range strings.Split(strings.TrimSpace(sums.Stdout), "\n") {
@@ -213,20 +198,27 @@ func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
 		}
 	}
 	if len(parts) == 0 {
-		return errors.New("no parts")
+		return nil, used, errors.New("no parts")
 	}
+	return parts, used, nil
+}
 
-	// Copy each part and the sums file, page by page, in order.
-	if _, err := guestShell(ctx, to, "rm -rf /workspace/home/uploads/.tofi-move-* && mkdir -p "+dir, 30); err != nil {
+// checkHomeSpace refuses a target that cannot hold the parts and the unpacked home at once.
+func checkHomeSpace(ctx context.Context, to guestCall, used int64) error {
+	free, err := guestShell(ctx, to, "df -B1 --output=avail /workspace | tail -1", 30)
+	if err != nil {
 		return err
 	}
-	for _, name := range append(parts, "sums") {
-		if err := copyGuestFile(ctx, from, to, dir+"/"+name); err != nil {
-			return err
-		}
+	if avail, e := strconv.ParseInt(strings.TrimSpace(free.Stdout), 10, 64); e != nil || avail < 2*used+homeMoveSpare {
+		return homeMoveError{"target_disk_full"}
 	}
+	return nil
+}
 
-	// Check and unpack on the new computer. Files keep the target's own owner (--no-same-owner).
+// unpackHome checks the parts' sha256 on the target and unpacks them over /workspace. Files keep the target's
+// own owner (--no-same-owner).
+func unpackHome(ctx context.Context, to guestCall, moveID string) error {
+	dir := homeMoveDir(moveID)
 	check, err := guestShell(ctx, to, "cd "+dir+" && sha256sum -c --quiet sums", 110)
 	if err != nil || check.ExitCode != 0 {
 		return errors.New("parts did not match")
@@ -236,6 +228,35 @@ func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
 		return errors.New("could not start unpacking")
 	}
 	return waitGuestState(ctx, to, dir+"/unpacked")
+}
+
+func cleanHomeMove(call guestCall, moveID string) {
+	c, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	_, _ = guestShell(c, call, "rm -rf "+homeMoveDir(moveID), 30)
+}
+
+// moveHome copies /workspace/home from one computer to another. It never deletes anything outside its own folder.
+func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
+	defer cleanHomeMove(from, moveID)
+	defer cleanHomeMove(to, moveID)
+	parts, used, err := packHome(ctx, from, moveID)
+	if err != nil {
+		return err
+	}
+	if err := checkHomeSpace(ctx, to, used); err != nil {
+		return err
+	}
+	dir := homeMoveDir(moveID)
+	if _, err := guestShell(ctx, to, "rm -rf /workspace/home/uploads/.tofi-move-* && mkdir -p "+dir, 30); err != nil {
+		return err
+	}
+	for _, name := range append(parts, "sums") {
+		if err := copyGuestFile(ctx, from, to, dir+"/"+name); err != nil {
+			return err
+		}
+	}
+	return unpackHome(ctx, to, moveID)
 }
 
 // copyGuestFile streams one file from one computer to the other in 512 KiB pages.

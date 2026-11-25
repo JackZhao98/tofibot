@@ -1571,6 +1571,10 @@
       "environment_failover": {
         "name": "自动切换环境",
         "what": "浏览器无法启动时，继续使用下一个可用环境。"
+      },
+      "computer_image_auto_update": {
+        "name": "自动更新云电脑",
+        "what": "有新的电脑镜像时，在 E2B 电脑空闲时按新镜像重建。home 文件夹会保留；已安装的软件和浏览器登录以新镜像为准。"
       }
     },
     "option": {

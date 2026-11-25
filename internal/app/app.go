@@ -386,6 +386,8 @@ type Server struct {
 	// homeMove is a switch between the VM and E2B that moves the home directory (home_move.go).
 	homeMove  homeMoveState
 	homeMover func(ctx context.Context, from, to guestCall, moveID string) error
+	// homeMoveRoot is where an E2B image update parks the home folder (the data folder; e2b_image_update.go).
+	homeMoveRoot string
 	// computerBeatCancel stops the heartbeat sweep of personal computers.
 	computerBeatCancel    context.CancelFunc
 	computerBeatDone      chan struct{}
@@ -3225,6 +3227,8 @@ func NewServer(c Config) (*Server, error) {
 		return server, nil
 	}
 	server.restoreE2BEnvironment(preferE2B)
+	server.homeMoveRoot = filepath.Join(c.DataDir, "home-move")
+	server.startE2BImageUpdates()
 	workerIDs, e := st.workerConversationIDs()
 	if e != nil {
 		server.ownerAuth.close()

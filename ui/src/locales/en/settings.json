@@ -1585,6 +1585,10 @@
       "environment_failover": {
         "name": "Automatic environment failover",
         "what": "Continue in the next available environment when a browser cannot start."
+      },
+      "computer_image_auto_update": {
+        "name": "Keep the cloud computer up to date",
+        "what": "When a newer computer image is out, rebuild the E2B computer from it while it is idle. The home folder is kept; installed software and browser sign-ins come from the new image."
       }
     },
     "option": {

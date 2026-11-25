@@ -1599,6 +1599,10 @@
       "environment_failover": {
         "name": "Basculement automatique d’environnement",
         "what": "Si un navigateur ne peut pas démarrer, continuer dans le prochain environnement disponible."
+      },
+      "computer_image_auto_update": {
+        "name": "Garder l’ordinateur cloud à jour",
+        "what": "Quand une image plus récente sort, l’ordinateur E2B est reconstruit à partir d’elle pendant qu’il est inactif. Le dossier home est conservé ; les logiciels installés et les connexions du navigateur viennent de la nouvelle image."
       }
     },
     "option": {

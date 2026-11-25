@@ -578,6 +578,18 @@
       "audit": true
     },
     {
+      "key": "automation.computer_image_auto_update",
+      "scope": "account",
+      "kind": "bool",
+      "risk": {
+        "self": "direct"
+      },
+      "link": "/settings/computer#environment",
+      "manual": "settings/computer",
+      "label_key": "settings:automation.item.computer_image_auto_update.name",
+      "audit": true
+    },
+    {
       "key": "automation.conversation_model",
       "scope": "account",
       "kind": "model",
