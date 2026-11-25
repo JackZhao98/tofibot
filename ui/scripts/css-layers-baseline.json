@@ -99,7 +99,7 @@
   },
   "interaction-system.css": {
     "global": 0,
-    "rootBump": 10,
+    "rootBump": 9,
     "webFork": 0,
     "important": 0,
     "tokenDef": 0
@@ -176,7 +176,7 @@
   },
   "v2-app.css": {
     "global": 0,
-    "rootBump": 14,
+    "rootBump": 11,
     "webFork": 21,
     "important": 0,
     "tokenDef": 0

@@ -26,7 +26,7 @@ html[data-desktop="darwin"] .settings-bar{-webkit-app-region:drag}
 html[data-desktop="darwin"] .settings-bar button{-webkit-app-region:no-drag}
 html[data-desktop="darwin"] .view-only-chat-header{-webkit-app-region:drag}
 html[data-desktop="darwin"] .view-only-chat-header button,html[data-desktop="darwin"] .view-only-chat-header a{-webkit-app-region:no-drag}
-.bot-browser-panel, .bot-browser-panel .desktop-window-controls, .bot-browser-panel button{-webkit-app-region:no-drag}
+.bot-browser-panel, .bot-browser-panel button{-webkit-app-region:no-drag}
 html[data-desktop="darwin"] .detail-backdrop{-webkit-app-region:no-drag}
 @media (min-width:768px){html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane .sidebar-top :is(.sidebar-toggle-slot,.sidebar-logo-expand,.search-slot,.create-menu-anchor){-webkit-app-region:no-drag}}
 @media (min-width:768px){html[data-desktop="darwin"] .workspace .sidebar-scrim{-webkit-app-region:no-drag}}
