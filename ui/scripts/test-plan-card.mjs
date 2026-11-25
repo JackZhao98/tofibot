@@ -281,10 +281,10 @@ try {
         await context.close();
       }
 
-      // -- A run that ended before its list was done keeps one quiet history line.
+      // -- A run that ended before its list was done keeps one quiet history line (a stopped run; a failed one draws its list in the failure card, V3 4.4).
       {
         const stoppedPlan = { run_id: "run_m39", conversation_id: "dm_a", bot_id: "bot_a", steps: steps([["Open the ledger", "done"], ["Fix the totals", "in_progress"], ["Report back", "pending"]]), version: 2, open: true, updated_at: at(786) };
-        const opened = await fixture.open({ route: dmRoute({ runs: () => [doneRun({ status: "failed", error: "synthetic failure", plan: stoppedPlan })] }) });
+        const opened = await fixture.open({ route: dmRoute({ runs: () => [doneRun({ status: "cancelled", plan: stoppedPlan })] }) });
         const row = opened.page.locator(".plan-history-trigger");
         await row.waitFor({ timeout: 8000 });
         assert.match(await row.textContent(), /stopped at step 2 of 3/);
@@ -293,6 +293,11 @@ try {
         await opened.page.locator('.plan-history-body li[data-state="stopped"]').waitFor();
         assert.deepEqual(opened.errors, []);
         await opened.context.close();
+        const failed = await fixture.open({ route: dmRoute({ runs: () => [doneRun({ status: "failed", error: "synthetic failure", plan: stoppedPlan })] }) });
+        await failed.page.locator(".task-issue-card .tb-plan-step.is-failed").waitFor({ timeout: 8000 });
+        assert.equal(await failed.page.locator(".plan-history-trigger").count(), 0, `${engineName}: a failed run's list is in its failure card, not a history row`);
+        assert.equal(await failed.page.locator(".task-issue-card .tb-plan-step").count(), 3, `${engineName}: the failure card draws every step`);
+        await failed.context.close();
       }
 
       // -- Group: three cards, one line each; opening one closes the other; the fourth Bot folds into "+1 more".
@@ -420,7 +425,7 @@ try {
         }
         const stoppedPlan = { run_id: "run_m39", conversation_id: "dm_a", bot_id: "bot_a", steps: steps([["Open the ledger", "done"], ["Fix the totals", "in_progress"], ["Report back", "pending"]]), version: 2, open: true, updated_at: at(786) };
         for (const theme of ["light", "dark"]) {
-          const opened = await fixture.open({ theme, contextOptions: { deviceScaleFactor: 2 }, route: dmRoute({ runs: () => [doneRun({ status: "failed", error: "synthetic failure", plan: stoppedPlan })] }) });
+          const opened = await fixture.open({ theme, contextOptions: { deviceScaleFactor: 2 }, route: dmRoute({ runs: () => [doneRun({ status: "cancelled", plan: stoppedPlan })] }) });
           await opened.page.locator(".plan-history-trigger").waitFor({ timeout: 8000 });
           await opened.page.locator(".plan-history-trigger").click();
           await opened.page.waitForTimeout(400);
