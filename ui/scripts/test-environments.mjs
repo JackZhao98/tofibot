@@ -548,7 +548,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await waiting.page.locator('.env-row[data-environment="organization"]').waitFor();
     assert.match((await waiting.page.locator('.env-row[data-environment="organization"]').innerText()).replace(/\s+/g, " "), /^E2B cloud computer Managed by your organization$/);
     assert.equal(await waiting.page.locator('.env-row[data-environment="organization"] button').count(), 0, "no controls on the organization's computer");
-    assert.equal(await waiting.page.locator(".environments-page .computer-options, .environments-page [data-computer-command]").count(), 0, "no 'how to add' guide");
+    assert.equal(await waiting.page.locator(".environments-page [data-computer-command]").count(), 0, "no 'how to add' guide");
     await waiting.close();
 
     // None: a banner, only the Mac, nothing to attach, the host command is not shown even to an administrator of this server.

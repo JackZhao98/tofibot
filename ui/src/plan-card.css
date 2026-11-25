@@ -48,7 +48,6 @@
 .plan-dock-tasks svg{flex:none;color:var(--text-process)}
 
 /* The DM cat (web only) sits on the dock's top edge, a few px into it like it sits on the field. */
-.workspace .composer:has(.plan-dock) .composer-perch{top:calc(-75px - var(--plan-dock-offset,0px))}
 
 /* The phone keyboard leaves room for the field only: every card folds to its header line. */
 .workspace.keyboard-viewport-open .plan-card-body{display:none}

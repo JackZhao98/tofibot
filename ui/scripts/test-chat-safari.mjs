@@ -363,18 +363,17 @@ await check("phone: chat pane stays laid out under the list and hides only after
   assert.deepEqual(errors, []);
   await context.close();
 });
-await check("phone: keyboard open hides the perch and returns room to the conversation", async () => {
+await check("phone: keyboard open returns room to the conversation", async () => {
   const { page, context } = await phone();
   await settle(page);
   await rowFor(page, "Simile Cat").tap();
   await settle(page);
-  const measure = () => page.evaluate(() => { const scroll = document.querySelector(".message-scroll"); const perch = document.querySelector(".composer-perch"); const composer = document.querySelector(".composer").getBoundingClientRect().height; const cs = getComputedStyle(scroll); return { pad: parseFloat(cs.paddingBottom) - composer, top: parseFloat(cs.paddingTop), perch: perch ? getComputedStyle(perch).display : "none" }; });
+  const measure = () => page.evaluate(() => { const scroll = document.querySelector(".message-scroll"); const composer = document.querySelector(".composer").getBoundingClientRect().height; const cs = getComputedStyle(scroll); return { pad: parseFloat(cs.paddingBottom) - composer, top: parseFloat(cs.paddingTop) }; });
   const closed = await measure();
   assert.ok(closed.pad <= 70, `closed-keyboard band is ${closed.pad}px beyond the composer (limit 70)`);
   await page.evaluate(() => document.querySelector(".workspace").classList.add("keyboard-viewport-open"));
   await page.waitForTimeout(150);
   const open_ = await measure();
-  assert.equal(open_.perch, "none", "perch hidden while the keyboard is up");
   // PR 3.1: the bottom ProgressiveBlur ramp reaches 40px above the composer, so the last message clears it plus the 8px gap.
   assert.ok(open_.pad >= 40 && open_.pad <= 49, `keyboard-open band is ${open_.pad}px beyond the composer (want 40 to 49: ramp + gap)`);
   // The message pane runs up under the header's glass, so its top padding is the header's height plus the 8 px of room.

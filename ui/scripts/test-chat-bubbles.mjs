@@ -220,7 +220,7 @@ function check(label, m, kind) {
   assert.deepEqual(failures, [], `${label}\n${failures.join("\n")}`);
 }
 
-/** Scrolled to the end, the last unit must sit fully above the composer fade, clear of the perched cat. */
+/** Scrolled to the end, the last unit must sit fully above the composer fade. */
 async function checkBottomRoom(page, label) {
   await page.evaluate(() => { const s = document.querySelector(".message-scroll"); s.scrollTop = s.scrollHeight; });
   await page.waitForTimeout(250);
@@ -229,13 +229,10 @@ async function checkBottomRoom(page, label) {
     const list = document.querySelector(".message-list");
     const kids = [...list.querySelectorAll("article.message-bot, article.message-user, .task-run-block, .tool-message.web-tool-run[data-sender]")].filter(el => el.getBoundingClientRect().height > 0 && !el.closest(".message-tools"));
     const last = kids[kids.length - 1].getBoundingClientRect();
-    const cat = document.querySelector(".composer-perch")?.getBoundingClientRect();
     const top = composer.getBoundingClientRect().top;
-    const overlapsCat = cat ? last.bottom > cat.top && last.right > cat.left && last.left < cat.right : false;
-    return { lastBottom: last.bottom, fadeStart: top - 24, overlapsCat, composerHeight: composer.getBoundingClientRect().height };
+    return { lastBottom: last.bottom, fadeStart: top - 24, composerHeight: composer.getBoundingClientRect().height };
   });
   assert.ok(r.lastBottom <= r.fadeStart + 0.5, `${label}: last message bottom ${r.lastBottom.toFixed(1)} is inside the fade (starts ${r.fadeStart.toFixed(1)})`);
-  assert.equal(r.overlapsCat, false, `${label}: perched cat overlaps the last message`);
   return r.composerHeight;
 }
 

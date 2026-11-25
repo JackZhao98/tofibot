@@ -177,7 +177,7 @@
   "sender-groups.css": {
     "bridgeUse": 2,
     "rootToken": 1,
-    "webFork": 4
+    "webFork": 1
   },
   "settings/automation.css": {
     "bridgeUse": 4
@@ -220,7 +220,7 @@
   },
   "v2-app.css": {
     "bridgeUse": 50,
-    "webFork": 24
+    "webFork": 21
   },
   "v2-foundations.css": {
     "bridgeUse": 5

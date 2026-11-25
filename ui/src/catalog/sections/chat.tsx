@@ -102,16 +102,6 @@ export const composer: CatalogSection = {
   gaps: ["Read-only (archived conversation): the archived Bot is not reachable from the synthetic sidebar yet.", "Dictation (recording, transcribing): needs a microphone.", "Uploading: see section 3, Pending."],
 };
 
-export const perch: CatalogSection = {
-  id: "perch", number: "5", title: "Cat on the composer (ComposerPerch)",
-  states: [
-    { id: "idle", kind: "app", label: "Idle", app: DM },
-    { id: "work", kind: "app", label: "Working", app: { ...DM, running: true } },
-    { id: "group", kind: "app", label: "Group chat: no cat", app: GROUP },
-  ],
-  gaps: ["\"look\" after sending and \"happy\" when a reply lands are moments: send a message in a frame to see them."],
-};
-
 export const edges: CatalogSection = {
   id: "edges", number: "22", title: "Edge blur, header and the jump button",
   states: [
