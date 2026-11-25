@@ -2448,7 +2448,7 @@ export function Workspace() {
     ...(desktopBot ? [{ key: "bot", label: computerStateLabel, icon: "monitor" as const, pressed: computerShown && !macSource, on: computerOn, driven: computerOn && !!activeDesktopOwner, attrs: { "data-computer-toggle": "", "data-computer-state": computerOn ? (activeDesktopOwner ? "driven" : "on") : "off" },
       toggle: () => { if (computerShown && !macSource) closeWidgetId("computer"); else chooseComputer({ kind: "bot_computer", bot_id: desktopBot.id }); } }] : []),
     ...(nativePanel.bridge ? [{ key: "native", label: browserT("browser.panel"), icon: "globe" as const, pressed: nativePanel.open, attrs: { "data-native-browser-toggle": "" }, toggle: () => nativePanel.request(!nativePanel.open) }]
-      : browserSources.sources.map(source => ({ key: source.computer_id, label: browserT("browser.look", { id: source.computer_id }), icon: "globe" as const, pressed: computerShown && macSource?.computer_id === source.computer_id, attrs: { "data-browser-toggle": source.computer_id },
+      : browserSources.sources.map(source => ({ key: source.computer_id, label: browserT("browser.panel"), icon: "globe" as const, pressed: computerShown && macSource?.computer_id === source.computer_id, attrs: { "data-browser-toggle": source.computer_id },
         toggle: () => { if (computerShown && macSource?.computer_id === source.computer_id) closeWidgetId("computer"); else chooseComputer({ kind: "mac_browser", computer_id: source.computer_id }); } }))),
   ];
   // The markup of the sidebar views, widgets and covers lives in the lazy chunk SurfaceViews; the workspace hands it the data and the few actions.

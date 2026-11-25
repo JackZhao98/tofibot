@@ -57,13 +57,13 @@
       "bot": "{{name}} is working",
       "idle": "Bot computer idle"
     },
-    "power_hint": "Hide screen (the Bot computer keeps running)",
+    "power_hint": "Hide",
     "power": {
       "label": "Bot computer power",
-      "off_hint": "Turn off (files are kept)",
+      "off_hint": "Turn off",
       "on_hint": "Turn on",
-      "held": "In use. It turns off by itself once it has been idle.",
-      "busy": "A Bot is using the computer, so it stays on. It turns off by itself once it has been idle.",
+      "held": "In use",
+      "busy": "A Bot is using it",
       "not_ready": "The computer can be turned off once it has started.",
       "failed": "Could not turn the computer off. Try again.",
       "turn_on": "Turn on",
@@ -88,7 +88,7 @@
     "tools": {
       "title": "Helper actions",
       "open_browser": "Open in browser",
-      "run_shell": "Run shell ({{name}} workspace)",
+      "run_shell": "Run shell",
       "shell_placeholder": "e.g. pwd",
       "run": "Run command",
       "technical": "Technical details",
@@ -103,7 +103,7 @@
       "resuming_phase": "Waking · {{phase}}",
       "waking_computer": "Waking the Bot computer…",
       "starting_desktop": "Starting the desktop…",
-      "off": "Off · files kept. It turns on when a Bot needs it.",
+      "off": "Off",
       "hibernating": "Turning off…",
       "no_desktop": "The Bot is working in the browser without a desktop",
       "retry": "Retry"
@@ -512,7 +512,7 @@
       "token_unreadable": "The saved key can't be read. Add the E2B key again.",
       "org_resource_missing": "Your organization hasn't provisioned this computer. Contact an administrator.",
       "not_ready": "The computer image isn't ready yet. Try again in a few minutes.",
-      "guest_outdated_required": "This computer's image is no longer supported. It updates by itself while idle; the home folder is kept.",
+      "guest_outdated_required": "Image no longer supported. Updates when idle.",
       "computer_upgrade_failed": "Couldn't upgrade the computer. Try again.",
       "not_outdated": "This computer is already up to date.",
       "computer_busy": "The computer is busy. Try again when running work finishes.",
@@ -524,12 +524,12 @@
     "confirm": {
       "use": {
         "title": "Use {{name}} for Bots?",
-        "body": "Running work finishes first. The home folder (files Bots made and saved) moves to {{name}}. Installed software and browser sign-ins don't move; Bots sign in again there. The current computer is set aside.",
+        "body": "The home folder moves over. Installed apps and sign-ins don’t.",
         "action": "Use for Bots"
       },
       "remove": {
         "title": "Remove {{name}}?",
-        "body": "The sandbox is deleted and the API key is forgotten. If Bots use it now, running work finishes and files are copied to the server first.",
+        "body": "Deletes the sandbox and the key.",
         "action": "Remove"
       },
       "disconnect": {
@@ -553,7 +553,7 @@
       "title": "Add E2B cloud computer",
       "key": "API key",
       "get_key": "Get a key",
-      "cost": "Billed by E2B per second while running; pauses when idle.",
+      "cost": "Billed per second by E2B. Pauses when idle.",
       "saving": "Checking…",
       "template_toggle": "Use an existing template",
       "template_id": "Template ID",
@@ -569,7 +569,7 @@
       "title": "Configure Bot computer",
       "provided_title": "Bot computer details"
     },
-    "outdated": "Newer computer image available. It updates by itself while idle; the home folder is kept.",
+    "outdated": "New image available. Updates when idle.",
     "image_preparing": "The computer image is being built. This takes a few minutes.",
     "image_building": "A newer computer image is being built.",
     "rc": {
@@ -682,7 +682,7 @@
   "browser": {
     "panel": "Bot browser",
     "source": "Your Mac · Bot browser",
-    "look": "Look at Bot browser ({{id}})",
+    "look": "Show Bot browser",
     "enlarge": "Enlarge Bot browser",
     "shrink": "Make Bot browser smaller",
     "status": {
@@ -743,7 +743,6 @@
   "devices": {
     "bot": {
       "title": "Bot computer",
-      "description": "The computer Bots work on. One per account.",
       "unassigned_title": "No Bot computer assigned",
       "unassigned_body": "An administrator assigns Bot computers. Chat, memory, schedules and connections work without one.",
       "managed": "Managed by your organization"
@@ -752,13 +751,13 @@
       "vm": "Built-in VM",
       "vm_sub": "Runs on this server",
       "e2b": "E2B cloud computer",
-      "e2b_sub": "Key {{hint}} · Billed by E2B",
+      "e2b_sub": "Key {{hint}}",
       "e2b_billed": "Billed by E2B"
     },
     "add": {
-      "vm_body": "Firecracker VM on this server. Requires KVM and 4 GiB of memory.",
+      "vm_body": "Needs KVM and 4 GiB of memory.",
       "vm_member": "Assigned by an administrator.",
-      "e2b_body": "Runs in your E2B account. Billed by E2B per second; pauses when idle."
+      "e2b_body": "Billed per second by E2B. Pauses when idle."
     },
     "action": {
       "setup": "Set up",
@@ -770,7 +769,6 @@
     },
     "mine": {
       "title": "My devices",
-      "description": "Computers you connected. Bots use them only with the access you grant on each one.",
       "empty_title": "No devices connected",
       "empty_body": "Install Tofi for Mac and sign in to this server. The Mac appears here.",
       "disabled": "This server does not allow personal devices."
@@ -797,12 +795,17 @@
       "body": "Bots lose access to this Mac. Reconnect from Tofi on the Mac."
     },
     "move": {
-      "moving": "Moving files to {{name}}…",
-      "moving_note": "The home folder is copied, then Bots switch over. The current computer keeps working until then.",
+      "moving": "Switching to {{name}}",
       "failed": "The switch did not finish. The current computer is unchanged.",
       "updating": "Updating the E2B cloud computer…",
-      "updating_note": "It is rebuilt from the newer image. The home folder is kept; Bots wait until it is back.",
-      "update_failed": "The E2B cloud computer could not be updated. The home folder is kept and the update is tried again later."
+      "update_failed": "E2B update didn’t finish. Retrying later.",
+      "step": {
+        "start": "Starting the computer…",
+        "pack": "Packing files…",
+        "copy": "Copying files…",
+        "copy_of": "Copying {{done}} / {{total}} MB",
+        "unpack": "Unpacking files…"
+      }
     }
   }
 }

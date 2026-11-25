@@ -12,6 +12,17 @@ import "./skin/fonts.css";
 import "./styles.css";
 
 installFocusModality();
+// After a server update an open page still asks for the old build's lazy chunks, which are gone: reload once into the new build
+// instead of leaving a button that does nothing. The guard stops a reload loop when the chunk is missing for another reason.
+window.addEventListener("vite:preloadError", event => {
+  try {
+    const last = Number(sessionStorage.getItem("tofi:chunk-reload") || 0);
+    if (Date.now() - last < 60_000) return;
+    sessionStorage.setItem("tofi:chunk-reload", String(Date.now()));
+  } catch { /* no storage: reload anyway, once per page */ }
+  event.preventDefault();
+  window.location.reload();
+});
 watchInstallPrompt();
 
 /** Re-renders the tree on a language switch so helpers that read the active language refresh too. */

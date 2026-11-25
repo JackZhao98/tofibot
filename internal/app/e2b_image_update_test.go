@@ -124,3 +124,34 @@ func TestAFailedRestoreKeepsTheParkedHomeForTheNextTry(t *testing.T) {
 func b64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
 func unb64(s string) []byte { b, _ := base64.StdEncoding.DecodeString(s); return b }
+
+func TestAHomeMoveReportsItsSteps(t *testing.T) {
+	home := bytes.Repeat([]byte("n"), 1200000)
+	from := &fakeImageGuest{files: map[string][]byte{"/workspace/home/notes.txt": home}}
+	to := &fakeImageGuest{files: map[string][]byte{}}
+	var steps []string
+	var lastDone int64
+	ctx := withHomeMoveProgress(context.Background(), func(step string, done, total int64) {
+		if len(steps) == 0 || steps[len(steps)-1] != step {
+			steps = append(steps, step)
+		}
+		if step == "copy" {
+			lastDone = done
+		}
+	})
+	if err := moveHome(ctx, from.call, to.call, "m3"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(steps, ",") != "pack,copy,unpack" {
+		t.Fatalf("steps = %v", steps)
+	}
+	if lastDone < int64(len(home)) {
+		t.Fatalf("copy reported %d of %d bytes", lastDone, len(home))
+	}
+	var m homeMoveState
+	m.begin("e2b")
+	m.progress("copy", 5, 10)
+	if v := m.view(); v.Step != "copy" || v.Done != 5 || v.Total != 10 {
+		t.Fatalf("view = %+v", v)
+	}
+}

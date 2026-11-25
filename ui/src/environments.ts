@@ -26,7 +26,7 @@ export type EnvironmentsView = {
   /** Whose Bot computer this is (user groups): `host` and `own` are the person's; `provided` the organization's; `none` has no Bot computer. Absent on an older server. */
   policy?: {mode: string; source: string; via: string} | null;
   /** A switch that moves the home directory: running, or failed with a named reason. */
-  move?: {phase: "moving" | "failed"; target: string; error_code: string} | null;
+  move?: {phase: "moving" | "failed"; target: string; error_code: string; step: string; done: number; total: number} | null;
 };
 
 const kinds: EnvironmentKind[] = ["vm", "e2b", "mac"];
@@ -52,7 +52,7 @@ export function normalizeEnvironments(body: unknown): EnvironmentsView {
     environments,
     add: {e2b: add.e2b === true, mac: add.mac === true, vm_command: typeof add.vm_command === "string" ? add.vm_command : ""},
     policy: raw.policy && typeof raw.policy === "object" ? {mode: String(raw.policy.mode ?? "host"), source: String(raw.policy.source ?? "own"), via: String(raw.policy.via ?? "")} : null,
-    move: raw.move && typeof raw.move === "object" && (raw.move.phase === "moving" || raw.move.phase === "failed") ? {phase: raw.move.phase, target: String(raw.move.target ?? ""), error_code: String(raw.move.error_code ?? "")} : null,
+    move: raw.move && typeof raw.move === "object" && (raw.move.phase === "moving" || raw.move.phase === "failed") ? {phase: raw.move.phase, target: String(raw.move.target ?? ""), error_code: String(raw.move.error_code ?? ""), step: String(raw.move.step ?? ""), done: Number(raw.move.done) || 0, total: Number(raw.move.total) || 0} : null,
     e2b: e2b ? {configured: e2b.configured === true, key_hint: String(e2b.key_hint ?? ""), phase: String(e2b.phase ?? "none"), error_code: String(e2b.error_code ?? ""), error: String(e2b.error ?? ""), template_phase: String(e2b.template_phase ?? "none"), guest_outdated: e2b.guest_outdated === true} : null,
   };
 }

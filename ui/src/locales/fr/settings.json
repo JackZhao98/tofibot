@@ -1506,7 +1506,7 @@
       },
       "computer_idle_off_minutes": {
         "name": "Extinction de l'ordinateur cloud inactif",
-        "what": "Un ordinateur E2B inactif depuis ce nombre de minutes s'éteint (pause). Ses fichiers sont conservés et il redémarre quand un Bot en a besoin. E2B facture tant qu'il tourne."
+        "what": "S’éteint après ce nombre de minutes d’inactivité."
       },
       "browser_engine": {
         "name": "Contrôle du navigateur",
@@ -1589,12 +1589,10 @@
         "what": "Refuse les appels aux modèles facturés dès que les dépenses du mois atteignent le plafond, et envoie une notification à 80 %. Dollars entiers, 0 désactive. Se règle sur la page Utilisation."
       },
       "environment_order_web": {
-        "name": "Environnement préféré (web et mobile)",
-        "what": "Choisissez le premier environnement pour les messages du web et du mobile."
+        "name": "Environnement préféré · Web"
       },
       "environment_order_app": {
-        "name": "Environnement préféré (app Mac)",
-        "what": "Choisissez le premier environnement pour les messages de l’app Mac."
+        "name": "Environnement préféré · App Mac"
       },
       "environment_failover": {
         "name": "Basculement automatique d’environnement",

@@ -1478,7 +1478,7 @@
       },
       "computer_idle_off_minutes": {
         "name": "云电脑闲置关机",
-        "what": "E2B 电脑闲置这么多分钟后自动关机（暂停）。文件保留，Bot 要用时自动开机。E2B 按运行时长计费。"
+        "what": "闲置这么多分钟后关机。"
       },
       "browser_engine": {
         "name": "浏览器控制",
@@ -1561,12 +1561,10 @@
         "what": "本月花费达到上限后，拒绝对计费模型的调用，并在 80% 时提醒一次。单位为整数美元，0 表示关闭。在“用量”页设置。"
       },
       "environment_order_web": {
-        "name": "首选环境（网页与手机）",
-        "what": "选择网页与手机消息的首选环境。"
+        "name": "首选环境 · 网页"
       },
       "environment_order_app": {
-        "name": "首选环境（Mac App）",
-        "what": "选择 Mac App 消息的首选环境。"
+        "name": "首选环境 · Mac App"
       },
       "environment_failover": {
         "name": "自动切换环境",
