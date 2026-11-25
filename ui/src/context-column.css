@@ -69,7 +69,9 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 .context-card .terminal-tabs { padding:0 14px; border-bottom:0; background:transparent; }
 .context-card .terminal-tabs button { border:0; border-radius:var(--radius-sm); }
 .context-card .terminal-tabs .is-active { background:var(--surface-2); }
-.context-card .terminal-stage { padding:8px 14px 10px; background:transparent; }
+.context-card .terminal-stage { padding:0 10px 10px; background:transparent; }
+/* Flush: the screen is the widget's body, inset, with its own radius and no frame (kit Widget, flush). */
+.context-card .terminal-screen { box-sizing:border-box; padding:8px 10px; border:0; border-radius:var(--radius-sm); }
 .context-card .terminal-status { min-height:0; padding:6px 14px 10px; border-top:0; background:transparent; }
 .context-card .view-only-chat.is-sidebar { position:static; z-index:auto; display:flex; flex-direction:column; width:100%; height:min(420px,60dvh); border:0; border-radius:0; background:transparent; box-shadow:none; animation:none; }
 .context-card .view-only-chat.is-sidebar .view-only-chat-header { min-height:0; padding:0 14px 8px; border:0; background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; user-select:auto; }
