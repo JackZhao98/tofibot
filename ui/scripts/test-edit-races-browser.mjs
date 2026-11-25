@@ -42,7 +42,7 @@ try {
       } else {
         const index = fixture.schedules.findIndex(item => item.id === id);
         row = page.locator(".work-schedule").nth(index);
-        await row.locator(":scope > details > summary").click();
+        await row.locator(".tb-sched-row").click();
       }
       await row.getByRole("button", { name: "编辑", exact: true }).click();
       const title = page.getByRole("textbox", { name: kind === "memory" ? "编辑记忆标题" : "编辑日程标题", exact: true });
@@ -81,9 +81,9 @@ try {
         if (kind === "memory") {
           await page.waitForFunction(revision => document.querySelector("#memories")?.getAttribute("data-revision") === String(revision), remote.revision);
         } else if (external.title) {
-          await row.locator(":scope > strong").filter({ hasText: external.title }).waitFor();
+          await row.locator(".tb-sched-title").filter({ hasText: external.title }).waitFor();
         } else {
-          await row.locator(":scope > .work-schedule-description").filter({ hasText: external.description }).waitFor();
+          await row.locator(".tb-sched-meta").filter({ hasText: external.description }).waitFor();
         }
       }
       // Refreshes must not replace the draft or edit-open baseline.

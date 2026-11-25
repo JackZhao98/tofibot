@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { TextArea } from "./ds/TextArea/TextArea";
 import { TextInput } from "./ds/TextInput/TextInput";
 import { useState, type ReactNode } from "react";
@@ -46,6 +47,6 @@ export function ScheduleEditor({ schedule, disabled, onSave, actions }: { schedu
       {timingLocked ? <p className="field-note">{t("editor.timing_locked")}</p> : <ScheduleTimingFields draft={timing} timezone={timezone} disabled={disabled} onChange={change => setTiming(current => ({ ...current, ...change }))} />}
     </fieldset>
     {error && <p className="error-text" role="alert">{error}</p>}
-    <div className="work-create-actions"><button type="button" disabled={disabled} onClick={() => setEditing(false)}>{t("editor.cancel")}</button><button disabled={disabled || !content.trim() || (timing.kind === "weekly" && !timing.weekdays.length)}>{t("editor.save")}</button></div>
+    <div className="work-create-actions"><Button variant="ghost" disabled={disabled} onClick={() => setEditing(false)}>{t("editor.cancel")}</Button><Button variant="primary" type="submit" disabled={disabled || !content.trim() || (timing.kind === "weekly" && !timing.weekdays.length)}>{t("editor.save")}</Button></div>
   </form>;
 }

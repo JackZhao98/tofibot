@@ -1,242 +1,53 @@
+/* The Tasks board places kit parts (Checkbox, Badge, Tag, Disclosure, Field, Select, ScheduleCard, Banner, Card); how they look is the kit's. */
 @layer legacy {
-.workspace .detail-content.work-panel { color: var(--ink); }
-.workspace .detail-content.work-panel > .detail-heading { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-.workspace .detail-content.work-panel > .detail-heading h2 { color: var(--ink); font: 600 21px/1.3 var(--font-display); }
 .workspace .work-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 20px; }
 .workspace .work-tabs { flex: 1; }
+.workspace .work-banner { margin: 0 0 16px; }
 
-.workspace .work-member-select { position: relative; margin-bottom: 20px; }
+.workspace .work-member-select { margin-bottom: 20px; }
 /* A group with goals filters by member and by goal, side by side. */
 .workspace .work-member-select:has(.work-goal-filter) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-.workspace .work-member-filter {
-  width: 100%;
-  min-height: 40px;
-  margin: 0;
-  padding: 8px 34px 8px 11px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--sunk);
-  color: var(--ink);
-  font: 13px/1.4 var(--font-body);
-  appearance: none;
-}
-.workspace .work-member-select > svg { position: absolute; top: 50%; right: 10px; color: var(--muted); pointer-events: none; transform: translateY(-50%); }
+.workspace .work-member-filter { width: 100%; margin: 0; }
 
-.workspace .detail-content.work-panel .work-section { margin: 0 0 26px; }
-.workspace .detail-content.work-panel .work-section h3 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 8px;
-  color: var(--ink-soft);
-  font: 600 13px/1.4 var(--font-display);
-}
-.workspace .detail-content.work-panel .work-section h3 span { color: var(--muted); font: 10px/1.4 var(--font-mono); }
-.workspace .detail-content.work-panel .work-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 2px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ink);
-}
-.workspace .detail-content.work-panel .work-row:last-child { border-bottom: 0; }
-.workspace .work-complete {
-  display: grid;
-  width: 30px;
-  min-width: 30px;
-  min-height: 34px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-}
-.workspace .work-complete > span {
-  display: grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  border: 1.5px solid var(--muted);
-  border-radius: 6px;
-  font: 700 11px/1 var(--font-mono);
-}
-.workspace .work-complete:not(:disabled):hover > span { border-color: var(--line); background: var(--surface-2); }
-.workspace .work-complete:disabled { cursor: not-allowed; opacity: .48; }
-.workspace .work-row.work-done .work-complete > span { border-color: var(--lime); background: var(--lime); color: var(--on-block); }
+.workspace .work-section { margin: 0 0 26px; }
+.workspace .work-section h3 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+
+.workspace .work-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 2px; }
 .workspace .work-row-main { min-width: 0; flex: 1; }
-.workspace .detail-content.work-panel .work-row-main > strong,
-.workspace .detail-content.work-panel .work-schedule > strong {
-  display: block;
-  color: var(--ink);
-  font: 500 14px/1.55 var(--font-body);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.workspace .work-done .work-row-main > strong { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
-.workspace .work-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; color: var(--muted); font: 11px/1.4 var(--font-body); }
+.workspace .work-row-main > strong { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workspace .work-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .workspace .work-provenance { min-width: 0; }
-.workspace .work-provenance span { display: inline-flex; align-items: center; gap: 5px; }
+.workspace .work-provenance > span { display: inline-flex; align-items: center; gap: 5px; }
 .workspace .work-provenance .avatar { width: 18px; height: 18px; }
-.workspace .work-provenance button { padding: 0; border: 0; background: transparent; color: var(--ink-soft); font: inherit; text-align: left; }
-.workspace .work-provenance button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.workspace .work-state {
-  display: inline-flex;
-  align-items: center;
-  min-height: 21px;
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--sunk);
-  color: var(--ink-soft);
-  font: 10px/1.35 var(--font-mono);
-}
-.workspace .work-panel :is(.state-in_progress, .work-in_progress .work-state) { color: var(--teal-text); }
-.workspace .work-panel :is(.state-review, .work-review .work-state) { color: var(--grape-text); }
-.workspace .work-panel :is(.state-blocked, .needs-attention .work-state) { border-color: color-mix(in srgb, var(--danger) 42%, var(--line)); color: var(--danger-text); }
-.workspace .work-panel .work-row.work-done .work-state { color: var(--lime-text); }
-.workspace .work-parent { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.workspace .work-parent { margin-top: 6px; }
+.workspace .work-item-details { display: grid; gap: 10px; min-width: 0; padding: 4px 0 8px; }
+.workspace .work-item-details p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.workspace .work-item-details { margin-top: 3px; color: var(--muted); font-size: 12px; }
-.workspace .work-item-details summary {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: fit-content;
-  min-width: 64px;
-  min-height: 34px;
-  margin-left: -7px;
-  padding: 5px 7px;
-  border-radius: 8px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  list-style: none;
-}
-.workspace .work-item-details summary:hover,
-.workspace .work-item-details[open] summary { background: var(--surface-2); color: var(--ink); }
-.workspace .work-item-details summary::after { width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; transform: rotate(-45deg); transition: transform var(--m-press) var(--ease-out); }
-.workspace .work-item-details[open] summary::after { transform: rotate(45deg); }
-.workspace .work-item-details summary::-webkit-details-marker { display: none; }
-.workspace .work-item-details p { margin: 7px 0; color: var(--ink-soft); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.workspace .work-item-details > small { color: var(--muted); font: 10px/1.5 var(--font-mono); }
-.workspace .work-item-details label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; color: var(--ink-soft); }
-.workspace .work-item-details select { width: auto; max-width: 70%; min-height: 34px; padding: 6px 9px; border: 1px solid var(--edge); border-radius: 9px; background: var(--sunk); color: var(--ink); font: 12px/1.3 var(--font-body); }
-
-.workspace .work-timeline { margin-left: 4px; padding-left: 18px; border-left: 1px solid var(--line); }
-.workspace .detail-content.work-panel .work-schedule {
-  position: relative;
-  margin: 0;
-  padding: 3px 0 20px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ink);
-}
-.workspace .work-schedule::before { position: absolute; top: 9px; left: -23px; width: 7px; height: 7px; border: 1px solid var(--bg); border-radius: 50%; background: var(--teal); content: ""; }
-.workspace .work-schedule time { display: block; margin-bottom: 6px; color: var(--muted); font: 11px/1.4 var(--font-mono); font-variant-numeric: tabular-nums; }
-.workspace .work-schedule .work-row-meta { margin-top: 6px; }
+.workspace .work-timeline { display: grid; gap: 12px; min-width: 0; }
 .workspace .work-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 5px 0; }
-.workspace .work-actions button { min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font: 12px/1.3 var(--font-body); }
-.workspace .work-actions button:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
-.workspace .work-actions button:disabled { cursor: not-allowed; opacity: .5; }
+.workspace .work-icon-actions { gap: 2px; }
+.workspace .schedule-instructions { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workspace .schedule-edit { margin-top: 12px; }
 
-.workspace .work-empty {
-  display: grid;
-  min-height: 140px;
-  place-items: center;
-  align-content: center;
-  padding: 26px 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface) var(--dot-grid) 0 0/var(--dot-step) var(--dot-step);
-  color: var(--muted);
-  text-align: center;
-}
-.workspace .work-empty > span { color: var(--teal-text); font: 22px/1 var(--font-mono); }
-.workspace .work-empty p { margin: 10px 0 0; font-size: 13px; }
-.workspace .work-panel .error-banner { border-color: var(--danger); border-radius: 12px; background: color-mix(in srgb, var(--danger) 9%, var(--surface)); color: var(--ink); }
-.workspace .work-panel .error-banner .text-button { display: block; margin-top: 7px; color: var(--ink); }
+.workspace .work-empty { min-height: 140px; }
 
-.workspace .work-panel .work-create {
-  display: grid;
-  gap: 13px;
-  margin: 0 0 24px;
-  padding: 14px;
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface-2);
-  box-shadow: var(--shadow-sm);
-}
-.workspace .work-create-kind { width: fit-content; max-width: 100%; margin-bottom: 2px; }
-.workspace .work-create label { display: grid; gap: 6px; color: var(--ink-soft); font: 12px/1.4 var(--font-body); }
-.workspace .work-create select {
-  width: 100%;
-  min-width: 0;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--sunk);
-  color: var(--ink);
-  font: 13px/1.5 var(--font-body);
-}
-.workspace .work-create select:hover { border-color: var(--line); }
-.workspace .work-create .disclosure { margin: 0; }
+.workspace .work-create-card { margin: 0 0 24px; }
+.workspace .work-create { display: grid; gap: 13px; }
+.workspace .work-create-kind { width: fit-content; max-width: 100%; }
+.workspace .work-create label { display: grid; gap: 6px; }
 .workspace .work-create-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
-.workspace .work-panel .error-text { color: var(--danger-text); }
+.workspace .work-create .work-weekdays { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; border: 0; min-width: 0; }
 
-:root[data-theme="light"] .workspace .work-schedule::before { border-color: var(--surface); }
+/* Task facts: delegation chips, checklist, waits, one-line result. */
+.workspace .work-facts { display: grid; gap: 6px; margin-top: 6px; min-width: 0; }
+.workspace .work-facts-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.workspace .work-facts-result { margin: 0; overflow-wrap: anywhere; }
+.workspace .work-facts-waits, .workspace .work-facts-checklist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.workspace .work-facts-checklist li { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: baseline; }
+.workspace .work-facts-checklist small { display: block; }
 
 @media (max-width: 560px) {
   .workspace .work-toolbar { align-items: flex-start; }
   .workspace .work-row-meta { gap: 6px; }
-  .workspace .work-create { padding: 12px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .workspace .work-item-details summary::after { transition: none; }
-}
-
-.work-schedule-description { grid-column:2; margin:4px 0; color:var(--ink-soft); font:var(--type-meta); overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-.schedule-instructions { padding:10px 0; }
-.schedule-instructions strong { font:600 12px/1.5 var(--font-body); }
-.schedule-instructions p { white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0; }
-.schedule-edit { margin-top:12px; }
-
-.workspace .work-create .work-weekdays { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
-.workspace .work-create .work-weekdays legend { padding: 0 0 6px; color: var(--ink-soft); font: 12px/1.4 var(--font-body); }
-.workspace .work-create .work-weekdays button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--sunk); color: var(--ink-soft); font: 13px/1.4 var(--font-body); }
-.workspace .work-create .work-weekdays button[aria-pressed="true"] { border-color: var(--ink); background: var(--panel, var(--sunk)); color: var(--ink); }
-.workspace .work-create .work-weekdays button:focus-visible { outline: var(--focus-ring-width) solid var(--focus); outline-offset: 2px; }
-
-/* Task facts: delegation chips, checklist, waits, one-line result. */
-.workspace .work-facts { display: grid; gap: 6px; margin-top: 6px; min-width: 0; color: var(--muted); font: 11px/1.4 var(--font-body); }
-.workspace .work-facts-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.workspace .work-chip { display: inline-flex; align-items: center; min-height: 19px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink-soft); font: 10px/1.2 var(--font-mono); }
-.workspace .work-facts-result { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
-.workspace .work-facts-waits { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
-.workspace .work-facts-waits small { color: var(--muted); }
-.workspace .work-facts-checklist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.workspace .work-facts-checklist li { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: baseline; }
-.workspace .work-facts-checklist small { display: block; color: var(--muted); }
-.workspace .work-check-mark { color: var(--muted); font: 10px/1.3 var(--font-mono); }
-.workspace .work-facts-checklist li[data-status="done"] .work-check-mark { color: var(--lime-text); }
-.workspace .work-facts-checklist li[data-status="blocked"] .work-check-mark { color: var(--danger-text); }
-.workspace .work-panel :is(.state-input_required, .work-input_required .work-state) { border-color: color-mix(in srgb, var(--grape-text) 42%, var(--line)); color: var(--grape-text); }
-.workspace .work-panel :is(.state-failed, .work-failed .work-state) { border-color: color-mix(in srgb, var(--danger) 42%, var(--line)); color: var(--danger-text); }
-.workspace .work-icon-actions { gap: 2px; }
-.workspace .work-icon-actions .confirm-action { align-items: center; }
-.workspace .work-icon-button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); }
-.workspace .work-icon-button:not(:disabled):hover { background: var(--surface-2); color: var(--ink); }
-.workspace .work-icon-button.is-danger:not(:disabled):hover { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger-text); }
-.workspace .work-icon-button:disabled { cursor: not-allowed; opacity: .5; }
-@media (pointer: coarse) { .workspace .work-icon-button { width: 44px; height: 44px; } }
-}
-/* Select fit (it was in select.css; the field look itself is the kit's now, PR 2.2). */
-@layer legacy {
-.workspace .work-item-details button.ui-select-trigger{width:auto;max-width:70%}
 }

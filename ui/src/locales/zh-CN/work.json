@@ -76,7 +76,6 @@
     "daily_at": "每天 {{time}}",
     "every_minutes_other": "每 {{count}} 分钟",
     "once": "单次",
-    "manage": "管理",
     "instructions": "完整执行指令",
     "pause": "暂停",
     "resume": "恢复",

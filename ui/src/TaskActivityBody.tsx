@@ -1,4 +1,5 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
+import { Button } from "./ds/Button/Button";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import { lazy, Suspense, type ReactNode } from "react";
 import "./approval-card.css";
@@ -41,7 +42,7 @@ function ToolStepRecord({ tool, locale, now, onOpenTools }: { tool: ToolActivity
     <Collapsible.Root onOpenChange={open => { if (open) requestFullToolResult(tool); }}><Collapsible.Trigger className="task-step-trigger"><ToolStatusIcon state={state} label={toolDisplayLabel(tool, locale)} /><span className="task-step-title">{state === "reviewed" ? t("step.reviewed_title") : toolStepTitle(tool)}{state !== "reviewed" && preview && <span className="task-step-argument"> · {preview}</span>}{problem && state === "not_executed" && tool.outcome?.code && <span className="task-step-argument task-step-reason"> · {reason}</span>}</span>{problem ? <span className="task-step-state">{toolDisplayLabel(tool, locale)}{seconds !== undefined && seconds >= 1 && <time> · {formatStepSeconds(seconds)}</time>}</span> : seconds !== undefined && seconds >= 1 && <time className="task-step-time-quiet">{formatStepSeconds(seconds)}</time>}</Collapsible.Trigger>
       <CollapsibleContent forceMount><div className="task-step-body">{problem && <div className="task-step-problem" role="group" aria-label={t("step.problem")}>
         <p><strong>{reason}</strong>{tool.outcome?.execution_certainty && <> · {taskCertaintyText(tool.outcome.execution_certainty, locale)}</>}</p>
-        {tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <div className="task-step-actions"><button type="button" className="secondary-button" onClick={onOpenTools}>{t("step.open_tool_settings")}</button></div>}
+        {tool.outcome?.code === "mcp_review_setup_missing" && onOpenTools && <div className="task-step-actions"><Button size="sm" onClick={onOpenTools}>{t("step.open_tool_settings")}</Button></div>}
         <details className="task-step-technical"><summary>{t("step.technical_details")}</summary>{tool.outcome?.message && <p>{tool.outcome.message}</p>}<pre tabIndex={0}>{stepDiagnostics(tool)}</pre></details>
       </div>}
       <div className="tool-activity-details">{Number.isFinite(started) && <span className="task-step-time">{t("step.started", { time: formatClock(started, { seconds: true, language: locale }) })}</span>}<span>{t("step.arguments")}</span><pre tabIndex={0}>{tool.arguments || t("step.none")}</pre>{!problem && tool.outcome?.message && <p className="tool-outcome">{tool.outcome.message}</p>}<span>{t("step.result")}</span><pre tabIndex={0}>{tool.result || t("step.no_result")}</pre></div></div></CollapsibleContent></Collapsible.Root>
@@ -83,7 +84,7 @@ export function TaskActivityBody({ owner, head = true, tail = true, allTools, to
         const loaded = (allTools ?? tools).filter(tool => tool.run_id === attempt.id).length;
         return <div key={attempt.id} className="task-record-page">
           {detail?.error && <p>{t("activity.records_unavailable")}</p>}
-          {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <button type="button" className="secondary-button" disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{detail?.loading ? t("activity.loading") : t("activity.load")}{count !== undefined ? ` (${loaded}/${count})` : ""}</button>}
+          {count !== 0 && (detail?.hasMore !== false || (count !== undefined && loaded < count)) && <Button size="sm" busy={detail?.loading} disabled={detail?.loading} onClick={() => void onLoadDetails?.(attempt.id, detail?.loaded ?? 0)}>{`${detail?.loading ? t("activity.loading") : t("activity.load")}${count !== undefined ? ` (${loaded}/${count})` : ""}`}</Button>}
         </div>;
       })}
       {tail && owner.family.attempts.map(attempt => attempt.trace ? <Suspense key={`trace-${attempt.id}`} fallback={null}><WorkTrace run={attempt} /></Suspense> : null)}

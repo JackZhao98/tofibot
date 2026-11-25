@@ -55,9 +55,6 @@
 @media(pointer:coarse){.related-message-link,.message-notice .related-message-link{min-height:44px}}
 
 /* Native select arrows have platform-specific insets; use the same inset as text. */
-.work-member-select{position:relative;margin-bottom:20px}
-.work-member-select .work-member-filter{appearance:none;-webkit-appearance:none;margin:0;padding:12px 44px 12px 16px}
-.work-member-select>svg{position:absolute;right:16px;top:50%;transform:translateY(-50%) rotate(90deg);pointer-events:none;color:var(--muted)}
 
 /* Match App's modal breakpoint. Below this, use the existing accessible drawer. */
 @media(min-width:1100px){

@@ -76,7 +76,6 @@
     "daily_at": "매일 {{time}}",
     "every_minutes_other": "{{count}}분마다",
     "once": "한 번",
-    "manage": "관리",
     "instructions": "전체 지시 사항",
     "pause": "일시 중지",
     "resume": "재개",
