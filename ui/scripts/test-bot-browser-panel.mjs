@@ -111,16 +111,10 @@ try {
     });
     assert.deepEqual(placed, {docked, inColumn: docked, inside: true, popups: 0}, `Bot computer at ${width} px`);
     if (docked) {
-      // Press and drag the screen: the widget column's own reorder engine lifts it (no window drag, no popup).
+      // The docked screen is pressable (it enlarges); widgets are not draggable (V3 5.3).
       await vm.locator('[data-desktop-frame].desktop-live-screen').waitFor({timeout: 15000});
-      const screen = await vm.evaluate(() => { const e = document.querySelector('.widget-column .desktop-enlarge'); const r = e?.getBoundingClientRect(); return r && {x: r.x, y: r.y, width: r.width, height: r.height, n: document.querySelectorAll('.desktop-enlarge').length}; });
+      const screen = await vm.evaluate(() => { const e = document.querySelector('.widget-column .desktop-enlarge'); const r = e?.getBoundingClientRect(); return r && {width: r.width, height: r.height}; });
       assert.ok(screen?.width > 0, `the docked screen is pressable: ${JSON.stringify(screen)}`);
-      await vm.mouse.move(screen.x + screen.width / 2, screen.y + screen.height / 2);
-      await vm.mouse.down();
-      await vm.mouse.move(screen.x + screen.width / 2, screen.y + screen.height / 2 + 40, {steps: 5});
-      assert.equal(await vm.evaluate(() => document.documentElement.hasAttribute('data-widget-dragging') && Boolean(document.querySelector('.widget-column [data-dragging] .desktop-floating-shell'))), true, 'the docked computer lifts for a drag');
-      await vm.keyboard.press('Escape');
-      await vm.mouse.up();
     }
     await vm.close();
   }

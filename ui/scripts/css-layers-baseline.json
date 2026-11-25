@@ -45,7 +45,7 @@
     "global": 1,
     "rootBump": 0,
     "webFork": 0,
-    "important": 16,
+    "important": 0,
     "tokenDef": 0
   },
   "desktop-system.css": {
