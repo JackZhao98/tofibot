@@ -24,11 +24,6 @@
 .cover-leave-dialog h3 { margin:0 0 8px; font:600 18px/1.3 var(--display); }
 .cover-leave-dialog p { margin:0 0 22px; color:var(--ink-soft); font:14px/1.6 var(--body); }
 .cover-leave-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
-.cover-leave-actions button { min-height:40px; padding:0 16px; border:0; border-radius:12px; font:600 13px/1 var(--body); }
-.cover-leave-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-.cover-leave-discard { background:var(--surface-2); color:var(--danger-text); }
-.cover-leave-discard:hover:not(:disabled) { background:var(--sunk); }
-.cover-leave-keep { background:var(--inverse); color:var(--on-inverse); }
 @keyframes cover-leave-scrim-in { from { opacity:0; } }
 @media (prefers-reduced-motion:reduce) { .cover-leave-scrim, .cover-leave-dialog { animation:none; } }
 }

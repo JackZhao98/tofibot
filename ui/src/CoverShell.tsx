@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon } from "./icons";
+import { IconButton } from "./ds/IconButton/IconButton";
 import { CoverContext, requestCoverClose } from "./coverGuard";
 import { ModalDialog } from "./overlays/ModalDialog";
 import type { CoverId } from "./surfaces";
@@ -28,7 +28,7 @@ export function CoverShell({ id, leaving = false, wide = false, returnFocus, onC
     <section className={`cover-window${wide ? " is-wide" : ""}${leaving ? " is-leaving" : ""}`} role="dialog" aria-label={title}>
       <header className="cover-header">
         <h2>{title}</h2>
-        <button ref={closeRef} type="button" className="cover-close" aria-label={t("cover.close", { title })} data-hint={t("cover.close", { title })} onClick={close}><Icon name="close" size={18} /></button>
+        <IconButton ref={closeRef} className="cover-close" icon="close" label={t("cover.close", { title })} onClick={close} />
       </header>
       <div className="cover-body">{children}</div>
     </section>
