@@ -1,13 +1,10 @@
 import { CASCADE, MOTION, EASE } from "./motion";
 
 /*
- * Arrival cascade. When a whole message arrives under a reader who is following the bottom, the scroll position lands
- * exactly where it belongs in that same frame; what the reader sees is a visual offset (the individual `translate`
- * property, composited, nothing in React state) on the messages in view that settles to 0:
- *   - the new message comes first and rises in from below (it starts CASCADE.enterExtraPx lower than the content it pushes);
- *   - every message further up starts CASCADE.staggerMs later than the one below it, so a wave travels up the pane, the
- *     impulse handed from link to link like a Newton's cradle;
- *   - each is a slightly under-damped spring: it passes its true place by 2-4 px, springs back and is home at 0.
+ * Arrival glide (V3, PLAN 8.2). When a whole message arrives under a reader who is following the bottom, the scroll
+ * position lands exactly where it belongs in that same frame; what the reader sees is a visual offset (the individual
+ * `translate` property, composited, nothing in React state) on the rows in view that glides to 0: 420ms on the out
+ * curve, nearest row first, 16ms later for every row above, capped at 8. No overshoot, no extra rise.
  * Layout, scrollTop and scrollHeight never change during it, so nothing shifts and the pane's position is always exact.
  */
 
@@ -17,35 +14,6 @@ const config = (): Config => ({ ...CASCADE, ...((window as unknown as { __TOFI_C
 const TAG = "tofi-cascade";
 /** A safety ceiling on how many blocks can ever be animated at once (a very tall window of very short messages). */
 const HARD_LINKS = 40;
-
-/** Normalised damped-spring step response from 1 toward 0 that first crosses 0 at tc and rings out; s(0)=1, s'(0)=0. */
-function spring(t: number, zeta: number, crossAt: number) {
-  const phi = Math.asin(zeta);
-  const wd = (Math.PI / 2 + phi) / crossAt;
-  const w = wd / Math.sqrt(1 - zeta * zeta);
-  return Math.exp(-zeta * w * t) * Math.cos(wd * t - phi) / Math.cos(phi);
-}
-
-/** The damping that makes a spring starting `start` px away pass its resting place by `overshoot` px. */
-function dampingFor(start: number, overshoot: number) {
-  const ratio = Math.min(0.4, Math.max(0.01, overshoot / start));
-  const ln = -Math.log(ratio);
-  return ln / Math.sqrt(Math.PI * Math.PI + ln * ln);
-}
-
-/** Keyframes of one message's offset: start px below its place -> past it by `overshoot` -> 0. */
-export function cascadeKeyframes(start: number, overshoot: number, crossShare: number, samples: number): Keyframe[] {
-  const zeta = dampingFor(start, overshoot);
-  const frames: Keyframe[] = [];
-  for (let i = 0; i <= samples; i++) {
-    const tau = i / samples;
-    // The ring-out is faded to exactly 0 over the last 14% so the motion ends on the true position, not near it.
-    const fade = tau < 0.86 ? 1 : 0.5 + 0.5 * Math.cos(Math.PI * (tau - 0.86) / 0.14);
-    const y = i === samples ? 0 : start * spring(tau, zeta, crossShare) * fade;
-    frames.push({ offset: tau, translate: `0 ${y.toFixed(2)}px` });
-  }
-  return frames;
-}
 
 function currentOffset(el: HTMLElement) {
   const value = getComputedStyle(el).translate;
@@ -81,13 +49,14 @@ export function playArrivalCascade(scroller: HTMLElement, shift: number) {
   const cfg = config();
   const chain = links(scroller, cfg.maxLinks);
   if (!chain.length) return false;
+  // A press holds the glide; one that starts under the held press waits paused too, so nothing moves under the pointer.
+  const held = typeof document.getAnimations === "function" && document.getAnimations().some(x => x.id === TAG && x.playState === "paused" && x.effect instanceof KeyframeEffect && x.effect.target instanceof Node && scroller.contains(x.effect.target));
   const carried = chain.map(el => { const y = currentOffset(el); for (const a of el.getAnimations()) if (a.id === TAG) a.cancel(); return y; });
   chain.forEach((el, k) => {
-    const lead = k === 0;
-    const start = shift + carried[k] + (lead ? cfg.enterExtraPx : 0);
-    const overshoot = Math.max(cfg.overshootMinPx, cfg.overshootPx - k * cfg.overshootTaperPx);
-    const cross = lead ? cfg.crossShare * cfg.leadSpeedup : cfg.crossShare;
-    el.animate(cascadeKeyframes(start, overshoot, cross, cfg.samples), { id: TAG, duration: cfg.durationMs, delay: Math.min(k, cfg.maxLinks - 1) * cfg.staggerMs, easing: "linear", fill: "backwards" });
+    // V3: one shared shift, a straight glide home on the out curve; every row from the 8th up shares the last delay.
+    const start = shift + carried[k] + (k === 0 ? cfg.enterExtraPx : 0);
+    const glide = el.animate([{ translate: `0 ${start.toFixed(2)}px` }, { translate: "0 0" }], { id: TAG, duration: cfg.durationMs, delay: Math.min(k, cfg.maxLinks - 1) * cfg.staggerMs, easing: EASE.out, fill: "backwards" });
+    if (held) glide.pause();
   });
   return true;
 }
@@ -103,7 +72,8 @@ export function holdArrivalCascade(scroller: HTMLElement, hold: boolean) {
   if (typeof document.getAnimations !== "function") return;
   for (const a of document.getAnimations()) {
     if (a.id !== TAG || !(a.effect instanceof KeyframeEffect) || !(a.effect.target instanceof Node) || !scroller.contains(a.effect.target)) continue;
-    if (hold && a.playState === "running") a.pause();
+    // Pause every glide that has not finished, including one still waiting on its stagger delay or not yet started.
+    if (hold && a.playState !== "finished" && a.playState !== "paused") a.pause();
     else if (!hold && a.playState === "paused") a.play();
   }
 }

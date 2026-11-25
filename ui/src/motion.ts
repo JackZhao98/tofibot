@@ -30,15 +30,11 @@ export const SPRING = {
 // a few px and settling back. Tunable live: assign window.__TOFI_CASCADE = { staggerMs: 25 } in the console (merged over
 // these values on the next arrival).
 export const CASCADE = {
-  staggerMs: 15,        // start delay between neighbouring messages, nearest the new one first
-  durationMs: 240,      // one message's whole motion, its own delay excluded (last of 12: 11 * 15 + 240 = 405 ms)
-  crossShare: 0.45,     // share of durationMs until a message first reaches its true place; it passes it by 2-4 px at ~0.75 and is home by 1
-  leadSpeedup: 0.85,    // the new message's crossing time as a share of the others' (it is the impulse)
-  overshootPx: 3.8,     // how far the nearest message passes its true place; 2-4 px by design
-  overshootTaperPx: 0.13, // less for every link further up
-  overshootMinPx: 2.4,
-  enterExtraPx: 24,     // the new message starts this much lower than the content it pushes, so it rises in from below
-  maxLinks: 12,         // the chain staggers over this many links; every further message in view shares the last link's delay
-  maxShiftPx: 130,      // the cascade carries at most this much of a hop; a taller block hands the rest to the ordinary glide
-  samples: 26,          // keyframes per message (linear between)
+  // V3 arrival glide (PLAN 8.2): rows above glide up 420ms ease-out; nearest first, +16ms per row, capped at 8.
+  // No overshoot and no extra rise (V3 removed the spring and the 24px rise); the new message goes up with the rest.
+  staggerMs: 16,
+  durationMs: 420,
+  enterExtraPx: 0,
+  maxLinks: 8,
+  maxShiftPx: 130,      // the glide carries at most this much of a hop; a taller block hands the rest to the ordinary scroll
 } as const;
