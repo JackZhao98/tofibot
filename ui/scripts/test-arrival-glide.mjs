@@ -143,7 +143,7 @@ const startCascadeTrace = page => page.evaluate(() => {
 });
 const stopCascadeTrace = page => page.evaluate(() => { window.__ctOn = false; return { trace: window.__ct, ls: window.__ls }; });
 
-await check("a whole message arrives as a spring chain: staggered bottom-first, 2-4 px overshoot, home in ~400 ms, nothing shifts", async () => {
+await check("a whole message arrives as the V3 glide: staggered bottom-first, no overshoot, home within 420 + 7 x 16 ms, nothing shifts", async () => {
   const { page, context, errors } = await open({ compact: true, height: 1150 });
   const bottom = await page.evaluate(() => { const s = document.querySelector(".message-scroll"); return s.scrollHeight - s.clientHeight - s.scrollTop; });
   assert.ok(bottom <= 2, `starts at the bottom (${bottom}px away)`);
@@ -214,8 +214,8 @@ await check("a whole message arrives as a spring chain: staggered bottom-first, 
   report.cascade = { links: chain.length, perLinkMs: +perLink.toFixed(1), overshootPx: overshoot.map(v => +v.toFixed(1)), settledMs: +settledAt.toFixed(0), finalOffsets: finals.map(v => +v.toFixed(3)), startOffsetPx: +startGap.toFixed(1), scrollMoves, heightMoves, cls: +cls.toFixed(4), minGapPx: +minGap.toFixed(1), finalGapPx: +finalGapAtMin.toFixed(1), frameMax: +Math.max(...frames).toFixed(1) };
   console.log("    cascade", JSON.stringify(report.cascade));
   assert.ok(perLink >= 8 && perLink <= 24, `per-link delay ${perLink.toFixed(1)} ms measured over the chain (want ~${CASCADE.staggerMs})`);
-  overshoot.forEach((v, k) => assert.ok(v >= 2 - 0.15 && v <= 4 + 0.05, `link ${k} overshoots by ${v.toFixed(2)} px (want 2-4)`));
-  assert.ok(settledAt <= 450 + THROTTLE * 10, `settled after ${settledAt.toFixed(0)} ms (want ~400)`);
+  overshoot.forEach((v, k) => assert.ok(v <= 0.5, `link ${k} overshoots by ${v.toFixed(2)} px (V3: no overshoot)`));
+  assert.ok(settledAt <= 420 + 7 * 16 + 34 + THROTTLE * 10, `settled after ${settledAt.toFixed(0)} ms (V3: last row home within 532 ms + 2 frames)`);
   finals.forEach(v => assert.ok(Math.abs(v) < 0.01, `a message ended ${v}px off its place`));
   assert.ok(Math.abs(startGap) <= 2, `the message above the new one jumped ${startGap.toFixed(1)}px when the block rendered`);
   assert.equal(scrollMoves, 0, `scrollTop changed on ${scrollMoves} frames after landing: the scroll must be exact`);
@@ -483,37 +483,14 @@ await check("a press while scrolled far up does not pull the reader to the botto
   await context.close();
 });
 
-await check("viewing a message's activity opens the record as a drawer, not in one frame", async () => {
+await check("viewing a message's activity opens the Activity sidebar view (V3 4.3a), not a drawer in the conversation", async () => {
   const { page, context, errors } = await open();
   const target = page.locator('[data-message-id="m39"] .message-content');
   await target.hover();
   await page.locator('[data-action="activity"]').waitFor({ timeout: 5000 });
-  await page.evaluate(() => {
-    window.__rec = []; window.__recOn = true;
-    const tick = t => {
-      const records = document.querySelector(".task-activity > .collapsible-content");
-      window.__rec.push({ t, h: records ? records.getBoundingClientRect().height : -1, open: Boolean(document.querySelector(".task-activity[data-state=open]")) });
-      if (window.__recOn) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
-  const t0 = await page.evaluate(() => performance.now());
   await page.locator('[data-action="activity"]').click();
-  await page.waitForTimeout(900);
-  const rec = await page.evaluate(() => { window.__recOn = false; return window.__rec; });
-  const grown = rec.filter(f => f.t >= t0 && f.h >= 0);
-  const final = grown.at(-1)?.h ?? 0;
-  // The compact Activity list has no padding or rule of its own, so the settled record can be one line (~28 px), and loading
-  // rows that disappear as the page arrives make the drawer's peak taller than its settled height: judge the opening
-  // against the peak, between 10% and 90% of it.
-  const peak = Math.max(...grown.map(f => f.h));
-  const mid = grown.filter(f => f.h > peak * 0.1 && f.h < peak * 0.9).length;
-  const frames = grown.slice(1).map((f, i) => f.t - grown[i].t);
-  report.reveal = { finalHeight: +final.toFixed(0), framesInBetween: mid, frameMax: +Math.max(...frames).toFixed(1) };
-  console.log("    reveal", JSON.stringify(report.reveal));
-  assert.ok(final > 20, `the record opened (${final}px)`);
-  assert.ok(mid >= 3, `the record grew over ${mid} frames instead of appearing at once`);
-  assert.ok(Math.max(...frames) <= 34 * THROTTLE ** 0.5 + 2, `a frame took ${Math.max(...frames)} ms`);
+  await page.locator(".sidebar-pane .is-activity-view").waitFor({ timeout: 5000 });
+  assert.equal(await page.locator(".message-list .task-activity[data-state=open]").count(), 0, "no drawer opens inside the conversation");
   assert.deepEqual(errors, []);
   await context.close();
 });
