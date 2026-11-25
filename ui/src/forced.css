@@ -12,7 +12,7 @@
 @media (prefers-reduced-motion:reduce){.bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bs-button, .bot-style-pop, .bot-style-pop button, .bs-section{transition:none!important;animation:none!important}}
 @media (prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}
 @media (prefers-reduced-motion:reduce){.mcp-service-status i{animation:none!important}}
-@media (prefers-reduced-motion:reduce){.onb-waiting i, .onb-sheet, .onb-progress i::after{animation:none!important;transition:none!important}}
+@media (prefers-reduced-motion:reduce){.onb-sheet, .onb-progress i::after{animation:none!important;transition:none!important}}
 
 /* iOS Safari zooms the page when a focused field computes below 16px; the zoom also disables the keyboard handler. */
 @media (pointer:coarse),(any-pointer:coarse){input:not([type=checkbox],[type=radio],[type=range],[type=file],[type=color],[type=button],[type=submit],[type=hidden]),textarea,select{font-size:16px!important}}

@@ -1,8 +1,15 @@
-import * as RadioGroup from "@radix-ui/react-radio-group";
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api, ApiError, request } from "./api";
+import { Badge } from "./ds/Badge/Badge";
+import { Banner } from "./ds/Banner/Banner";
 import { Button } from "./ds/Button/Button";
-import { TofiIcon } from "./icons";
+import { Card } from "./ds/Card/Card";
+import { Field } from "./ds/Field/Field";
+import { Icon } from "./ds/Icon/Icon";
+import { Segmented } from "./ds/Segmented/Segmented";
+import { SettingsRow } from "./ds/SettingsRow/SettingsRow";
+import { Tag } from "./ds/Tag/Tag";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { Disclosure } from "./InteractionPrimitives";
 import { effortLabels } from "./ModelSettings";
 import { OnboardingServices, type ServicesStatus } from "./OnboardingServices";
@@ -15,6 +22,7 @@ import "./onboarding.css";
 import { ModalDialog } from "./overlays/ModalDialog";
 import { usePolicy } from "./capabilityPolicy";
 import { Select } from "./Select";
+import { Panel, Waiting } from "./onboardingParts";
 
 const OnboardingServer = lazy(() => import("./OnboardingServer"));
 
@@ -71,7 +79,7 @@ export function Onboarding(props: OnboardingProps) {
             {[1, 2, 3].map(index => <i key={index} data-state={index < step ? "done" : index === step ? "current" : "todo"} />)}
           </div>
           <span className="onb-count">{t("onboarding.step_of", { step, total: ONBOARDING_STEPS })}{status && <> · {status}</>}</span>
-          <button type="button" className="onb-skip" onClick={skip}>{skipLabel}</button>
+          <Button variant="ghost" size="sm" className="onb-skip" onClick={skip}>{skipLabel}</Button>
         </header>
         <div className="onb-step" data-dir={direction} key={step}>
           {step === 1 && <Welcome titleId={titleId} onStart={() => go(2)} onSkip={props.onSkip} />}
@@ -90,7 +98,7 @@ function Welcome({ titleId, onStart, onSkip }: { titleId: string; onStart: () =>
   return (
     <>
       <div className="onb-body onb-welcome">
-        <div className="onb-art" aria-hidden="true"><img src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="96" height="96" decoding="async" /></div>
+        <Card variant="block" className="onb-art" aria-hidden="true"><img src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="96" height="96" decoding="async" /></Card>
         <h2 id={titleId} className="onb-title">{t("onboarding.welcome_title")}</h2>
         <p className="onb-lede">{t("onboarding.welcome_body")}</p>
       </div>
@@ -99,15 +107,6 @@ function Welcome({ titleId, onStart, onSkip }: { titleId: string; onStart: () =>
         <Button variant="primary" className="onb-primary" type="button" iconAfter="arrow-right" data-autofocus onClick={onStart}>{t("onboarding.welcome_start")}</Button>
       </footer>
     </>
-  );
-}
-
-/** A short radiogroup: the thinking levels of a model, or the two key providers. */
-function OnbSegmented<T extends string>({ value, options, onChange, label, disabled = false }: { value: T; options: readonly { value: T; label: ReactNode }[]; onChange: (value: T) => void; label: string; disabled?: boolean }) {
-  return (
-    <RadioGroup.Root value={value} onValueChange={onChange} disabled={disabled} className="onb-seg" aria-label={label}>
-      {options.map(option => <RadioGroup.Item key={option.value} value={option.value}>{option.label}</RadioGroup.Item>)}
-    </RadioGroup.Root>
   );
 }
 
@@ -270,100 +269,81 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   if (provided) {
     body = modelConfigured
       ? <p className="onb-lede onb-lede-left" role="status">{t("onboarding.provided_body")}</p>
-      : <div className="onb-panel onb-waiting-admin" data-state="org_resource_missing" role="status"><p className="onb-waiting"><TofiIcon name="lock" size={15} /> {t("onboarding.waiting_title")}</p><p className="onb-small">{t("onboarding.waiting_body")}</p></div>;
+      : <Panel className="onb-waiting-admin" data-state="org_resource_missing" role="status"><p className="onb-waiting"><Icon name="lock" size={15} /> {t("onboarding.waiting_title")}</p><p className="onb-small">{t("onboarding.waiting_body")}</p></Panel>;
   } else if (connected) {
     body = (
       <>
-        <div className="onb-connected" role="status">
-          <img className="onb-connected-cat" src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="72" height="72" decoding="async" aria-hidden="true" />
-          <div>
-            <strong><TofiIcon name="check-circle" size={18} /> {providerName || t("onboarding.model_generic")}</strong>
-            <p>{t("onboarding.connected_ready")}</p>
-            {defaults?.model && <p className="onb-chips"><code>{t("onboarding.chip_default", { model: selectedModel?.name ?? defaults.model })}</code>{efforts.length > 0 && defaults.reasoning_effort && <code>{t("onboarding.chip_thinking", { effort: shortEffortLabel(defaults.reasoning_effort, labels) })}</code>}</p>}
-          </div>
-        </div>
-        {botNote && <p className="onb-note" role="status">{t("onboarding.first_bot_failed")}</p>}
-        <div className="onb-advanced">
-          <Disclosure title={t("onboarding.advanced")}>
-            {defaults && catalog && (
-              <div className="onb-adv-rows">
-                <div className="onb-adv-row">
-                  <div><label htmlFor="model-default-select">{t("onboarding.adv_model")}</label><p>{t("onboarding.adv_model_hint")}</p></div>
-                  <Select id="model-default-select" value={defaults.model} onValueChange={value => { const next = catalog.models.find(item => item.id === value); void saveDefaults(value, effortForModel(next, defaults.reasoning_effort)); }}>
-                    {!selectedModel && <option value={defaults.model}>{defaults.model}</option>}
-                    {groupModels(catalog.models).map(group => <optgroup key={group.provider} label={group.label}>{group.models.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</optgroup>)}
-                  </Select>
+        <div role="status"><Banner tone="done" className="onb-connected" title={providerName || t("onboarding.model_generic")}>{t("onboarding.connected_ready")}</Banner></div>
+        {defaults?.model && <div className="onb-chips"><Tag>{t("onboarding.chip_default", { model: selectedModel?.name ?? defaults.model })}</Tag>{efforts.length > 0 && defaults.reasoning_effort && <Tag>{t("onboarding.chip_thinking", { effort: shortEffortLabel(defaults.reasoning_effort, labels) })}</Tag>}</div>}
+        {botNote && <div role="status"><Banner tone="warning" className="onb-note">{t("onboarding.first_bot_failed")}</Banner></div>}
+        <Card variant="quiet" pad={false} className="onb-advanced">
+          <>
+            <Disclosure title={t("onboarding.advanced")}>
+              {defaults && catalog && (
+                <div className="onb-adv-rows">
+                  <SettingsRow label={t("onboarding.adv_model")} hint={t("onboarding.adv_model_hint")} htmlFor="model-default-select" fill>
+                    <Select id="model-default-select" value={defaults.model} onValueChange={value => { const next = catalog.models.find(item => item.id === value); void saveDefaults(value, effortForModel(next, defaults.reasoning_effort)); }}>
+                      {!selectedModel && <option value={defaults.model}>{defaults.model}</option>}
+                      {groupModels(catalog.models).map(group => <optgroup key={group.provider} label={group.label}>{group.models.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</optgroup>)}
+                    </Select>
+                  </SettingsRow>
+                  {efforts.length > 0 && (
+                    <SettingsRow label={t("onboarding.adv_thinking")} hint={t("onboarding.adv_thinking_hint")} htmlFor={efforts.length <= 4 ? undefined : "model-effort-select"} fill={efforts.length > 4}>
+                      {efforts.length <= 4
+                        ? <Segmented className="onb-seg" label={t("onboarding.adv_thinking")} value={defaults.reasoning_effort} options={efforts.map(value => ({ value, label: shortEffortLabel(value, labels) }))} onChange={value => void saveDefaults(defaults.model, value)} />
+                        : <Select id="model-effort-select" value={efforts.includes(defaults.reasoning_effort) ? defaults.reasoning_effort : ""} onValueChange={value => void saveDefaults(defaults.model, value)}>
+                          {!efforts.includes(defaults.reasoning_effort) && <option value="">{t("settings:model.model_default")}</option>}
+                          {efforts.map(value => <option key={value} value={value}>{labels[value] ?? value}</option>)}
+                        </Select>}
+                    </SettingsRow>
+                  )}
                 </div>
-                {efforts.length > 0 && (
-                  <div className="onb-adv-row">
-                    <div><label htmlFor="model-effort-select">{t("onboarding.adv_thinking")}</label><p>{t("onboarding.adv_thinking_hint")}</p></div>
-                    {efforts.length <= 4
-                      ? <OnbSegmented label={t("onboarding.adv_thinking")} value={defaults.reasoning_effort} options={efforts.map(value => ({ value, label: shortEffortLabel(value, labels) }))} onChange={value => void saveDefaults(defaults.model, value)} />
-                      : <Select id="model-effort-select" value={efforts.includes(defaults.reasoning_effort) ? defaults.reasoning_effort : ""} onValueChange={value => void saveDefaults(defaults.model, value)}>
-                        {!efforts.includes(defaults.reasoning_effort) && <option value="">{t("settings:model.model_default")}</option>}
-                        {efforts.map(value => <option key={value} value={value}>{labels[value] ?? value}</option>)}
-                      </Select>}
-                  </div>
-                )}
-              </div>
-            )}
-            {saveError && <p className="onb-error" role="alert">{t("onboarding.defaults_failed")}</p>}
-          </Disclosure>
-        </div>
+              )}
+              {saveError && <Banner tone="error" className="onb-error">{t("onboarding.defaults_failed")}</Banner>}
+            </Disclosure>
+          </>
+        </Card>
       </>
     );
   } else {
     body = (
       <>
         <p className="onb-lede onb-lede-left">{t("onboarding.model_body")}</p>
-        <RadioGroup.Root value={choice} onValueChange={value => { setChoice(value as typeof choice); setError(null); }} disabled={busy} className="onb-choices" aria-label={t("onboarding.model_title")}>
-          <RadioGroup.Item value="chatgpt" className="onb-choice">
-            <span className="onb-choice-badge">{t("onboarding.easiest")}</span>
-            <span className="onb-choice-icon"><TofiIcon name="user" size={18} /></span>
-            <strong>{t("onboarding.chatgpt_title")}</strong>
-            <small>{t("onboarding.chatgpt_body")}</small>
-          </RadioGroup.Item>
-          <RadioGroup.Item value="key" className="onb-choice">
-            <span className="onb-choice-icon"><TofiIcon name="key" size={18} /></span>
-            <strong>{t("onboarding.key_title")}</strong>
-            <small>{t("onboarding.key_body")}</small>
-          </RadioGroup.Item>
-          <RadioGroup.Item value="server" className="onb-choice" data-choice="server">
-            <span className="onb-choice-icon"><TofiIcon name="globe" size={18} /></span>
-            <strong>{t("onboarding.server_title")}</strong>
-            <small>{t("onboarding.server_body")}</small>
-          </RadioGroup.Item>
-        </RadioGroup.Root>
+        <Segmented className="onb-choices" label={t("onboarding.model_title")} value={choice} disabled={busy}
+          options={[{ value: "chatgpt", label: t("onboarding.chatgpt_title")}, { value: "key", label: t("onboarding.key_title")}, { value: "server", label: t("onboarding.server_title")}]}
+          onChange={value => { setChoice(value); setError(null); }} />
+        <p className="onb-small onb-choice-body">{choice === "chatgpt" && <><Badge tone="info" icon={null}>{t("onboarding.easiest")}</Badge>{" "}</>}{choice === "chatgpt" ? t("onboarding.chatgpt_body") : choice === "server" ? t("onboarding.server_body") : t("onboarding.key_body")}</p>
         <p className="onb-small onb-cost" data-cost={choice === "chatgpt" ? "plan" : choice === "server" ? "endpoint" : "api"}>{choice === "chatgpt" ? t("settings:providers.cost.plan") : choice === "server" ? t("settings:providers.cost.endpoint") : t("settings:providers.cost.api_setup")}</p>
-        {choice === "chatgpt" && (phase === "waiting" || (phase === "error" && !key)) && (
-          <div className="onb-panel" aria-live="polite">
-            {phase === "waiting" ? <>
-              <p className="onb-waiting"><i aria-hidden="true" />{t("onboarding.wait_title")}</p>
-              <p className="onb-small">{t("onboarding.wait_body")}</p>
-              {session && <>
-                <span className="onb-code-label">{t("onboarding.code_label")}</span>
-                <code className="onb-code">{session.code}</code>
-                <div className="onb-code-actions">
-                  <Button variant="secondary" icon="copy" onClick={() => void copyCode()}>{copied ? t("onboarding.copied") : t("onboarding.copy_code")}</Button>
-                  <a className="onb-link" href={session.url} target="_blank" rel="noopener noreferrer">{t("onboarding.open_sign_in")}</a>
-                </div>
-              </>}
-              {slow && <p className="onb-small">{t("onboarding.taking_longer")}</p>}
-            </> : error && <p className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error.text}</p>}
-          </div>
+        {choice === "chatgpt" && phase === "waiting" && (
+          <Panel aria-live="polite">
+            <Waiting>{t("onboarding.wait_title")}</Waiting>
+            <p className="onb-small">{t("onboarding.wait_body")}</p>
+            {session && <>
+              <span className="onb-code-label">{t("onboarding.code_label")}</span>
+              <code className="onb-code">{session.code}</code>
+              <div className="onb-code-actions">
+                <Button variant="secondary" icon="copy" onClick={() => void copyCode()}>{copied ? t("onboarding.copied") : t("onboarding.copy_code")}</Button>
+                <a className="onb-link" href={session.url} target="_blank" rel="noopener noreferrer">{t("onboarding.open_sign_in")}</a>
+              </div>
+            </>}
+            {slow && <p className="onb-small">{t("onboarding.taking_longer")}</p>}
+          </Panel>
         )}
-        {choice === "server" && <Suspense fallback={<div className="onb-panel" aria-busy="true" />}><OnboardingServer formId="onb-server-form" onBusy={setServerBusy} onConnected={() => finishConnect("server")} /></Suspense>}
+        {choice === "chatgpt" && phase === "error" && !key && error && <Banner tone="error" className="onb-error">{error.text}</Banner>}
+        {choice === "server" && <Suspense fallback={<Panel aria-busy="true"><span /></Panel>}><OnboardingServer formId="onb-server-form" onBusy={setServerBusy} onConnected={() => finishConnect("server")} /></Suspense>}
         {choice === "key" && (
-          <div className="onb-panel onb-keyform">
-            <OnbSegmented label={t("onboarding.key_provider")} value={provider} disabled={busy} options={[{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }]} onChange={value => { setProvider(value); setError(null); setPhase("idle"); }} />
-            <div className="onb-keyhead"><label htmlFor="onb-key">{t("onboarding.key_field", { provider: keyLabels[provider] })}</label><a className="onb-link" href={keyHelp[provider].keys} target="_blank" rel="noopener noreferrer">{t("onboarding.key_where")}</a></div>
-            <form id="onb-key-form" className="onb-keyrow" onSubmit={event => { event.preventDefault(); void checkKey(); }}>
-              <input id="onb-key" ref={keyInput} type="password" name={`${provider}-api-key`} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={provider === "openai" ? "sk-…" : "sk-ant-…"} value={key} disabled={busy} aria-invalid={phase === "error"} aria-describedby={phase === "error" ? "onb-key-error" : undefined} onChange={event => { setKey(event.target.value); if (phase === "error") { setPhase("idle"); setError(null); } }} data-autofocus />
+          <Panel className="onb-keyform">
+            <Segmented className="onb-seg" label={t("onboarding.key_provider")} value={provider} disabled={busy} options={[{ value: "openai", label: "OpenAI" }, { value: "anthropic", label: "Anthropic" }]} onChange={value => { setProvider(value); setError(null); setPhase("idle"); }} />
+            <form id="onb-key-form" onSubmit={event => { event.preventDefault(); void checkKey(); }}>
+              <Field id="onb-key" label={t("onboarding.key_field", { provider: keyLabels[provider] })}
+                error={phase === "error" && error ? <span role="alert">{error.text}{error.billing && <> <a className="onb-link" href={keyHelp[provider].billing} target="_blank" rel="noopener noreferrer">{t("onboarding.open_billing")}</a></>}</span> : undefined}>
+                <TextInput mono ref={keyInput} type="password" name={`${provider}-api-key`} autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={provider === "openai" ? "sk-…" : "sk-ant-…"} value={key} disabled={busy} onChange={event => { setKey(event.target.value); if (phase === "error") { setPhase("idle"); setError(null); } }} data-autofocus />
+              </Field>
             </form>
-            {provider === "anthropic" && <div className="onb-keyhead onb-workspace"><label htmlFor="onb-workspace">{t("settings:providers.workspace_label")}</label><input id="onb-workspace" form="onb-key-form" type="text" autoComplete="off" spellCheck={false} placeholder="wrkspc_…" aria-describedby="onb-workspace-note" value={workspace} disabled={busy} onChange={event => { setWorkspace(event.target.value); setError(null); }} /><p id="onb-workspace-note" className="onb-small">{t("settings:providers.workspace_note")}</p></div>}
-            {phase === "checking" && <p className="onb-waiting" role="status"><i aria-hidden="true" />{slow ? t("onboarding.taking_longer") : t("onboarding.key_checking")}</p>}
-            {phase === "error" && error && <p id="onb-key-error" className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error.text}{error.billing && <> <a className="onb-link" href={keyHelp[provider].billing} target="_blank" rel="noopener noreferrer">{t("onboarding.open_billing")}</a></>}</p>}
-          </div>
+            <a className="onb-link" href={keyHelp[provider].keys} target="_blank" rel="noopener noreferrer">{t("onboarding.key_where")}</a>
+            {provider === "anthropic" && <Field id="onb-workspace" label={t("settings:providers.workspace_label")} hint={t("settings:providers.workspace_note")}><TextInput mono form="onb-key-form" type="text" autoComplete="off" spellCheck={false} placeholder="wrkspc_…" value={workspace} disabled={busy} onChange={event => { setWorkspace(event.target.value); setError(null); }} /></Field>}
+            {phase === "checking" && <Waiting role="status">{slow ? t("onboarding.taking_longer") : t("onboarding.key_checking")}</Waiting>}
+          </Panel>
         )}
       </>
     );
@@ -373,7 +353,7 @@ function ModelStep({ titleId, modelConfigured, bot, onModelChanged, onBot, onBac
   if (provided) foot = <><Button variant="ghost" className="onb-quiet" onClick={onBack}>{t("onboarding.back")}</Button>{!modelConfigured && <Button variant="primary" className="onb-primary" type="button" data-autofocus disabled={checking} onClick={() => { setChecking(true); void onModelChanged().finally(() => { if (alive.current) setChecking(false); }); }}>{checking ? t("onboarding.key_checking_short") : t("onboarding.waiting_check")}</Button>}</>;
   else if (connected) foot = <><span /><Button variant="primary" className="onb-primary" type="button" iconAfter="arrow-right" data-autofocus onClick={onNext}>{t("onboarding.next")}</Button></>;
   else if (phase === "waiting" && choice === "chatgpt") foot = <><Button variant="ghost" className="onb-quiet" onClick={cancelChatGPT}>{t("onboarding.cancel")}</Button><Button variant="primary" className="onb-primary" type="button" disabled>{t("onboarding.waiting")}</Button></>;
-  else if (choice === "chatgpt") foot = <><span className="onb-lock"><TofiIcon name="lock" size={14} /> {t("onboarding.private_note")}</span><Button variant="primary" className="onb-primary" type="button" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</Button></>;
+  else if (choice === "chatgpt") foot = <><span className="onb-lock"><Icon name="lock" size={14} /> {t("onboarding.private_note")}</span><Button variant="primary" className="onb-primary" type="button" data-autofocus onClick={() => void startChatGPT()}>{phase === "error" ? t("onboarding.sign_in_again") : continueLabel}</Button></>;
   else if (choice === "server") foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="submit" form="onb-server-form" disabled={serverBusy}>{serverBusy ? t("onboarding.key_checking_short") : t("onboarding.server_connect")}</Button></>;
   else if (choice === "key") foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="submit" form="onb-key-form" disabled={busy || !key.trim() || provider === "anthropic" && !workspace.trim()}>{phase === "checking" ? t("onboarding.key_checking_short") : phase === "error" ? t("onboarding.key_try_again") : t("onboarding.key_connect")}</Button></>;
   else foot = <><Button variant="ghost" className="onb-quiet" disabled={busy} onClick={onBack}>{t("onboarding.back")}</Button><Button variant="primary" className="onb-primary" type="button" disabled>{t("onboarding.next")}</Button></>;

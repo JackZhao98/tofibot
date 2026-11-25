@@ -183,14 +183,14 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     // 2. Model, default state.
     await page.getByRole("button", { name: /Let.s set up your crew|Los geht/ }).click();
     await page.getByRole("radio").first().waitFor();
-    assert.equal(await page.locator(".onb-choice[aria-checked='true']").count(), 1);
-    assert.equal(await page.locator(".onb-choice").first().getAttribute("aria-checked"), "true", "ChatGPT is the default choice");
+    assert.equal(await page.locator(".onb-choices [role='radio'][aria-checked='true']").count(), 1);
+    assert.equal(await page.locator(".onb-choices [role='radio']").first().getAttribute("aria-checked"), "true", "ChatGPT is the default choice");
     assert.ok((await page.locator(".onb-count").innerText()).startsWith(locale.startsWith("de") ? "Schritt 2 von 3" : "Step 2 of 3"));
     assert.ok((await overflow(page)) <= 0);
     if (strict) await assertNoTruncation(page, "model default");
     await shoot(page, "2-model-default");
 
-    const choices = page.locator(".onb-choice");
+    const choices = page.locator(".onb-choices [role='radio']");
     await choices.nth(1).click();
     assert.equal(await choices.nth(1).getAttribute("aria-checked"), "true", "the API key radio can be clicked");
     await choices.first().click();
@@ -200,18 +200,18 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     const arrow = async key => { await page.keyboard.down(key); await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 0))); await page.keyboard.up(key); };
     await choices.first().focus();
     await arrow("ArrowRight");
-    await page.waitForFunction(() => document.querySelectorAll(".onb-choice")[1]?.getAttribute("aria-checked") === "true");
+    await page.waitForFunction(() => document.querySelectorAll(".onb-choices [role='radio']")[1]?.getAttribute("aria-checked") === "true");
     assert.equal(await choices.nth(1).evaluate(el => el === document.activeElement), true, "Radix moves focus and selection together");
     await arrow("ArrowLeft");
-    await page.waitForFunction(() => document.querySelector(".onb-choice")?.getAttribute("aria-checked") === "true");
+    await page.waitForFunction(() => document.querySelector(".onb-choices [role='radio']")?.getAttribute("aria-checked") === "true");
     assert.equal(await choices.evaluateAll(items => items.filter(el => el.tabIndex === 0).length), 1, "one radio tab stop");
 
     // 2b. ChatGPT waiting state: lagoon dot, code, Copy, Cancel.
     await page.locator(".onb-primary").click();
     await page.locator(".onb-code").waitFor();
     assert.equal((await page.locator(".onb-code").innerText()).trim(), CODE);
-    await page.locator(".onb-waiting i").waitFor();
-    assert.ok((await page.locator(".onb-waiting i").evaluate(node => getComputedStyle(node).animationName)) !== "", "waiting dot present");
+    await page.locator(".onb-waiting .tb-breath").waitFor();
+    assert.ok((await page.locator(".onb-waiting .tb-breath").evaluate(node => getComputedStyle(node).animationName)) !== "", "waiting dot present");
     assert.ok((await overflow(page)) <= 0);
     if (strict) await assertNoTruncation(page, "chatgpt waiting");
     await shoot(page, "3-chatgpt-waiting");
@@ -221,15 +221,15 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     await page.locator(".onb-code").waitFor({ state: "detached" });
 
     // 2c. API key: checking, then an inline error, then success.
-    await page.locator(".onb-choice").nth(1).click();
+    await page.locator(".onb-choices [role='radio']").nth(1).click();
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
     await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
     await page.getByText(/Checking your key|Dein Schlüssel wird geprüft/).waitFor();
     assert.equal(await page.locator("#onb-key").isDisabled(), true, "the field is locked while checking");
     if (strict) await assertNoTruncation(page, "key checking");
     await shoot(page, "4-key-checking");
-    await page.locator("#onb-key-error").waitFor();
-    assert.match(await page.locator("#onb-key-error").innerText(), /sk-/);
+    await page.locator(".onb-keyform .tb-field-msg--error").waitFor();
+    assert.match(await page.locator(".onb-keyform .tb-field-msg--error").innerText(), /sk-/);
     assert.equal(await page.locator("#onb-key").getAttribute("aria-invalid"), "true");
     assert.equal(await page.locator("#onb-key").inputValue(), SYNTHETIC_KEY, "the key stays for an easy fix");
     if (strict) await assertNoTruncation(page, "key error");
@@ -257,7 +257,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     assert.doesNotMatch(await primary.innerText(), /\d/, "never a count of 0");
     assert.match(await primary.innerText(), /Select a service|Dienst auswählen/);
     // Every named service wears its own real brand mark, not a shared glyph.
-    const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".service-mark")?.dataset.mark}:${tile.querySelector(".service-mark img")?.getAttribute("src")}`));
+    const marks = await page.locator(".onb-tile").evaluateAll(tiles => tiles.map(tile => `${tile.dataset.integrationId}:${tile.querySelector(".onb-mark")?.dataset.mark}:${tile.querySelector(".onb-mark img")?.getAttribute("src")}`));
     assert.deepEqual(marks, ["github:github", "notion:notion", "linear:linear", "home-assistant:homeassistant", "robinhood:robinhood", "context7:context7", "microsoft-learn:microsoft-learn"].map(item => { const key = item.split(":")[1]; return `${item.split(":")[0]}:${key}:/brand/services/${{ github: "github-monochrome.svg", notion: "notion.svg", linear: "linear.svg", robinhood: "robinhood.svg", homeassistant: "homeassistant.svg", context7: "context7.svg", "microsoft-learn": "microsoft-learn.svg" }[key]}`; }));
     await page.locator("[data-integration-id='github']").click();
     await page.locator("[data-integration-id='linear']").click();
@@ -360,7 +360,8 @@ try {
     assert.ok(await page.locator(".composer-row textarea").evaluate(node => { let o = 1; for (let n = node; n && !n.classList.contains("composer-row"); n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o; }) < 1, "its controls are dimmed");
     assert.equal(await page.getByText("No model set up").count(), 0, "the bare line is gone");
     await page.waitForTimeout(600);
-    assert.ok(await page.locator("[data-model-banner] .model-banner-cat").isVisible(), "the banner carries the Bot's cat");
+    assert.ok(await page.locator("[data-model-banner] .tb-banner").isVisible(), "the no-model line is a kit Banner");
+    assert.equal(await page.locator("[data-model-banner] [data-tofi-avatar]").count(), 0, "the banner carries no cat");
     currentShot = "1440x900-light";
     await shoot(page, "11-after-skip-banner-chip");
     currentShot = null;
@@ -519,12 +520,12 @@ try {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     state.catalog = [];
     const { page, context } = await open(state);
-    await page.locator(".onb-choice").nth(1).click();
+    await page.locator(".onb-choices [role='radio']").nth(1).click();
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
     await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
-    await page.locator("#onb-key-error").waitFor();
-    assert.match(await page.locator("#onb-key-error").innerText(), /can.t use any models yet/);
-    assert.equal(await page.locator("#onb-key-error a").count(), 1, "Open billing is offered");
+    await page.locator(".onb-keyform .tb-field-msg--error").waitFor();
+    assert.match(await page.locator(".onb-keyform .tb-field-msg--error").innerText(), /can.t use any models yet/);
+    assert.equal(await page.locator(".onb-keyform .tb-field-msg--error a").count(), 1, "Open billing is offered");
     await context.close();
     pass("key without model access: one sentence and an Open billing link");
   }
@@ -534,12 +535,12 @@ try {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     state.keyCode = "no_quota";
     const { page, context } = await open(state);
-    await page.locator(".onb-choice").nth(1).click();
+    await page.locator(".onb-choices [role='radio']").nth(1).click();
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
     await page.locator(".onb-foot button[form=\"onb-key-form\"]").click();
-    await page.locator("#onb-key-error").waitFor();
-    assert.match(await page.locator("#onb-key-error").innerText(), /no usage left/);
-    assert.equal(await page.locator("#onb-key-error a").count(), 1, "Open billing is offered");
+    await page.locator(".onb-keyform .tb-field-msg--error").waitFor();
+    assert.match(await page.locator(".onb-keyform .tb-field-msg--error").innerText(), /no usage left/);
+    assert.equal(await page.locator(".onb-keyform .tb-field-msg--error a").count(), 1, "Open billing is offered");
     await context.close();
     pass("key without usage: named as such, with an Open billing link");
   }
@@ -548,11 +549,11 @@ try {
   {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     const { page, context } = await open(state);
-    await page.locator(".onb-choice").nth(1).click();
+    await page.locator(".onb-choices [role='radio']").nth(1).click();
     await page.locator(".onb-seg button").nth(1).click();
-    await page.locator("#onb-workspace-note").waitFor();
-    assert.match(await page.locator("#onb-workspace-note").innerText(), /wrkspc_/);
-    assert.equal(await page.locator(".onb-keyrow button").count(), 0, "one primary action lives in the footer");
+    await page.locator(".onb-keyform .tb-field-msg:not(.tb-field-msg--error)").waitFor();
+    assert.match(await page.locator(".onb-keyform .tb-field-msg:not(.tb-field-msg--error)").innerText(), /wrkspc_/);
+    assert.equal(await page.locator("#onb-key-form button").count(), 0, "one primary action lives in the footer");
     assert.equal(await page.locator(".onb-foot button[form=\"onb-key-form\"]").isDisabled(), true);
     await page.locator("#onb-key").fill(SYNTHETIC_KEY);
     await page.locator("#onb-workspace").fill("wrkspc_synthetic");
@@ -567,7 +568,7 @@ try {
   {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     const { page, context } = await open(state);
-    await page.locator(".onb-choice[data-choice='server']").click();
+    await page.locator(".onb-choices [role='radio']:nth-child(3)").click();
     await page.locator("#onb-server-form").waitFor();
     assert.equal(await page.locator("#onb-server-form input[type=url]").inputValue(), "http://host.docker.internal:11434/v1", "the Ollama preset is filled in");
     assert.match(await page.locator("[data-compat-note='ollama']").innerText(), /OLLAMA_HOST=0\.0\.0\.0/);
@@ -586,7 +587,7 @@ try {
     const state = makeServer({ onboarding: { step: 2, completed: false, skipped: false } });
     state.serverBlocked = true;
     const { page, context } = await open(state);
-    await page.locator(".onb-choice[data-choice='server']").click();
+    await page.locator(".onb-choices [role='radio']:nth-child(3)").click();
     await page.getByRole("button", { name: "Test connection" }).click();
     await page.getByRole("alert").filter({ hasText: "TOFI_ALLOW_PRIVATE_ENDPOINTS=1" }).waitFor();
     await context.close();
@@ -639,7 +640,7 @@ try {
     await page.locator(".onb-foot .onb-primary").click();
     await page.locator(".onb-summary").waitFor();
     assert.match(await page.locator(".onb-title").innerText(), /all set/);
-    assert.match(await page.locator(".onb-summary li").first().innerText(), /Microsoft Learn[\s\S]*Connected/);
+    assert.match(await page.locator(".onb-summary li").first().innerText(), /Microsoft Learn[\s\S]*Connected/i);
     await page.locator(".onb-count", { hasText: /^Step 3 of 3 · done/ }).waitFor();
     const cont = page.locator(".onb-foot .onb-primary");
     assert.equal(await cont.isEnabled(), true);
@@ -660,8 +661,8 @@ try {
     const { page, context } = await open(state, { width: 1024, height: 768 });
     await page.locator(".onb-tiles").waitFor();
     const tile = page.locator("[data-integration-id='microsoft-learn']");
-    await tile.locator(".status-badge").waitFor();
-    assert.match(await tile.innerText(), /Connected/);
+    await tile.locator(".tb-badge").waitFor();
+    assert.match(await tile.innerText(), /Connected/i);
     assert.equal(await page.locator("button[data-integration-id='microsoft-learn']").count(), 0, "a connected service is not selectable");
     assert.equal(await tile.evaluate(node => getComputedStyle(node).opacity), "1", "normal contrast, not greyed out");
     const primary = page.locator(".onb-foot .onb-primary");
@@ -767,7 +768,7 @@ try {
     await sheet(first.page).waitFor();
     // An account that already has a model resumes at the model step, which passes itself on: no welcome, no choices.
     await first.page.locator(".onb-count", { hasText: "Step 3 of 3" }).waitFor();
-    assert.equal(await first.page.locator(".onb-choice, #onb-key, .onb-keyform").count(), 0, "provided models: nothing to connect is ever shown");
+    assert.equal(await first.page.locator(".onb-choices, #onb-key, .onb-keyform").count(), 0, "provided models: nothing to connect is ever shown");
     assert.ok(available.calls.includes("POST /api/onboarding/first-bot"), "the first Bot is still created when the model step passes itself on");
     assert.ok(!available.calls.some(call => typeof call === "string" && call.includes("/api/auth/codex")), "no ChatGPT sign-in is started or polled");
     assert.deepEqual(first.errors, []);
@@ -781,7 +782,7 @@ try {
     await second.page.locator(".onb-waiting-admin").waitFor();
     assert.equal(await second.page.locator(".onb-waiting-admin").getAttribute("data-state"), "org_resource_missing");
     assert.match(await sheet(second.page).innerText(), /Waiting for your administrator[\s\S]*has not provided a model yet/);
-    assert.equal(await sheet(second.page).locator(".onb-choice, #onb-key, input, textarea").count(), 0, "no input while waiting for the administrator");
+    assert.equal(await sheet(second.page).locator(".onb-choices, #onb-key, input, textarea").count(), 0, "no input while waiting for the administrator");
     assert.equal(await second.page.getByRole("button", { name: /ChatGPT|Connect/ }).count(), 0, "no sign-in or connect button");
     assert.ok((await overflow(second.page)) <= 0);
     currentShot = "organization-waiting"; await shoot(second.page, "model-step"); currentShot = null;
@@ -811,8 +812,8 @@ try {
     assert.deepEqual([...new Set([...motion.step, ...motion.scrim])], ["none"], "no animation runs");
     await page.getByRole("button", { name: /set up your crew/ }).click();
     await page.getByRole("button", { name: "Continue with ChatGPT" }).click();
-    await page.locator(".onb-waiting i").waitFor();
-    assert.equal(await page.locator(".onb-waiting i").evaluate(node => getComputedStyle(node).animationName), "none", "the waiting dot does not breathe");
+    await page.locator(".onb-waiting .tb-breath").waitFor();
+    assert.equal(await page.locator(".onb-waiting .tb-breath").evaluate(node => getComputedStyle(node).animationName), "none", "the waiting dot does not breathe");
     await context.close();
     pass("reduced motion: nothing animates, the dot shows statically");
   }

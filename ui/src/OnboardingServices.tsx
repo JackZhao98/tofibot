@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, request } from "./api";
 import { isDesktop } from "./desktop";
-import { ServiceMark } from "./ServiceMark";
+import { Badge } from "./ds/Badge/Badge";
+import { Banner } from "./ds/Banner/Banner";
+import { Button } from "./ds/Button/Button";
+import { Card } from "./ds/Card/Card";
+import { Checkbox } from "./ds/Checkbox/Checkbox";
+import { Field } from "./ds/Field/Field";
+import { Icon } from "./ds/Icon/Icon";
+import { Tag } from "./ds/Tag/Tag";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { Disclosure } from "./InteractionPrimitives";
-import { StatusBadge } from "./settings/components";
-import { TofiIcon } from "./icons";
+import { Mark, Waiting } from "./onboardingParts";
 import { googleAPIEnableURL, googleAudienceURL, getIntegrationPreset, type IntegrationPreset } from "./integrationCatalog";
 import { PasteBackDialog } from "./connections/PasteBackDialog";
 import { mcpOAuthRoute, type OAuthOptions } from "./mcpOAuthRoute";
@@ -88,14 +95,14 @@ export function OnboardingServices({ titleId, botId, onQueue, onFinish }: { titl
             {queue.map(id => {
               const preset = getIntegrationPreset(id)!;
               const ok = results[id] === "done";
-              return <li key={id} data-service-result={ok ? "done" : "skipped"}><ServiceMark name={preset.name} /><strong>{preset.name}</strong>{ok ? <StatusBadge state="ok">{t("onboarding.connected")}</StatusBadge> : <StatusBadge state="asleep">{t("onboarding.skipped")}</StatusBadge>}</li>;
+              return <li key={id} data-service-result={ok ? "done" : "skipped"}><Card variant="quiet" pad={false}><div className="onb-row"><Mark name={preset.name} size={32} /><strong>{preset.name}</strong>{ok ? <Badge tone="done">{t("onboarding.connected")}</Badge> : <Badge tone="neutral" icon={null}>{t("onboarding.skipped")}</Badge>}</div></Card></li>;
             })}
           </ul>
-          <p className="onb-note"><TofiIcon name="info" size={15} /> {t("onboarding.services_hint")}</p>
+          <Banner tone="info" className="onb-note">{t("onboarding.services_hint")}</Banner>
         </div>
         <footer className="onb-foot">
           <span />
-          <button type="button" className="primary-button onb-primary" data-autofocus onClick={onFinish}>{t("onboarding.continue")}</button>
+          <Button variant="primary" className="onb-primary" data-autofocus onClick={onFinish}>{t("onboarding.continue")}</Button>
         </footer>
       </>
     );
@@ -117,7 +124,7 @@ export function OnboardingServices({ titleId, botId, onQueue, onFinish }: { titl
           {queue.map((item, position) => {
             const p = getIntegrationPreset(item)!;
             const state = results[item] === "skipped" ? "skipped" : position < index ? "done" : position === index ? "now" : "next";
-            return <li key={item} data-state={state}><ServiceMark name={p.name} /><span>{p.name} · {t(`onboarding.queue_${state}`)}</span>{state === "done" && <TofiIcon name="check" size={13} />}</li>;
+            return <li key={item} data-state={state}><Tag icon={state === "done" ? "check" : state === "skipped" ? "close" : state === "now" ? "arrow-right" : undefined}><Mark name={p.name} size={18} />{p.name} · {t(`onboarding.queue_${state}`)}</Tag></li>;
           })}
         </ol>
       </>
@@ -142,25 +149,24 @@ export function OnboardingServices({ titleId, botId, onQueue, onFinish }: { titl
             const preset = getIntegrationPreset(tile.id)!;
             const done = added(tile.id);
             const on = selected.includes(tile.id);
-            const body = (
-              <>
-                {!done && <span className="onb-tile-check" aria-hidden="true">{on && <TofiIcon name="check" size={12} />}</span>}
-                <ServiceMark name={preset.name} />
+            const copy = (
+              <span className="onb-tile-copy">
+                <Mark name={preset.name} size={32} />
                 <strong>{preset.name}</strong>
                 <small>{t(purposeKeys[tile.id])}</small>
-                {done ? <StatusBadge state="ok">{t("onboarding.connected")}</StatusBadge> : <code>{t(badgeKeys[tile.badge])}</code>}
-              </>
+                {done ? <Badge tone="done">{t("onboarding.connected")}</Badge> : <Tag>{t(badgeKeys[tile.badge])}</Tag>}
+              </span>
             );
             return done
-              ? <div key={tile.id} className="onb-tile" data-integration-id={tile.id} data-connected="true" role="group" aria-label={`${preset.name}, ${t("onboarding.connected")}`}>{body}</div>
-              : <button type="button" key={tile.id} className="onb-tile" data-integration-id={tile.id} aria-pressed={on} onClick={() => toggle(tile.id)}>{body}</button>;
+              ? <Card key={tile.id} variant="quiet" pad={false} className="onb-tile" data-integration-id={tile.id} data-connected="true" role="group" aria-label={`${preset.name}, ${t("onboarding.connected")}`}>{copy}</Card>
+              : <Card key={tile.id} variant="quiet" pad={false} className="onb-tile" data-integration-id={tile.id}><Checkbox className="onb-tile-pick" checked={on} onChange={() => toggle(tile.id)}>{copy}</Checkbox></Card>;
           })}
         </div>
-        <p className="onb-note"><TofiIcon name="info" size={15} /> {t("onboarding.services_hint")}</p>
+        <Banner tone="info" className="onb-note">{t("onboarding.services_hint")}</Banner>
       </div>
       <footer className="onb-foot onb-foot-services">
-        {selected.length > 0 || !anyConnected ? <button type="button" className="onb-later" data-autofocus={selected.length === 0 || undefined} onClick={onFinish}>{t("onboarding.later")}</button> : <span />}
-        <button type="button" className="primary-button onb-primary" disabled={!primary.enabled} data-autofocus={(selected.length === 0 && anyConnected) || undefined} onClick={primary.run}>{primary.label}</button>
+        {selected.length > 0 || !anyConnected ? <Button variant="ghost" className="onb-later" data-autofocus={selected.length === 0 || undefined} onClick={onFinish}>{t("onboarding.later")}</Button> : <span />}
+        <Button variant="primary" className="onb-primary" disabled={!primary.enabled} data-autofocus={(selected.length === 0 && anyConnected) || undefined} onClick={primary.run}>{primary.label}</Button>
       </footer>
     </>
   );
@@ -278,27 +284,31 @@ function ServiceConnect({ lead, preset, last, existing, botId, refreshServers, o
         {stepNames.map((label, position) => <li key={label} data-state={position < stepIndex ? "done" : position === stepIndex ? "current" : "todo"}><i /><span>{label}</span></li>)}
       </ol>
       {phase === "done" ? (
-        <div className="onb-panel onb-service-done" role="status"><strong><TofiIcon name="check-circle" size={18} /> {t("onboarding.service_ready", { name: preset.name })}</strong><p>{t("onboarding.service_tools", { count: tools })}</p></div>
+        <div role="status"><Banner tone="done" className="onb-service-done" title={t("onboarding.service_ready", { name: preset.name })}>{t("onboarding.service_tools", { count: tools })}</Banner></div>
       ) : (
         <div className="onb-service-form">
           {howto && <p className="onb-small onb-howto">{t(howto)}{tokenPage && <> <a className="onb-link" href={tokenPage} target="_blank" rel="noopener noreferrer">{t("onboarding.where_token")}</a></>}</p>}
           {google && <p className="onb-small">{t("onboarding.google_setup")} <a className="onb-link" href={googleAPIEnableURL(preset.googleAPIs!.api)} target="_blank" rel="noopener noreferrer">{t("extensions:google.enable_api")}</a> · <a className="onb-link" href={googleAPIEnableURL(preset.googleAPIs!.mcp)} target="_blank" rel="noopener noreferrer">{t("extensions:google.enable_mcp")}</a> · <a className="onb-link" href={googleAudienceURL} target="_blank" rel="noopener noreferrer">{t("extensions:google.test_users")}</a></p>}
-          {needsClient && <><label>{t("extensions:form.client_id")}<input value={clientId} autoComplete="off" disabled={busy} onChange={event => setClientId(event.target.value)} /></label><label>{t("extensions:form.client_secret")}<input type="password" value={clientSecret} autoComplete="off" disabled={busy} onChange={event => setClientSecret(event.target.value)} /></label>{options?.web_callback_origin && <p className="onb-small">{t("extensions:callback.web")}: <code>{`${options.web_callback_origin}${endpoint(name)}/oauth/callback`}</code></p>}</>}
-          {preset.lan && <><label>{t("extensions:form.url")}<input type="url" inputMode="url" value={address} autoComplete="off" spellCheck={false} disabled={busy} data-autofocus onChange={event => setAddress(event.target.value)} /></label><p className="onb-small">{t("extensions:lan.address_hint")}</p></>}
-          {needsToken && <label>{t("onboarding.token_label", { name: preset.name })}<input type="password" value={token} autoComplete="off" spellCheck={false} placeholder={t("extensions:form.token_paste")} disabled={busy} data-autofocus={!preset.lan || undefined} onChange={event => setToken(event.target.value)} /></label>}
-          {busy && <p className="onb-waiting" role="status"><i aria-hidden="true" />{phase === "authorizing" ? t("onboarding.service_waiting", { name: preset.name }) : t("onboarding.service_checking", { name: preset.name })}</p>}
-          {phase === "error" && error && <p className="onb-error" role="alert"><TofiIcon name="error" size={15} /> {error}</p>}
-          {preset.setup.length > 0 && <div className="onb-details"><Disclosure title={t("onboarding.details")}><ul className="onb-service-notes">{preset.setup.slice(0, 3).map(line => <li key={line}><TofiIcon name="check" size={14} /> {line}</li>)}</ul></Disclosure></div>}
+          {needsClient && <>
+            <Field label={t("extensions:form.client_id")}><TextInput mono value={clientId} autoComplete="off" disabled={busy} onChange={event => setClientId(event.target.value)} /></Field>
+            <Field label={t("extensions:form.client_secret")}><TextInput mono type="password" value={clientSecret} autoComplete="off" disabled={busy} onChange={event => setClientSecret(event.target.value)} /></Field>
+            {options?.web_callback_origin && <p className="onb-small">{t("extensions:callback.web")}: <code>{`${options.web_callback_origin}${endpoint(name)}/oauth/callback`}</code></p>}
+          </>}
+          {preset.lan && <Field label={t("extensions:form.url")} hint={t("extensions:lan.address_hint")}><TextInput mono type="url" inputMode="url" value={address} autoComplete="off" spellCheck={false} disabled={busy} data-autofocus onChange={event => setAddress(event.target.value)} /></Field>}
+          {needsToken && <Field label={t("onboarding.token_label", { name: preset.name })}><TextInput mono type="password" value={token} autoComplete="off" spellCheck={false} placeholder={t("extensions:form.token_paste")} disabled={busy} data-autofocus={!preset.lan || undefined} onChange={event => setToken(event.target.value)} /></Field>}
+          {busy && <Waiting role="status">{phase === "authorizing" ? t("onboarding.service_waiting", { name: preset.name }) : t("onboarding.service_checking", { name: preset.name })}</Waiting>}
+          {phase === "error" && error && <Banner tone="error" className="onb-error">{error}</Banner>}
+          {preset.setup.length > 0 && <Card variant="quiet" pad={false} className="onb-details"><Disclosure title={t("onboarding.details")}><ul className="onb-service-notes">{preset.setup.slice(0, 3).map(line => <li key={line}><Icon name="check" size={14} /> {line}</li>)}</ul></Disclosure></Card>}
         </div>
       )}
       </div>
       {paste && <PasteBackDialog serverName={name} title={preset.name} popup={popup.current} onFinish={(status, detail) => { setPaste(false); const id = op.current; if (status === "complete") { void refreshServers(); void test(id); } else { setPhase("error"); setError(status === "cancelled" ? "" : detail || t("onboarding.connect_failed", { name: preset.name })); } }} />}
       {vm && <VMOAuthDialog session={vm} serverName={name} title={preset.name} onFinish={(status, detail) => { setVM(null); const id = op.current; if (status === "complete") { void refreshServers(); void test(id); } else { setPhase("error"); setError(detail || t("onboarding.connect_failed", { name: preset.name })); } }} />}
       <footer className="onb-foot">
-        <button type="button" className="onb-quiet" onClick={() => { op.current++; popup.current?.close(); onResult("skipped"); }}>{t("onboarding.skip_service", { name: preset.name })}</button>
+        <Button variant="ghost" className="onb-quiet" onClick={() => { op.current++; popup.current?.close(); onResult("skipped"); }}>{t("onboarding.skip_service", { name: preset.name })}</Button>
         {phase === "done"
-          ? <button type="button" className="primary-button onb-primary" data-autofocus onClick={() => onResult("done")}>{last ? t("onboarding.finish") : t("onboarding.next_service")} <TofiIcon name="arrow-right" size={16} /></button>
-          : <button type="button" className="primary-button onb-primary onb-service-main" data-autofocus={!needsToken && !needsClient || undefined} disabled={!canConnect} onClick={() => void connect()}>{primaryLabel}</button>}
+          ? <Button variant="primary" className="onb-primary" iconAfter="arrow-right" data-autofocus onClick={() => onResult("done")}>{last ? t("onboarding.finish") : t("onboarding.next_service")}</Button>
+          : <Button variant="primary" className="onb-primary onb-service-main" data-autofocus={!needsToken && !needsClient || undefined} disabled={!canConnect} onClick={() => void connect()}>{primaryLabel}</Button>}
       </footer>
     </>
   );
