@@ -59,9 +59,6 @@
   "desktop-settings/mac-settings.css": {
     "bridgeUse": 1
   },
-  "desktop-system.css": {
-    "bridgeUse": 8
-  },
   "display-card.css": {
     "bridgeUse": 21
   },
