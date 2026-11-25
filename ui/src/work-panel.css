@@ -35,9 +35,7 @@
 .workspace .work-tabs button:focus-visible,
 .workspace .work-create-kind button:focus-visible,
 .workspace .work-panel button:focus-visible,
-.workspace .work-panel select:focus-visible,
-.workspace .work-panel input:focus-visible,
-.workspace .work-panel textarea:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
+.workspace .work-panel select:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 3px; }
 .workspace .work-panel .work-add { display: grid; width: 38px; height: 38px; min-height: 0; padding: 0; place-items: center; border-radius: 12px; }
 
 .workspace .work-member-select { position: relative; margin-bottom: 20px; }
@@ -211,8 +209,6 @@
 .workspace .work-create-kind { width: fit-content; max-width: 100%; flex-wrap: wrap; margin-bottom: 2px; }
 .workspace .work-create-kind button { padding: 7px 11px; }
 .workspace .work-create label { display: grid; gap: 6px; color: var(--ink-soft); font: 12px/1.4 var(--body); }
-.workspace .work-create input,
-.workspace .work-create textarea,
 .workspace .work-create select {
   width: 100%;
   min-width: 0;
@@ -223,10 +219,7 @@
   color: var(--ink);
   font: 13px/1.5 var(--body);
 }
-.workspace .work-create input:hover,
-.workspace .work-create textarea:hover,
 .workspace .work-create select:hover { border-color: var(--line); }
-.workspace .work-create textarea { resize: vertical; }
 .workspace .work-create .disclosure { margin: 0; }
 .workspace .work-create-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 .workspace .work-create-actions button { min-height: 36px; }

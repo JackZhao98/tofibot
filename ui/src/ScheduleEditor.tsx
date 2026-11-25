@@ -1,3 +1,5 @@
+import { TextArea } from "./ds/TextArea/TextArea";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { useState, type ReactNode } from "react";
 import { api, ApiError } from "./api";
 import { contentEditPatch } from "./contentEditPatch";
@@ -37,9 +39,9 @@ export function ScheduleEditor({ schedule, disabled, onSave, actions }: { schedu
       } catch (cause) { setError(cause instanceof ApiError && cause.code === "edit_conflict" ? t("editor.conflict") : cause instanceof Error ? cause.message : t("editor.save_failed")); throw cause; }
     });
   }}>
-    <label>{t("editor.title")}<input aria-label={t("editor.title_aria")} value={title} maxLength={120} disabled={disabled} onChange={event => setTitle(event.target.value)} /></label>
-    <label>{t("editor.description")}<textarea aria-label={t("editor.description_aria")} value={description} maxLength={280} disabled={disabled} rows={2} onChange={event => setDescription(event.target.value)} /></label>
-    <label>{t("editor.instructions")}<textarea aria-label={t("editor.instructions_aria")} value={content} maxLength={32768} required disabled={disabled} rows={6} onChange={event => setContent(event.target.value)} /></label>
+    <label>{t("editor.title")}<TextInput aria-label={t("editor.title_aria")} value={title} maxLength={120} disabled={disabled} onChange={event => setTitle(event.target.value)} /></label>
+    <label>{t("editor.description")}<TextArea aria-label={t("editor.description_aria")} value={description} maxLength={280} disabled={disabled} rows={2} onChange={event => setDescription(event.target.value)} /></label>
+    <label>{t("editor.instructions")}<TextArea aria-label={t("editor.instructions_aria")} value={content} maxLength={32768} required disabled={disabled} rows={6} onChange={event => setContent(event.target.value)} /></label>
     <fieldset className="schedule-edit-timing" style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-label={t("editor.timing")}>
       {timingLocked ? <p className="field-note">{t("editor.timing_locked")}</p> : <ScheduleTimingFields draft={timing} timezone={timezone} disabled={disabled} onChange={change => setTiming(current => ({ ...current, ...change }))} />}
     </fieldset>
