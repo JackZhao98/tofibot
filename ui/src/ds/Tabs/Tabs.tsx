@@ -13,15 +13,17 @@ export type TabsProps<T extends string> = {
   children?: ReactNode | ((value: T) => ReactNode);
   /** The accessible name of the tab strip. */
   label?: string;
+  /** A 36px strip of 12px tabs that shorten with an ellipsis: browser tabs, a toolbar row. */
+  compact?: boolean;
   className?: string;
 };
 
 /** Text tabs on a hairline rule; the chosen tab gets a tomato bar (Radix Tabs). Views of one object, never navigation between pages. */
-export function Tabs<T extends string>({ tabs, value, defaultValue, onChange, children, label, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ tabs, value, defaultValue, onChange, children, label, compact, className }: TabsProps<T>) {
   const [own, setOwn] = useState<T | undefined>(defaultValue ?? tabs[0]?.value);
   const current = value ?? own;
   const change = (next: string) => { setOwn(next as T); onChange?.(next as T); };
-  return <RadixTabs.Root className={cx("tb-tabs", className)} value={current} onValueChange={change}>
+  return <RadixTabs.Root className={cx("tb-tabs", compact && "tb-tabs--compact", className)} value={current} onValueChange={change}>
     <RadixTabs.List className="tb-tablist" aria-label={label}>
       {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className="tb-tab">
         {tab.label}{tab.count != null ? <span className="tb-tab-count">{tab.count}</span> : null}

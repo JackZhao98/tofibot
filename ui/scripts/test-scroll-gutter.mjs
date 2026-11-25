@@ -22,7 +22,7 @@ const ALLOWED = new Map([
   [".workspace .usage-agents", "horizontal row of agent buttons"],
   [".dev-tune-panel", "dev-build Tune panel, not shipped"],
   [".tb-settings-rail", "mobile variant is a horizontal strip with its scrollbar hidden"],
-  [".bb-tabs", "horizontal tab strip"],
+  [".bb-tabs .tb-tablist", "horizontal tab strip"],
   [".terminal-tabs", "horizontal tab strip"],
   [".detail-pane.context-panel", "scrolls through .detail-pane, which is listed"],
   [".workspace .detail-pane.context-panel", "scrolls through .detail-pane, which is listed"],

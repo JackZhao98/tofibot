@@ -7,4 +7,9 @@
 .tb-tab-count { font: 600 11px/1 var(--font-mono); color: var(--muted); }
 .tb-tabpanel { padding-top: 16px; }
 .tb-tabpanel:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+/* compact: the 36px strip (35px tabs on the 1px rule) of the Mac Bot browser. Tabs share the width, shorten with an ellipsis and keep the bar. */
+.tb-tabs--compact .tb-tablist { gap: 18px; padding-inline: 12px; scrollbar-width: none; }
+.tb-tabs--compact .tb-tablist::-webkit-scrollbar { display: none; }
+.tb-tabs--compact .tb-tab { flex: 0 1 200px; min-width: 72px; height: 35px; overflow: hidden; text-overflow: ellipsis; font: 600 12px/1 var(--font-display); }
+.tb-tabs--compact .tb-tab > span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (pointer: coarse), (any-pointer: coarse) { .tb-tab { height: 44px; } }
