@@ -56,13 +56,13 @@
       "bot": "{{name}} 在操作",
       "idle": "Bot 电脑空闲"
     },
-    "power_hint": "收起屏幕（Bot 电脑继续运行）",
+    "power_hint": "收起",
     "power": {
       "label": "Bot 电脑电源",
-      "off_hint": "关机（文件保留）",
+      "off_hint": "关机",
       "on_hint": "开机",
-      "held": "正在使用中，闲置后会自动关机",
-      "busy": "Bot 正在用这台电脑，暂时不关；闲置后会自动关机。",
+      "held": "使用中",
+      "busy": "Bot 正在使用",
       "not_ready": "电脑启动完成后才能关机。",
       "failed": "关机没成功，请再试一次。",
       "turn_on": "开机",
@@ -87,7 +87,7 @@
     "tools": {
       "title": "辅助操作",
       "open_browser": "打开浏览器",
-      "run_shell": "运行 Shell（{{name}} 工作区）",
+      "run_shell": "运行 Shell",
       "shell_placeholder": "例如：pwd",
       "run": "运行命令",
       "technical": "技术详情",
@@ -102,7 +102,7 @@
       "resuming_phase": "正在唤醒 · {{phase}}",
       "waking_computer": "正在唤醒 Bot 电脑…",
       "starting_desktop": "正在启动桌面…",
-      "off": "已关机 · 文件都在，Bot 要用时自动开机",
+      "off": "已关机",
       "hibernating": "正在关机…",
       "no_desktop": "Bot 正在用浏览器工作，没有使用桌面",
       "retry": "重试"
@@ -506,7 +506,7 @@
       "token_unreadable": "无法读取已保存的密钥。请重新添加 E2B 密钥。",
       "org_resource_missing": "你的组织尚未配置这台电脑。请联系管理员。",
       "not_ready": "电脑镜像尚未就绪。请几分钟后重试。",
-      "guest_outdated_required": "这台电脑的镜像已不再受支持。空闲时会自动更新，home 文件夹会保留。",
+      "guest_outdated_required": "镜像已过期，空闲时自动更新。",
       "computer_upgrade_failed": "无法升级这台电脑。请重试。",
       "not_outdated": "这台电脑已是最新。",
       "computer_busy": "电脑正忙。请在运行中的任务结束后重试。",
@@ -518,12 +518,12 @@
     "confirm": {
       "use": {
         "title": "让 Bot 使用 {{name}}？",
-        "body": "进行中的工作会先完成。home 文件夹（Bot 制作和保存的文件）会搬到{{name}}；已安装的软件和浏览器登录不会搬，Bot 需在新电脑上重新登录。当前电脑转为闲置。",
+        "body": "home 文件夹会搬过去，已装软件和登录不会。",
         "action": "设为 Bot 使用"
       },
       "remove": {
         "title": "移除 {{name}}？",
-        "body": "沙盒会被删除，API 密钥会被清除。若 Bot 正在使用它，进行中的工作会先完成，文件先复制到服务器。",
+        "body": "删除沙盒并清除密钥。",
         "action": "移除"
       },
       "disconnect": {
@@ -547,7 +547,7 @@
       "title": "添加 E2B 云电脑",
       "key": "API 密钥",
       "get_key": "获取密钥",
-      "cost": "由 E2B 按运行秒数计费；空闲时自动暂停。",
+      "cost": "按秒计费，空闲时暂停。",
       "saving": "验证中…",
       "template_toggle": "使用现有模板",
       "template_id": "模板 ID",
@@ -563,7 +563,7 @@
       "title": "配置 Bot 电脑",
       "provided_title": "Bot 电脑详情"
     },
-    "outdated": "有新的电脑镜像。空闲时会自动更新，home 文件夹会保留。",
+    "outdated": "有新镜像，空闲时自动更新。",
     "image_preparing": "正在构建电脑镜像，需要几分钟。",
     "image_building": "正在构建较新的电脑镜像。",
     "rc": {
@@ -676,7 +676,7 @@
   "browser": {
     "panel": "Bot 浏览器",
     "source": "你的 Mac · Bot 浏览器",
-    "look": "查看 Bot 浏览器（{{id}}）",
+    "look": "查看 Bot 浏览器",
     "enlarge": "放大 Bot 浏览器",
     "shrink": "缩小 Bot 浏览器",
     "status": {
@@ -737,7 +737,6 @@
   "devices": {
     "bot": {
       "title": "Bot 电脑",
-      "description": "Bot 的工作电脑，每个账户一台。",
       "unassigned_title": "未分配 Bot 电脑",
       "unassigned_body": "Bot 电脑由管理员分配。对话、记忆、定时任务和连接不受影响。",
       "managed": "由组织统一管理"
@@ -746,13 +745,13 @@
       "vm": "内置虚拟机",
       "vm_sub": "运行在本服务器",
       "e2b": "E2B 云电脑",
-      "e2b_sub": "密钥 {{hint}} · 由 E2B 计费",
+      "e2b_sub": "密钥 {{hint}}",
       "e2b_billed": "由 E2B 计费"
     },
     "add": {
-      "vm_body": "本服务器上的 Firecracker 虚拟机，需要 KVM 和 4 GiB 内存。",
+      "vm_body": "需要 KVM 和 4 GiB 内存。",
       "vm_member": "由管理员分配。",
-      "e2b_body": "运行在你的 E2B 账户中，由 E2B 按秒计费，空闲时暂停。"
+      "e2b_body": "按秒计费，空闲时暂停。"
     },
     "action": {
       "setup": "安装",
@@ -764,7 +763,6 @@
     },
     "mine": {
       "title": "我的设备",
-      "description": "你已连接的电脑。Bot 仅在你逐台授予的权限范围内使用。",
       "empty_title": "未连接设备",
       "empty_body": "安装 Tofi for Mac 并登录本服务器，这台 Mac 会出现在这里。",
       "disabled": "本服务器未开放个人设备。"
@@ -791,12 +789,17 @@
       "body": "Bot 将无法使用这台 Mac。可在该 Mac 的 Tofi 中重新连接。"
     },
     "move": {
-      "moving": "正在把文件搬到{{name}}…",
-      "moving_note": "先复制 home 文件夹，再切换 Bot。搬完前当前电脑照常工作。",
+      "moving": "正在切换到{{name}}",
       "failed": "切换没有完成，当前电脑未变。",
       "updating": "正在更新 E2B 云电脑…",
-      "updating_note": "正按新镜像重建。home 文件夹会保留；更新完前 Bot 会等待。",
-      "update_failed": "E2B 云电脑更新未完成。home 文件夹已保留，稍后会再试。"
+      "update_failed": "E2B 更新未完成，稍后重试。",
+      "step": {
+        "start": "启动电脑…",
+        "pack": "打包文件…",
+        "copy": "传输文件…",
+        "copy_of": "传输 {{done}} / {{total}} MB",
+        "unpack": "解包文件…"
+      }
     }
   }
 }

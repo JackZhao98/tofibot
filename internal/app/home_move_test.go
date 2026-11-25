@@ -55,7 +55,7 @@ func TestCopyGuestFileStreamsEveryPageInOrder(t *testing.T) {
 	src := map[string][]byte{"/workspace/home/uploads/.tofi-move-x/part.aa": big}
 	dst := map[string][]byte{}
 	from, to := fakeGuestFiles(src, dst)
-	if err := copyGuestFile(context.Background(), from, to, "/workspace/home/uploads/.tofi-move-x/part.aa"); err != nil {
+	if _, err := copyGuestFile(context.Background(), from, to, "/workspace/home/uploads/.tofi-move-x/part.aa", nil); err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(dst["/workspace/home/uploads/.tofi-move-x/part.aa"], big) {
@@ -66,7 +66,7 @@ func TestCopyGuestFileStreamsEveryPageInOrder(t *testing.T) {
 func TestCopyGuestFileRefusesAStalePart(t *testing.T) {
 	path := "/workspace/home/uploads/.tofi-move-x/part.aa"
 	from, to := fakeGuestFiles(map[string][]byte{path: []byte("new")}, map[string][]byte{path: []byte("old")})
-	if err := copyGuestFile(context.Background(), from, to, path); err == nil {
+	if _, err := copyGuestFile(context.Background(), from, to, path, nil); err == nil {
 		t.Fatal("a part already on the target must fail the move, not be kept")
 	}
 }

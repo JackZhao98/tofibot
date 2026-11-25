@@ -133,7 +133,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
 type RowProps = {onOpenPermissions?: () => void; item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; saved: boolean; error: string; onChange: (key: AutomationKey, value: Value) => void};
 
 const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, error, onChange, onOpenPermissions}: RowProps) {
-  const {t} = useTranslation("settings");
+  const {t, i18n} = useTranslation("settings");
   const name = t(`automation.item.${item.key}.name`);
   const changed = item.source === "stored";
   const defaultText = item.key === "background_model" || item.key === "group_triage_model" ? t("automation.auto", {model: catalog ? modelName(catalog.models, String(item.default ?? "")) : String(item.default ?? "")}) : formatValue(item, item.default, {t, catalog});
@@ -148,7 +148,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>
     <SettingsRow inline={item.kind === "bool"} labelFor={item.kind === "bool" || item.kind === "readonly" ? undefined : `auto-${item.key}`} label={name}
-      description={<>{t(`automation.item.${item.key}.what`)}{meta}{error && <span className="error-text auto-error" role="alert">{error}</span>}</>}
+      description={<>{i18n.exists(`settings:automation.item.${item.key}.what`) && t(`automation.item.${item.key}.what` as "automation.item.work_trace.what")}{meta}{error && <span className="error-text auto-error" role="alert">{error}</span>}</>}
       control={<><SavedNote show={saved}/><Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)} onOpenPermissions={onOpenPermissions}/></>}/>
   </div>;
 });

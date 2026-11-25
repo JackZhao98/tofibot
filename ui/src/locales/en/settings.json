@@ -1492,7 +1492,7 @@
       },
       "computer_idle_off_minutes": {
         "name": "Cloud computer idle turn-off",
-        "what": "An E2B computer that has done nothing for this many minutes turns off (pauses). Its files are kept, and it turns on when a Bot needs it. E2B bills while it runs."
+        "what": "Turns off after this many idle minutes."
       },
       "browser_engine": {
         "name": "Browser control",
@@ -1575,12 +1575,10 @@
         "what": "Refuses calls to billed models once this month's spend reaches the limit, and sends one notice at 80%. Whole dollars, 0 is off. Set on the Usage page."
       },
       "environment_order_web": {
-        "name": "Preferred environment (web and mobile)",
-        "what": "Choose the first environment for messages from web and mobile."
+        "name": "Preferred environment · Web"
       },
       "environment_order_app": {
-        "name": "Preferred environment (Mac app)",
-        "what": "Choose the first environment for messages from the Mac app."
+        "name": "Preferred environment · Mac app"
       },
       "environment_failover": {
         "name": "Automatic environment failover",

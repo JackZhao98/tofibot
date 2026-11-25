@@ -945,6 +945,7 @@ func (s *Server) startHomeMove(target string, job func(ctx context.Context, bot,
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), homeMoveDeadline+10*time.Minute)
 		defer cancel()
+		ctx = withHomeMoveProgress(ctx, s.homeMove.progress)
 		moveID := newHomeMoveID()
 		err := job(ctx, s.homeMoveBot(), moveID)
 		if err != nil {

@@ -56,13 +56,13 @@
       "bot": "{{name}} 正在操作",
       "idle": "Bot 電腦閒置中"
     },
-    "power_hint": "收起螢幕（Bot 電腦會繼續執行）",
+    "power_hint": "收起",
     "power": {
       "label": "Bot 電腦電源",
-      "off_hint": "關機（檔案保留）",
+      "off_hint": "關機",
       "on_hint": "開機",
-      "held": "正在使用中，閒置後會自動關機",
-      "busy": "Bot 正在用這台電腦，暫時不關；閒置後會自動關機。",
+      "held": "使用中",
+      "busy": "Bot 正在使用",
       "not_ready": "電腦啟動完成後才能關機。",
       "failed": "關機沒有成功，請再試一次。",
       "turn_on": "開機",
@@ -87,7 +87,7 @@
     "tools": {
       "title": "輔助操作",
       "open_browser": "開啟瀏覽器",
-      "run_shell": "執行 Shell（{{name}} 工作區）",
+      "run_shell": "執行 Shell",
       "shell_placeholder": "例如：pwd",
       "run": "執行指令",
       "technical": "技術詳情",
@@ -102,7 +102,7 @@
       "resuming_phase": "正在喚醒 · {{phase}}",
       "waking_computer": "正在喚醒 Bot 電腦…",
       "starting_desktop": "正在啟動桌面…",
-      "off": "已關機 · 檔案都在，Bot 要用時自動開機",
+      "off": "已關機",
       "hibernating": "正在關機…",
       "no_desktop": "Bot 正在用瀏覽器工作，沒有使用桌面",
       "retry": "重試"
@@ -506,7 +506,7 @@
       "token_unreadable": "無法讀取已儲存的金鑰。請重新新增 E2B 金鑰。",
       "org_resource_missing": "你的組織尚未配置這台電腦。請聯絡管理員。",
       "not_ready": "電腦映像尚未就緒。請幾分鐘後重試。",
-      "guest_outdated_required": "這台電腦的映像已不再受支援。閒置時會自動更新，home 資料夾會保留。",
+      "guest_outdated_required": "映像已過期，閒置時自動更新。",
       "computer_upgrade_failed": "無法升級這台電腦。請重試。",
       "not_outdated": "這台電腦已是最新。",
       "computer_busy": "電腦正忙。請在執行中的工作結束後重試。",
@@ -518,12 +518,12 @@
     "confirm": {
       "use": {
         "title": "讓 Bot 使用 {{name}}？",
-        "body": "進行中的工作會先完成。home 資料夾（Bot 製作和儲存的檔案）會搬到{{name}}；已安裝的軟體和瀏覽器登入不會搬，Bot 需在新電腦上重新登入。目前的電腦轉為閒置。",
+        "body": "home 資料夾會搬過去，已裝軟體和登入不會。",
         "action": "設為 Bot 使用"
       },
       "remove": {
         "title": "移除 {{name}}？",
-        "body": "沙盒會被刪除，API 金鑰會被清除。若 Bot 正在使用它，進行中的工作會先完成，檔案先複製到伺服器。",
+        "body": "刪除沙盒並清除金鑰。",
         "action": "移除"
       },
       "disconnect": {
@@ -547,7 +547,7 @@
       "title": "新增 E2B 雲端電腦",
       "key": "API 金鑰",
       "get_key": "取得金鑰",
-      "cost": "由 E2B 依執行秒數計費；閒置時自動暫停。",
+      "cost": "按秒計費，閒置時暫停。",
       "saving": "驗證中…",
       "template_toggle": "使用現有範本",
       "template_id": "範本 ID",
@@ -563,7 +563,7 @@
       "title": "設定 Bot 電腦",
       "provided_title": "Bot 電腦詳細資料"
     },
-    "outdated": "有新的電腦映像。閒置時會自動更新，home 資料夾會保留。",
+    "outdated": "有新映像，閒置時自動更新。",
     "image_preparing": "正在建置電腦映像，需要幾分鐘。",
     "image_building": "正在建置較新的電腦映像。",
     "rc": {
@@ -676,7 +676,7 @@
   "browser": {
     "panel": "Bot 瀏覽器",
     "source": "你的 Mac · Bot 瀏覽器",
-    "look": "查看 Bot 瀏覽器（{{id}}）",
+    "look": "查看 Bot 瀏覽器",
     "enlarge": "放大 Bot 瀏覽器",
     "shrink": "縮小 Bot 瀏覽器",
     "status": {
@@ -737,7 +737,6 @@
   "devices": {
     "bot": {
       "title": "Bot 電腦",
-      "description": "Bot 的工作電腦，每個帳戶一台。",
       "unassigned_title": "未分配 Bot 電腦",
       "unassigned_body": "Bot 電腦由管理員分配。對話、記憶、排程與連線不受影響。",
       "managed": "由組織統一管理"
@@ -746,13 +745,13 @@
       "vm": "內建虛擬機",
       "vm_sub": "執行於本伺服器",
       "e2b": "E2B 雲端電腦",
-      "e2b_sub": "金鑰 {{hint}} · 由 E2B 計費",
+      "e2b_sub": "金鑰 {{hint}}",
       "e2b_billed": "由 E2B 計費"
     },
     "add": {
-      "vm_body": "本伺服器上的 Firecracker 虛擬機，需要 KVM 與 4 GiB 記憶體。",
+      "vm_body": "需要 KVM 和 4 GiB 記憶體。",
       "vm_member": "由管理員分配。",
-      "e2b_body": "執行於你的 E2B 帳戶，由 E2B 按秒計費，閒置時暫停。"
+      "e2b_body": "按秒計費，閒置時暫停。"
     },
     "action": {
       "setup": "安裝",
@@ -764,7 +763,6 @@
     },
     "mine": {
       "title": "我的裝置",
-      "description": "你已連接的電腦。Bot 僅在你逐台授予的權限內使用。",
       "empty_title": "未連接裝置",
       "empty_body": "安裝 Tofi for Mac 並登入本伺服器，這台 Mac 會出現在這裡。",
       "disabled": "本伺服器未開放個人裝置。"
@@ -791,12 +789,17 @@
       "body": "Bot 將無法使用這台 Mac。可在該 Mac 的 Tofi 中重新連接。"
     },
     "move": {
-      "moving": "正在把檔案搬到{{name}}…",
-      "moving_note": "先複製 home 資料夾，再切換 Bot。搬完前目前的電腦照常運作。",
+      "moving": "正在切換到{{name}}",
       "failed": "切換沒有完成，目前的電腦未變。",
       "updating": "正在更新 E2B 雲端電腦…",
-      "updating_note": "正依新映像重建。home 資料夾會保留；更新完前 Bot 會等待。",
-      "update_failed": "E2B 雲端電腦更新未完成。home 資料夾已保留，稍後會再試。"
+      "update_failed": "E2B 更新未完成，稍後重試。",
+      "step": {
+        "start": "啟動電腦…",
+        "pack": "打包檔案…",
+        "copy": "傳輸檔案…",
+        "copy_of": "傳輸 {{done}} / {{total}} MB",
+        "unpack": "解包檔案…"
+      }
     }
   }
 }

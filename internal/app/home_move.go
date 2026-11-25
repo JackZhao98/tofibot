@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,12 +59,47 @@ type homeMoveState struct {
 	phase     string // "" | moving | failed
 	target    string
 	errorCode string
+	step      string // start | pack | copy | unpack, while moving
+	done      int64  // bytes copied, during copy
+	total     int64  // bytes to copy (the packed parts)
 }
 
 type homeMoveView struct {
 	Phase     string `json:"phase"`
 	Target    string `json:"target,omitempty"`
 	ErrorCode string `json:"error_code,omitempty"`
+	Step      string `json:"step,omitempty"`
+	Done      int64  `json:"done,omitempty"`
+	Total     int64  `json:"total,omitempty"`
+}
+
+// homeMoveProgress reports the move's step to whoever started it (the page's move line); a move with no reporter
+// (an image update, a test) reports nothing.
+type homeMoveProgress func(step string, done, total int64)
+
+type homeMoveProgressKey struct{}
+
+func withHomeMoveProgress(ctx context.Context, p homeMoveProgress) context.Context {
+	return context.WithValue(ctx, homeMoveProgressKey{}, p)
+}
+
+func reportHomeMove(ctx context.Context, step string, done, total int64) {
+	if p, ok := ctx.Value(homeMoveProgressKey{}).(homeMoveProgress); ok && p != nil {
+		p(step, done, total)
+	}
+}
+
+// progress records the running move's step; the server log gets each new step once.
+func (m *homeMoveState) progress(step string, done, total int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.phase != "moving" {
+		return
+	}
+	if step != m.step {
+		log.Printf("[environments] home move to %s: %s", m.target, step)
+	}
+	m.step, m.done, m.total = step, done, total
 }
 
 func (m *homeMoveState) view() *homeMoveView {
@@ -72,7 +108,7 @@ func (m *homeMoveState) view() *homeMoveView {
 	if m.phase == "" {
 		return nil
 	}
-	return &homeMoveView{Phase: m.phase, Target: m.target, ErrorCode: m.errorCode}
+	return &homeMoveView{Phase: m.phase, Target: m.target, ErrorCode: m.errorCode, Step: m.step, Done: m.done, Total: m.total}
 }
 
 // begin claims the one move slot; false while a move runs.
@@ -83,6 +119,7 @@ func (m *homeMoveState) begin(target string) bool {
 		return false
 	}
 	m.phase, m.target, m.errorCode = "moving", target, ""
+	m.step, m.done, m.total = "start", 0, 0
 	return true
 }
 
@@ -239,10 +276,21 @@ func cleanHomeMove(call guestCall, moveID string) {
 	_, _ = guestShell(c, call, "rm -rf "+homeMoveDir(moveID), 30)
 }
 
+// partsSize is the packed parts' total size on the source, for the copy's progress; 0 when the guest does not say.
+func partsSize(ctx context.Context, from guestCall, dir string) int64 {
+	out, err := guestShell(ctx, from, "cd "+dir+" && du -cb part.* | tail -1 | cut -f1", 60)
+	if err != nil || out.ExitCode != 0 {
+		return 0
+	}
+	n, _ := strconv.ParseInt(strings.TrimSpace(out.Stdout), 10, 64)
+	return n
+}
+
 // moveHome copies /workspace/home from one computer to another. It never deletes anything outside its own folder.
 func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
 	defer cleanHomeMove(from, moveID)
 	defer cleanHomeMove(to, moveID)
+	reportHomeMove(ctx, "pack", 0, 0)
 	parts, used, err := packHome(ctx, from, moveID)
 	if err != nil {
 		return err
@@ -254,44 +302,55 @@ func moveHome(ctx context.Context, from, to guestCall, moveID string) error {
 	if _, err := guestShell(ctx, to, "rm -rf /workspace/home/uploads/.tofi-move-* && mkdir -p "+dir, 30); err != nil {
 		return err
 	}
+	total := partsSize(ctx, from, dir)
+	var copied int64
+	reportHomeMove(ctx, "copy", 0, total)
 	for _, name := range append(parts, "sums") {
-		if err := copyGuestFile(ctx, from, to, dir+"/"+name); err != nil {
+		n, err := copyGuestFile(ctx, from, to, dir+"/"+name, func(done int64) {
+			reportHomeMove(ctx, "copy", copied+done, max(total, copied+done))
+		})
+		if err != nil {
 			return err
 		}
+		copied += n
 	}
+	reportHomeMove(ctx, "unpack", copied, copied)
 	return unpackHome(ctx, to, moveID)
 }
 
 // copyGuestFile streams one file from one computer to the other in 512 KiB pages.
-func copyGuestFile(ctx context.Context, from, to guestCall, path string) error {
+func copyGuestFile(ctx context.Context, from, to guestCall, path string, onPage func(done int64)) (int64, error) {
 	var offset int64
 	version := ""
 	for {
 		raw, err := from(ctx, "files.export_chunk", map[string]any{"path": path, "offset": offset, "limit": 512 << 10, "version": version})
 		if err != nil {
-			return err
+			return offset, err
 		}
 		var w guestWireChunk
 		if json.Unmarshal(raw, &w) != nil || w.Next < offset {
-			return errors.New("invalid chunk")
+			return offset, errors.New("invalid chunk")
 		}
 		if offset == 0 {
 			version = w.Version
 		}
 		res, err := to(ctx, "files.import_chunk", map[string]any{"path": path, "offset": offset, "total_size": w.Size, "data_base64": w.Data})
 		if err != nil {
-			return err
+			return offset, err
 		}
 		var status struct {
 			Status string `json:"status"`
 		}
 		_ = json.Unmarshal(res, &status)
 		if status.Status == "exists" {
-			return errors.New("stale part on the target")
+			return offset, errors.New("stale part on the target")
 		}
 		offset = w.Next
+		if onPage != nil {
+			onPage(offset)
+		}
 		if w.EOF || offset >= w.Size {
-			return nil
+			return offset, nil
 		}
 	}
 }

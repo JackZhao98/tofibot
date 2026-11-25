@@ -92,7 +92,7 @@ try {
     // A computer that turns off while the window is open stays off: the window woke it only when it opened.
     state.wakes = 0;
     state.info = info("hibernated");
-    await page.getByText(/Off · files kept/).waitFor({ timeout: 6000 });
+    await page.getByText("Off", {exact: true}).waitFor({ timeout: 6000 });
     await page.waitForTimeout(3200); // two more polls
     assert.equal(state.wakes, 0, "an open window does not wake a computer that turned off");
     assert.equal(await page.locator(".desktop-placeholder-action").count(), 1, "the off screen offers Turn on");
@@ -166,12 +166,12 @@ try {
     state.sleepError = "computer_busy";
     await power.click();
     await page.locator(".desktop-power-note").waitFor({ timeout: 6000 });
-    assert.match(await page.locator(".desktop-power-note").innerText(), /using the computer/, "a busy computer says why it stays on");
+    assert.match(await page.locator(".desktop-power-note").innerText(), /A Bot is using it/, "a busy computer says why it stays on");
     assert.equal(await power.getAttribute("aria-pressed"), "true", "a refused turn-off leaves it on");
     delete state.sleepError;
 
     await power.click();
-    await page.getByText(/Off · files kept/).waitFor({ timeout: 6000 });
+    await page.getByText("Off", {exact: true}).waitFor({ timeout: 6000 });
     assert.equal(state.sleeps, 2, "one refused and one accepted turn-off");
     assert.equal(await power.getAttribute("aria-pressed"), "false", "off: the power button is not pressed");
     assert.equal(await page.locator(".desktop-power-note").count(), 0, "the note clears");

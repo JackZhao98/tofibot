@@ -56,13 +56,13 @@
       "bot": "{{name}} 작업 중",
       "idle": "Bot 컴퓨터 대기 중"
     },
-    "power_hint": "화면 접기(Bot 컴퓨터는 계속 실행됨)",
+    "power_hint": "숨기기",
     "power": {
       "label": "Bot 컴퓨터 전원",
-      "off_hint": "끄기(파일은 유지됨)",
+      "off_hint": "끄기",
       "on_hint": "켜기",
-      "held": "사용 중입니다. 유휴 상태가 되면 자동으로 꺼집니다",
-      "busy": "Bot이 이 컴퓨터를 사용 중이라 켜 둡니다. 유휴 상태가 되면 자동으로 꺼집니다.",
+      "held": "사용 중",
+      "busy": "Bot이 사용 중",
       "not_ready": "시작이 끝난 뒤에 끌 수 있습니다.",
       "failed": "끄지 못했습니다. 다시 시도해 주세요.",
       "turn_on": "켜기",
@@ -87,7 +87,7 @@
     "tools": {
       "title": "보조 작업",
       "open_browser": "브라우저에서 열기",
-      "run_shell": "셸 실행({{name}} 작업 공간)",
+      "run_shell": "셸 실행",
       "shell_placeholder": "예: pwd",
       "run": "명령 실행",
       "technical": "기술 정보",
@@ -102,7 +102,7 @@
       "resuming_phase": "깨우는 중 · {{phase}}",
       "waking_computer": "Bot 컴퓨터를 깨우는 중…",
       "starting_desktop": "데스크톱을 시작하는 중…",
-      "off": "꺼짐 · 파일은 그대로입니다. Bot이 필요할 때 자동으로 켜집니다",
+      "off": "꺼짐",
       "hibernating": "끄는 중…",
       "no_desktop": "Bot이 데스크톱 없이 브라우저로 작업하고 있습니다",
       "retry": "다시 시도"
@@ -506,7 +506,7 @@
       "token_unreadable": "저장된 키를 읽을 수 없습니다. E2B 키를 다시 추가하세요.",
       "org_resource_missing": "조직에서 이 컴퓨터를 아직 프로비저닝하지 않았습니다. 관리자에게 문의하세요.",
       "not_ready": "컴퓨터 이미지가 아직 준비되지 않았습니다. 몇 분 후에 다시 시도하세요.",
-      "guest_outdated_required": "이 컴퓨터의 이미지는 더 이상 지원되지 않습니다. 유휴 시 자동으로 업데이트되며 home 폴더는 유지됩니다.",
+      "guest_outdated_required": "지원 종료 이미지. 유휴 시 자동 업데이트.",
       "computer_upgrade_failed": "컴퓨터를 업그레이드하지 못했습니다. 다시 시도하세요.",
       "not_outdated": "이 컴퓨터는 이미 최신 상태입니다.",
       "computer_busy": "컴퓨터가 사용 중입니다. 진행 중인 작업이 끝난 뒤 다시 시도하세요.",
@@ -518,12 +518,12 @@
     "confirm": {
       "use": {
         "title": "{{name}}을(를) Bot이 사용할까요?",
-        "body": "진행 중인 작업이 먼저 끝납니다. home 폴더(Bot이 만들고 저장한 파일)는 {{name}}(으)로 이동합니다. 설치한 소프트웨어와 브라우저 로그인은 이동하지 않으며 Bot이 새 컴퓨터에서 다시 로그인합니다. 현재 컴퓨터는 대기 상태가 됩니다.",
+        "body": "home 폴더는 옮겨지고 설치된 앱과 로그인은 옮겨지지 않습니다.",
         "action": "Bot이 사용"
       },
       "remove": {
         "title": "{{name}}을(를) 제거할까요?",
-        "body": "샌드박스가 삭제되고 API 키가 지워집니다. Bot이 사용 중이면 실행 중인 작업이 끝나고 파일이 서버로 복사된 뒤 제거됩니다.",
+        "body": "샌드박스와 키를 삭제합니다.",
         "action": "제거"
       },
       "disconnect": {
@@ -547,7 +547,7 @@
       "title": "E2B 클라우드 컴퓨터 추가",
       "key": "API 키",
       "get_key": "키 받기",
-      "cost": "E2B가 실행 중인 시간을 초 단위로 청구하며, 유휴 상태에서는 일시 중지됩니다.",
+      "cost": "E2B가 초 단위로 과금, 유휴 시 일시 중지.",
       "saving": "확인 중…",
       "template_toggle": "기존 템플릿 사용",
       "template_id": "템플릿 ID",
@@ -563,7 +563,7 @@
       "title": "Bot 컴퓨터 설정",
       "provided_title": "Bot 컴퓨터 세부 정보"
     },
-    "outdated": "새 컴퓨터 이미지가 있습니다. 유휴 시 자동으로 업데이트되며 home 폴더는 유지됩니다.",
+    "outdated": "새 이미지 있음. 유휴 시 자동 업데이트.",
     "image_preparing": "컴퓨터 이미지를 빌드하는 중입니다. 몇 분 걸립니다.",
     "image_building": "더 새로운 컴퓨터 이미지를 빌드하는 중입니다.",
     "rc": {
@@ -676,7 +676,7 @@
   "browser": {
     "panel": "Bot 브라우저",
     "source": "내 Mac · Bot 브라우저",
-    "look": "Bot 브라우저 보기 ({{id}})",
+    "look": "Bot 브라우저 보기",
     "enlarge": "Bot 브라우저 확대",
     "shrink": "Bot 브라우저 축소",
     "status": {
@@ -737,7 +737,6 @@
   "devices": {
     "bot": {
       "title": "Bot 컴퓨터",
-      "description": "Bot이 작업하는 컴퓨터입니다. 계정당 한 대.",
       "unassigned_title": "할당된 Bot 컴퓨터 없음",
       "unassigned_body": "Bot 컴퓨터는 관리자가 할당합니다. 채팅, 메모리, 일정, 연결은 없어도 작동합니다.",
       "managed": "조직에서 관리"
@@ -746,13 +745,13 @@
       "vm": "내장 VM",
       "vm_sub": "이 서버에서 실행",
       "e2b": "E2B 클라우드 컴퓨터",
-      "e2b_sub": "키 {{hint}} · E2B 과금",
+      "e2b_sub": "키 {{hint}}",
       "e2b_billed": "E2B 과금"
     },
     "add": {
-      "vm_body": "이 서버의 Firecracker VM. KVM과 4 GiB 메모리가 필요합니다.",
+      "vm_body": "KVM과 4GiB 메모리가 필요합니다.",
       "vm_member": "관리자가 할당합니다.",
-      "e2b_body": "내 E2B 계정에서 실행됩니다. E2B가 초 단위로 과금하며 유휴 시 일시 중지됩니다."
+      "e2b_body": "E2B가 초 단위로 과금, 유휴 시 일시 중지."
     },
     "action": {
       "setup": "설치",
@@ -764,7 +763,6 @@
     },
     "mine": {
       "title": "내 기기",
-      "description": "연결한 컴퓨터입니다. Bot은 기기마다 허용한 범위에서만 사용합니다.",
       "empty_title": "연결된 기기 없음",
       "empty_body": "Tofi for Mac을 설치하고 이 서버에 로그인하면 Mac이 여기에 표시됩니다.",
       "disabled": "이 서버는 개인 기기를 허용하지 않습니다."
@@ -791,12 +789,17 @@
       "body": "Bot이 이 Mac을 사용할 수 없게 됩니다. Mac의 Tofi에서 다시 연결할 수 있습니다."
     },
     "move": {
-      "moving": "{{name}}(으)로 파일 이동 중…",
-      "moving_note": "home 폴더를 복사한 뒤 Bot을 전환합니다. 그때까지 현재 컴퓨터는 계속 작동합니다.",
+      "moving": "{{name}}(으)로 전환 중",
       "failed": "전환이 끝나지 않았습니다. 현재 컴퓨터는 그대로입니다.",
       "updating": "E2B 클라우드 컴퓨터 업데이트 중…",
-      "updating_note": "새 이미지로 다시 만드는 중입니다. home 폴더는 유지되며, 완료될 때까지 Bot은 기다립니다.",
-      "update_failed": "E2B 클라우드 컴퓨터를 업데이트하지 못했습니다. home 폴더는 유지되며 나중에 다시 시도합니다."
+      "update_failed": "E2B 업데이트 미완료. 나중에 다시 시도합니다.",
+      "step": {
+        "start": "컴퓨터 시작 중…",
+        "pack": "파일 압축 중…",
+        "copy": "파일 전송 중…",
+        "copy_of": "전송 중 {{done}} / {{total}} MB",
+        "unpack": "파일 압축 해제 중…"
+      }
     }
   }
 }

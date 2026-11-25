@@ -58,13 +58,13 @@
       "bot": "{{name}} est aux commandes",
       "idle": "Ordinateur Bot inactif"
     },
-    "power_hint": "Masquer l'écran (l'ordinateur Bot reste allumé)",
+    "power_hint": "Masquer",
     "power": {
       "label": "Alimentation de l'ordinateur du Bot",
-      "off_hint": "Éteindre (fichiers conservés)",
+      "off_hint": "Éteindre",
       "on_hint": "Allumer",
-      "held": "En cours d'utilisation. Il s'éteint seul une fois inactif.",
-      "busy": "Un Bot utilise l'ordinateur, il reste donc allumé. Il s'éteindra seul une fois inactif.",
+      "held": "En cours d’utilisation",
+      "busy": "Un Bot l’utilise",
       "not_ready": "L'ordinateur peut être éteint une fois démarré.",
       "failed": "Impossible d'éteindre l'ordinateur. Réessayez.",
       "turn_on": "Allumer",
@@ -89,7 +89,7 @@
     "tools": {
       "title": "Actions d'appoint",
       "open_browser": "Ouvrir dans le navigateur",
-      "run_shell": "Exécuter un shell (espace de travail de {{name}})",
+      "run_shell": "Exécuter le shell",
       "shell_placeholder": "ex. : pwd",
       "run": "Exécuter la commande",
       "technical": "Détails techniques",
@@ -104,7 +104,7 @@
       "resuming_phase": "Réveil · {{phase}}",
       "waking_computer": "Réveil de l’ordinateur Bot…",
       "starting_desktop": "Démarrage du bureau…",
-      "off": "Éteint · fichiers conservés. Il redémarre quand un Bot en a besoin.",
+      "off": "Éteint",
       "hibernating": "Extinction…",
       "no_desktop": "Le Bot travaille dans le navigateur, sans bureau",
       "retry": "Réessayer"
@@ -518,7 +518,7 @@
       "token_unreadable": "La clé enregistrée est illisible. Ajoutez à nouveau la clé E2B.",
       "org_resource_missing": "Votre organisation n’a pas provisionné cet ordinateur. Contactez un administrateur.",
       "not_ready": "L’image d’ordinateur n’est pas encore prête. Réessayez dans quelques minutes.",
-      "guest_outdated_required": "L’image de cet ordinateur n’est plus prise en charge. Elle se met à jour d’elle-même pendant l’inactivité ; le dossier home est conservé.",
+      "guest_outdated_required": "Image obsolète, mise à jour au repos.",
       "computer_upgrade_failed": "Impossible de mettre l’ordinateur à niveau. Réessayez.",
       "not_outdated": "Cet ordinateur est déjà à jour.",
       "computer_busy": "L’ordinateur est occupé. Réessayez quand le travail en cours sera terminé.",
@@ -530,12 +530,12 @@
     "confirm": {
       "use": {
         "title": "Utiliser {{name}} pour les Bots ?",
-        "body": "Le travail en cours se termine d’abord. Le dossier home (les fichiers créés et enregistrés par les Bots) est déplacé vers {{name}}. Les logiciels installés et les connexions du navigateur ne sont pas déplacés ; les Bots se reconnectent là-bas. L’ordinateur actuel est mis de côté.",
+        "body": "Le dossier home est déplacé, pas les apps installées ni les connexions.",
         "action": "Utiliser pour les Bots"
       },
       "remove": {
         "title": "Retirer {{name}} ?",
-        "body": "Le bac à sable est supprimé et la clé API oubliée. Si des Bots l’utilisent, le travail en cours se termine et les fichiers sont copiés sur le serveur d’abord.",
+        "body": "Supprime la sandbox et la clé.",
         "action": "Retirer"
       },
       "disconnect": {
@@ -559,7 +559,7 @@
       "title": "Ajouter un ordinateur cloud E2B",
       "key": "Clé API",
       "get_key": "Obtenir une clé",
-      "cost": "Facturé par E2B à la seconde pendant l’exécution ; en pause quand il est inactif.",
+      "cost": "Facturé à la seconde par E2B, en pause au repos.",
       "saving": "Vérification…",
       "template_toggle": "Utiliser un modèle existant",
       "template_id": "ID du modèle",
@@ -575,7 +575,7 @@
       "title": "Configurer l’ordinateur Bot",
       "provided_title": "Détails de l’ordinateur du Bot"
     },
-    "outdated": "Une image plus récente est disponible. Elle s’installe d’elle-même pendant l’inactivité ; le dossier home est conservé.",
+    "outdated": "Nouvelle image, mise à jour au repos.",
     "image_preparing": "L’image d’ordinateur est en cours de construction. Cela prend quelques minutes.",
     "image_building": "Une image d’ordinateur plus récente est en cours de construction.",
     "rc": {
@@ -688,7 +688,7 @@
   "browser": {
     "panel": "Navigateur Bot",
     "source": "Votre Mac · Navigateur Bot",
-    "look": "Voir le navigateur Bot ({{id}})",
+    "look": "Afficher le navigateur du Bot",
     "enlarge": "Agrandir le navigateur Bot",
     "shrink": "Réduire le navigateur Bot",
     "status": {
@@ -749,7 +749,6 @@
   "devices": {
     "bot": {
       "title": "Ordinateur du Bot",
-      "description": "L’ordinateur sur lequel travaillent les Bots. Un par compte.",
       "unassigned_title": "Aucun ordinateur de Bot attribué",
       "unassigned_body": "Un administrateur attribue les ordinateurs de Bot. Discussions, mémoire, planifications et connexions fonctionnent sans.",
       "managed": "Géré par votre organisation"
@@ -758,13 +757,13 @@
       "vm": "VM intégrée",
       "vm_sub": "S’exécute sur ce serveur",
       "e2b": "Ordinateur cloud E2B",
-      "e2b_sub": "Clé {{hint}} · Facturé par E2B",
+      "e2b_sub": "Clé {{hint}}",
       "e2b_billed": "Facturé par E2B"
     },
     "add": {
-      "vm_body": "VM Firecracker sur ce serveur. Nécessite KVM et 4 Gio de mémoire.",
+      "vm_body": "Nécessite KVM et 4 Gio de mémoire.",
       "vm_member": "Attribué par un administrateur.",
-      "e2b_body": "S’exécute dans votre compte E2B. Facturé à la seconde par E2B ; en pause quand il est inactif."
+      "e2b_body": "Facturé à la seconde par E2B, en pause au repos."
     },
     "action": {
       "setup": "Installer",
@@ -776,7 +775,6 @@
     },
     "mine": {
       "title": "Mes appareils",
-      "description": "Les ordinateurs que vous avez connectés. Les Bots ne les utilisent qu’avec les accès accordés sur chacun.",
       "empty_title": "Aucun appareil connecté",
       "empty_body": "Installez Tofi pour Mac et connectez-vous à ce serveur. Le Mac apparaîtra ici.",
       "disabled": "Ce serveur n’autorise pas les appareils personnels."
@@ -803,12 +801,17 @@
       "body": "Les Bots perdent l’accès à ce Mac. Reconnectez-le depuis Tofi sur le Mac."
     },
     "move": {
-      "moving": "Déplacement des fichiers vers {{name}}…",
-      "moving_note": "Le dossier home est copié, puis les Bots basculent. D’ici là, l’ordinateur actuel continue de fonctionner.",
+      "moving": "Passage à {{name}}",
       "failed": "Le basculement n’a pas abouti. L’ordinateur actuel est inchangé.",
       "updating": "Mise à jour de l’ordinateur cloud E2B…",
-      "updating_note": "Il est reconstruit à partir de l’image plus récente. Le dossier home est conservé ; les Bots attendent son retour.",
-      "update_failed": "L’ordinateur cloud E2B n’a pas pu être mis à jour. Le dossier home est conservé ; une nouvelle tentative aura lieu plus tard."
+      "update_failed": "Mise à jour E2B inachevée, nouvel essai plus tard.",
+      "step": {
+        "start": "Démarrage de l’ordinateur…",
+        "pack": "Compression des fichiers…",
+        "copy": "Copie des fichiers…",
+        "copy_of": "Copie {{done}} / {{total}} Mo",
+        "unpack": "Décompression des fichiers…"
+      }
     }
   }
 }

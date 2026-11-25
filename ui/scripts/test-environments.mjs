@@ -159,7 +159,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     // Devices: a Mac's row names what it is connected for (only the browser here); the feature badges are gone.
     assert.equal(await macRow.locator("[data-feature]").count(), 0);
     assert.match((await macRow.innerText()).replace(/\s+/g, " "), /Jack's MacBook Pro Browser/);
-    for (const [key, label, choice] of [["environment_order_web","Preferred environment (web and mobile)","Mac"],["environment_order_app","Preferred environment (Mac app)","Bot computer"]]) {
+    for (const [key, label, choice] of [["environment_order_web","Preferred environment · Web","Mac"],["environment_order_app","Preferred environment · Mac app","Bot computer"]]) {
       const control = page.getByRole("combobox",{name:label});
       await control.click(); await page.getByRole("option",{name:choice,exact:true}).click();
       await page.waitForFunction(({key}) => document.querySelector(`[data-key="${key}"]`)?.dataset.source === "stored",{key});
@@ -230,7 +230,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const link = dialog.getByRole("link", {name: "Get a key"});
     assert.equal(await link.getAttribute("href"), "https://e2b.dev/dashboard?tab=keys");
     assert.equal(await link.getAttribute("target"), "_blank");
-    assert.match(await dialog.innerText(), /Billed by E2B per second while running; pauses when idle\./);
+    assert.match(await dialog.innerText(), /Billed per second by E2B\. Pauses when idle\./);
     assert.equal(await dialog.getByRole("button", {name: "Save"}).isDisabled(), true, "Save waits for a key");
     await dialog.locator("input[type=password]").fill("e2b_badkey");
     await dialog.getByRole("button", {name: "Save"}).click();
@@ -257,7 +257,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.locator(".env-spare").getByRole("button", {name: "Switch"}).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.waitFor();
-    assert.match(await confirm.innerText(), /Running work finishes first/);
+    assert.match(await confirm.innerText(), /The home folder moves over/);
     assert.equal(calls.length, 0, "nothing is sent before the confirmation");
     await confirm.getByRole("button", {name: "Cancel"}).click();
     await confirm.waitFor({state: "detached"});
@@ -285,12 +285,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await rows(page).first().waitFor();
     await page.locator(".env-spare").getByRole("button", {name: "Switch"}).click();
     const confirm = page.getByRole("alertdialog");
-    assert.match((await confirm.innerText()).replace(/\s+/g, " "), /home folder .* moves to E2B cloud computer\. Installed software and browser sign-ins don't move/);
+    assert.match((await confirm.innerText()).replace(/\s+/g, " "), /The home folder moves over\. Installed apps and sign-ins don’t\./);
     await confirm.getByRole("button", {name: "Cancel"}).click();
     await close();
-    const moving = await open({tab: "computer"}, {state: {move: {phase: "moving", target: "e2b", error_code: ""}}});
+    const moving = await open({tab: "computer"}, {state: {move: {phase: "moving", target: "e2b", error_code: "", step: "copy", done: 52428800, total: 104857600}}});
     await moving.page.locator('.env-move[data-move="moving"]').waitFor();
-    assert.match(await moving.page.locator(".env-move").innerText(), /Moving files to E2B cloud computer…/);
+    assert.match(await moving.page.locator(".env-move").innerText(), /Switching to E2B cloud computer[\s\S]*Copying 50 \/ 100 MB/, "the switch names its step and how far the copy is");
     assert.equal(await moving.page.locator(".env-spare").count(), 0, "no second Switch while a switch runs");
     await moving.close();
     const failed = await open({tab: "computer"}, {state: {move: {phase: "failed", target: "e2b", error_code: "target_disk_full"}}});
@@ -579,7 +579,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const orgE2b = (extra = {}) => e2b({state: "ready", bot_computer: true, access: "all_bots", actions: [], ...extra});
     const addNone = {e2b: false, mac: false, vm_command: ""};
     const flat = async locator => (await locator.innerText()).replace(/\s+/g, " ").trim();
-    const OUTDATED = "Newer computer image available. It updates by itself while idle; the home folder is kept.";
+    const OUTDATED = "New image available. Updates when idle.";
 
     // Outdated: a note that it updates by itself and keeps the home folder; no Upgrade button and no confirmation
     // (owner 2026-11-24). The person's own E2B computer is the same row.
@@ -600,14 +600,14 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const required = await open({tab: "computer"}, {state: {environments: [orgE2b({state: "failed", error_code: "guest_outdated_required", guest_outdated: true, actions: ["upgrade"]})], add: addNone, e2bState: orgState({guest_outdated: true}), policy: orgPolicy}, member: true});
     await rows(required.page).first().waitFor();
     assert.match(await flat(row(required.page, "e2b")), /Failed/);
-    assert.equal(await flat(row(required.page, "e2b").locator("[data-error-code]")), "This computer's image is no longer supported. It updates by itself while idle; the home folder is kept.");
+    assert.equal(await flat(row(required.page, "e2b").locator("[data-error-code]")), "Image no longer supported. Updates when idle.");
     assert.equal(await required.page.locator("[data-outdated]").count(), 0, "one sentence about the image, not two");
     assert.deepEqual(await buttons(row(required.page, "e2b")), []);
     await required.close();
     // An update in progress, and one that did not finish.
     const updating = await open({tab: "computer"}, {state: {environments: [orgE2b({guest_outdated: true})], add: addNone, e2bState: orgState({guest_outdated: true}), move: {phase: "moving", target: "e2b_update", error_code: ""}}});
     await updating.page.locator('.env-move[data-move="moving"]').waitFor();
-    assert.match(await flat(updating.page.locator(".env-move")), /^Updating the E2B cloud computer… It is rebuilt from the newer image\. The home folder is kept/);
+    assert.match(await flat(updating.page.locator(".env-move")), /^Updating the E2B cloud computer…\s*Starting the computer…/);
     await updating.close();
 
     // The image is being built: a row that says so, with no duplicate "waiting" row and nothing to press; once a computer

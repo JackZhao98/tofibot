@@ -117,6 +117,8 @@ function MacRow({id, name, item, isThis = false, onOpen, fallback}: {id: string;
 export type BotComputerOffers = {onSetupVM?: () => void; attach?: ReactNode; vmMember?: boolean; onAddE2B?: () => void; unassigned?: boolean};
 
 /** Devices: the Bot computer (one per account) and the person's own devices. Drawn from data, so the catalog shows every state. */
+const mb = (bytes: number) => Math.max(1, Math.round(bytes / 1048576));
+const moveSteps = ["pack", "copy", "unpack"] as const;
 export function EnvironmentList({view, handlers, children, organization, thisMacID, offers = {}, onOpenMac, thisMacName}: {view: EnvironmentsView; handlers: EnvironmentRowHandlers; children?: ReactNode; organization?: OrganizationComputer; /** Opens a Mac's detail view; "this-mac" is the Mac the app runs on. */ onOpenMac?: (id: string) => void; /** In the Mac app: this Mac's name, so it is listed first even before it is connected. */ thisMacName?: string; /** The Mac app's own device: shown in the remote-control block (one thing in one place), not again here. */ thisMacID?: string | null; offers?: BotComputerOffers}) {
   const {t} = useTranslation("computer");
   const macs = view.environments.filter(item => item.kind === "mac" && item.id !== thisMacID);
@@ -135,7 +137,7 @@ export function EnvironmentList({view, handlers, children, organization, thisMac
   const move = view.move;
   const moveLine = move && <div className="env-move" data-move={move.phase} role="status"><SettingsRow
     label={<span className="env-name"><TofiIcon name={move.phase === "moving" ? "activity" : "alert"} size={18} aria-hidden="true"/><span className="env-move-text">{move.target === "e2b_update" ? t(move.phase === "moving" ? "devices.move.updating" : "devices.move.update_failed") : move.phase === "moving" ? t("devices.move.moving", {name: t(`devices.kind.${move.target === "e2b" ? "e2b" : "vm"}`)}) : t("devices.move.failed")}</span></span>}
-    description={move.phase === "failed" ? <span className="env-line env-reason" data-error-code={move.error_code}>{t(`environments.error.${reasonKey(move.error_code)}` as "environments.error.generic")}</span> : <span className="env-line">{t(move.target === "e2b_update" ? "devices.move.updating_note" : "devices.move.moving_note")}</span>}/></div>;
+    description={move.phase === "failed" ? <span className="env-line env-reason" data-error-code={move.error_code}>{t(`environments.error.${reasonKey(move.error_code)}` as "environments.error.generic")}</span> : <span className="env-line">{move.step === "copy" && move.total > 0 ? t("devices.move.step.copy_of", {done: mb(move.done), total: mb(move.total)}) : t(`devices.move.step.${moveSteps.find(step => step === move.step) ?? "start"}`)}</span>}/></div>;
   if (primary) bot = <SettingsCard className="env-list">{row(primary)}{settingUp.map(row)}{moveLine}
     {offers.attach && <div className="env-row" data-offer="vm">{offers.attach}</div>}
     {canAddE2B && <div className="env-row" data-offer="e2b"><SettingsRow label={<span className="env-name"><TofiIcon name="cloud" size={18} aria-hidden="true"/><span className="env-name-text">{t("devices.kind.e2b")}</span></span>} description={<span className="env-line">{t("devices.add.e2b_body")}</span>} control={<Button size="sm" data-add="e2b" onClick={offers.onAddE2B}>{t("devices.action.add")}</Button>}/></div>}
@@ -156,8 +158,8 @@ export function EnvironmentList({view, handlers, children, organization, thisMac
       control={offers.onAddE2B ? <Button size="sm" data-add="e2b" onClick={offers.onAddE2B}>{t("devices.action.add")}</Button> : undefined}/></div>
   </SettingsCard>;
   return <div className="settings-stack env-devices">
-    <SectionAnchor id="environment"><SettingsSection className="env-section" title={t("devices.bot.title")} description={t("devices.bot.description")}>{bot}</SettingsSection></SectionAnchor>
-    <SectionAnchor id="devices"><SettingsSection className="env-section" title={t("devices.mine.title")} description={t("devices.mine.description")}>
+    <SectionAnchor id="environment"><SettingsSection className="env-section" title={t("devices.bot.title")}>{bot}</SettingsSection></SectionAnchor>
+    <SectionAnchor id="devices"><SettingsSection className="env-section" title={t("devices.mine.title")}>
       {macs.length || thisMacName ? <SettingsCard className="env-list">
         {thisMacName && <MacRow key="this-mac" id="this-mac" name={thisMacName} item={view.environments.find(item => item.kind === "mac" && item.id === thisMacID)} isThis onOpen={onOpenMac}/>}
         {macs.map(item => <MacRow key={item.id} id={item.id} name={item.name} item={item} onOpen={onOpenMac} fallback={row(item)}/>)}

@@ -1492,7 +1492,7 @@
       },
       "computer_idle_off_minutes": {
         "name": "Cloud-Computer bei Leerlauf ausschalten",
-        "what": "Ein E2B-Computer, der so viele Minuten nichts tut, schaltet sich aus (pausiert). Seine Dateien bleiben erhalten, und er startet, wenn ein Bot ihn braucht. E2B rechnet ab, solange er läuft."
+        "what": "Schaltet nach so vielen Leerlaufminuten aus."
       },
       "browser_engine": {
         "name": "Browsersteuerung",
@@ -1575,12 +1575,10 @@
         "what": "Lehnt Aufrufe kostenpflichtiger Modelle ab, sobald die Ausgaben dieses Monats das Limit erreichen, und sendet bei 80 % einen Hinweis. Ganze Dollar, 0 ist aus. Wird auf der Seite Nutzung eingestellt."
       },
       "environment_order_web": {
-        "name": "Bevorzugte Umgebung (Web und Mobilgeräte)",
-        "what": "Wähle die erste Umgebung für Nachrichten aus dem Web und von Mobilgeräten."
+        "name": "Bevorzugte Umgebung · Web"
       },
       "environment_order_app": {
-        "name": "Bevorzugte Umgebung (Mac-App)",
-        "what": "Wähle die erste Umgebung für Nachrichten aus der Mac-App."
+        "name": "Bevorzugte Umgebung · Mac-App"
       },
       "environment_failover": {
         "name": "Automatischer Umgebungswechsel",

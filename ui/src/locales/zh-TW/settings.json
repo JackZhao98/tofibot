@@ -1478,7 +1478,7 @@
       },
       "computer_idle_off_minutes": {
         "name": "雲端電腦閒置關機",
-        "what": "E2B 電腦閒置這麼多分鐘後自動關機（暫停）。檔案會保留，Bot 需要時自動開機。E2B 依運行時間計費。"
+        "what": "閒置這麼多分鐘後關機。"
       },
       "browser_engine": {
         "name": "瀏覽器控制",
@@ -1561,12 +1561,10 @@
         "what": "本月花費達到上限後，拒絕對計費模型的呼叫，並在 80% 時提醒一次。單位為整數美元，0 表示關閉。在「用量」頁設定。"
       },
       "environment_order_web": {
-        "name": "首選環境（網頁與手機）",
-        "what": "選擇網頁與手機訊息的首選環境。"
+        "name": "首選環境 · 網頁"
       },
       "environment_order_app": {
-        "name": "首選環境（Mac App）",
-        "what": "選擇 Mac App 訊息的首選環境。"
+        "name": "首選環境 · Mac App"
       },
       "environment_failover": {
         "name": "自動切換環境",

@@ -57,13 +57,13 @@
       "bot": "{{name}} arbeitet",
       "idle": "Bot-Computer frei"
     },
-    "power_hint": "Bildschirm ausblenden (Bot-Computer läuft weiter)",
+    "power_hint": "Ausblenden",
     "power": {
       "label": "Stromschalter des Bot-Computers",
-      "off_hint": "Ausschalten (Dateien bleiben)",
+      "off_hint": "Ausschalten",
       "on_hint": "Einschalten",
-      "held": "In Benutzung. Er schaltet sich nach Leerlauf selbst aus.",
-      "busy": "Ein Bot benutzt den Computer, darum bleibt er an. Nach Leerlauf schaltet er sich selbst aus.",
+      "held": "In Benutzung",
+      "busy": "Ein Bot nutzt ihn",
       "not_ready": "Der Computer lässt sich ausschalten, sobald er gestartet ist.",
       "failed": "Der Computer ließ sich nicht ausschalten. Bitte erneut versuchen.",
       "turn_on": "Einschalten",
@@ -88,7 +88,7 @@
     "tools": {
       "title": "Hilfsaktionen",
       "open_browser": "Im Browser öffnen",
-      "run_shell": "Shell ausführen ({{name}}-Arbeitsbereich)",
+      "run_shell": "Shell ausführen",
       "shell_placeholder": "z. B. pwd",
       "run": "Befehl ausführen",
       "technical": "Technische Details",
@@ -103,7 +103,7 @@
       "resuming_phase": "Wird geweckt · {{phase}}",
       "waking_computer": "Bot-Computer wird geweckt …",
       "starting_desktop": "Desktop wird gestartet …",
-      "off": "Aus · Dateien bleiben erhalten. Er startet, wenn ein Bot ihn braucht.",
+      "off": "Aus",
       "hibernating": "Wird ausgeschaltet…",
       "no_desktop": "Der Bot arbeitet im Browser, ohne Desktop",
       "retry": "Erneut versuchen"
@@ -512,7 +512,7 @@
       "token_unreadable": "Der gespeicherte Schlüssel ist nicht lesbar. Füge den E2B-Schlüssel erneut hinzu.",
       "org_resource_missing": "Ihre Organisation hat diesen Computer nicht bereitgestellt. Wenden Sie sich an einen Administrator.",
       "not_ready": "Das Computer-Image ist noch nicht bereit. Versuchen Sie es in einigen Minuten erneut.",
-      "guest_outdated_required": "Das Image dieses Computers wird nicht mehr unterstützt. Es wird im Leerlauf automatisch aktualisiert; der Home-Ordner bleibt erhalten.",
+      "guest_outdated_required": "Image nicht mehr unterstützt, Update im Leerlauf.",
       "computer_upgrade_failed": "Der Computer konnte nicht aktualisiert werden. Versuchen Sie es erneut.",
       "not_outdated": "Dieser Computer ist bereits auf dem neuesten Stand.",
       "computer_busy": "Der Computer ist ausgelastet. Versuchen Sie es erneut, wenn die laufende Arbeit beendet ist.",
@@ -524,12 +524,12 @@
     "confirm": {
       "use": {
         "title": "{{name}} für Bots nutzen?",
-        "body": "Laufende Arbeit wird zuerst beendet. Der Home-Ordner (Dateien, die Bots erstellt und gespeichert haben) wird zu {{name}} verschoben. Installierte Software und Browser-Anmeldungen werden nicht verschoben; Bots melden sich dort erneut an. Der aktuelle Computer wird zurückgestellt.",
+        "body": "Der Home-Ordner zieht mit, installierte Apps und Anmeldungen nicht.",
         "action": "Für Bots nutzen"
       },
       "remove": {
         "title": "{{name}} entfernen?",
-        "body": "Die Sandbox wird gelöscht und der API-Schlüssel vergessen. Nutzen Bots sie gerade, wird laufende Arbeit zuerst beendet und es werden Dateien auf den Server kopiert.",
+        "body": "Löscht die Sandbox und den Schlüssel.",
         "action": "Entfernen"
       },
       "disconnect": {
@@ -553,7 +553,7 @@
       "title": "E2B-Cloud-Computer hinzufügen",
       "key": "API-Schlüssel",
       "get_key": "Schlüssel holen",
-      "cost": "E2B rechnet sekundengenau ab, solange er läuft; im Leerlauf pausiert er.",
+      "cost": "Sekundengenau von E2B abgerechnet, pausiert im Leerlauf.",
       "saving": "Prüfe…",
       "template_toggle": "Vorhandene Vorlage verwenden",
       "template_id": "Vorlagen-ID",
@@ -569,7 +569,7 @@
       "title": "Bot-Computer konfigurieren",
       "provided_title": "Details zum Bot-Computer"
     },
-    "outdated": "Neueres Computer-Image verfügbar. Es wird im Leerlauf automatisch aktualisiert; der Home-Ordner bleibt erhalten.",
+    "outdated": "Neues Image verfügbar, Update im Leerlauf.",
     "image_preparing": "Das Computer-Image wird gebaut. Das dauert einige Minuten.",
     "image_building": "Ein neueres Computer-Image wird gebaut.",
     "rc": {
@@ -682,7 +682,7 @@
   "browser": {
     "panel": "Bot-Browser",
     "source": "Dein Mac · Bot-Browser",
-    "look": "Bot-Browser ansehen ({{id}})",
+    "look": "Bot-Browser anzeigen",
     "enlarge": "Bot-Browser vergrößern",
     "shrink": "Bot-Browser verkleinern",
     "status": {
@@ -743,7 +743,6 @@
   "devices": {
     "bot": {
       "title": "Bot-Computer",
-      "description": "Der Computer, auf dem Bots arbeiten. Einer pro Konto.",
       "unassigned_title": "Kein Bot-Computer zugewiesen",
       "unassigned_body": "Bot-Computer weist ein Administrator zu. Chat, Gedächtnis, Zeitpläne und Verbindungen funktionieren auch ohne.",
       "managed": "Von Ihrer Organisation verwaltet"
@@ -752,13 +751,13 @@
       "vm": "Integrierte VM",
       "vm_sub": "Läuft auf diesem Server",
       "e2b": "E2B-Cloud-Computer",
-      "e2b_sub": "Schlüssel {{hint}} · Abrechnung über E2B",
+      "e2b_sub": "Schlüssel {{hint}}",
       "e2b_billed": "Abrechnung über E2B"
     },
     "add": {
-      "vm_body": "Firecracker-VM auf diesem Server. Benötigt KVM und 4 GiB Arbeitsspeicher.",
+      "vm_body": "Benötigt KVM und 4 GiB Arbeitsspeicher.",
       "vm_member": "Wird von einem Administrator zugewiesen.",
-      "e2b_body": "Läuft in Ihrem E2B-Konto. Sekundengenaue Abrechnung über E2B; pausiert im Leerlauf."
+      "e2b_body": "Sekundengenau von E2B abgerechnet, pausiert im Leerlauf."
     },
     "action": {
       "setup": "Einrichten",
@@ -770,7 +769,6 @@
     },
     "mine": {
       "title": "Meine Geräte",
-      "description": "Computer, die Sie verbunden haben. Bots nutzen sie nur mit den Rechten, die Sie je Gerät erteilen.",
       "empty_title": "Keine Geräte verbunden",
       "empty_body": "Installieren Sie Tofi für Mac und melden Sie sich an diesem Server an. Der Mac erscheint dann hier.",
       "disabled": "Dieser Server erlaubt keine persönlichen Geräte."
@@ -797,12 +795,17 @@
       "body": "Bots verlieren den Zugriff auf diesen Mac. Neu verbinden über Tofi auf dem Mac."
     },
     "move": {
-      "moving": "Dateien werden zu {{name}} verschoben…",
-      "moving_note": "Der Home-Ordner wird kopiert, dann wechseln die Bots. Bis dahin arbeitet der aktuelle Computer weiter.",
+      "moving": "Wechsel zu {{name}}",
       "failed": "Der Wechsel wurde nicht abgeschlossen. Der aktuelle Computer ist unverändert.",
       "updating": "Der E2B-Cloud-Computer wird aktualisiert…",
-      "updating_note": "Er wird aus dem neueren Image neu aufgebaut. Der Home-Ordner bleibt erhalten; Bots warten, bis er zurück ist.",
-      "update_failed": "Der E2B-Cloud-Computer konnte nicht aktualisiert werden. Der Home-Ordner bleibt erhalten; es wird später erneut versucht."
+      "update_failed": "E2B-Update nicht abgeschlossen, neuer Versuch später.",
+      "step": {
+        "start": "Computer wird gestartet…",
+        "pack": "Dateien werden gepackt…",
+        "copy": "Dateien werden kopiert…",
+        "copy_of": "Kopiere {{done}} / {{total}} MB",
+        "unpack": "Dateien werden entpackt…"
+      }
     }
   }
 }
