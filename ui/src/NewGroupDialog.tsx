@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useRef, useState } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { useCover } from "./coverGuard";
@@ -53,8 +54,8 @@ export function NewGroupDialog({ bots, onCreate }: { bots: Bot[]; onCreate: (nam
         </div>
         {error && <p className="new-group-error" role="alert">{error}</p>}
         <div className="new-group-actions">
-          <button type="button" className="new-group-cancel" disabled={saving} onClick={close}>{t("deleteDialog.cancel")}</button>
-          <button type="submit" className="new-group-create" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</button>
+          <Button className="new-group-cancel" disabled={saving} onClick={close}>{t("deleteDialog.cancel")}</Button>
+          <Button type="submit" variant="primary" className="new-group-create" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</Button>
         </div>
       </form>
     </section>

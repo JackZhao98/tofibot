@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -182,13 +183,13 @@ export function GroupSettingsPanel({ conversation, bots, onSaved, onReload, onOp
         </button>
         <div className="gs-row is-danger">
           <span className="gs-row-copy"><strong>{t("header.delete_group")}</strong><small>{t("groupSettings.delete_hint")}</small></span>
-          <button type="button" className="gs-button is-danger" onClick={onDelete}>{t("header.delete_group")}</button>
+          <Button variant="danger" className="gs-button is-danger" onClick={onDelete}>{t("header.delete_group")}</Button>
         </div>
       </div>
     </div>
     <span className="sr-only" role="status">{justSaved ? t("cover.saved") : ""}</span>
     <DirtyBar open={changed} busy={busy} error={error} canSave={valid} onDiscard={discard} onSave={() => void save()}>
-      {conflict && <button type="button" className="cover-dirty-discard" disabled={reloading} onClick={() => void reload()}>{reloading ? t("members.reloading") : t("members.reload")}</button>}
+      {conflict && <Button variant="ghost" size="sm" className="cover-dirty-discard" disabled={reloading} onClick={() => void reload()}>{reloading ? t("members.reloading") : t("members.reload")}</Button>}
     </DirtyBar>
     {asking && <LeaveConfirm busy={busy} onKeep={() => setAsking(false)} onLeave={() => { setAsking(false); cover.close(); }} />}
   </div>;

@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -178,14 +179,14 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
       <div className="bs-row bs-avatar-row">
         <span className="bs-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
         <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small></div>
-        <button ref={styleButton} type="button" className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</button>
+        <Button ref={styleButton} className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</Button>
       </div>
       <label className="bs-field"><span>{t("botPanel.name")}</span>
         <input value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />
         {!canSave && <small className="bs-field-error" role="alert">{t("botSettings.name_required")}</small>}
       </label>
       {(bot.is_primary || !bot.archived) && <Row title={t("botSettings.primary_title")} hint={bot.is_primary ? t("primary.bot_panel_note") : t("botSettings.primary_off")}>
-        {bot.is_primary ? <PrimaryBadge /> : <button type="button" className="bs-button" disabled={makingPrimary} onClick={() => { setMakingPrimary(true); void onMakePrimary(bot.id).finally(() => setMakingPrimary(false)); }}>{t("primary.make")}</button>}
+        {bot.is_primary ? <PrimaryBadge /> : <Button className="bs-button" disabled={makingPrimary} onClick={() => { setMakingPrimary(true); void onMakePrimary(bot.id).finally(() => setMakingPrimary(false)); }}>{t("primary.make")}</Button>}
       </Row>}
       {bot.archived && <Row title={t("botSettings.archived_title")} hint={t("botSettings.archived_body")} />}
     </div>,
@@ -203,9 +204,9 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     secrets: <div className="bs-stack"><BotSecrets botId={bot.id} /></div>,
     advanced: <div className="bs-stack">
       <BotInspector botId={bot.id} />
-      <Row title={t("botPanel.export_share")} hint={t("botSettings.share_hint")}><button type="button" className="bs-button" onClick={() => void shareBotPackage(bot)}>{t("botSettings.export_action")}</button></Row>
-      <Row title={t("botPanel.export_data")} hint={t("botSettings.data_hint")}><button type="button" className="bs-button" onClick={() => onExportData(bot.id)}>{t("botSettings.export_action")}</button></Row>
-      <Row title={t("header.delete_bot")} hint={t("botSettings.delete_hint")} danger><button type="button" className="bs-button is-danger" onClick={() => { cover.close(); onDelete(); }}>{t("header.delete_bot")}</button></Row>
+      <Row title={t("botPanel.export_share")} hint={t("botSettings.share_hint")}><Button className="bs-button" onClick={() => void shareBotPackage(bot)}>{t("botSettings.export_action")}</Button></Row>
+      <Row title={t("botPanel.export_data")} hint={t("botSettings.data_hint")}><Button className="bs-button" onClick={() => onExportData(bot.id)}>{t("botSettings.export_action")}</Button></Row>
+      <Row title={t("header.delete_bot")} hint={t("botSettings.delete_hint")} danger><Button variant="danger" className="bs-button is-danger" onClick={() => { cover.close(); onDelete(); }}>{t("header.delete_bot")}</Button></Row>
     </div>,
   };
 

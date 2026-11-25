@@ -10,14 +10,8 @@
 .new-group-dialog .gs-members { max-height:min(300px,40dvh); }
 .new-group-error { margin:0; padding:10px 14px; border-radius:12px; background:color-mix(in srgb,var(--danger) 10%,var(--surface-2)); color:var(--danger-text); font:13px/1.5 var(--body); }
 .new-group-actions { display:flex; justify-content:flex-end; gap:8px; }
-.new-group-actions button { min-height:40px; padding:0 18px; border:0; border-radius:12px; font:600 13px/1 var(--body); transition:background-color var(--m-press) var(--ease-out), opacity var(--m-press) var(--ease-out); }
-.new-group-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
-.new-group-actions button:disabled { opacity:.5; }
-.new-group-cancel { background:var(--surface-2); color:var(--ink); }
-.new-group-cancel:hover:not(:disabled) { background:var(--sunk); }
-.new-group-create { background:var(--inverse); color:var(--on-inverse); }
 @keyframes new-group-scrim-in { from { opacity:0; } }
 @keyframes new-group-scrim-out { to { opacity:0; } }
 @media (max-width:767px) { .new-group-scrim { padding:12px; align-items:end; } .new-group-dialog { padding:20px; } }
-@media (prefers-reduced-motion:reduce) { .new-group-scrim, .new-group-scrim.is-leaving, .new-group-dialog, .new-group-dialog.is-leaving, .new-group-actions button { animation:none; transition:none; } }
+@media (prefers-reduced-motion:reduce) { .new-group-scrim, .new-group-scrim.is-leaving, .new-group-dialog, .new-group-dialog.is-leaving { animation:none; transition:none; } }
 }
