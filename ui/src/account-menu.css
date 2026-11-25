@@ -1,9 +1,0 @@
-/* Account surfaces share the same icon column, text gap and row height. */
-@layer legacy {
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu :is(button,.menu-subtrigger) { gap:9px; min-height:38px; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu svg { flex-shrink:0; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer { display:flex; align-items:center; gap:4px; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > button { width:auto; gap:9px; padding:8px 10px; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-logout { flex:1; }
-:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-theme { justify-content:center; width:38px; margin-left:auto; }
-}

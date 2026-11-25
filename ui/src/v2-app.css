@@ -48,6 +48,10 @@
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button { flex:1; min-height:30px; border:0; border-radius:7px; color:var(--ink-soft); background:transparent; font:11px/1 var(--body); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-themes button[aria-checked="true"] { color:var(--on-block); background:var(--yellow); }
 :is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-rule { height:1px; margin:6px 5px; background:var(--line-soft); }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer { display:flex; align-items:center; gap:4px; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > button { width:auto; padding:8px 10px; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-logout { flex:1; }
+:is(.workspace,[id="tofi-layers"]) .sidebar-account-menu-footer > .sidebar-account-theme { justify-content:center; width:38px; margin-left:auto; }
 /* Room under the last message: composer + a 24px margin + a gap (--composer-height follows the composer, App.tsx). The one rule for both shells. */
 .workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 24px + 20px); }
 /* The floating composer is reserved once; its own padding provides the gap. */

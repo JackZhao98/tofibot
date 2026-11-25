@@ -16,7 +16,6 @@ import { authRequest, type OwnerSession } from "./ownerAuthApi";
 const AppUpdateButton = lazy(() => import("./AppUpdateButton").then(module => ({ default: module.AppUpdateButton })));
 import { Avatar } from "./ds/Avatar/Avatar";
 import { SidebarRow } from "./ds/SidebarRow/SidebarRow";
-import "./account-menu.css";
 import { AuthLanguageSwitch } from "./AuthLanguageSwitch";
 import "./layout/auth-gate.css";
 import "./ds/Ground/Ground.css";

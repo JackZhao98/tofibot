@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
 
@@ -32,16 +32,11 @@ test("footer omits client wording; the menu sheet adds no motion of its own", ()
   // PR 5.1: the address is the meta line of the account row.
   assert.match(footer, /meta=\{.*address \|\| undefined/);
   assert.match(footer, /<AppUpdateButton compact=\{compact\}\/>/);
-  const css = source("ui/src/account-menu.css");
-  // One popup motion since #46: the menu has no animation of its own and gets .tofi-pop from OverlayMenu.
-  assert.doesNotMatch(css, /sidebar-account-menu[^{]*\{[^}]*animation/);
+  // PR 7.3: the row metrics sheet is gone; the kit Menu draws the rows.
+  assert.equal(existsSync(new URL("ui/src/account-menu.css", root)), false);
   assert.match(source("ui/src/AccountMenu.tsx"), /<OverlayMenu\b[^>]*className="sidebar-account-menu"/);
   assert.match(source("ui/src/overlays/RadixOverlays.tsx"), /<DropdownMenu\.Content className=\{`tofi-pop /);
-  assert.doesNotMatch(css, /translate|scale\(/);
-  // PR 5.1: the sheet's only animation (the download pulse on the old update icon) is deleted with that icon, so it needs no reduced-motion block.
-  assert.doesNotMatch(css, /@keyframes|animation/);
   // PLAN 74 / PR 2.3: the account menu is drawn with the kit Menu material (glass and its blur from the skin), not a sheet of its own.
-  assert.doesNotMatch(css, /backdrop-filter/);
   assert.match(source("ui/src/ds/Menu/Menu.tsx"), /MENU_SURFACE = "tb-pop tb-glass tb-menu"/);
 });
 test("update contract is additive and wording exists in all seven locales", () => {

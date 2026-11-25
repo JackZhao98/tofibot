@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Command } from "cmdk";
-import * as Tabs from "@radix-ui/react-tabs";
 import { api } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { useTranslation } from "./i18n";
 import { formatDateTime } from "./i18n/format";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { Kbd } from "./ds/Kbd/Kbd";
+import { Tabs } from "./ds/Tabs/Tabs";
 import { ModalDialog } from "./overlays/ModalDialog";
+import "./ds/control.css";
+import "./ds/TextInput/TextInput.css";
+import "./ds/Dialog/Dialog.css";
+import "./ds/Mention/Mention.css";
 import type { Conversation, SearchMessageHit } from "./types";
 import "./search-palette.css";
 
@@ -40,7 +46,7 @@ export type SearchPaletteProps = {
 /** Splits `text` around the hit; offsets are UTF-16 units, which is what String.slice counts. */
 function Highlighted({ text, start, length }: { text: string; start: number; length: number }) {
   if (length <= 0 || start < 0 || start + length > text.length) return <>{text}</>;
-  return <>{text.slice(0, start)}<mark>{text.slice(start, start + length)}</mark>{text.slice(start + length)}</>;
+  return <>{text.slice(0, start)}<mark className="tb-mention">{text.slice(start, start + length)}</mark>{text.slice(start + length)}</>;
 }
 
 function sameQuery(name: string, query: string) {
@@ -126,20 +132,20 @@ export function SearchPalette({ conversations, onClose, onOpenConversation, onOp
   const time = (value: string) => formatDateTime(value, { dateStyle: "medium" });
 
   return <ModalDialog onClose={requestClose} overlayClassName="search-palette-scrim" overlayProps={{ "data-state": closing ? "closing" : "open" }} initialFocus={input}>
-    <Command shouldFilter={false} loop label={t("search.title")} className="search-palette" aria-label={t("search.title")} data-state={closing ? "closing" : "open"} onKeyDown={onKeyDown}
+    <Command shouldFilter={false} loop label={t("search.title")} className="search-palette tb-dialog" aria-label={t("search.title")} data-state={closing ? "closing" : "open"} onKeyDown={onKeyDown}
       onAnimationEnd={event => { if (closing && event.target === event.currentTarget) onClose(); }}>
       <div className="search-palette-head">
-        <Icon name="search" size={20} />
-        <Command.Input ref={input}
-          aria-label={t("search.title")} placeholder={t("search.placeholder")} value={query} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} enterKeyHint="search"
-          onValueChange={setQuery} />
-        <button type="button" className="search-palette-close" aria-label={t("search.hint_close")} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") event.stopPropagation(); }} onClick={requestClose}><Icon name="close" size={18} /></button>
+        <div className="tb-input search-palette-field">
+          <Icon name="search" size={18} />
+          <Command.Input ref={input}
+            aria-label={t("search.title")} placeholder={t("search.placeholder")} value={query} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} enterKeyHint="search"
+            onValueChange={setQuery} />
+        </div>
+        <IconButton className="search-palette-close" icon="close" label={t("search.hint_close")} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") event.stopPropagation(); }} onClick={requestClose} />
       </div>
-      <Tabs.Root value={tab} onValueChange={value => setTab(value as Tab)}>
-        <Tabs.List className="search-palette-tabs" aria-label={t("search.tabs_label")}>
-          {TABS.map(id => <Tabs.Trigger key={id} value={id} onClick={() => input.current?.focus()}>{t(`search.tab_${id}`)}</Tabs.Trigger>)}
-        </Tabs.List>
-      </Tabs.Root>
+      <div onPointerUp={() => input.current?.focus()}>
+        <Tabs className="search-palette-tabs" label={t("search.tabs_label")} value={tab} onChange={setTab} tabs={TABS.map(id => ({ value: id, label: t(`search.tab_${id}`) }))} />
+      </div>
       <Command.List className="search-palette-list" aria-label={t("search.title")} aria-busy={status === "loading"}>
         {sections.map(section => <Command.Group className="search-palette-group" key={section.id} heading={<div className="search-palette-label">{section.label}</div>}>
           {section.items.map(item => {
@@ -171,9 +177,9 @@ export function SearchPalette({ conversations, onClose, onOpenConversation, onOp
         {!q && tab === "chats" && !flat.length && <div className="search-palette-note">{t("search.no_recent")}</div>}
       </Command.List>
       <div className="search-palette-foot" aria-hidden="true">
-        <span><kbd>↑</kbd><kbd>↓</kbd>{t("search.hint_move")}</span>
-        <span><kbd>↵</kbd>{t("search.hint_open")}</span>
-        <span><kbd>esc</kbd>{t("search.hint_close")}</span>
+        <span><Kbd>↑</Kbd><Kbd>↓</Kbd>{t("search.hint_move")}</span>
+        <span><Kbd>↵</Kbd>{t("search.hint_open")}</span>
+        <span><Kbd>esc</Kbd>{t("search.hint_close")}</span>
       </div>
       <div className="sr-only" role="status" aria-live="polite">{q && status === "idle" ? t("search.results", { count }) : ""}</div>
     </Command>
