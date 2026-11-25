@@ -105,7 +105,15 @@
     },
     "role_count_many": "{{count}} caractères",
     "role_count_one": "{{count}} caractère",
-    "role_count_other": "{{count}} caractères"
+    "role_count_other": "{{count}} caractères",
+    "ground_label": "Couleur de l'avatar",
+    "ground": {
+      "tomato": "Tomate",
+      "mustard": "Moutarde",
+      "teal": "Sarcelle",
+      "grape": "Raisin",
+      "lime": "Citron vert"
+    }
   },
   "codex": {
     "connected": "Codex connecté",

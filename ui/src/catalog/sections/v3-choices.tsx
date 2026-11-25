@@ -6,6 +6,7 @@ import { Field } from "../../ds/Field/Field";
 import { Segmented } from "../../ds/Segmented/Segmented";
 import { SettingsRow } from "../../ds/SettingsRow/SettingsRow";
 import { Switch } from "../../ds/Switch/Switch";
+import { SwatchPicker } from "../../ds/SwatchPicker/SwatchPicker";
 import { Tabs } from "../../ds/Tabs/Tabs";
 import { Select } from "../../Select";
 import * as Collapsible from "@radix-ui/react-collapsible";
@@ -58,6 +59,9 @@ export const choices: CatalogState[] = [
   { id: "segmented-disabled", kind: "inline", label: "Segmented · disabled", render: () => <Choices disabled /> },
   { id: "segmented-focus", kind: "inline", label: "Segmented · keyboard focus and hover", render: () => <Row><Segmented label="Theme" defaultValue="system" options={["system", "light", "dark"]} /></Row>,
     force: [{ selector: ".tb-seg-opt:nth-child(1)", state: "focus" }, { selector: ".tb-seg-opt:nth-child(3)", state: "hover" }] },
+  { id: "swatch-picker", kind: "inline", label: "SwatchPicker · five Bot hues, one chosen, and disabled",
+    render: () => <Row><Specimen label="grape"><SwatchPicker label="Avatar colour" defaultValue="grape" /></Specimen><Specimen label="disabled"><SwatchPicker label="Avatar colour" defaultValue="teal" disabled /></Specimen></Row> },
+  { id: "swatch-picker-focus", kind: "inline", label: "SwatchPicker · keyboard focus", render: () => <Row><SwatchPicker label="Avatar colour" defaultValue="grape" /></Row>, force: [{ selector: ".tb-swatch--teal", state: "focus" }] },
   { id: "tabs", kind: "inline", label: "Tabs · with counts and a panel (a function of the value)",
     render: () => <Tabs label="Key views" tabs={[{ value: "keys", label: "Keys", count: 4 }, { value: "usage", label: "Usage" }, { value: "members", label: "Members", count: 12 }]}>
       {value => <p style={{ margin: 0 }}>The {value} view.</p>}

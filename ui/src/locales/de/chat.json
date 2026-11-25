@@ -104,7 +104,15 @@
       "tools": "Was {{name}} nutzen kann. Verbindungen und Skills schaltest du selbst; der Rest folgt den Arbeitsbereich-Einstellungen."
     },
     "role_count_one": "{{count}} Zeichen",
-    "role_count_other": "{{count}} Zeichen"
+    "role_count_other": "{{count}} Zeichen",
+    "ground_label": "Avatarfarbe",
+    "ground": {
+      "tomato": "Tomate",
+      "mustard": "Senf",
+      "teal": "Petrol",
+      "grape": "Traube",
+      "lime": "Limette"
+    }
   },
   "codex": {
     "connected": "Codex verbunden",

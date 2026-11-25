@@ -103,7 +103,15 @@
       "advanced": "系统提示词、导出和删除。",
       "tools": "{{name}} 能用什么。连接和技能由你开关,其余跟随工作区设置。"
     },
-    "role_count_other": "{{count}} 个字符"
+    "role_count_other": "{{count}} 个字符",
+    "ground_label": "头像底色",
+    "ground": {
+      "tomato": "番茄红",
+      "mustard": "芥末黄",
+      "teal": "青绿",
+      "grape": "葡萄紫",
+      "lime": "青柠"
+    }
   },
   "codex": {
     "connected": "Codex 已连接",

@@ -103,7 +103,15 @@
       "advanced": "システムプロンプト、書き出し、削除。",
       "tools": "{{name}} が使えるもの。接続とスキルは自分で切り替えられ、それ以外はワークスペース設定に従います。"
     },
-    "role_count_other": "{{count}} 文字"
+    "role_count_other": "{{count}} 文字",
+    "ground_label": "アバターの色",
+    "ground": {
+      "tomato": "トマト",
+      "mustard": "マスタード",
+      "teal": "ティール",
+      "grape": "グレープ",
+      "lime": "ライム"
+    }
   },
   "codex": {
     "connected": "Codex に接続済み",

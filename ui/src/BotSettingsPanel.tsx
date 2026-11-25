@@ -9,7 +9,10 @@ import { BotSecrets } from "./BotSecrets";
 import { BotTools } from "./BotTools";
 import { buildBotPackage, downloadBotPackage } from "./botPackage";
 import type { AvatarConfig } from "./lib/tofi-avatar/index.js";
-import { getBotAvatarConfig, saveBotAvatarConfig } from "./avatarStore";
+import { getBotAvatarConfig, getBotGround, saveBotAvatarConfig, saveBotGround, type Ground } from "./avatarStore";
+import { SwatchPicker } from "./ds/SwatchPicker/SwatchPicker";
+import { TextArea } from "./ds/TextArea/TextArea";
+import { TextInput } from "./ds/TextInput/TextInput";
 import { pushBotAvatar } from "./avatarSync";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
 import { coverContainer, requestCoverClose, useCover, useCoverGuard } from "./coverGuard";
@@ -41,6 +44,7 @@ const SECTIONS: readonly { id: SectionId; icon: TofiIconName }[] = [
 type SectionId = "identity" | "role" | "model" | "tools" | "secrets" | "advanced";
 type Draft = { name: string; instructions: string; model: string; effort: string };
 const FADE_MS = 140;
+const GROUND_NAMES = ["tomato", "mustard", "teal", "grape", "lime"] as const;
 const narrowQuery = "(max-width: 899px)";
 
 function useNarrow() {
@@ -162,6 +166,8 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
 
   // Avatar style: the picker opens in place, on the avatar's own button. It saves on every pick (the avatar is stored on this device).
   const [avatar, setAvatar] = useState(() => getBotAvatarConfig(bot.id));
+  const [ground, setGround] = useState<Ground>(() => getBotGround(bot.id));
+  const pickGround = (next: Ground) => { saveBotGround(bot.id, next); setGround(next); pushBotAvatar(request, bot.id, { ...avatar, schemaVersion: 2, ground: next }); };
   const [styleOpen, setStyleOpen] = useState(false);
   const styleButton = useRef<HTMLButtonElement>(null);
   const [makingPrimary, setMakingPrimary] = useState(false);
@@ -178,11 +184,12 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     identity: <div className="bs-stack">
       <div className="bs-row bs-avatar-row">
         <span className="bs-avatar" style={centred(avatar.shape)} aria-hidden="true"><BotAvatar id={bot.id} config={avatar} motion="awake" /></span>
-        <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small></div>
+        <div className="bs-row-copy"><strong>{t("botSettings.avatar_title")}</strong><small>{t("botSettings.avatar_hint")}</small>
+          <SwatchPicker className="bs-swatches" label={t("botSettings.ground_label")} value={ground} onChange={pickGround} options={GROUND_NAMES.map(id => ({ value: id, label: t(`botSettings.ground.${id}`) }))} /></div>
         <Button ref={styleButton} className="bs-button" aria-haspopup="dialog" aria-expanded={styleOpen} aria-label={t("botPanel.change_style_label", { name: draft.name.trim() || bot.name })} {...pressToggle(() => setStyleOpen(value => !value))}>{t("botPanel.change_style")}</Button>
       </div>
       <label className="bs-field"><span>{t("botPanel.name")}</span>
-        <input value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />
+        <TextInput value={draft.name} maxLength={200} disabled={busy} aria-invalid={!canSave || undefined} onChange={event => setDraft(current => ({ ...current, name: event.target.value }))} />
         {!canSave && <small className="bs-field-error" role="alert">{t("botSettings.name_required")}</small>}
       </label>
       {(bot.is_primary || !bot.archived) && <Row title={t("botSettings.primary_title")} hint={bot.is_primary ? t("primary.bot_panel_note") : t("botSettings.primary_off")}>
@@ -192,7 +199,7 @@ export function BotSettingsPanel({ bot, refreshToken = 0, onUpdate, onMakePrimar
     </div>,
     role: <div className="bs-stack">
       <label className="bs-field"><span className="sr-only">{t("botPanel.instructions")}</span>
-        <textarea rows={10} value={draft.instructions} disabled={busy} placeholder={t("botPanel.instructions_placeholder")} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} />
+        <TextArea rows={10} value={draft.instructions} disabled={busy} placeholder={t("botPanel.instructions_placeholder")} onChange={event => setDraft(current => ({ ...current, instructions: event.target.value }))} />
         <small className="bs-count">{t("botSettings.role_count", { count: draft.instructions.length })}</small>
       </label>
     </div>,
