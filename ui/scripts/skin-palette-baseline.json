@@ -3,7 +3,7 @@
     "color": 2
   },
   "boot-screen.css": {
-    "blur": 6
+    "blur": 2
   },
   "catalog/catalog.css": {
     "font": 1
@@ -49,8 +49,5 @@
   },
   "terminal.css": {
     "blur": 2
-  },
-  "TerminalScreen.tsx": {
-    "font": 1
   }
 }

@@ -1,62 +1,19 @@
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useState } from "react";
 import { catalog, paletteOptions, type AvatarConfig } from "./lib/tofi-avatar/index.js";
 import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { randomBotAvatarConfig } from "./avatarStore";
-import { SPRINGS, springEasing } from "./motion/legacy/spring";
 import { useTranslation } from "./i18n";
-import "./bot-avatar-picker-motion.css";
-import { MOTION, EASE } from "./motion";
 
 export function BotAvatarPicker({ botId, config, onChange }: { botId: string; config: AvatarConfig; onChange: (config: AvatarConfig) => void }) {
   const { t } = useTranslation("bots");
   const [motion, setMotion] = useState<AvatarMotion>("awake");
-  const stageRef = useRef<HTMLDivElement>(null);
-  const busy = useRef(false);
-  async function changeShape(next: AvatarConfig) {
-    if (busy.current || config.shape === next.shape) return;
-    const avatar = stageRef.current?.querySelector<HTMLElement>(".avatar");
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !avatar) { onChange(next); return; }
-    busy.current = true;
-    const out = avatar.animate({ transform:["none","translateY(-22px) scale(.25) rotate(-14deg)"], opacity:[1,0] }, { duration:MOTION.base,easing:EASE.in,fill:"forwards" });
-    try { await out.finished; } catch { /* Continue with the new shape. */ }
-    flushSync(() => onChange(next));
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-    const pop = springEasing(SPRINGS.toy);
-    const incoming = avatar.animate({ transform:["translateY(14px) scale(.25)","none"], opacity:[0,1] }, { duration:pop.durationMs,easing:pop.easing });
-    try { await incoming.finished; } catch { /* Unmount can interrupt the transition. */ }
-    out.cancel(); incoming.cancel(); busy.current = false;
-  }
-  async function changePalette(next: AvatarConfig) {
-    if (busy.current || config.palette === next.palette) return;
-    const stage = stageRef.current;
-    const avatar = stage?.querySelector<HTMLElement>(".avatar");
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches || !stage || !avatar) { onChange(next); return; }
-    busy.current = true;
-    const box = avatar.getBoundingClientRect();
-    const stageBox = stage.getBoundingClientRect();
-    const swatch = stage.querySelector<HTMLElement>(`[data-palette="${next.palette}"]`)?.getBoundingClientRect() ?? box;
-    const x = swatch.left + swatch.width / 2 - box.left;
-    const y = swatch.top + swatch.height / 2 - box.top;
-    const old = document.createElement("span");
-    old.className = "web-avatar-paint";
-    Object.assign(old.style, { left:`${box.left-stageBox.left}px`, top:`${box.top-stageBox.top}px`, width:`${box.width}px`, height:`${box.height}px` });
-    old.style.setProperty("--x",`${x}px`);
-    old.style.setProperty("--y",`${y}px`);
-    old.append(avatar.cloneNode(true));
-    stage.append(old);
-    flushSync(() => onChange(next));
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-    const near = Math.hypot(x-Math.max(0,Math.min(x,box.width)),y-Math.max(0,Math.min(y,box.height)));
-    const reach = Math.hypot(Math.max(x,box.width-x),Math.max(y,box.height-y))+12;
-    try { await old.animate([{ "--paint-r":`${near}px` }, { "--paint-r":`${reach}px` }] as Keyframe[], { duration:MOTION.flight,easing:EASE.inout,fill:"forwards" }).finished; } catch { /* Unmount can interrupt the transition. */ }
-    old.remove(); busy.current = false;
-  }
+  const changeShape = (next: AvatarConfig) => { if (config.shape !== next.shape) onChange(next); };
+  const changePalette = (next: AvatarConfig) => { if (config.palette !== next.palette) onChange(next); };
   const palettes = paletteOptions(config.pattern);
   const pattern = catalog.patterns.find((item) => item.id === config.pattern);
   return <section className="bot-avatar-picker bot-avatar-v2" aria-label={t("avatar.aria")}>
-    <div className="bot-avatar-stage" ref={stageRef}><BotAvatar id={botId} config={config} motion={motion} /></div>
+    <div className="bot-avatar-stage"><BotAvatar id={botId} config={config} motion={motion} /></div>
     <RadioGroup.Root className="bot-avatar-state" value={motion} onValueChange={value => setMotion(value as AvatarMotion)} aria-label={t("avatar.state_aria")}>{(["sleeping", "awake", "working"] as const).map(value => <RadioGroup.Item value={value} key={value} type="button" >{t(`avatar.state.${value}`)}</RadioGroup.Item>)}</RadioGroup.Root>
     <div className="bot-avatar-sizes" aria-label={t("avatar.sizes_aria")}>{([24, 36, 48, 64] as const).map(size => <div key={size}><span style={{width:size,height:size}}><BotAvatar id={botId} config={config} motion="sleeping" /></span><small>{size}</small></div>)}</div>
     <h3>{t("avatar.palette")} <small>{t("avatar.palette_count", { count: palettes.length })}</small></h3><RadioGroup.Root className="bot-avatar-palettes" value={config.palette} onValueChange={value => void changePalette({...config,palette:value as AvatarConfig["palette"]})} aria-label={t("avatar.palettes_aria")}>{palettes.map(option => <RadioGroup.Item value={option.id} data-palette={option.id} type="button" key={option.id} aria-label={option.name}  title={option.name}><span style={{background:option.body,borderColor:option.mark}}/><small>{option.name}</small></RadioGroup.Item>)}</RadioGroup.Root>

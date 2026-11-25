@@ -409,15 +409,7 @@
         }
       }
     ],
-    "properties": [
-      {
-        "name": "--paint-r",
-        "syntax": "<length>",
-        "inherits": false,
-        "initial": "0px",
-        "note": "The avatar picker's paint reveal animates this (BotAvatarPicker.tsx). Registered here, not in the picker's lazy CSS: an @property rule arriving with a chunk restyles every element on the page."
-      }
-    ]
+    "properties": []
   },
   "scopes": {
     "letter": {

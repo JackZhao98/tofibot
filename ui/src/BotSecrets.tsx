@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {request} from "./api";
 import {ConfirmAction} from "./ConfirmAction";
@@ -39,9 +40,9 @@ export function BotSecrets({botId}:{botId:string}){
    <div className="bot-secret-copy"><strong>{item.name}</strong><span>{t("secrets.saved_at",{time:when(item.created_at)})} · {item.last_used_at?t("secrets.last_used",{time:when(item.last_used_at)}):t("secrets.never_used")}</span></div>
    {replacing===item.name?<form className="bot-secret-replace" onSubmit={event=>{event.preventDefault();void replace(item.name)}}>
     <label><input type="password" aria-label={t("secrets.new_value",{name:item.name})} value={value} autoComplete="new-password" disabled={busy} placeholder={t("secrets.new_value",{name:item.name})} onChange={event=>setValue(event.target.value)}/></label>
-    <button className="primary-button" disabled={busy||!value}>{busy?t("secrets.replacing"):t("secrets.replace_save")}</button>
-    <button type="button" className="text-button" disabled={busy} onClick={stopReplacing}>{t("secrets.cancel")}</button>
-   </form>:<div className="bot-secret-actions"><button type="button" className="text-button" disabled={busy} onClick={()=>{setReplacing(item.name);setValue("");setStatus("")}}>{t("secrets.replace")}</button><ConfirmAction label={t("secrets.delete")} question={t("secrets.delete_question",{name:item.name})} disabled={busy} onConfirm={()=>remove(item.name)}/></div>}
+    <Button type="submit" variant="primary" size="sm" disabled={busy||!value}>{busy?t("secrets.replacing"):t("secrets.replace_save")}</Button>
+    <Button variant="ghost" size="sm" disabled={busy} onClick={stopReplacing}>{t("secrets.cancel")}</Button>
+   </form>:<div className="bot-secret-actions"><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setReplacing(item.name);setValue("");setStatus("")}}>{t("secrets.replace")}</Button><ConfirmAction label={t("secrets.delete")} question={t("secrets.delete_question",{name:item.name})} disabled={busy} onConfirm={()=>remove(item.name)}/></div>}
   </li>)}</ul>}
   {status&&<p className="settings-feedback" role="status">{status}</p>}
   {error&&<p className="error-text" role="alert">{error}</p>}

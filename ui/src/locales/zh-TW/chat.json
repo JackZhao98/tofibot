@@ -103,7 +103,15 @@
       "advanced": "系統提示詞、匯出和刪除。",
       "tools": "{{name}} 能用什麼。連線和技能由你開關,其餘跟隨工作區設定。"
     },
-    "role_count_other": "{{count}} 個字元"
+    "role_count_other": "{{count}} 個字元",
+    "ground_label": "頭像底色",
+    "ground": {
+      "tomato": "番茄紅",
+      "mustard": "芥末黃",
+      "teal": "青綠",
+      "grape": "葡萄紫",
+      "lime": "青檸"
+    }
   },
   "codex": {
     "connected": "Codex 已連線",

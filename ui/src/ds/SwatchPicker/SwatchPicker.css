@@ -1,0 +1,8 @@
+/* The V3 SwatchPicker (spec bundle.css): round swatches, the chosen one ringed. Look is unlayered. */
+.tb-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.tb-swatch { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--shade) 12%, transparent); cursor: pointer; }
+.tb-swatch--tomato { background: var(--tomato); } .tb-swatch--mustard { background: var(--mustard); } .tb-swatch--teal { background: var(--teal); }
+.tb-swatch--grape { background: var(--grape); } .tb-swatch--cobalt { background: var(--cobalt); } .tb-swatch--lime { background: var(--lime); }
+.tb-swatch[data-state="checked"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.tb-swatch:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: 5px; }
+.tb-swatch:disabled { opacity: .45; cursor: default; }

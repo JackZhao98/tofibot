@@ -104,7 +104,15 @@
       "tools": "What {{name}} can use. Connections and Skills are yours to switch; the rest follows workspace settings."
     },
     "role_count_one": "{{count}} character",
-    "role_count_other": "{{count}} characters"
+    "role_count_other": "{{count}} characters",
+    "ground_label": "Avatar colour",
+    "ground": {
+      "tomato": "Tomato",
+      "mustard": "Mustard",
+      "teal": "Teal",
+      "grape": "Grape",
+      "lime": "Lime"
+    }
   },
   "codex": {
     "connected": "Codex connected",
