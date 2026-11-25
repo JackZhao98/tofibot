@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api, request } from "./api";
 import { BotAvatar } from "./BotAvatar";
@@ -148,7 +149,7 @@ export function BotToolsView(p: BotToolsViewProps) {
               <small>{t("bots:tools.permissions.allowed", { time: when(item.created_at) })}{item.use_count > 0 ? ` · ${t("bots:tools.permissions.used", { count: item.use_count })}` : ""}</small>
               {item.state !== "active" && <small className="bt-warning">{t(`settings:permissionsPage.standing.${item.state}`)}</small>}
             </span>
-            <button type="button" className="bs-button" disabled={Boolean(p.revoking) || p.leaving.includes(item.id)} onClick={() => p.onRevoke(item)}>{p.revoking === item.id ? t("settings:permissionsPage.standing.revoking") : t("settings:permissionsPage.standing.revoke")}</button>
+            <Button size="sm" className="bs-button" disabled={Boolean(p.revoking) || p.leaving.includes(item.id)} onClick={() => p.onRevoke(item)}>{p.revoking === item.id ? t("settings:permissionsPage.standing.revoking") : t("settings:permissionsPage.standing.revoke")}</Button>
           </div></div>
         </li>)}
       </ul>}

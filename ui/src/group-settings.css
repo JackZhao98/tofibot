@@ -31,7 +31,7 @@
 .gs-note p + p { margin-top:4px; }
 .gs-row { display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:12px 16px; border:0; border-radius:14px; background:var(--surface-2); color:var(--ink); text-align:left; transition:background-color var(--m-press) var(--ease-out); }
 button.gs-row:hover { background:var(--sunk); }
-button.gs-row:focus-visible, .gs-button:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+button.gs-row:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
 .gs-row > svg { flex:none; color:var(--muted); }
 .gs-row-icon { display:grid; place-items:center; flex:none; width:36px; height:36px; border-radius:11px; background:var(--surface); color:var(--ink-soft); }
 .gs-row-copy { display:grid; flex:1; gap:2px; min-width:0; }
@@ -39,12 +39,7 @@ button.gs-row:focus-visible, .gs-button:focus-visible { outline:var(--focus-ring
 .gs-row-copy small { color:var(--muted); font:13px/1.5 var(--body); }
 .gs-row.is-danger { background:color-mix(in srgb,var(--danger) 9%,var(--surface-2)); }
 .gs-row.is-danger .gs-row-copy strong { color:var(--danger-text); }
-.gs-button { flex:none; min-height:36px; padding:0 14px; border:0; border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:0 1px 2px color-mix(in srgb,var(--shade-ink) 8%,transparent), 0 6px 16px -10px color-mix(in srgb,var(--shade-ink) 32%,transparent); font:600 13px/1 var(--body); transition:background-color var(--m-press) var(--ease-out); }
-:root[data-theme="dark"] .gs-button { box-shadow:0 1px 2px color-mix(in srgb,var(--shade) 45%,transparent); }
-.gs-button:hover:not(:disabled) { background:color-mix(in srgb,var(--sunk) 55%,var(--surface)); }
-.gs-button.is-danger { color:var(--danger-text); }
-.gs-button.is-danger:hover:not(:disabled) { background:color-mix(in srgb,var(--danger) 14%,var(--surface)); }
 @media (max-width:767px) { .gs-scroll { padding:18px 18px 104px; } }
-@media (prefers-reduced-motion:reduce) { .gs-member, .gs-row, .gs-button { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .gs-member, .gs-row { transition:none; } }
 @media (forced-colors:active) { .gs-member[data-selected] { outline:2px solid Highlight; } }
 }
