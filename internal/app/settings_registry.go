@@ -216,6 +216,9 @@ var (
 	riskForbidden = RiskSpec{Self: RiskForbidden}
 )
 
+// automationNoDescription lists the automation items whose name says it all: the catalog carries no "what" line for them.
+var automationNoDescription = map[string]bool{"environment_order_web": true, "environment_order_app": true}
+
 func entry(key string, scope SettingScope, kind SettingKind, risk RiskSpec, link, manual, label string) SettingDef {
 	return SettingDef{Key: key, Scope: scope, Kind: kind, Risk: risk, Link: link, Manual: manual, LabelKey: label, Audit: true}
 }
@@ -320,7 +323,9 @@ func buildSettingsRegistry() []SettingDef {
 			manualPage = "settings/computer"
 		}
 		d := entry("automation."+item.Key, ScopeAccount, automationSettingKind(item), automationRisk(item), automationGroupLinks[item.Group], manualPage, "settings:automation.item."+item.Key+".name")
-		d.DescKey = "settings:automation.item." + item.Key + ".what"
+		if !automationNoDescription[item.Key] {
+			d.DescKey = "settings:automation.item." + item.Key + ".what"
+		}
 		d.Options, d.Min, d.Max = item.Options, item.Min, item.Max
 		add(d)
 	}
