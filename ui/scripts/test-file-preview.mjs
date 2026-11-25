@@ -151,7 +151,8 @@ try {
     assert.deepEqual(Object.fromEntries(Object.entries(tones).map(([k, v]) => [k, v.tone])), { "frevana-seo-analysis.md": "md", "notes.txt": "txt", "data.csv": "sheet", "config.json": "json", "paper.pdf": "pdf", "model.xlsx": "sheet", "bundle.zip": "archive", "tool.py": "code", "huge.log": "txt" });
     assert.equal(tones["model.xlsx"].label, "XLSX"); assert.equal(tones["paper.pdf"].label, "PDF"); assert.equal(tones["tool.py"].label, "PY");
     assert.notEqual(tones["model.xlsx"].bg, tones["paper.pdf"].bg);
-    assert.equal(tones["paper.pdf"].bg, "rgb(200, 64, 47)"); assert.equal(tones["model.xlsx"].bg, "rgb(47, 125, 82)");
+    // Each type has its own tile colour from the skin (V3 changed the values; the test checks the rule, not a hex).
+    assert.notEqual(tones["paper.pdf"].bg, tones["model.xlsx"].bg); for (const name of ["paper.pdf", "model.xlsx"]) assert.notEqual(tones[name].bg, "rgba(0, 0, 0, 0)");
     const dl = page.locator(".attachment-file-row", { hasText: "notes.txt" }).locator("a.attachment-download");
     assert.equal(await dl.isVisible(), true); assert.equal(await dl.getAttribute("download"), "notes.txt");
     assert.match(await dl.getAttribute("href"), /\/api\/attachments\/att_txt$/);
@@ -181,11 +182,14 @@ try {
   });
 
   await step("code block has header, copy and fold", async () => {
+    // V3 3.6: the kit CodeBlock (head with language and lines, copy, the rest folded).
     const block = page.locator(".message-code-block").last();
-    assert.match(await block.locator(".message-code-meta").innerText(), /python · 20 行/);
-    assert.equal(await block.locator(".message-code-copy").isVisible(), true);
-    await block.locator(".message-code-more").click();
-    assert.equal(await block.locator(".message-code.is-collapsed").count(), 0);
+    assert.match(await block.locator(".tb-code-head").innerText(), /python[\s\S]*20 行/);
+    assert.equal(await block.locator(".tb-code-act").first().isVisible(), true);
+    const before = await block.locator(".tb-code-line:visible").count();
+    await block.locator(".tb-code-more").click();
+    await page.waitForFunction(n => document.querySelectorAll(".message-code-block:last-of-type .tb-code-line").length >= n, before);
+    assert.equal(await block.locator(".tb-code-line").count(), 20);
   });
 
   await step("markdown preview opens from the card, renders tables/code, Esc closes and returns focus", async () => {
@@ -195,8 +199,8 @@ try {
     assert.equal(await viewer(page).locator("#fp-title").innerText(), "frevana-seo-analysis.md");
     assert.equal(await viewer(page).locator(".fp-md h1").innerText(), "SEO analysis");
     assert.equal(await viewer(page).locator(".fp-md table td").first().innerText(), "/home");
-    await viewer(page).locator(".fp-md pre.message-code").first().waitFor();
-    assert.equal(await viewer(page).locator(".fp-md pre.message-code").count(), 1);
+    await viewer(page).locator(".fp-md .message-code-block").first().waitFor();
+    assert.equal(await viewer(page).locator(".fp-md .message-code-block").count(), 1);
     assert.equal(await viewer(page).locator("a[download]").isVisible(), true);
     await page.screenshot({ path: join(shots, "ipad-markdown.png") });
     await closeViewer(page);

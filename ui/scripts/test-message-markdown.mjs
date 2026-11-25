@@ -74,7 +74,10 @@ try {
   check("inline and fenced code preserve literal delimiters and escape HTML", () => {
     assert.equal(render("`**说明：**Example`"), "<p><code>**说明：**Example</code></p>");
     const html = render('```html\n**说明：**Example\n<script>alert(1)</script>\n```');
-    assert.equal(html, '<div class="message-code-block"><div class="message-code-head"><span class="message-code-meta">html · 2 行</span><button type="button" class="message-code-copy">复制</button></div><pre class="message-code" tabindex="0" role="region" aria-label="代码，可横向滚动"><code class="language-html">**说明：**Example\n&lt;script&gt;alert(1)&lt;/script&gt;\n</code></pre></div>');
+    // V3 3.6: the kit CodeBlock (terminal plate): language and line count in the head, copy, the code kept literal and escaped.
+    assert.match(html, /^<figure class="tb-code message-code-block"><figcaption class="tb-code-head"><span>html<\/span><span>2 行<\/span>/);
+    assert.match(html, /\*\*说明：\*\*Example/, "Markdown inside a fence stays literal");
+    assert.ok(html.includes("&lt;script&gt;") && !html.includes("<script>"), "HTML inside a fence is escaped");
     assert.match(render("[doc](attachment:att_1)"), /<a href="\/api\/attachments\/att_1" class="attachment-link" data-attachment-id="att_1">doc<\/a>/);
   });
 
