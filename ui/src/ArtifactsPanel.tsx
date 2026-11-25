@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
@@ -119,7 +120,7 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
     {loading && !items.length ? <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" />{t("artifacts.loading")}</div></DelayedFeedback>
       : !items.length ? !error && <EmptyState name="artifacts-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{filtered ? t("artifacts.empty_filtered") : t("artifacts.empty")}</p></EmptyState>
       : <ul className="artifacts-grid" aria-label={t("artifacts.list_label")} aria-busy={loading}>{items.map(item => <ArtifactCard key={item.id} item={item} showBot={scope.kind !== "bot"} showConversation={scope.kind !== "conversation"} onOpenMessage={onOpenMessage} />)}</ul>}
-    {next && <button type="button" className="secondary-button artifacts-more" disabled={more} onClick={() => void loadMore()}>{more ? t("artifacts.loading") : t("artifacts.load_more")}</button>}
+    {next && <Button className="artifacts-more" disabled={more} onClick={() => void loadMore()}>{more ? t("artifacts.loading") : t("artifacts.load_more")}</Button>}
     </Tabs.Content></Tabs.Root></Tabs.Content>
     </div>
   </div></Tabs.Root>;

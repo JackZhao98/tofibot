@@ -54,7 +54,7 @@ export function ViewOnlyChat({ target, bots, onClose, returnFocus, sidebar = fal
       {!sidebar && <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>}
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
-    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span>{!sidebar && <button type="button" className="secondary-button" onClick={onClose}>{t("viewOnly.close")}</button>}</footer>
+    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span>{!sidebar && <Button onClick={onClose}>{t("viewOnly.close")}</Button>}</footer>
   </div>;
   // The wide web layout draws it in the sidebar. Narrow windows and the desktop app: a full-screen modal (Radix Dialog: trap, Escape, focus return, background hidden).
   if (sidebar) return surface;

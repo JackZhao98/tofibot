@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useRef } from "react";
 import { useTranslation } from "./i18n";
 import { coverContainer } from "./coverGuard";
@@ -36,8 +37,8 @@ export function LeaveConfirm({ busy = false, onKeep, onLeave }: { busy?: boolean
       <h3 id="cover-leave-title">{t("cover.leave_title")}</h3>
       <p>{t("cover.leave_body")}</p>
       <div className="cover-leave-actions">
-        <button type="button" className="cover-leave-discard" disabled={busy} onClick={onLeave}>{t("cover.leave_discard")}</button>
-        <button ref={keep} type="button" className="cover-leave-keep" onClick={onKeep}>{t("cover.keep_editing")}</button>
+        <Button variant="danger" className="cover-leave-discard" disabled={busy} onClick={onLeave}>{t("cover.leave_discard")}</Button>
+        <Button ref={keep} variant="primary" className="cover-leave-keep" onClick={onKeep}>{t("cover.keep_editing")}</Button>
       </div>
     </div>
   </ConfirmDialog>;
