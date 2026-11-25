@@ -3,7 +3,7 @@
    offset shadow. Layout of the column itself (grid track, scrolling, enter/leave) is eager and lives in context-card.css. */
 
 @layer legacy {
-.context-card { min-width:0; min-height:0; border-radius:14px; background:var(--surface); color:var(--ink); box-shadow:var(--card-elevation); overflow:clip; }
+.context-card { min-width:0; min-height:0; border-radius:14px; background:var(--surface); color:var(--ink); box-shadow:var(--shadow); overflow:clip; }
 
 /* A widget's slot owns its enter and exit. Entering, the row grows from nothing while the card rises, so the widgets below
    it slide down instead of jumping; leaving, the row closes with --m-panel-out (shorter than entering) and the card sinks.
@@ -21,7 +21,7 @@
 .context-card-header { display:flex; align-items:center; gap:2px; min-height:40px; padding:4px 6px 4px 14px; }
 .context-card-header h2 { flex:0 1 auto; min-width:0; margin:0; outline:none; font:inherit; }
 /* The title is a quiet section label (--text-process, AA on the card surface in both themes); the chevron follows the words. */
-.context-card-fold { display:inline-flex; align-items:center; gap:3px; min-height:28px; margin-left:-6px; padding:0 6px; border:0; border-radius:8px; background:transparent; color:var(--text-process); font:500 12.5px/1.3 var(--body); letter-spacing:0; transition:color var(--m-press) var(--ease-out); }
+.context-card-fold { display:inline-flex; align-items:center; gap:3px; min-height:28px; margin-left:-6px; padding:0 6px; border:0; border-radius:8px; background:transparent; color:var(--muted); font:500 12.5px/1.3 var(--font-body); letter-spacing:0; transition:color var(--m-press) var(--ease-out); }
 .context-card-fold span { white-space:nowrap; }
 .context-card-fold:hover { color:var(--ink); }
 .context-card-fold svg { flex:none; transition:rotate var(--m-base) var(--ease-out); }

@@ -15,10 +15,10 @@ const params = new URLSearchParams(location.search);
 document.documentElement.lang = params.get("lang") === "en" ? "en" : "zh-CN";
 localStorage.setItem("tofi:appearance", params.get("theme") === "dark" ? "dark" : "light");
 if (params.get("scale") === "200") {
-  document.documentElement.style.setProperty("--type-body", "400 30px/1.6 var(--body)");
-  document.documentElement.style.setProperty("--type-row-title", "600 28px/1.4 var(--body)");
-  document.documentElement.style.setProperty("--type-meta", "400 26px/1.5 var(--body)");
-  document.documentElement.style.setProperty("--type-button", "600 28px/1 var(--body)");
+  document.documentElement.style.setProperty("--type-body", "400 30px/1.6 var(--font-body)");
+  document.documentElement.style.setProperty("--type-row-title", "600 28px/1.4 var(--font-body)");
+  document.documentElement.style.setProperty("--type-meta", "400 26px/1.5 var(--font-body)");
+  document.documentElement.style.setProperty("--type-button", "600 28px/1 var(--font-body)");
 }
 if (params.get("copy") === "fail") Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async()=>{throw new Error("Synthetic clipboard failure");}}});
 const fixtureCase = params.get("case") || "incident";

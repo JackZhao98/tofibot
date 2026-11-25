@@ -12,7 +12,7 @@ html[data-desktop] { --sender-avatar:38px; }
 /* Activity heads (the kit bubble hangs its own avatar and name; see chat/message-bubble.css). */
 .workspace .sender-avatar:not(.sender-avatar--kit) { position:absolute; left:calc(var(--sender-gutter) * -1); bottom:0; width:var(--sender-avatar); height:var(--sender-avatar); }
 .workspace .sender-avatar:not(.sender-avatar--kit) .avatar { width:var(--sender-avatar); height:var(--sender-avatar); }
-.workspace .sender-name { display:block; color:var(--muted); font:400 12px/1.3 var(--body); }
+.workspace .sender-name { display:block; color:var(--muted); font:400 12px/1.3 var(--font-body); }
 .workspace [data-sender]:not([data-last="true"]) .sender-avatar:not(.sender-avatar--kit),
 .workspace [data-sender][data-continues="true"] .sender-name { display:none; }
 
@@ -31,8 +31,8 @@ html[data-desktop] { --sender-avatar:38px; }
 .workspace .tool-message.web-tool-run[data-sender] .web-tool-toggle { margin-left:-6px; }
 
 /* Code and tables inside a bubble sit in a lighter (dark: deeper) well instead of the page-level code colours, which match the bubble tone. */
-.workspace :is(.message-bot,.message-user) .message-content :not(pre)>code { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
-.workspace :is(.message-bot,.message-user) .message-content :is(pre,.message-code) { border:0; background:var(--bubble-inset); color:var(--bubble-inset-ink); }
+.workspace :is(.message-bot,.message-user) .message-content :not(pre)>code { border:0; background:var(--surface); color:var(--ink); }
+.workspace :is(.message-bot,.message-user) .message-content :is(pre,.message-code) { border:0; background:var(--surface); color:var(--ink); }
 .workspace :is(.message-bot,.message-user) .message-content blockquote { border-left-color:color-mix(in srgb,var(--muted) 45%,transparent); }
 
 /* Software keyboard up: the reserved band shrinks to the composer plus a gap, so the message being answered stays
@@ -48,7 +48,7 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll { pad
 .workspace .message-assignment .assignment-brief { flex-basis:100%; max-width:min(560px, 100%); margin:0 auto; text-align:left; }
 .workspace .message-assignment .assignment-brief > summary { width:fit-content; margin:0 auto; color:var(--muted); }
 .workspace .message-assignment .assignment-brief[open] > summary { margin-bottom:6px; }
-.workspace .message-assignment .assignment-brief .message-markdown, .workspace .message-assignment .assignment-brief > div { padding:8px 12px; border:1px solid var(--line-soft); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font-size:13px; }
+.workspace .message-assignment .assignment-brief > div{ padding:8px 12px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font-size:13px; }
 
 /* Bubble runs (markBubbleRuns in senderGroups.ts): consecutive plain bubbles from one speaker with nothing between them. Only the
    ALIGNED side (right for the person, left for a Bot) merges to --bubble-joined; the far side stays round because widths differ.
@@ -70,7 +70,7 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll { pad
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-side="user"] { justify-content:flex-end; padding-right:8px; }
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-side="bot"] { justify-content:flex-start; padding-left:8px; }
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-gutter] { padding-left:calc(var(--sender-gutter) + 8px); }
-  .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row .message-hover-actions { pointer-events:auto; padding:0 4px; border:1px solid var(--line-soft); border-radius:10px; background:var(--surface); }
+  .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row .message-hover-actions { pointer-events:auto; padding:0 4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
   .workspace .message-block:is([data-joins-next],[data-owns-next]) > .message-actions-row[data-side="bot"] .message-hover-actions button:first-child { margin-left:0; }
 }
 }

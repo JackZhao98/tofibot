@@ -1,6 +1,6 @@
 @layer legacy {
-.task-run-block{width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-3);color:var(--text-body);font:var(--type-body);overflow-wrap:anywhere}
-.task-run-phase,.task-run-identity{margin:0 0 var(--space-2);font:var(--type-row-title);color:var(--text-secondary)}
+.task-run-block{width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-3);color:var(--ink);font:var(--type-body);overflow-wrap:anywhere}
+.task-run-phase,.task-run-identity{margin:0 0 var(--space-2);font:var(--type-row-title);color:var(--ink-soft)}
 .task-issue-card{min-width:0;padding:16px 18px 12px}
 .task-issue-body{display:block;min-width:0}
 .task-issue-heading{margin:0}
@@ -9,16 +9,16 @@
 .task-issue-fact{color:var(--danger-text)}
 .task-issue-step{display:block}
 .task-issue-heading h3.task-issue-reason{display:block;margin-block-start:var(--space-1);font:var(--type-meta);font-weight:500;color:var(--danger-text)}
-.task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--text-body);font:inherit;text-decoration:underline;text-decoration-color:var(--border-soft);text-underline-offset:3px;}
+.task-fact-link{display:inline;min-height:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;}
 .task-fact-link:hover{text-decoration-color:currentColor}
-.task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px;border-radius:3px}
-.task-issue-context{color:var(--text-secondary)}
+.task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px;border-radius:3px}
+.task-issue-context{color:var(--ink-soft)}
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
 .task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
 .task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
-.task-issue-technical>summary,.task-activity>.process-line,.task-tool-records :is(summary,.task-step-trigger),.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--text-secondary);overflow-wrap:anywhere}
-.task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--surface-sunk);color:var(--text-body);font:var(--type-code)}
-.task-issue-feedback{font:var(--type-meta);color:var(--text-secondary)}
+.task-issue-technical>summary,.task-activity>.process-line,.task-tool-records :is(summary,.task-step-trigger),.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--ink-soft);overflow-wrap:anywhere}
+.task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--sunk);color:var(--ink);font:var(--type-code)}
+.task-issue-feedback{font:var(--type-meta);color:var(--ink-soft)}
 .task-activity{margin-block-start:var(--space-2)}
 .task-activity>.process-line{display:flex;align-items:center;gap:var(--space-2);font:var(--type-meta);list-style:none}
 .task-activity>.process-line>svg{transition:transform var(--m-base) var(--ease-out)}
@@ -27,54 +27,52 @@
 .task-activity[data-state="closed"]>.process-line>svg{transition-duration:var(--m-panel-out)}
 /* The steps carry no divider and no padding of their own: the drawer animates height alone, so closing ends at zero. */
 .task-activity-records{box-sizing:border-box;display:flow-root;min-width:0}
-.task-activity-detail{color:var(--text-process);font:inherit}
+.task-activity-detail{color:var(--muted);font:inherit}
 /* Steps sit on one thin rail; each marker carries state by shape as well as color. */
 .task-tool-records{list-style:none;padding:0;margin:0}
 .task-tool-records :is(summary,.task-step-trigger){display:flex;align-items:center;gap:var(--space-2);min-height:28px;padding-block:0;list-style:none;font:var(--type-meta)}
 .task-tool-records summary::-webkit-details-marker{display:none}
 /* A step that failed, was blocked or was interrupted is red: a diamond and red state words. */
-.task-step-title{min-width:0;color:var(--text-body);overflow-wrap:anywhere}
-.task-step-argument{color:var(--text-secondary)}
-.task-step-state{flex:0 0 auto;margin-inline-start:auto;color:var(--text-secondary);white-space:nowrap}
-.task-step.is-problem .task-step-state,.task-step.is-problem .task-step-title,.task-activity-problem{color:var(--status-error-text)}
+.task-step-title{min-width:0;color:var(--ink);overflow-wrap:anywhere}
+.task-step-argument{color:var(--ink-soft)}
+.task-step-state{flex:0 0 auto;margin-inline-start:auto;color:var(--ink-soft);white-space:nowrap}
+.task-step.is-problem .task-step-state,.task-step.is-problem .task-step-title,.task-activity-problem{color:var(--danger-text)}
 .task-step-problem{display:grid;gap:var(--space-2);margin:var(--space-2) 0;padding:var(--space-3);border:1px solid color-mix(in srgb,var(--status-error) 35%,transparent);border-radius:var(--radius-sm,10px);background:color-mix(in srgb,var(--status-error) 7%,var(--surface))}
-.task-step-problem>p{margin:0;font:var(--type-body);color:var(--text-body)}
+.task-step-problem>p{margin:0;font:var(--type-body);color:var(--ink)}
 .task-step-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
 .task-step-actions .secondary-button{display:inline-flex;align-items:center;gap:6px;min-height:36px;border-width:1px;box-shadow:none}
-.task-step-feedback{margin:0;font:var(--type-meta);color:var(--text-secondary)}
-.task-step-technical>summary{font:var(--type-meta);color:var(--text-secondary)}
-.task-step-technical>p{margin:var(--space-2) 0 0;font:var(--type-meta);color:var(--text-secondary);overflow-wrap:anywhere}
-.task-step-time{color:var(--text-secondary);font:var(--type-meta)}
-@keyframes task-step-breathe{50%{opacity:.35}}
+.task-step-technical>summary{font:var(--type-meta);color:var(--ink-soft)}
+.task-step-technical>p{margin:var(--space-2) 0 0;font:var(--type-meta);color:var(--ink-soft);overflow-wrap:anywhere}
+.task-step-time{color:var(--ink-soft);font:var(--type-meta)}
 /* Motion Lab ToolSteps: live steps drop in; the running step's label carries a lagoon sheen. */
 .task-tool-records.is-live .task-step{animation:task-step-in var(--m-panel-in) var(--ease-out) both}
-.task-step.is-running .task-step-title{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(100deg,var(--text-body) 0 38%,var(--lagoon-text) 50%,var(--text-body) 62% 100%);background-size:260% 100%;animation:task-step-sheen 1.8s linear infinite}
-.task-step.is-running .task-step-state{color:var(--lagoon-text);font-variant-numeric:tabular-nums}
+.task-step.is-running .task-step-title{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(100deg,var(--ink) 0 38%,var(--teal-text) 50%,var(--ink) 62% 100%);background-size:260% 100%;animation:task-step-sheen 1.8s linear infinite}
+.task-step.is-running .task-step-state{color:var(--teal-text);font-variant-numeric:tabular-nums}
 @keyframes task-step-in{from{opacity:0;transform:translateY(-6px)}}
 @keyframes task-step-sheen{from{background-position:100% 0}to{background-position:-60% 0}}
-@media(prefers-reduced-motion:reduce){.task-step-marker,.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--text-body);background:none}.task-activity>.process-line>svg{transition:none}}
-.task-record-meta,.task-question-record{font:var(--type-meta);color:var(--text-secondary)}
+@media(prefers-reduced-motion:reduce){.task-tool-records.is-live .task-step,.task-step.is-running .task-step-title{animation:none!important}.task-step.is-running .task-step-title{color:var(--ink);background:none}.task-activity>.process-line>svg{transition:none}}
+.task-record-meta,.task-question-record{font:var(--type-meta);color:var(--ink-soft)}
 .task-question-record{padding-block:var(--space-2)}.task-question-record p{margin:0 0 var(--space-2)}.task-question-record dl{margin:0}.task-question-record dl>div{display:flex;gap:var(--space-3)}.task-question-record dd{margin:0;overflow-wrap:anywhere}
-.task-run-block :is(button,summary,pre,h3):focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:3px}
-.task-run-block ::selection{background:var(--surface-inverse);color:var(--text-on-inverse)}
-.task-state-read-error{margin-block:var(--space-2);color:var(--text-secondary);font:var(--type-meta)}
+.task-run-block :is(button,summary,pre,h3):focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:3px}
+.task-run-block ::selection{background:var(--ink);color:var(--bg)}
+.task-state-read-error{margin-block:var(--space-2);color:var(--ink-soft);font:var(--type-meta)}
 .task-state-read-error button{min-height:44px;margin-inline-start:var(--space-2)}
 @media(max-width:560px){.task-issue-card{padding:var(--space-3)}.task-issue-fact,.task-issue-context{font-size:max(16px,1em)}.task-issue-actions{display:block}.task-issue-actions .secondary-button{width:100%}}
 @media(prefers-reduced-motion:reduce){.task-run-block *{scroll-behavior:auto;transition:none;animation:none}}
 
-.task-mail-record{margin-block:var(--space-3);font:var(--type-body)}.task-mail-record p{margin:var(--space-2) 0}.task-mail-record>details>summary{min-height:44px;align-content:center;color:var(--text-secondary);font:var(--type-meta)}.task-mail-record dd{margin:0;overflow-wrap:anywhere}
+.task-mail-record{margin-block:var(--space-3);font:var(--type-body)}.task-mail-record p{margin:var(--space-2) 0}.task-mail-record>details>summary{min-height:44px;align-content:center;color:var(--ink-soft);font:var(--type-meta)}.task-mail-record dd{margin:0;overflow-wrap:anywhere}
 
 .task-run-block .approval-actions button,.task-run-block .approval-secondary button{min-height:44px}
 /* Working run: one quiet process line (loading mark, what the Bot is doing, seconds) that opens into the steps. Look: live-line.css. */
-.task-activity>.process-line{min-height:28px;color:var(--text-process);list-style:none}
-.task-activity>.process-line:hover{color:var(--text-secondary)}
+.task-activity>.process-line{min-height:28px;color:var(--muted);list-style:none}
+.task-activity>.process-line:hover{color:var(--ink-soft)}
 .task-activity-live{font-variant-numeric:tabular-nums}
 @media(pointer:coarse){.task-activity>.process-line{min-height:44px}}
-.task-step-reason{color:var(--status-error-text)}
+.task-step-reason{color:var(--danger-text)}
 
 /* Activity hidden: a working run is the same process line ("Browsing the web · 10s"); it goes when the run ends. */
 .task-run-live-line{display:flex;margin:0}
-.task-activity-name{flex:none;color:var(--text-secondary);font:var(--type-meta)}
+.task-activity-name{flex:none;color:var(--ink-soft);font:var(--type-meta)}
 
 /* Compact Activity: one meta-size row per call, the state is an icon (its word is the accessible name), the time is
    small and quiet and only shows from one second up. A problem row keeps its words, red, on a faint wash. */
@@ -82,27 +80,27 @@
 .task-activity>.process-line .task-activity-detail::before{content:"\00b7";margin-inline-end:var(--space-2)}
 .task-activity>.process-line .task-activity-problem{display:inline-flex;align-items:center;gap:2px}
 .task-activity-records{padding-inline-start:var(--space-1)}
-.task-tool-records .tool-status{display:inline-flex;align-items:center;justify-content:center;flex:0 0 14px;width:14px;height:14px;color:var(--text-secondary)}
-.task-tool-records .tool-status.is-done{color:var(--text-process)}
-.task-tool-records .tool-status.is-problem{color:var(--status-error-text)}
-.task-step-time-quiet{flex:0 0 auto;margin-inline-start:auto;color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;white-space:nowrap}
+.task-tool-records .tool-status{display:inline-flex;align-items:center;justify-content:center;flex:0 0 14px;width:14px;height:14px;color:var(--ink-soft)}
+.task-tool-records .tool-status.is-done{color:var(--muted)}
+.task-tool-records .tool-status.is-problem{color:var(--danger-text)}
+.task-step-time-quiet{flex:0 0 auto;margin-inline-start:auto;color:var(--muted);font:var(--type-meta);font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Folded calls: the count is a small muted pill, the chevron its own slot after it, the time stays on the right with every other row's. */
-.task-step-count{flex:none;box-sizing:border-box;min-width:20px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--text-process) 14%,transparent);color:var(--text-process);font:var(--type-meta);font-variant-numeric:tabular-nums;line-height:18px;text-align:center}
+.task-step-count{flex:none;box-sizing:border-box;min-width:20px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--muted) 14%,transparent);color:var(--muted);font:var(--type-meta);font-variant-numeric:tabular-nums;line-height:18px;text-align:center}
 .task-step.is-problem>div>.task-step-trigger{border-radius:var(--radius-sm,8px);background:color-mix(in srgb,var(--status-error) 7%,transparent);padding-inline:var(--space-2);margin-inline:calc(-1 * var(--space-2))}
 .task-step-nested{list-style:none;margin:0;padding:0 0 0 var(--space-4)}
 .task-step-body{padding-inline-start:calc(14px + var(--space-2))}
 .task-step-group>div>.collapsible-content>.task-step-body{padding-inline-start:0}
-.task-tool-records :is(summary,.task-step-trigger):hover .task-step-title{color:var(--text)}
+.task-tool-records :is(summary,.task-step-trigger):hover .task-step-title{color:var(--ink)}
 @media(pointer:coarse){.task-tool-records :is(summary,.task-step-trigger){min-height:36px}}
-.task-step-chevron{flex:none;margin-inline-start:calc(var(--space-1) - var(--space-2) + var(--space-1));color:var(--text-process);transition:transform var(--m-base) var(--ease-out)}
+.task-step-chevron{flex:none;margin-inline-start:calc(var(--space-1) - var(--space-2) + var(--space-1));color:var(--muted);transition:transform var(--m-base) var(--ease-out)}
 .task-step-group>div[data-state="open"]>.task-step-trigger .task-step-chevron{transform:rotate(90deg)}
 .task-step-group>div[data-state="closed"]>.task-step-trigger .task-step-chevron{transition-duration:var(--m-panel-out)}
 @media(prefers-reduced-motion:reduce){.task-step-chevron{transition:none}}
 /* A failure whose retry already started folds to one quiet line; the live run below is the focus. */
-.task-issue-retried{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-sunk);color:var(--text-secondary);font:var(--type-meta)}
-.task-issue-retried:focus-visible{outline:var(--focus-ring-width) solid var(--focus-ring);outline-offset:2px}
+.task-issue-retried{display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--sunk);color:var(--ink-soft);font:var(--type-meta)}
+.task-issue-retried:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px}
 .task-silent-note{margin:0 0 var(--space-2)}
-.task-silent-note-body{padding:0 0 var(--space-2);color:var(--text-secondary)}
+.task-silent-note-body{padding:0 0 var(--space-2);color:var(--ink-soft)}
 
 .task-step-trigger{width:100%;text-align:start;border:0;border-radius:0;background:none;color:inherit}
 }

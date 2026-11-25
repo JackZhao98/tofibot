@@ -37,7 +37,7 @@
      rounded --surface rectangle with a soft elevation and no outline (docs/design/widgets-and-sidebar.md section 2.2). */
   /* The shell keeps the track's final width and sits against the window edge, so while the track opens the panel slides in with its
      edge instead of squeezing its content. Expanding animates the width with the track (same duration). */
-  .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:var(--panel-radius); box-shadow:var(--panel-float-elevation); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
+  .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:16px; box-shadow:var(--shadow); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
   .workspace .sidebar-pane.is-leaving > * { opacity:0; }
 
   /* The column's box spans the whole chat area; the cards keep exactly the width and place they always had (the left padding takes up the rest, and
@@ -99,8 +99,8 @@
 .view-only-message { align-items:flex-start; }
 .view-only-message>.avatar { flex:none; margin-top:-3px; }
 .view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
-.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-bot)); }
-.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--lagoon) 22%,var(--bubble-user)); }
+.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-bot)); }
+.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-user)); }
 
 /* Cold Memory and Usage chunks occupy their final surface on the first paint. */
 .surface-loading{padding:16px;min-height:160px}
@@ -108,10 +108,10 @@
 .surface-skeleton i{display:block;height:16px;border-radius:6px;background:var(--surface-2)}
 .surface-skeleton i:last-child{width:65%}
 /* Narrow work panels open where they will be read, with no off-screen travel. */
-.workspace .detail-pane.context-panel:not(.widget-column){transform:none;translate:none;transition:opacity var(--m-quick) var(--ease-out),visibility var(--m-quick);opacity:0;background:color-mix(in srgb,var(--surface) 96%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+.workspace .detail-pane.context-panel:not(.widget-column){transform:none;translate:none;transition:opacity var(--m-quick) var(--ease-out),visibility var(--m-quick);opacity:0;background:color-mix(in srgb,var(--surface) 96%,transparent);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
 .workspace .detail-pane.context-panel:not(.widget-column).visible{opacity:1;transform:none}
 @media(min-width:768px) and (max-width:1099px){
- .workspace .detail-pane.context-panel:not(.widget-column){inset:var(--panel-gap) var(--panel-gap) var(--panel-gap) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap));border:0;border-radius:var(--panel-radius);box-shadow:var(--panel-float-elevation)}
+ .workspace .detail-pane.context-panel:not(.widget-column){inset:var(--panel-gap) var(--panel-gap) var(--panel-gap) auto;height:auto;max-height:calc(var(--viewport-height,100dvh) - 2 * var(--panel-gap));border:0;border-radius:16px;box-shadow:var(--shadow)}
 }
 @media(prefers-reduced-motion:reduce){.workspace .detail-pane.context-panel:not(.widget-column){transition:none}}
 @media(prefers-reduced-transparency:reduce){.workspace .detail-pane.context-panel:not(.widget-column){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}

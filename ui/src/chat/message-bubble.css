@@ -21,6 +21,6 @@
 .workspace .message-block[data-joins-next] { --tb-join-bottom:var(--radius-bubble-joined); }
 /* A jump to a message frames its bubble once; keyboard focus rings it. */
 .workspace .message-block[data-jump-target] .tb-bubble { animation:tb-bubble-flash 2.4s var(--ease-out) both; }
-html:not([data-input="pointer"]) .workspace .message-block:focus-visible .tb-bubble { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:2px; }
+html:not([data-input="pointer"]) .workspace .message-block:focus-visible .tb-bubble { outline:var(--focus-ring-width) solid var(--focus); outline-offset:2px; }
 @media (prefers-reduced-motion:reduce) { .workspace .message-block[data-jump-target] .tb-bubble { animation:none; } }
 }

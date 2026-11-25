@@ -1,13 +1,13 @@
 /* Receipts. No ticks or read marks. Only a failed send keeps a line under its bubble (the retry); a sending message is dimmed instead. */
 @layer legacy {
-.workspace .message-user .send-receipt { display:flex; justify-content:flex-end; align-items:center; height:14px; margin:2px 2px 0 auto; color:var(--muted); font:11px/14px var(--body); }
+.workspace .message-user .send-receipt { display:flex; justify-content:flex-end; align-items:center; height:14px; margin:2px 2px 0 auto; color:var(--muted); font:11px/14px var(--font-body); }
 .workspace .message-user:has(.send-receipt) { margin-bottom:4px; }
 .workspace .send-receipt-retry { height:14px; padding:0; border:0; background:transparent; color:var(--danger-text); font:inherit; text-decoration:underline; text-underline-offset:2px; }
-.workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
+.workspace .send-receipt-retry:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:3px; border-radius:3px; }
 /* A press target of 44px on touch without growing the row: the hit area extends over the empty space beside the bubble. */
 @media (pointer:coarse) { .workspace .send-receipt-retry { position:relative; } .workspace .send-receipt-retry::after { content:""; position:absolute; inset:-15px -12px; } }
 /* Queued / read note under a message sent while the Bot works: the failed line's slot, quiet meta text. */
-.workspace .send-receipt-note[data-state="read"] { color:var(--accent-primary-text); animation:send-receipt-note-out var(--m-base) var(--ease-out) 4s both; }
+.workspace .send-receipt-note[data-state="read"] { color:var(--tomato-text); animation:send-receipt-note-out var(--m-base) var(--ease-out) 4s both; }
 @media (prefers-reduced-motion:no-preference) {
   .workspace .send-receipt-note[data-state="queued"] { animation:send-receipt-note-in var(--m-base) var(--ease-out); }
 }
@@ -19,7 +19,7 @@
 .workspace .send-receipt-text { color:var(--danger-text); }
 .workspace .send-receipt-action { height:14px; padding:0; border:0; background:transparent; color:var(--muted); font:inherit; text-decoration:underline; text-underline-offset:2px; }
 .workspace .send-receipt-action:hover { color:var(--ink); }
-.workspace .send-receipt-action:focus-visible { outline:var(--focus-ring-width) solid var(--focus-ring); outline-offset:3px; border-radius:3px; }
+.workspace .send-receipt-action:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:3px; border-radius:3px; }
 .workspace .send-receipt-hint { flex-basis:100%; text-align:right; color:var(--muted); }
 .workspace .message-user .send-receipt.is-retrying { gap:5px; }
 .workspace .send-receipt.is-retrying svg { flex:none; }

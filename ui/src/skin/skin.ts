@@ -1,5 +1,5 @@
 // The one place that sets a document's skin and theme (V3 PLAN 7.4). Skins are selected by data-skin on <html>; the
-// theme by data-theme. "v3" is the default and the only product skin (skin/v3.css, with skin/roles.css, skin/v2-bridge.css and
+// theme by data-theme. "v3" is the default and the only product skin (skin/v3.css, with skin/roles.css and
 // skin/base.css, all in skin/default.css, which every entry loads). The V2 skin ("legacy") was deleted in PR 2.1.
 // The two probe skins are for the catalog's sensitivity runs only.
 // "System" appearance stays a JS choice (useAppearance), so CSS only ever sees light or dark.

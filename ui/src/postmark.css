@@ -1,6 +1,6 @@
 /* Shared postmark ink (Motion Lab letterParts): mono band text, display date. */
 @layer legacy {
 .postmark{display:block;width:100%;overflow:visible}
-.postmark .pm-ring,.postmark .pm-time{font-family:var(--mono)}
-.postmark .pm-date{font-family:var(--display)}
+.postmark .pm-ring,.postmark .pm-time{font-family:var(--font-mono)}
+.postmark .pm-date{font-family:var(--font-display)}
 }

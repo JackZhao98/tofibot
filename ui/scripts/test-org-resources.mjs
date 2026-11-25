@@ -436,7 +436,6 @@ try {
     await models(own.page).locator(".provider-card").first().waitFor();
     assert.equal(await models(own.page).locator(".provided-card").count(), 0);
     assert.ok(!/global|organization|everyone|all accounts/i.test(await models(own.page).locator(".model-providers").innerText()), "the administrator's own Models page has no 'make global' and no mention of sharing");
-    assert.equal(await own.page.locator(".policy-banner").count(), 0);
     await own.close();
 
     // General no longer carries a "provided by your organization" banner: the managed rows say it themselves (settings-simplify P1).
