@@ -1,9 +1,8 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "./api";
-import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, UsageWidget, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, ViewOnlyChat, WorkPanel } from "./lazyPanels";
 import { BotCard, type BotCardCtx } from "./BotCard";
 import { GroupSettingsPanel } from "./GroupSettingsPanel";
-import { MembersWidget } from "./MembersWidget";
 import { NewGroupDialog } from "./NewGroupDialog";
 import { DelayedFeedback } from "./DelayedFeedback";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -12,11 +11,10 @@ import { TofiIcon as Icon } from "./icons";
 import { closeCover, closeSidebar, openCover, openSidebar, type CoverId, type SidebarId, type Surfaces, type WidgetId } from "./surfaces";
 import type { SettingsTab } from "./SettingsShell";
 import type { Bot, Conversation, Memory } from "./types";
-import type { TaskCardModel } from "./taskCards";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
 
 // Bot settings is the heavy cover (model list, Skills, Secrets, the avatar picker): its own chunk, declared here so the entry carries only the
-// loader line. Group settings, the New group dialog and the Members widget are small and ride with this module (the entry budget has no room
+// loader line. Group settings, and the New group dialog are small and ride with this module (the entry budget has no room
 // for a loader each).
 const BotSettingsPanel = chunk("botSettings", module => module.BotSettingsPanel);
 const TerminalPanel = lazy(() => import("./TerminalPanel").then(module => ({ default: module.TerminalPanel })));
@@ -33,14 +31,10 @@ export type SurfaceCtx = {
   botCard?: BotCardCtx;
   memories: Memory[]; setMemories: (update: (current: Memory[]) => Memory[]) => void;
   terminalBotId: string | null; /** The work of the run opened from a reply's 工作过程 (V3 4.3), or null. */ activityView: ReactNode; viewOnlyChat: ViewOnlyChatTarget | null; setViewOnlyChat: (target: ViewOnlyChatTarget | null) => void;
-  refreshToken: number; roster?: ReadonlyMap<string, TaskCardModel[]>; lastMessageId?: string;
+  refreshToken: number; lastMessageId?: string;
   artifactsMode: "artifacts" | "artifacts-bot" | "artifacts-group"; setArtifactsMode: (mode: SurfaceCtx["artifactsMode"]) => void;
   /** Opens Settings on a tab (the cover that is open is replaced). */
   openSettings: (tab: SettingsTab) => void;
-  /** Opens Settings › Usage for this conversation's Bot (the Usage widget's "All usage"). */
-  openUsageSettings: () => void;
-  /** A run of the conversation on screen is queued or running (the Usage widget re-reads when it finishes). */
-  running: boolean;
   /** The workspace's surface state: the views close and open surfaces with the functions of surfaces.ts. */
   surf: (update: (current: Surfaces) => Surfaces) => void;
   openConversation: (id: string) => void; openMessage: (conversationId: string, messageId: string) => void; openSettingsAdvanced: (botId: string) => void;
@@ -62,7 +56,7 @@ function SurfaceSkeleton() {
 
 /** One sidebar view. The wide layout draws it under SidebarShell, the narrow drawer bare (the panels carry their own heading and close then). */
 export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
-  const { t } = useTranslation("chat");
+  const { t } = useTranslation(["chat", "common"]);
   const { active, desktopBot } = ctx;
   const close = () => ctx.surf(closeSidebar);
   if (id === "archive") return <Suspense fallback={<Loading />}><ArchivePanel onClose={close} onOpen={ctx.openConversation} onLoaded={ctx.mergeArchived} onChanged={ctx.refreshAfterArchive} onDelete={ctx.confirmDelete} /></Suspense>;
@@ -70,10 +64,9 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
     const bot = (ctx.terminalBotId && ctx.botById.get(ctx.terminalBotId)) || desktopBot;
     return bot ? <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={bot.id} botId={bot.id} botName={bot.name} onClose={close} /></Suspense> : null;
   }
-  if (id === "usage") return active ? <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.usage")}</h2><button className="close-button" aria-label={t("detail.close")} onClick={close}><Icon name="close" size={18}/></button></div><Suspense fallback={<SurfaceSkeleton/>}><UsageWidget key={active.id} conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings}/></Suspense></div> : null;
   if (id === "memory") {
     if (!active) return <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>;
-    if (ctx.memoriesReady === false) return <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div>{ctx.memoriesError ? <div className="error-text" role="alert">{ctx.memoriesError} <button type="button" className="text-button" onClick={ctx.retryMemories}>{t("usageWidget.retry")}</button></div> : <SurfaceSkeleton/>}</div>;
+    if (ctx.memoriesReady === false) return <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div>{ctx.memoriesError ? <div className="error-text" role="alert">{ctx.memoriesError} <button type="button" className="text-button" onClick={ctx.retryMemories}>{t("common:action.retry")}</button></div> : <SurfaceSkeleton/>}</div>;
     return <Suspense fallback={<div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div><SurfaceSkeleton/></div>}><MemoryPanel key={active.id} memories={ctx.memories} conversationId={active.id} scope={active.kind === "group" ? "group" : "bot"} onClose={close}
       onCreate={async input => { const memory = await api.createMemory(active.id, input); ctx.setMemories(current => [...current.filter(item => item.id !== memory.id), memory]); }}
       onUpdate={async (memoryId, input) => { const memory = await api.updateMemory(memoryId, input); ctx.setMemories(current => current.map(item => item.id === memoryId ? memory : item)); }}
@@ -96,8 +89,6 @@ export function WidgetView({ id, ctx, leaving = false, focusN = 0 }: { id: Exclu
     return bot ? <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={bot.id} botId={bot.id} botName={bot.name} /></Suspense> : null;
   }
   if (id === "conversation") return ctx.viewOnlyChat ? <Suspense fallback={<SurfaceSkeleton/>}><ViewOnlyChat target={ctx.viewOnlyChat} bots={ctx.bots} sidebar onClose={() => ctx.setViewOnlyChat(null)} /></Suspense> : null;
-  if (id === "members") return active?.kind === "group" ? <MembersWidget conversation={active} bots={ctx.bots} tasksByBot={ctx.roster} onOpen={ctx.openConversation} onSettings={() => ctx.surf(current => openCover(current, "group-settings"))} /> : null;
-  if (id === "usage") return active ? <Suspense fallback={<SurfaceSkeleton/>}><UsageWidget conversationId={active.id} running={ctx.running} onAll={ctx.openUsageSettings} /></Suspense> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
 }
 

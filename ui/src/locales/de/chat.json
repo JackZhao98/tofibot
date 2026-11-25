@@ -219,12 +219,10 @@
       "conversation": "Bot-Unterhaltung",
       "desktop": "Bot-Computer",
       "group-create": "Neue Gruppe",
-      "members": "Mitglieder",
       "memory": "Gedächtnis",
       "outputs": "Ergebnisse",
       "schedule": "Aufgaben",
       "terminal": "Terminal",
-      "usage": "Nutzung",
       "activity": "Arbeitsverlauf"
     }
   },
@@ -416,9 +414,6 @@
     "impact_waits_one": "Wird {{name}} entfernt, endet {{count}} Wartebedingung von ihm.",
     "impact_waits_other": "Wird {{name}} entfernt, enden {{count}} Wartebedingungen von ihm.",
     "tasks_of": "Offene Aufgaben von {{name}}"
-  },
-  "membersWidget": {
-    "idle": "Keine offenen Aufgaben"
   },
   "message": {
     "attachment": "Anhang",
@@ -877,53 +872,6 @@
     "waiting_result": "Wartet auf Ergebnis…",
     "waiting_step": "Wartet auf {{name}} · Schritt {{step}}"
   },
-  "usageWidget": {
-    "all": "Gesamte Nutzung",
-    "cache_hit": "Cache-Trefferquote",
-    "calls_one": "{{count}} Aufruf",
-    "calls_other": "{{count}} Aufrufe",
-    "context": "Kontext",
-    "conversation": "Unterhaltung",
-    "cost": "Gegenwert",
-    "coverage": "Anfragedetails decken {{covered}} von {{runs}} Läufen ab (7 Tage gespeichert).",
-    "empty": "Die Nutzung erscheint nach dem ersten Lauf in dieser Unterhaltung.",
-    "error": "Nutzung konnte nicht gelesen werden.",
-    "needs_newer_server": "Die Nutzung dieses Chats braucht einen neueren Server.",
-    "estimated": "Vor dem Aufruf geschätzt",
-    "input": "Eingabe",
-    "loading": "Nutzung wird geladen",
-    "measured": "Vom Modell gemeldet",
-    "output": "Ausgabe",
-    "part": {
-      "instructions": "Anweisungen",
-      "history": "Verlauf",
-      "tool_definitions": "Tool-Definitionen",
-      "tool_results": "Tool-Ergebnisse",
-      "memory_notes": "Gedächtnis und Notizen",
-      "attachments": "Anhänge",
-      "other": "Sonstiges"
-    },
-    "parts_label": "Kontext nach Bestandteilen",
-    "parts_unavailable": "Keine Aufschlüsselung für den letzten Lauf.",
-    "requests": "Anfragen",
-    "retry": "Erneut versuchen",
-    "review": "Prüfung",
-    "ring_label": "Kontextfenster zu {{percent}} belegt, {{used}} von {{window}} Tokens",
-    "split": "Tools und Unterhaltung",
-    "split_label": "Tools {{tools}}, Unterhaltung {{conversation}}",
-    "split_unavailable": {
-      "call_detail_incomplete": "Details pro Aufruf bleiben 7 Tage erhalten, deshalb lässt sich diese Unterhaltung nicht aufteilen.",
-      "no_usage": "In dieser Unterhaltung wurde noch keine Nutzung erfasst."
-    },
-    "tool_runs_one": "{{count}} Tool-Lauf",
-    "tool_runs_other": "{{count}} Tool-Läufe",
-    "tools": "Tools",
-    "totals": "Summen",
-    "unpriced_one": "{{count}} Anfrage hat keinen Preis und fehlt in der Summe",
-    "unpriced_other": "{{count}} Anfragen haben keinen Preis und fehlen in der Summe",
-    "used_percent": "{{percent}} belegt",
-    "window_estimated": "Fenster geschätzt"
-  },
   "viewOnly": {
     "at_start": "Anfang der Unterhaltung",
     "close": "Schließen",
@@ -940,13 +888,6 @@
     "older_failed": "Ältere Nachrichten konnten nicht geladen werden.",
     "read_only": "Schreibgeschützte Unterhaltung",
     "retry_older": "Ältere Nachrichten erneut laden"
-  },
-  "widgetOrder": {
-    "at_bottom": "{{title}} steht schon ganz unten",
-    "at_top": "{{title}} steht schon ganz oben",
-    "grip": "{{title}} verschieben",
-    "grip_hint": "Zum Verschieben ziehen oder Leertaste zum Anheben, Pfeiltasten zum Bewegen, Leertaste zum Ablegen, Escape zum Abbrechen. Alt+Auf/Ab verschiebt um einen Platz.",
-    "moved": "{{title}} ist jetzt Nummer {{position}} von {{count}}"
   },
   "working": {
     "aria": "{{name}}: {{status}}",

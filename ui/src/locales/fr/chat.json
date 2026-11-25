@@ -220,12 +220,10 @@
       "conversation": "Conversation des Bots",
       "desktop": "Ordinateur Bot",
       "group-create": "Nouveau groupe",
-      "members": "Membres",
       "memory": "Mémoire",
       "outputs": "Productions",
       "schedule": "Tâches",
       "terminal": "Terminal",
-      "usage": "Utilisation",
       "activity": "Déroulé du travail"
     }
   },
@@ -426,9 +424,6 @@
     "impact_waits_many": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
     "impact_waits_other": "Retirer {{name}} met fin à {{count}} attentes qu'il tient.",
     "tasks_of": "Tâches ouvertes de {{name}}"
-  },
-  "membersWidget": {
-    "idle": "Aucune tâche en cours"
   },
   "message": {
     "attachment": "Pièce jointe",
@@ -901,56 +896,6 @@
     "waiting_result": "En attente du résultat…",
     "waiting_step": "En attente de {{name}} · étape {{step}}"
   },
-  "usageWidget": {
-    "all": "Toute l’utilisation",
-    "cache_hit": "Taux de succès du cache",
-    "calls_many": "{{count}} d’appels",
-    "calls_one": "{{count}} appel",
-    "calls_other": "{{count}} appels",
-    "context": "Contexte",
-    "conversation": "Conversation",
-    "cost": "Équivalent",
-    "coverage": "Le détail des requêtes couvre {{covered}} exécutions sur {{runs}} (conservé 7 jours).",
-    "empty": "L’utilisation apparaît après la première exécution de cette conversation.",
-    "error": "Impossible de lire l’utilisation.",
-    "needs_newer_server": "L’utilisation de cette conversation nécessite un serveur plus récent.",
-    "estimated": "Estimé avant l’appel",
-    "input": "Entrée",
-    "loading": "Chargement de l’utilisation",
-    "measured": "Indiqué par le modèle",
-    "output": "Sortie",
-    "part": {
-      "instructions": "Instructions",
-      "history": "Historique",
-      "tool_definitions": "Définitions d’outils",
-      "tool_results": "Résultats d’outils",
-      "memory_notes": "Mémoire et notes",
-      "attachments": "Pièces jointes",
-      "other": "Autre"
-    },
-    "parts_label": "Contexte par composant",
-    "parts_unavailable": "Pas de détail pour la dernière exécution.",
-    "requests": "Requêtes",
-    "retry": "Réessayer",
-    "review": "Contrôle",
-    "ring_label": "Fenêtre de contexte utilisée à {{percent}}, {{used}} sur {{window}} tokens",
-    "split": "Outils et conversation",
-    "split_label": "Outils {{tools}}, conversation {{conversation}}",
-    "split_unavailable": {
-      "call_detail_incomplete": "Le détail par appel est conservé 7 jours : cette conversation ne peut pas être répartie.",
-      "no_usage": "Aucune utilisation enregistrée dans cette conversation."
-    },
-    "tool_runs_many": "{{count}} d’exécutions d’outil",
-    "tool_runs_one": "{{count}} exécution d’outil",
-    "tool_runs_other": "{{count}} exécutions d’outil",
-    "tools": "Outils",
-    "totals": "Totaux",
-    "unpriced_many": "{{count}} de requêtes sans prix sont exclues",
-    "unpriced_one": "{{count}} requête sans prix est exclue",
-    "unpriced_other": "{{count}} requêtes sans prix sont exclues",
-    "used_percent": "{{percent}} utilisé",
-    "window_estimated": "fenêtre estimée"
-  },
   "viewOnly": {
     "at_start": "Début de la conversation",
     "close": "Fermer",
@@ -968,13 +913,6 @@
     "older_failed": "Impossible de charger les messages précédents.",
     "read_only": "Conversation en lecture seule",
     "retry_older": "Recharger les messages précédents"
-  },
-  "widgetOrder": {
-    "at_bottom": "{{title}} est déjà en dernier",
-    "at_top": "{{title}} est déjà en premier",
-    "grip": "Déplacer {{title}}",
-    "grip_hint": "Glissez pour déplacer, ou Espace pour saisir, les flèches pour déplacer, Espace pour déposer, Échap pour annuler. Alt+Haut/Bas déplace d’une place.",
-    "moved": "{{title}} est maintenant en position {{position}} sur {{count}}"
   },
   "working": {
     "aria": "{{name}} : {{status}}",

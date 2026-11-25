@@ -151,12 +151,13 @@ try {
     const state = newState();
     state.addFile(1, GROUP);
     const { context, page } = await openWorkspace(browser, origin, state, { height: 700, group: true });
-    await page.locator(".chat-identity").click();
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Terminal" }).click();
     await page.getByRole("button", { name: "Open artifacts" }).click();
     state.ownership = botOwner("run-g", GROUP);
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));
     await poll(page, () => document.querySelector('[data-card="artifacts"].is-collapsed'), null, 6000);
-    assert.deepEqual(await cards(page), ["computer", "members", "artifacts"]);
+    assert.deepEqual(await cards(page), ["computer", "terminal", "artifacts"]);
     assert.equal(await page.locator('[data-card="computer"]').evaluate(node => node.classList.contains("is-collapsed")), false, "the Bot computer never folds for space");
     if (shots) await page.screenshot({ path: `${shots}/space-rule-700.png` });
     // The person unfolds Artifacts: it is not folded again in this conversation.

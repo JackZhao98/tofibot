@@ -1,7 +1,7 @@
 /**
  * The three tiers of what a conversation can have open (docs/design/widgets-and-sidebar.md).
  *
- * - widgets: small live blocks inside the chat, to the right of the messages. One of each, in the person's own order (default WIDGET_ORDER), any may be folded.
+ * - widgets: small live blocks inside the chat, to the right of the messages. One of each, in the fixed WIDGET_ORDER, any may be folded.
  * - sidebar: one heavy working view in a real grid track at the window edge. A second one replaces the first.
  * - cover: an exclusive full-window panel (Bot settings and the like). While it is open the widgets and the sidebar are
  *   hidden, not closed: closing the cover brings them back as they were.
@@ -10,32 +10,20 @@
  *
  * Everything here is pure: the workspace holds one `Surfaces` value and calls these to get the next one.
  */
-export type WidgetId = "bot" | "computer" | "terminal" | "members" | "conversation" | "artifacts" | "usage";
-export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "usage" | "activity";
+export type WidgetId = "bot" | "computer" | "terminal" | "conversation" | "artifacts";
+export type SidebarId = "tasks" | "memory" | "terminal" | "archive" | "conversation" | "activity";
 export type PageId = "settings";
 export type CoverId = "bot-settings" | "group-settings" | "new-group" | "approvals" | "artifacts";
 
-/**
- * The default order, top to bottom. It never depends on which widget was opened first. It is also the stable order the column draws its
- * nodes in (moving a live video in the DOM would stop it); where a widget sits on screen is `Surfaces.order`, the person's own choice.
- */
-export const WIDGET_ORDER: readonly WidgetId[] = ["bot", "computer", "terminal", "members", "conversation", "artifacts", "usage"];
+/** The fixed order, top to bottom. It never depends on which widget was opened first, and it is the order the column draws its nodes in. */
+export const WIDGET_ORDER: readonly WidgetId[] = ["bot", "computer", "terminal", "conversation", "artifacts"];
 
-/** A saved order read back from storage: unknown ids and repeats are dropped, a widget the saved list lacks goes last in the default order. */
-export function normalizeWidgetOrder(raw: unknown): WidgetId[] {
-  const list = Array.isArray(raw) ? raw.filter((id): id is WidgetId => typeof id === "string" && (WIDGET_ORDER as readonly string[]).includes(id)) : [];
-  const kept = list.filter((id, index) => list.indexOf(id) === index);
-  return [...kept, ...WIDGET_ORDER.filter(id => !kept.includes(id))];
-}
-
-/** `ids` laid out in `order`. The Bot card is always the top widget: it is not part of the person's order (it has no grip and no fold). */
-export const sortWidgets = (ids: readonly WidgetId[], order: readonly WidgetId[]): WidgetId[] => [...(ids.includes("bot") ? ["bot" as const] : []), ...order.filter(id => id !== "bot" && ids.includes(id))];
+/** `ids` in the fixed order. */
+export const sortWidgets = (ids: readonly WidgetId[]): WidgetId[] => WIDGET_ORDER.filter(id => ids.includes(id));
 
 export type Surfaces = {
-  /** Open widgets, always in `order`. */
+  /** Open widgets, always in `WIDGET_ORDER`. */
   widgets: WidgetId[];
-  /** Every widget id in the person's chosen order (a per-viewer preference, the same in every conversation). Closed widgets keep their slot. */
-  order: WidgetId[];
   /** The open widgets that show only their header. */
   folded: WidgetId[];
   sidebar: { id: SidebarId; expanded: boolean } | null;
@@ -46,21 +34,20 @@ export type Surfaces = {
   focus: { id: string | null; n: number };
 };
 
-export const emptySurfaces = (): Surfaces => ({ widgets: [], order: [...WIDGET_ORDER], folded: [], sidebar: null, cover: null, page: null, focus: { id: null, n: 0 } });
+export const emptySurfaces = (): Surfaces => ({ widgets: [], folded: [], sidebar: null, cover: null, page: null, focus: { id: null, n: 0 } });
 
 /** True when nothing is open at all. */
 export const isEmpty = (s: Surfaces) => !s.widgets.length && !s.sidebar && !s.cover && !s.page;
 
-const inOrder = (ids: readonly WidgetId[], s: Surfaces) => sortWidgets(ids, s.order);
 const bump = (s: Surfaces, id: string): Surfaces["focus"] => ({ id, n: s.focus.n + 1 });
 
 /** Opens (or unfolds and refocuses) a widget. A cover that was open closes: the person asked for something in the chat. */
 export const openWidget = (s: Surfaces, id: WidgetId): Surfaces => ({
-  ...s, widgets: inOrder([...s.widgets, id], s), folded: s.folded.filter(item => item !== id), cover: null, page: null, focus: bump(s, id),
+  ...s, widgets: sortWidgets([...s.widgets, id]), folded: s.folded.filter(item => item !== id), cover: null, page: null, focus: bump(s, id),
 });
 
 /** A widget that opens by itself (the first file, the Bot taking the computer): no focus move, and an open cover stays. */
-export const autoOpenWidget = (s: Surfaces, id: WidgetId): Surfaces => s.widgets.includes(id) ? s : { ...s, widgets: inOrder([...s.widgets, id], s) };
+export const autoOpenWidget = (s: Surfaces, id: WidgetId): Surfaces => s.widgets.includes(id) ? s : { ...s, widgets: sortWidgets([...s.widgets, id]) };
 
 export const closeWidget = (s: Surfaces, id: WidgetId): Surfaces =>
   s.widgets.includes(id) ? { ...s, widgets: s.widgets.filter(item => item !== id), folded: s.folded.filter(item => item !== id) } : s;
@@ -96,26 +83,7 @@ export const closeCover = (s: Surfaces): Surfaces => s.cover || s.page ? { ...s,
 export const openPage = (s: Surfaces, id: PageId): Surfaces => ({ ...s, page: id, cover: null, focus: bump(s, id) });
 
 
-export const closeAll = (s: Surfaces): Surfaces => isEmpty(s) ? s : { ...emptySurfaces(), order: s.order, focus: s.focus };
-
-/**
- * Moves an open widget to place `to` (0 = top) among the open ones. The slots of closed widgets stay where they were, so a widget that
- * opens later still lands where the person put it relative to the others. Unchanged when the widget is closed or already there.
- */
-export function moveWidget(s: Surfaces, id: WidgetId, to: number): Surfaces {
-  const open = s.widgets;
-  const from = open.indexOf(id);
-  if (from < 0) return s;
-  const target = Math.max(0, Math.min(open.length - 1, Math.trunc(to)));
-  if (target === from) return s;
-  const next = [...open];
-  next.splice(from, 1);
-  next.splice(target, 0, id);
-  const slots = s.order.flatMap((item, index) => open.includes(item) ? [index] : []);
-  const order = [...s.order];
-  slots.forEach((slot, index) => { order[slot] = next[index]; });
-  return { ...s, order, widgets: next };
-}
+export const closeAll = (s: Surfaces): Surfaces => isEmpty(s) ? s : { ...emptySurfaces(), focus: s.focus };
 
 /**
  * The widget the space rule folds next on a short window with three or more open: from the bottom of the person's order upwards,
@@ -183,5 +151,5 @@ export const forgetWidgets = (memory: WidgetsByConversation, id: string): void =
  */
 export function enterConversation(s: Surfaces, memory: WidgetsByConversation, id: string | null): Surfaces {
   const memo = id ? memory.get(id) : undefined;
-  return { ...s, widgets: sortWidgets(memo?.widgets ?? [], s.order), folded: memo?.folded ?? [], cover: null, page: null };
+  return { ...s, widgets: sortWidgets(memo?.widgets ?? []), folded: memo?.folded ?? [], cover: null, page: null };
 }

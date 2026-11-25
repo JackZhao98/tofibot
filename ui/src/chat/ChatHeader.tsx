@@ -42,11 +42,12 @@ export interface ChatHeaderProps {
   openTerminalSurface: () => void;
   openSidebarId: (id: SidebarId) => void;
   openWidgetId: (id: WidgetId) => void;
+  openUsageSettings: () => void;
   copyConversationLink: (conversation: Conversation) => Promise<void>;
   confirmDelete: (conversation: Conversation) => void;
 }
 
-export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode, atTop, covered, botCardOpen, openBotCard, toggleWidgetId, openCoverPanel, botById, cats, computers, artifactsOn, setArtifactsMode, toggleSidebarId, headerMenuTriggerRef, headerMenuOpen, setHeaderMenuOpen, desktopBot, openTerminalSurface, openSidebarId, openWidgetId, copyConversationLink, confirmDelete }: ChatHeaderProps) {
+export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode, atTop, covered, botCardOpen, openBotCard, toggleWidgetId, openCoverPanel, botById, cats, computers, artifactsOn, setArtifactsMode, toggleSidebarId, headerMenuTriggerRef, headerMenuOpen, setHeaderMenuOpen, desktopBot, openTerminalSurface, openSidebarId, openWidgetId, openUsageSettings, copyConversationLink, confirmDelete }: ChatHeaderProps) {
   const [menus, setMenus] = useState<HeaderMenus | null>(null);
   useEffect(() => { void import("./HeaderMenus").then(setMenus); }, []);
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -66,8 +67,8 @@ export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode
     <div className="header-more">
       <IconButton ref={headerMenuTriggerRef} icon="more" label={t("header.more")} aria-haspopup="menu" aria-expanded={headerMenuOpen} aria-controls={headerMenuOpen ? "conversation-more-menu" : undefined} {...pressToggle(() => setHeaderMenuOpen(open => !open))} onKeyDown={arrowOpens(setHeaderMenuOpen)} />
       {headerMenuOpen && menus && <menus.MoreMenu t={t} active={active} trigger={headerMenuTriggerRef} setOpen={setHeaderMenuOpen} columnMode={columnMode} hasComputer={!!desktopBot}
-        tasks={() => toggleSidebarId("tasks")} members={() => { if (columnMode) openWidgetId("members"); else openCoverPanel("group-settings"); }} terminal={openTerminalSurface}
-        memory={() => openSidebarId("memory")} usage={() => { if (columnMode) openWidgetId("usage"); else openSidebarId("usage"); }} approvals={() => openCoverPanel("approvals")}
+        tasks={() => toggleSidebarId("tasks")} members={() => openCoverPanel("group-settings")} terminal={openTerminalSurface}
+        memory={() => openSidebarId("memory")} usage={openUsageSettings} approvals={() => openCoverPanel("approvals")}
         copyLink={() => void copyConversationLink(active)} settings={() => openCoverPanel(active.kind === "dm" ? "bot-settings" : "group-settings")} remove={() => confirmDelete(active)} />}
     </div>
   </>;
@@ -85,7 +86,7 @@ export function ChatHeader({ chatHeaderRef, setMobileList, t, active, columnMode
     title={active.name}
     subtitle={active.kind === "group" ? t("header.member_count", { count: active.bot_ids.length }) : undefined}
     avatars={faces}
-    onOpen={() => active.kind === "group" ? (columnMode ? toggleWidgetId("members") : openCoverPanel("group-settings")) : columnMode ? openBotCard() : openCoverPanel("bot-settings")}
+    onOpen={() => active.kind === "group" ? openCoverPanel("group-settings") : columnMode ? openBotCard() : openCoverPanel("bot-settings")}
     openLabel={active.kind === "group" ? t("header.open_members") : botById.get(ids[0])?.name ?? active.name}
     menu={<IconButton icon="arrow-left" label={t("route.back_to_list")} className="back-button" onClick={() => setMobileList(true)} />}
     menuMode="narrow"

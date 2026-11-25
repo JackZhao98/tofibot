@@ -209,9 +209,6 @@
   "usage-panel.css": {
     "bridgeUse": 12
   },
-  "usage-widget.css": {
-    "bridgeUse": 20
-  },
   "v2-app.css": {
     "bridgeUse": 50,
     "webFork": 21

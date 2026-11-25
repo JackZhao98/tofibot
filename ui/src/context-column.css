@@ -13,20 +13,11 @@
   transition:grid-template-rows var(--m-panel-out) var(--ease-settle), padding-bottom var(--m-panel-out) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); }
 @keyframes widget-rise { from { opacity:.4; } }
 
-/* Moving a widget (ContextCard.tsx): the slot follows the pointer with no transition and lifts (a stronger elevation, a hair larger, no outline);
-   the others slide into place with dnd-kit transforms; it settles with the same transition when let go. No hand cursor anywhere. */
-.widget-slot[data-dragging] { z-index:3; transition:none; }
-.context-card { transition:scale var(--m-quick) var(--ease-out), box-shadow var(--m-quick) var(--ease-out); }
-.widget-slot[data-dragging] .context-card { scale:1.012; box-shadow:var(--card-lift); }
-.widget-slot[data-dragging] .context-card.is-bare { box-shadow:none; filter:drop-shadow(0 16px 22px color-mix(in srgb,var(--shade) 30%,transparent)); }
-html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -webkit-user-select:none; }
-.context-card-header { user-select:none; -webkit-user-select:none; }
-.context-card-grip { touch-action:none; }
-/* Resting header: just "Title ⌄" (the way Claude desktop's side cards read). The grip and the close X appear while the card is hovered or has keyboard focus, and while it is lifted. */
+/* Resting header: just "Title ⌄" (the way Claude desktop's side cards read). The close X appears while the card is hovered or has keyboard focus. */
 .context-card-actions { display:flex; align-items:center; gap:2px; flex:none; margin-left:auto; opacity:0; transition:opacity var(--m-quick) var(--ease-out); }
-.context-card:is(:hover,:has(:focus-visible)) .context-card-actions, .widget-slot[data-dragging] .context-card-actions { opacity:1; }
+.context-card:is(:hover,:has(:focus-visible)) .context-card-actions { opacity:1; }
 @media (pointer:coarse) { .context-card-actions { opacity:1; } }
-.context-card-grip, .context-card-close { transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
+.context-card-close { transition:background-color var(--m-press) var(--ease-out), color var(--m-press) var(--ease-out); }
 .context-card-header { display:flex; align-items:center; gap:2px; min-height:40px; padding:4px 6px 4px 14px; }
 .context-card-header h2 { flex:0 1 auto; min-width:0; margin:0; outline:none; font:inherit; }
 /* The title is a quiet section label (--text-process, AA on the card surface in both themes); the chevron follows the words. */
@@ -79,7 +70,7 @@ html[data-widget-dragging], html[data-widget-dragging] * { user-select:none; -we
 
 @media (prefers-reduced-motion:reduce) {
   .widget-slot, .widget-slot[data-leaving] { animation:none; transition:none; }
-  .context-card, .context-card-grip, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }
+  .context-card, .context-card-close, .context-card-actions, .context-card-fold, .context-card-fold svg, .context-card-button svg { transition:none; }
 }
 @media (forced-colors:active) { .context-card { outline:1px solid CanvasText; } }
 }

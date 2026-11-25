@@ -190,8 +190,8 @@ export type AppOptions = {
   timeline?: boolean | "many";
   /** The server reports a newer release (the admin banner, with its Update button). "running": the host is downloading it; "failed" / "rolled-back": the host's last answer; "rc": a release candidate is on offer too. */
   update?: boolean | "running" | "failed" | "rolled-back" | "rc";
-  /** What GET /api/conversations/{id}/usage answers for the Usage widget: the whole picture, no tool split (older runs), no context snapshot, or a 404 (a server release without the route). */
-  usage?: "full" | "split-unavailable" | "no-snapshot" | "old-server";
+  /** What GET /api/usage/spend answers: no limit set (default), near the limit, or past it. The banner above the composer shows for the last two. */
+  spend?: "near" | "reached";
 };
 
 /** A data-URI image cannot read CSS tokens, so the fake screenshot takes its colours from the live theme when it is asked for. */
@@ -283,8 +283,8 @@ export function workspace(options: AppOptions): Synthetic {
       if (what === "schedules" || what === "schedule-occurrences" || what === "work-items" || what === "remembered-approvals") return json({ schedules: [], occurrences: [], work_items: [], grants: [] });
       if (what === "task-cards") return json({ tasks: options.tasks && id === "grp_launch" ? TASKS : [] });
       if (what === "read") return json({ read_seq: 99 });
-      if (what === "usage") return options.usage === "old-server" ? json({ error: { code: "not_found", message: "not found" } }, 404) : json(usageFor(id, options.usage ?? "full"));
     }
+    if (p === "/api/usage/spend") return json({ month: "2026-11", month_start: "2026-11-01T00:00:00Z", month_end: "2026-12-01T00:00:00Z", timezone: "UTC", spend_usd: options.spend === "reached" ? 100 : options.spend === "near" ? 84.2 : 12, limit_usd: options.spend ? 100 : 0, state: options.spend ?? "off" });
     if (p === "/api/questions") return json({ questions: questions(url.searchParams.get("conversation_id") ?? "") });
     if (p === "/api/mail-drafts") return json({ drafts: [] });
     if (p === "/api/artifacts") {
@@ -311,27 +311,6 @@ export function workspace(options: AppOptions): Synthetic {
     if (p === "/api/computer/desktop-ownership") return json({ owner: options.driver === "bot" ? { kind: "bot", bot_id: "bot_mochi", run_id: "run_driver", conversation_id: "dm_mochi" } : null, waiting: [] });
     if (p === "/api/system/update") return json(updateAnswer(options.update));
     return json({});
-  };
-}
-
-/** GET /api/conversations/{id}/usage (internal/app/conversation_usage.go): synthetic figures for the Usage widget. */
-function usageFor(id: string, mode: NonNullable<AppOptions["usage"]>) {
-  const part = (kind: string, tokens: number) => ({ kind, tokens, estimated: true });
-  return {
-    conversation_id: id,
-    totals: { runs: 14, runs_with_call_detail: mode === "split-unavailable" ? 3 : 14, requests: 41, input_tokens: 1_284_000, output_tokens: 52_300, equivalent_usd: 1.86, unpriced_requests: 0, cache_read_tokens: 802_000, cache_hit_rate: 0.62 },
-    per_model: [
-      { model: "gpt-6-luna", requests: 33, input_tokens: 1_090_000, output_tokens: 44_000, equivalent_usd: 1.52, unpriced_requests: 0 },
-      { model: "gpt-6-luna-mini", requests: 8, input_tokens: 194_000, output_tokens: 8_300, equivalent_usd: 0.34, unpriced_requests: 0 },
-    ],
-    latest_context: {
-      run_id: "run_dm_mochi_11", model: "gpt-6-luna", used_tokens: 61_400, used_measured: true, window_tokens: 200_000, window_known: true, cache_read_tokens: 52_200, cache_hit_rate: 0.85,
-      parts: mode === "no-snapshot" ? [] : [part("instructions", 6_800), part("history", 31_200), part("tool_definitions", 9_400), part("tool_results", 8_900), part("memory_notes", 3_100), part("attachments", 1_100), part("other", 900)],
-      parts_tokens: mode === "no-snapshot" ? 0 : 61_400,
-      ...(mode === "no-snapshot" ? { parts_code: "context_snapshot_unavailable" } : {}),
-    },
-    tool_split: mode === "split-unavailable" ? { available: false, code: "call_detail_incomplete" }
-      : { available: true, tool_tokens: 742_000, conversation_tokens: 468_000, review_tokens: 21_000, tool_model_calls: 24, conversation_model_calls: 15, tool_calls: 52, basis: "calls" },
   };
 }
 
