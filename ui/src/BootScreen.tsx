@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { readConversationRoute } from "./conversationRoute";
+import { Card } from "./ds/Card/Card";
 import "./boot-screen.css";
 import { applySkin } from "./skin/skin";
 
@@ -101,7 +102,7 @@ export function BootScreen({ label, immediate = false, children }: { label: stri
   useEffect(() => visible ? claimVisible() : undefined, [visible]);
   return <div className={`boot${children ? " is-failed" : ""}${warm ? " is-warm" : ""}`} aria-busy={children ? undefined : true}>
     {visible && <Backdrop view={view} phase={phase} />}
-    {children ? <div className="boot-card startup-error">{children}</div> : null}
+    {children ? <Card className="boot-card startup-error">{children}</Card> : null}
     <div className="sr-only" role="status" aria-live="polite">{children ? null : label}</div>
   </div>;
 }

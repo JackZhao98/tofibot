@@ -1,8 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "./i18n";
 import { AuthError, authRequest, verifySetupKey, type AuthField } from "./ownerAuthApi";
 import { EMAIL_PATTERN, passwordRules, validUsername } from "./passwordPolicy";
-import "./owner-setup.css";
+import { Button } from "./ds/Button/Button";
+import { Banner } from "./ds/Banner/Banner";
+import { Field } from "./ds/Field/Field";
+import { Icon } from "./ds/Icon/Icon";
+import { TextInput } from "./ds/TextInput/TextInput";
 
 type Field = AuthField | "confirm" | "key";
 type Values = { username: string; email: string; password: string; confirm: string };
@@ -21,21 +25,12 @@ export function PasswordChecklist({ id, password, username, email }: { id: strin
     {items.map(item => {
       const state = !typed ? "idle" : item.ok ? "ok" : "bad";
       return <li key={item.key} data-rule={item.key} data-state={state}>
-        <span className="pw-rule-mark" aria-hidden="true">{state === "ok" ? "✓" : state === "bad" ? "✕" : "○"}</span>
+        <Icon name={state === "ok" ? "check" : state === "bad" ? "close" : "minus"} size={14} />
         <span>{item.label}</span>
         <span className="sr-only">{t(`setup.rule_state.${state}`)}</span>
       </li>;
     })}
   </ul>;
-}
-
-function FieldShell({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: ReactNode; children: ReactNode }) {
-  return <div className="owner-field" data-invalid={error ? "true" : undefined}>
-    <label htmlFor={id}>{label}</label>
-    {children}
-    {hint}
-    {error && <p id={`${id}-error`} className="field-error" role="alert">{error}</p>}
-  </div>;
 }
 
 /** First-run setup: step 1 verifies the one-time key, step 2 registers the first Admin. */
@@ -81,8 +76,6 @@ export function OwnerSetup({ onDone }: { onDone: () => Promise<void> }) {
     setFormError("");
   };
   const blur = (field: Field) => setTouched(current => ({ ...current, [field]: true }));
-  const invalid = (field: AuthField | "confirm") => errorFor(field) ? true : undefined;
-  const describedBy = (field: AuthField | "confirm", extra?: string) => [extra, errorFor(field) ? `${ids[field]}-error` : undefined].filter(Boolean).join(" ") || undefined;
 
   async function verify(event: React.FormEvent) {
     event.preventDefault();
@@ -117,7 +110,7 @@ export function OwnerSetup({ onDone }: { onDone: () => Promise<void> }) {
 
   const head = <>
     <h1>{t("gate.title.welcome_new")}</h1>
-    <p className="owner-step" aria-hidden="true">{t("setup.step", { current: step, total: 2 })}</p>
+    <p className="owner-step tb-eyebrow" aria-hidden="true">{t("setup.step", { current: step, total: 2 })}</p>
     <p className="owner-subtitle">{step === 1 ? t("setup.key_subtitle") : t("gate.subtitle.create_admin")}</p>
   </>;
 
@@ -125,41 +118,39 @@ export function OwnerSetup({ onDone }: { onDone: () => Promise<void> }) {
     {head}
     <form onSubmit={verify} noValidate data-step="key">
       <p id={`${ids.key}-hint`} className="owner-hint"><Trans t={t} i18nKey="setup.key_hint" components={{ code: <code /> }} /></p>
-      <FieldShell id={ids.key} label={t("field.setup_key")} error={keyError || undefined}>
-        <input ref={keyRef} id={ids.key} name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} autoCapitalize="none" required disabled={pending}
-          value={key} aria-invalid={keyError ? true : undefined} aria-describedby={[`${ids.key}-hint`, keyError ? `${ids.key}-error` : ""].filter(Boolean).join(" ")}
+      <Field id={ids.key} label={t("field.setup_key")} error={keyError || undefined}>
+        <TextInput ref={keyRef} name="bootstrap_secret" type="password" autoComplete="off" spellCheck={false} autoCapitalize="none" required disabled={pending}
+          value={key} aria-describedby={`${ids.key}-hint`}
           onChange={event => { setKey(event.target.value); setKeyError(""); }} />
-      </FieldShell>
-      <button className="primary-button" disabled={pending}>{pending ? t("setup.verifying") : t("setup.continue")}</button>
+      </Field>
+      <Button type="submit" variant="primary" busy={pending} disabled={pending}>{pending ? t("setup.verifying") : t("setup.continue")}</Button>
     </form>
   </>;
 
   return <>
     {head}
     <form onSubmit={register} noValidate data-step="register">
-      <FieldShell id={ids.username} label={t("field.username")} error={errorFor("username")}>
-        <input ref={usernameRef} id={ids.username} name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required disabled={pending}
-          value={values.username} aria-invalid={invalid("username")} aria-describedby={describedBy("username")}
-          onChange={event => set("username", event.target.value)} onBlur={() => blur("username")} />
-      </FieldShell>
-      <FieldShell id={ids.email} label={t("field.email")} error={errorFor("email")}>
-        <input id={ids.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending}
-          value={values.email} aria-invalid={invalid("email")} aria-describedby={describedBy("email")}
-          onChange={event => set("email", event.target.value)} onBlur={() => blur("email")} />
-      </FieldShell>
-      <FieldShell id={ids.password} label={t("field.password")} error={errorFor("password")}
-        hint={<PasswordChecklist id={ids.rules} password={values.password} username={values.username.trim()} email={values.email.trim()} />}>
-        <input id={ids.password} name="password" type="password" autoComplete="new-password" required disabled={pending}
-          value={values.password} aria-invalid={invalid("password")} aria-describedby={describedBy("password", ids.rules)}
-          onChange={event => set("password", event.target.value)} onBlur={() => blur("password")} />
-      </FieldShell>
-      <FieldShell id={ids.confirm} label={t("field.confirm_password")} error={errorFor("confirm")}>
-        <input id={ids.confirm} name="confirm_password" type="password" autoComplete="new-password" required disabled={pending}
-          value={values.confirm} aria-invalid={invalid("confirm")} aria-describedby={describedBy("confirm")}
-          onChange={event => set("confirm", event.target.value)} onBlur={() => blur("confirm")} />
-      </FieldShell>
-      {formError && <p className="owner-error" role="alert">{formError}</p>}
-      <button className="primary-button" disabled={pending}>{pending ? t("gate.submit.wait") : t("gate.submit.create_account")}</button>
+      <Field id={ids.username} label={t("field.username")} error={errorFor("username")}>
+        <TextInput ref={usernameRef} name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} required disabled={pending}
+          value={values.username} onChange={event => set("username", event.target.value)} onBlur={() => blur("username")} />
+      </Field>
+      <Field id={ids.email} label={t("field.email")} error={errorFor("email")}>
+        <TextInput name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required disabled={pending}
+          value={values.email} onChange={event => set("email", event.target.value)} onBlur={() => blur("email")} />
+      </Field>
+      <div className="owner-pw">
+        <Field id={ids.password} label={t("field.password")} error={errorFor("password")}>
+          <TextInput name="password" type="password" autoComplete="new-password" required disabled={pending} aria-describedby={ids.rules}
+            value={values.password} onChange={event => set("password", event.target.value)} onBlur={() => blur("password")} />
+        </Field>
+        <PasswordChecklist id={ids.rules} password={values.password} username={values.username.trim()} email={values.email.trim()} />
+      </div>
+      <Field id={ids.confirm} label={t("field.confirm_password")} error={errorFor("confirm")}>
+        <TextInput name="confirm_password" type="password" autoComplete="new-password" required disabled={pending}
+          value={values.confirm} onChange={event => set("confirm", event.target.value)} onBlur={() => blur("confirm")} />
+      </Field>
+      {formError && <Banner tone="error">{formError}</Banner>}
+      <Button type="submit" variant="primary" busy={pending} disabled={pending}>{pending ? t("gate.submit.wait") : t("gate.submit.create_account")}</Button>
     </form>
   </>;
 }

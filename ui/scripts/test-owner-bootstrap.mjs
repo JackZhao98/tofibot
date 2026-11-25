@@ -75,8 +75,8 @@ async function openFixture(context, multiAccount, state) {
 
 const dangerColor = page => page.evaluate(() => { const probe = document.createElement("i"); probe.style.color = "var(--danger)"; document.body.append(probe); const value = getComputedStyle(probe).color; probe.remove(); return value; });
 // Borders ease into red, so wait for the transition to settle before comparing.
-const redBorder = (page, name, color) => page.waitForFunction(([field, expected]) => getComputedStyle(document.querySelector(`input[name="${field}"]`)).borderTopColor === expected, [name, color]);
-const field = (page, name) => page.locator(`.owner-field:has(input[name="${name}"])`);
+const redBorder = (page, name, color) => page.waitForFunction(([field, expected]) => getComputedStyle(document.querySelector(`input[name="${field}"]`).closest(".tb-input")).borderTopColor === expected, [name, color]);
+const field = (page, name) => page.locator(`.tb-field:has(input[name="${name}"])`);
 const ruleStates = page => page.locator(".pw-rules li").evaluateAll(items => Object.fromEntries(items.map(item => [item.dataset.rule, item.dataset.state])));
 
 try {
@@ -96,23 +96,23 @@ try {
     assert.equal(await key.getAttribute("autocomplete"), "off");
     assert.equal(await page.locator('input[name="username"]').count(), 0, "registration must wait for the key");
     assert.match(await page.locator(".owner-hint").innerText(), /sudo tofi setup-secret/);
-    const next = page.locator("form .primary-button");
+    const next = page.locator("form .tb-btn--primary");
     assert.equal(await next.innerText(), c.setup.continue);
     await next.click();
-    await page.locator("form .field-error").filter({ hasText: c.setup.error.key_required }).waitFor();
+    await page.locator("form .tb-field-msg--error").filter({ hasText: c.setup.error.key_required }).waitFor();
     assert.equal(state.verifyRequests.length, 0, "an empty key is not sent");
 
     // Wrong key: verified by the server, inline red error on the field, still step 1.
     await key.fill("wrong-synthetic-secret");
     await next.click();
-    await page.locator("form .field-error").filter({ hasText: c.error.invalid_bootstrap }).waitFor();
+    await page.locator("form .tb-field-msg--error").filter({ hasText: c.error.invalid_bootstrap }).waitFor();
     assert.equal(await key.getAttribute("aria-invalid"), "true");
-    assert.ok((await key.getAttribute("aria-describedby")).includes(await page.locator("form .field-error").getAttribute("id")));
+    assert.ok((await key.getAttribute("aria-describedby")).includes(await page.locator("form .tb-field-msg--error").getAttribute("id")));
     await redBorder(page, "bootstrap_secret", danger);
     assert.equal(await page.locator('input[name="username"]').count(), 0);
     assert.equal(state.setupRequests.length, 0);
     await key.fill(secret + "x");
-    assert.equal(await page.locator("form .field-error").count(), 0, "editing the key clears its error");
+    assert.equal(await page.locator("form .tb-field-msg--error").count(), 0, "editing the key clears its error");
 
     // Right key: step 2 appears, the key field retires, nothing was consumed.
     await key.fill(secret);
@@ -125,23 +125,23 @@ try {
 
     // Errors wait for blur: a first keystroke shows nothing.
     await username.pressSequentially("a");
-    assert.equal(await field(page, "username").locator(".field-error").count(), 0, "no error on first keystroke");
+    assert.equal(await field(page, "username").locator(".tb-field-msg--error").count(), 0, "no error on first keystroke");
     await username.blur();
-    await field(page, "username").locator(".field-error").filter({ hasText: c.error.invalid_username }).waitFor();
+    await field(page, "username").locator(".tb-field-msg--error").filter({ hasText: c.error.invalid_username }).waitFor();
     assert.equal(await username.getAttribute("aria-invalid"), "true");
     await redBorder(page, "username", danger);
-    assert.ok((await username.getAttribute("aria-describedby")).includes(await field(page, "username").locator(".field-error").getAttribute("id")));
+    assert.ok((await username.getAttribute("aria-describedby")).includes(await field(page, "username").locator(".tb-field-msg--error").getAttribute("id")));
     await username.fill("");
     await username.blur();
-    await field(page, "username").locator(".field-error").filter({ hasText: c.setup.error.username_required }).waitFor();
+    await field(page, "username").locator(".tb-field-msg--error").filter({ hasText: c.setup.error.username_required }).waitFor();
 
     // The checklist is live: neutral, then each keystroke.
     const pw = page.locator('input[name="password"]');
     assert.deepEqual(await ruleStates(page), { length: "idle", common: "idle", identity: "idle" });
-    assert.equal(await field(page, "password").locator(".field-error").count(), 0);
+    assert.equal(await field(page, "password").locator(".tb-field-msg--error").count(), 0);
     await pw.pressSequentially("pass");
     assert.deepEqual(await ruleStates(page), { length: "bad", common: "ok", identity: "ok" });
-    assert.equal(await field(page, "password").locator(".field-error").count(), 0, "checklist is live, the error line waits for blur");
+    assert.equal(await field(page, "password").locator(".tb-field-msg--error").count(), 0, "checklist is live, the error line waits for blur");
     await pw.fill("PassWord1234");
     assert.deepEqual(await ruleStates(page), { length: "ok", common: "bad", identity: "ok" }, "common passwords are rejected case-insensitively");
     await pw.fill("Zq7!mK2$vXp");
@@ -155,36 +155,36 @@ try {
     await page.locator('input[name="email"]').fill("admin@example.test");
     await pw.fill("short");
     await pw.blur();
-    await field(page, "password").locator(".field-error").filter({ hasText: c.setup.error.password_rules }).waitFor();
+    await field(page, "password").locator(".tb-field-msg--error").filter({ hasText: c.setup.error.password_rules }).waitFor();
     await redBorder(page, "password", danger);
     await pw.fill(password);
-    assert.equal(await field(page, "password").locator(".field-error").count(), 0, "a shown error follows the live state and clears once the password is valid");
+    assert.equal(await field(page, "password").locator(".tb-field-msg--error").count(), 0, "a shown error follows the live state and clears once the password is valid");
 
     // Confirm must match.
     const confirm = page.locator('input[name="confirm_password"]');
     await confirm.fill("not-the-same-value");
     await confirm.blur();
-    await field(page, "confirm_password").locator(".field-error").filter({ hasText: c.setup.error.confirm_mismatch }).waitFor();
+    await field(page, "confirm_password").locator(".tb-field-msg--error").filter({ hasText: c.setup.error.confirm_mismatch }).waitFor();
     assert.equal(await confirm.getAttribute("aria-invalid"), "true");
     await redBorder(page, "confirm_password", danger);
     await confirm.fill(password);
-    assert.equal(await field(page, "confirm_password").locator(".field-error").count(), 0, "matching confirm clears the error");
+    assert.equal(await field(page, "confirm_password").locator(".tb-field-msg--error").count(), 0, "matching confirm clears the error");
 
     // A server field error lands on its own field and keeps the account uncreated.
-    const submit = page.locator("form .primary-button");
+    const submit = page.locator("form .tb-btn--primary");
     assert.equal(await submit.innerText(), c.gate.submit.create_account);
     await page.locator('input[name="email"]').fill("taken@example.test");
     await submit.click();
-    await field(page, "email").locator(".field-error").filter({ hasText: c.error.invalid_email }).waitFor();
+    await field(page, "email").locator(".tb-field-msg--error").filter({ hasText: c.error.invalid_email }).waitFor();
     assert.equal(await page.locator('input[name="email"]').getAttribute("aria-invalid"), "true");
-    assert.equal(await field(page, "username").locator(".field-error").count(), 0);
-    assert.equal(await field(page, "password").locator(".field-error").count(), 0);
+    assert.equal(await field(page, "username").locator(".tb-field-msg--error").count(), 0);
+    assert.equal(await field(page, "password").locator(".tb-field-msg--error").count(), 0);
     assert.equal(state.setupRequests.length, 1);
 
     // Submitting with a blank field shows every error and sends nothing.
     await page.locator('input[name="email"]').fill("");
     await submit.click();
-    await field(page, "email").locator(".field-error").filter({ hasText: c.setup.error.email_required }).waitFor();
+    await field(page, "email").locator(".tb-field-msg--error").filter({ hasText: c.setup.error.email_required }).waitFor();
     assert.equal(state.setupRequests.length, 1);
 
     await page.locator('input[name="email"]').fill("admin@example.test");
@@ -210,13 +210,13 @@ try {
   for (const language of ["zh-CN", "de", "fr", "ja"]) {
     await pickSelect(picker, language);
     const c = catalog(language);
-    await page.locator("form .primary-button").filter({ hasText: c.setup.continue }).waitFor();
+    await page.locator("form .tb-btn--primary").filter({ hasText: c.setup.continue }).waitFor();
     assert.equal(await page.locator("html").getAttribute("lang"), language);
     assert.ok((await page.locator(".owner-card h1").innerText()).includes(c.gate.title.welcome_new));
   }
   await pickSelect(picker, "zh-CN");
   await page.locator('input[name="bootstrap_secret"]').fill(secret);
-  await page.locator("form .primary-button").click();
+  await page.locator("form .tb-btn--primary").click();
   await page.locator('input[name="username"]').waitFor();
   await pickSelect(picker, "de");
   const de = catalog("de");

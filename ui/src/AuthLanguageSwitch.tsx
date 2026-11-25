@@ -1,4 +1,4 @@
-import "./owner-setup.css";
+import "./layout/auth-gate.css";
 import { LANGUAGES, LANGUAGE_ENDONYMS, isLanguagePreference, matchLanguage, setLanguagePreference, useLanguage, useTranslation } from "./i18n";
 import { Select } from "./Select";
 

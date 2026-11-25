@@ -23,10 +23,12 @@ export function Field({ label, hint, error, optional, id, className, children }:
   const generated = useId();
   const controlId = id ?? `tb-f${generated}`;
   const message = error ? "error" : hint ? "hint" : null;
+  const own = Children.only(children).props["aria-describedby"];
   const describedBy = message ? `${controlId}-d` : undefined;
+  const merged = [own, describedBy].filter(Boolean).join(" ") || undefined;
   return <div className={cx("tb-field", error ? "is-invalid" : false, className)}>
     <label className="tb-field-label" htmlFor={controlId}>{label}{optional ? <span className="tb-field-opt">{optional}</span> : null}</label>
-    {cloneElement(Children.only(children), { id: controlId, "aria-invalid": error ? true : undefined, "aria-describedby": describedBy })}
+    {cloneElement(Children.only(children), { id: controlId, "aria-invalid": error ? true : undefined, "aria-describedby": merged })}
     {error ? <div className="tb-field-msg tb-field-msg--error" id={describedBy}><Icon name="error" size={14} />{error}</div>
       : hint ? <div className="tb-field-msg" id={describedBy}>{hint}</div> : null}
   </div>;

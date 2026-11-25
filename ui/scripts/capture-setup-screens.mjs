@@ -44,11 +44,11 @@ try {
       const shot = async name => { await page.waitForTimeout(350); await page.screenshot({ path: `${out}/${name}-${size}-${scheme}.png`, fullPage: true }); };
       await shot("1-key-step");
       await key.fill("wrong-synthetic-secret");
-      await page.locator("form .primary-button").click();
-      await page.locator(".field-error").waitFor();
+      await page.locator("form .tb-btn--primary").click();
+      await page.locator(".tb-field-msg--error").waitFor();
       await shot("2-key-error");
       await key.fill(secret);
-      await page.locator("form .primary-button").click();
+      await page.locator("form .tb-btn--primary").click();
       await page.locator('input[name="username"]').waitFor();
       await shot("3-register-empty");
       await page.locator('input[name="username"]').fill("a");
@@ -56,8 +56,8 @@ try {
       await page.locator('input[name="password"]').fill("PassWord1234");
       await page.locator('input[name="confirm_password"]').fill("different-value");
       await page.locator('input[name="confirm_password"]').blur();
-      await page.locator("form .primary-button").click();
-      await page.locator(".field-error").first().waitFor();
+      await page.locator("form .tb-btn--primary").click();
+      await page.locator(".tb-field-msg--error").first().waitFor();
       await shot("4-register-errors");
       await page.locator('input[name="username"]').fill("synthetic-admin");
       await page.locator('input[name="email"]').fill("admin@example.test");

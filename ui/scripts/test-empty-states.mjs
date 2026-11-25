@@ -136,7 +136,7 @@ try {
     ["usage-no-agents", "usage-no-agents"], ["work-empty", "work-empty"], ["mcp-empty", "mcp-empty"],
     ["integrations-no-match", "integrations-no-match"], ["skills-empty", "skills-empty"],
     ["credentials-env-empty", "credentials-env-empty"], ["terminal-empty", "terminal-empty"],
-    ["view-only-empty", "view-only-empty"], ["gate-offline", "gate-offline"],
+    ["view-only-empty", "view-only-empty"],
   ];
   for (const [state, cat] of states) {
     const { page, context, errors } = await open(`/fixtures/empty-states.html?state=${state}`);

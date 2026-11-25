@@ -11,9 +11,6 @@
   "artifacts-panel.css": {
     "bridgeUse": 14
   },
-  "boot-screen.css": {
-    "bridgeUse": 6
-  },
   "bot-secrets.css": {
     "bridgeUse": 2
   },
@@ -63,7 +60,7 @@
     "bridgeUse": 1
   },
   "desktop-system.css": {
-    "bridgeUse": 11
+    "bridgeUse": 8
   },
   "display-card.css": {
     "bridgeUse": 21
@@ -131,9 +128,6 @@
   },
   "onboarding.css": {
     "bridgeUse": 55
-  },
-  "owner-setup.css": {
-    "bridgeUse": 5
   },
   "permission-coach.css": {
     "bridgeUse": 12
