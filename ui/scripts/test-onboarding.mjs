@@ -361,8 +361,6 @@ try {
     assert.ok(await page.locator(".composer-row textarea").evaluate(node => { let o = 1; for (let n = node; n && !n.classList.contains("composer-row"); n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o; }) < 1, "its controls are dimmed");
     assert.equal(await page.getByText("No model set up").count(), 0, "the bare line is gone");
     await page.waitForTimeout(600);
-    // The banner shows the Bot's own cat; the perched cat waits until the banner goes, instead of sitting above it on the messages.
-    assert.equal(await page.locator(".composer-perch").isVisible(), false, "1440 light: no perched cat while the banner is up");
     assert.ok(await page.locator("[data-model-banner] .model-banner-cat").isVisible(), "the banner carries the Bot's cat");
     currentShot = "1440x900-light";
     await shoot(page, "11-after-skip-banner-chip");
@@ -377,7 +375,6 @@ try {
       const view = await open(makeServer({ bots: 1, onboarding: { step: 1, completed: false, skipped: true } }), { width: w, height: h, theme, url: "/b/bot_1" });
       await view.page.locator("[data-model-banner]").waitFor();
       await view.page.waitForTimeout(600);
-      assert.equal(await view.page.locator(".composer-perch").isVisible(), false, `${w} ${theme}: no perched cat while the banner is up`);
       assert.equal(await view.page.locator(".composer-row").evaluate(node => getComputedStyle(node).opacity), "1", `${w} ${theme}: the frosted row is not faded`);
       await view.context.close();
     }

@@ -4,7 +4,7 @@ import { foundations } from "./foundations";
 import { primitives } from "./primitives";
 import { surfaces } from "./surfaces";
 import type { CatalogSection } from "../types";
-import { actions, bubbles, composer, edges, perch, receipts } from "./chat";
+import { actions, bubbles, composer, edges, receipts } from "./chat";
 import { dialogs, hints, listboxes, menus, popovers } from "./overlays";
 import { approvals, handover, questions, standing } from "./cards";
 import { settings } from "./settings";
@@ -13,7 +13,7 @@ import { v3 } from "./v3";
 
 export const SECTIONS: CatalogSection[] = [
   foundations, primitives, surfaces,
-  bubbles, actions, receipts, composer, perch, rows, pins, dialogs, menus, hints, popovers, listboxes,
+  bubbles, actions, receipts, composer, rows, pins, dialogs, menus, hints, popovers, listboxes,
   questions, approvals, handover, standing, settings, notices, boot, computer, push, edges, other,
   v3,
 ];
