@@ -105,9 +105,6 @@
   "new-group.css": {
     "bridgeUse": 1
   },
-  "oauth/connection.css": {
-    "bridgeUse": 9
-  },
   "onboarding.css": {
     "bridgeUse": 49
   },

@@ -185,7 +185,7 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
 <body class="oauth-connection" data-state="{{.State}}">
   <main class="oauth-completion" aria-labelledby="connection-heading">
     <div class="oauth-handshake" aria-label="{{.HandshakeLabel}}">
-      <div class="oauth-identity"><span class="oauth-logo"><img src="/brand/tofi-logo-color.svg" alt="" width="64" height="64"></span><span>Tofi</span></div>
+      <div class="oauth-identity"><span class="oauth-logo"><img src="/brand/tofi-logo-calico-awake.svg?v=awake-calico-3" alt="" width="64" height="64"></span><span>Tofi</span></div>
       <div class="oauth-dots" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="oauth-identity"><span class="oauth-logo oauth-provider"><img src="{{.LogoURL}}" alt="" width="64" height="64"></span><span>{{.ServiceName}}</span></div>
     </div>
