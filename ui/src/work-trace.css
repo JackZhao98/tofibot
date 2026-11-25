@@ -4,7 +4,7 @@
 .work-trace-line{flex:1 1 220px;cursor:pointer}
 .work-trace-thumbs{display:inline-flex;flex:none;gap:2px}
 .work-trace-thumb{display:block;flex:none;border-radius:3px;background-repeat:no-repeat;background-color:color-mix(in srgb,var(--muted) 18%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--muted) 24%,transparent)}
-.work-trace-delete,.work-trace-confirm{flex:none;color:var(--text-process);font:var(--type-meta)}
+.work-trace-delete,.work-trace-confirm{flex:none;color:var(--muted);font:var(--type-meta)}
 .work-trace-confirm{display:inline-flex;align-items:center;gap:var(--space-2)}
 .work-trace-note{margin:var(--space-2) 0 0}
 
@@ -15,7 +15,7 @@
 .work-narration { color:var(--ink-soft); font:var(--type-body); }
 .work-narration p { margin:0; }
 .work-batch { display:flex; align-items:flex-start; gap:12px; min-width:0; }
-.work-command-group { flex:0 1 auto; min-width:0; color:var(--text-process); font:var(--type-meta); }
+.work-command-group { flex:0 1 auto; min-width:0; color:var(--muted); font:var(--type-meta); }
 .work-command-toggle { display:flex; align-items:center; gap:6px; min-height:40px; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:start; }
 .work-command-toggle > svg { transition:transform var(--m-base) var(--ease-out); }
 .work-command-group[data-state="open"] > .work-command-toggle > svg { transform:rotate(90deg); }
@@ -23,7 +23,7 @@
 .work-command-group ol { list-style:none; padding:0 0 0 18px; margin:0; }
 .work-command-group li { display:flex; align-items:center; gap:6px; min-width:0; padding:4px 0; }
 .work-command-group li > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.work-capture-stack { display:flex; flex:none; align-items:center; padding:2px; min-height:40px; border:0; background:none; color:var(--text-process); cursor:zoom-in; }
+.work-capture-stack { display:flex; flex:none; align-items:center; padding:2px; min-height:40px; border:0; background:none; color:var(--muted); cursor:zoom-in; }
 .work-capture-stack img { width:56px; height:36px; object-fit:cover; border:2px solid var(--surface); border-radius:5px; }
 .work-capture-stack img + img { margin-left:-40px; }
 .work-capture-stack span { margin-left:5px; font:var(--type-meta); }

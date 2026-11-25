@@ -6,14 +6,14 @@
 .desktop-page input,.desktop-page textarea{width:100%;min-width:0}
 .desktop-page p{overflow-wrap:anywhere}
 .desktop-page .desktop-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.desktop-page pre{max-height:240px;min-height:100px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);color:var(--ink);padding:12px;border-radius:var(--radius-md);font:13px/1.5 var(--mono)}
+.desktop-page pre{max-height:240px;min-height:100px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--sunk);color:var(--ink);padding:12px;border-radius:var(--radius-md);font:13px/1.5 var(--font-mono)}
 .desktop-page code{overflow-wrap:anywhere;white-space:pre-wrap}
 .desktop-page .desktop-files{max-height:180px;overflow:auto;padding-inline-start:24px}
 .desktop-page .desktop-files li{padding:6px;overflow-wrap:anywhere}
 }
 @layer base{html[data-permission-guide],html[data-permission-guide] body{background:transparent}}
 @layer legacy {
-.permission-guide{position:relative;height:94px;padding:10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-xl);font:13px/1.25 var(--body);user-select:none}
+.permission-guide{position:relative;height:94px;padding:10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:20px;font:13px/1.25 var(--font-body);user-select:none}
 .permission-guide .permission-tile{display:flex;align-items:center;gap:10px;height:72px;padding:10px 12px;background:var(--sunk);border-radius:var(--radius-lg)}
 .permission-guide img{flex:none;width:46px;height:46px;pointer-events:none}
 .permission-guide .permission-copy{min-width:0}

@@ -1,33 +1,33 @@
 /* Task card in the timeline (decision 0060): one quiet line per task, the checklist on request. */
 @layer legacy {
-.task-card{box-sizing:border-box;width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-2);padding-inline:var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--surface-card);color:var(--text-body);font:var(--type-meta);contain:layout style}
-.task-card .disclosure-toggle{min-height:36px;width:100%;font:var(--type-meta);color:var(--text-secondary)}
+.task-card{box-sizing:border-box;width:100%;max-width:var(--chat-max);min-width:0;margin-block:var(--space-2);padding-inline:var(--space-3);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--ink);font:var(--type-meta);contain:layout style}
+.task-card .disclosure-toggle{min-height:36px;width:100%;font:var(--type-meta);color:var(--ink-soft)}
 .task-card-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.task-card[data-status=done] .task-card-line{color:var(--text-secondary)}
-.task-card[data-status=blocked] .task-card-line,.task-card[data-status=failed] .task-card-line{color:var(--status-error-text)}
+.task-card[data-status=done] .task-card-line{color:var(--ink-soft)}
+.task-card[data-status=blocked] .task-card-line,.task-card[data-status=failed] .task-card-line{color:var(--danger-text)}
 .task-card-title{margin:0 0 var(--space-2);font:var(--type-row-title);overflow-wrap:anywhere}
 .task-card-items{list-style:none;margin:0;padding:0 0 var(--space-2);display:grid;gap:var(--space-1)}
 .task-card-items li{display:flex;gap:var(--space-2);align-items:baseline;overflow-wrap:anywhere}
-.task-card-mark{flex:none;min-width:5.5em;color:var(--text-secondary)}
-.task-card-items li[data-status=done] .task-card-mark{color:var(--text-body)}
-.task-card-items li[data-status=blocked] .task-card-mark{color:var(--status-error-text)}
+.task-card-mark{flex:none;min-width:5.5em;color:var(--ink-soft)}
+.task-card-items li[data-status=done] .task-card-mark{color:var(--ink)}
+.task-card-items li[data-status=blocked] .task-card-mark{color:var(--danger-text)}
 /* The card of a lead is its plan: each part is an item with its state, deadline and one line; the words of its holder fold under it. */
 .task-card-item-body{min-width:0;flex:1 1 auto;display:grid;gap:2px}
-.task-card-meta{color:var(--text-secondary)}
-.task-card-items li[data-part][data-status=open] .task-card-mark{color:var(--text-body)}
+.task-card-meta{color:var(--ink-soft)}
+.task-card-items li[data-part][data-status=open] .task-card-mark{color:var(--ink)}
 .task-card-results{display:grid;gap:var(--space-1);padding-bottom:var(--space-2)}
-.task-card-result-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)}
-.task-card-result-text{margin:0 0 var(--space-2);overflow-wrap:anywhere;color:var(--text-body)}
+.task-card-result-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft)}
+.task-card-result-text{margin:0 0 var(--space-2);overflow-wrap:anywhere;color:var(--ink)}
 /* A paused task: the note and the two actions under its title. */
 .task-card-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;padding-bottom:var(--space-2)}
 .task-card-actions .secondary-button{min-height:32px}
-.task-card-note{flex:1 1 12em;color:var(--text-secondary)}
-.task-card[data-paused] .task-card-line{color:var(--text-body)}
+.task-card-note{flex:1 1 12em;color:var(--ink-soft)}
+.task-card[data-paused] .task-card-line{color:var(--ink)}
 /* Member list: what each member holds, compact and without a button. */
-.member-tasks{list-style:none;margin:var(--space-1) 0 0;padding:0;display:grid;gap:2px;font:var(--type-meta);color:var(--text-secondary)}
+.member-tasks{list-style:none;margin:var(--space-1) 0 0;padding:0;display:grid;gap:2px;font:var(--type-meta);color:var(--ink-soft)}
 .member-task{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:baseline;min-width:0}
 .member-task-state{flex:none;text-transform:none}
-.member-task[data-claimed] .member-task-state{color:var(--text-body)}
+.member-task[data-claimed] .member-task-state{color:var(--ink)}
 .member-task-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14em}
 .member-task-meta{flex:none}
 }

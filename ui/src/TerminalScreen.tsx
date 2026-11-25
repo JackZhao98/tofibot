@@ -11,8 +11,8 @@ function readTerminalFont(){return getComputedStyle(document.documentElement).ge
 function readTerminalTheme(){
  const style=getComputedStyle(document.documentElement);
  const color=(name:string)=>style.getPropertyValue(name).trim();
- const palette={red:color("--danger-text"),green:color("--green-text"),yellow:color("--honey-text"),blue:color("--focus"),magenta:color("--iris-text"),cyan:color("--lagoon-text")};
- return {...palette,brightRed:palette.red,brightGreen:palette.green,brightYellow:palette.yellow,brightBlue:palette.blue,brightMagenta:palette.magenta,brightCyan:palette.cyan,background:color("--sunk"),foreground:color("--text"),cursor:color("--text"),cursorAccent:color("--sunk"),selectionBackground:color("--selected-bg"),black:color("--text"),brightBlack:color("--text-soft"),white:color("--text"),brightWhite:color("--text")};
+ const palette={red:color("--danger-text"),green:color("--lime-text"),yellow:color("--mustard-text"),blue:color("--focus"),magenta:color("--grape-text"),cyan:color("--teal-text")};
+ return {...palette,brightRed:palette.red,brightGreen:palette.green,brightYellow:palette.yellow,brightBlue:palette.blue,brightMagenta:palette.magenta,brightCyan:palette.cyan,background:color("--sunk"),foreground:color("--ink"),cursor:color("--ink"),cursorAccent:color("--sunk"),selectionBackground:color("--hover"),black:color("--ink"),brightBlack:color("--ink-soft"),white:color("--ink"),brightWhite:color("--ink")};
 }
 export function TerminalScreen(props:Props){
  const {t}=useTranslation("computer");

@@ -182,7 +182,6 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(await names(page), ["Built-in VM", "Jack's MacBook Pro"]);
     assert.equal((await page.locator(".settings-page-title h2").textContent()).trim(), "Devices");
     assert.equal((await row(page, "firecracker").innerText()).replace(/\s+/g, " ").trim(), "Built-in VM Runs on this server Configure", "no tag, no access line, no Ready badge");
-    assert.equal(await page.locator(".env-tag").count(), 0);
     assert.match((await page.locator(".env-spare").innerText()).replace(/\s+/g, " "), /E2B cloud computer is ready\. Switch Remove/);
     assert.match((await row(page, "mac_ab12").innerText()).replace(/\s+/g, " "), /Jack's MacBook Pro Browser/);
     assert.deepEqual(await buttons(row(page, "firecracker")), ["configure"]);

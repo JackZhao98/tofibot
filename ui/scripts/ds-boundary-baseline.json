@@ -1,211 +1,21 @@
 {
-  "admin-accounts.css": {
-    "bridgeUse": 9
-  },
-  "admin-org.css": {
-    "bridgeUse": 7
-  },
-  "approval-card.css": {
-    "bridgeUse": 8
-  },
-  "artifacts-panel.css": {
-    "bridgeUse": 10
-  },
-  "bot-secrets.css": {
-    "bridgeUse": 2
-  },
-  "bot-settings.css": {
-    "bridgeUse": 3
-  },
-  "bot-tools.css": {
-    "bridgeUse": 2
-  },
-  "computer-credentials.css": {
-    "bridgeUse": 7
-  },
-  "computer-resources.css": {
-    "bridgeUse": 10
-  },
-  "connections/connections.css": {
-    "bridgeUse": 16
-  },
-  "context-card.css": {
-    "bridgeUse": 4
-  },
-  "context-column.css": {
-    "bridgeUse": 2
-  },
-  "conversation-workspace.css": {
-    "bridgeUse": 12
-  },
-  "copy-feedback.css": {
-    "bridgeUse": 1
-  },
-  "day-one.css": {
-    "bridgeUse": 5
-  },
-  "desktop-presence.css": {
-    "bridgeUse": 36
-  },
-  "display-card.css": {
-    "bridgeUse": 21
-  },
   "ds/legacy-aliases.css": {
     "aliasRule": 23
   },
   "environments.css": {
-    "bridgeUse": 1,
     "webFork": 1
-  },
-  "extensions-system.css": {
-    "bridgeUse": 6
-  },
-  "file-preview.css": {
-    "bridgeUse": 7
-  },
-  "followups.css": {
-    "bridgeUse": 1
-  },
-  "greeting-setup.css": {
-    "bridgeUse": 3
-  },
-  "group-settings.css": {
-    "bridgeUse": 1
-  },
-  "handover-chips.css": {
-    "bridgeUse": 1
-  },
-  "interaction-system.css": {
-    "bridgeUse": 15
   },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
   },
-  "live-line.css": {
-    "bridgeUse": 5
-  },
-  "mac-folders.css": {
-    "bridgeUse": 1
-  },
-  "mail-draft-card.css": {
-    "bridgeUse": 22
-  },
-  "mail-send-flight.css": {
-    "bridgeUse": 17
-  },
-  "memory-metadata.css": {
-    "bridgeUse": 1
-  },
-  "message-attachment.css": {
-    "bridgeUse": 5
-  },
-  "message-reactions.css": {
-    "bridgeUse": 1
-  },
-  "new-group.css": {
-    "bridgeUse": 1
-  },
-  "onboarding.css": {
-    "bridgeUse": 49
-  },
-  "plan-card.css": {
-    "bridgeUse": 13
-  },
-  "policy-member.css": {
-    "bridgeUse": 1
-  },
-  "portability.css": {
-    "bridgeUse": 6
-  },
-  "postmark.css": {
-    "bridgeUse": 1
-  },
-  "primary-assistant.css": {
-    "bridgeUse": 1
-  },
-  "provider-settings.css": {
-    "bridgeUse": 3
-  },
-  "question-card.css": {
-    "bridgeUse": 16
-  },
-  "remote-control.css": {
-    "bridgeUse": 9
-  },
-  "run-context.css": {
-    "bridgeUse": 9
-  },
-  "scheduled-run.css": {
-    "bridgeUse": 4
-  },
-  "scheduled-task-row.css": {
-    "bridgeUse": 1
-  },
   "sender-groups.css": {
-    "bridgeUse": 2,
     "rootToken": 1,
     "webFork": 1
   },
-  "settings/automation.css": {
-    "bridgeUse": 4
-  },
-  "settings/help-and-feedback.css": {
-    "bridgeUse": 1
-  },
-  "settings/spend-cap.css": {
-    "bridgeUse": 1
-  },
-  "sidebar-shell.css": {
-    "bridgeUse": 1
-  },
-  "skill-library.css": {
-    "bridgeUse": 6
-  },
-  "storage-usage.css": {
-    "bridgeUse": 5
-  },
-  "task-card.css": {
-    "bridgeUse": 13
-  },
-  "task-issue-card.css": {
-    "bridgeUse": 37
-  },
-  "terminal.css": {
-    "bridgeUse": 17
-  },
-  "UpdateNotice.css": {
-    "bridgeUse": 9
-  },
-  "usage-panel.css": {
-    "bridgeUse": 12
-  },
   "v2-app.css": {
-    "bridgeUse": 50,
     "webFork": 21
   },
-  "v2-foundations.css": {
-    "bridgeUse": 5
-  },
   "web-file-drop.css": {
-    "bridgeUse": 8,
     "webFork": 14
-  },
-  "web-mention.css": {
-    "bridgeUse": 4
-  },
-  "web-tool-steps.css": {
-    "bridgeUse": 24
-  },
-  "web-tools-settings.css": {
-    "bridgeUse": 5
-  },
-  "work-execution.css": {
-    "bridgeUse": 1
-  },
-  "work-panel.css": {
-    "bridgeUse": 30
-  },
-  "work-trace.css": {
-    "bridgeUse": 3
   }
 }

@@ -4,20 +4,19 @@ import type { Plugin } from "vite";
 
 const structure = fileURLToPath(new URL("./src/skin/structure.css", import.meta.url));
 const skin = fileURLToPath(new URL("./src/skin/v3.css", import.meta.url));
-const bridge = fileURLToPath(new URL("./src/skin/v2-bridge.css", import.meta.url));
 const styles = fileURLToPath(new URL("./src/oauth/connection.css", import.meta.url));
 const script = fileURLToPath(new URL("./src/oauth/connection.js", import.meta.url));
 
-/** Stable callback assets, built from the same structure tokens, default skin and V2 bridge as the SPA (the page has no data-skin, so the default skin answers). The page has no cascade.css: the
+/** Stable callback assets, built from the same structure tokens and default skin as the SPA (the page has no data-skin, so the default skin answers). The page has no cascade.css: the
  *  first @layer statement here (tokens, then skin) gives the same order as the app. */
 export function oauthAssetsPlugin(): Plugin {
   const assets = () => new Map([
-    ["/oauth/connection.css", { type: "text/css; charset=utf-8", source: readFileSync(structure, "utf8") + "\n" + readFileSync(skin, "utf8") + "\n" + readFileSync(bridge, "utf8") + "\n" + readFileSync(styles, "utf8") }],
+    ["/oauth/connection.css", { type: "text/css; charset=utf-8", source: readFileSync(structure, "utf8") + "\n" + readFileSync(skin, "utf8") + "\n" + readFileSync(styles, "utf8") }],
     ["/oauth/connection.js", { type: "text/javascript; charset=utf-8", source: readFileSync(script, "utf8") }],
   ]);
   return {
     name: "tofi-oauth-assets",
-    buildStart() { for (const file of [structure, skin, bridge, styles, script]) this.addWatchFile(file); },
+    buildStart() { for (const file of [structure, skin, styles, script]) this.addWatchFile(file); },
     generateBundle() {
       for (const [url, asset] of assets()) this.emitFile({ type: "asset", fileName: url.slice(1), source: asset.source });
     },

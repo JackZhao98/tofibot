@@ -1,10 +1,10 @@
 @layer legacy {
-.workspace .work-execution { display: grid; gap: 10px; min-width: 0; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); color: var(--ink); }
-.workspace .work-execution-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; font: 12px/1.5 var(--body); }
+.workspace .work-execution { display: grid; gap: 10px; min-width: 0; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink); }
+.workspace .work-execution-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; font: 12px/1.5 var(--font-body); }
 .workspace .work-execution-heading strong { font-weight: 600; }
 .workspace .work-execution-heading span { color: var(--ink-soft); }
-.workspace .work-execution .work-execution-result { margin: 0; color: var(--ink); font: 13px/1.65 var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
-.workspace .work-execution .work-execution-error { margin: 0; color: var(--danger-text); font: 12px/1.6 var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
-.workspace .work-execution-note { margin: 0; color: var(--ink-soft); font: 12px/1.6 var(--body); overflow-wrap: anywhere; }
+.workspace .work-execution .work-execution-result { margin: 0; color: var(--ink); font: 13px/1.65 var(--font-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.workspace .work-execution .work-execution-error { margin: 0; color: var(--danger-text); font: 12px/1.6 var(--font-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.workspace .work-execution-note { margin: 0; color: var(--ink-soft); font: 12px/1.6 var(--font-body); overflow-wrap: anywhere; }
 .workspace .work-execution-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 }

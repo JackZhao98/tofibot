@@ -10,7 +10,7 @@
 .tb-settings-link:hover { background: var(--hover); color: var(--ink); }
 .tb-settings-link.is-active { background: var(--surface); color: var(--ink); border-color: var(--line); }
 .tb-settings-link.is-active .tb-icon { color: var(--tomato-text); }
-.tb-settings-link:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: 2px; }
+.tb-settings-link:focus-visible { outline: var(--focus-ring-width) solid var(--focus); outline-offset: 2px; }
 .tb-settings-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .tb-settings-head { flex: none; display: flex; align-items: flex-end; gap: 12px 16px; padding: 22px 28px 18px; border-bottom: var(--border-1) solid var(--line); background: var(--surface); }
 .tb-settings-headtext { flex: 1; min-width: 0; }

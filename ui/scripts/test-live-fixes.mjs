@@ -162,7 +162,7 @@ await check("the top band is see-through frosted glass: content runs under the h
 
 await check("scrolling under the blur stays inside the frame budget", async () => {
   // "off" is the pane without its two bands, the composer field on its own frosted glass.
-  const OFF = ".tb-pblur{display:none!important}.composer-row{-webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}";
+  const OFF = ".tb-pblur{display:none!important}.composer-row{-webkit-backdrop-filter:var(--glass-blur)!important;backdrop-filter:var(--glass-blur)!important}";
   const once = async hide => {
     const { page, context } = await fixture.open({ viewport: { width: 1180, height: 820 } });
     if (hide) await page.addStyleTag({ content: OFF });

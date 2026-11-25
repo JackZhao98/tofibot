@@ -11,7 +11,7 @@
 //  native-file   an <input type=file> must be visually hidden (<= 2px, clipped, or opacity 0) behind a styled button
 //  native-button a <button> must not render with the UA button look (outset border or the UA background)
 //  button-class  a <button> needs a design-system class (ALLOWED_BUTTON_CLASSES) or must live in an allowed container
-//  font-family   text and controls must compute to one of the --body / --display / --mono stacks
+//  font-family   text and controls must compute to one of the --font-body / --font-display / --font-mono stacks
 //  card-padding  text or a control whose left edge is < 12px from the inner edge of its card (SettingsCard or any
 //                bordered, rounded, >= 200x56 box); a full-width button row is judged by its own left padding
 //  clipped-scroll a scrollable box inside a card whose content is cut off (render the full list instead)
@@ -67,7 +67,7 @@ function auditPage(opts) {
   };
   const add = (kind, el, detail) => found.push({kind, selector: name(el), detail});
   const stack = family => { const probe = document.createElement("span"); probe.style.fontFamily = family; document.body.append(probe); const value = getComputedStyle(probe).fontFamily; probe.remove(); return value; };
-  const stacks = {body: stack("var(--body)"), display: stack("var(--display)"), mono: stack("var(--mono)")};
+  const stacks = {body: stack("var(--font-body)"), display: stack("var(--font-display)"), mono: stack("var(--font-mono)")};
   const stackNames = new Set(Object.values(stacks));
   const style = el => getComputedStyle(el);
   const hiddenByTricks = (el, s) => {

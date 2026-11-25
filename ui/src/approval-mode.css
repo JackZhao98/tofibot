@@ -3,7 +3,7 @@
 .approval-bots{display:grid}
 .approval-bot-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-width:0;padding:10px 0}
 .approval-bot-who{display:flex;flex:1 1 140px;align-items:center;gap:10px;min-width:0}
-.approval-bot-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 14px/1.4 var(--body)}
+.approval-bot-who strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 14px/1.4 var(--font-body)}
 .approval-bot-who .avatar{flex:none}
 .approval-bot-row .segmented{flex:none}
 }

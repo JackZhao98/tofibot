@@ -7,19 +7,16 @@ const read = name => readFileSync(new URL(`../src/${name}`, import.meta.url), "u
 test("overlapping surfaces share tinted glass and paired backdrop filters", () => {
   const css = read("v2-app.css");
   // Locate the material rule by its declarations, rather than lazy component file order.
-  const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".sheet,") && body.includes("background:var(--legacy-glass)"));
+  const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".sheet,") && body.includes("background:var(--glass-strong)"));
   assert.ok(material, "one shared surface recipe exists");
   for (const name of ["cover-window", "sheet", "search-palette", "desktop-window-controls"]) {
     assert.ok(material[1].includes(`.${name}`), `${name} uses the shared material`);
   }
   // Menus, popovers and the Select list are on the kit's glass since PRs 2.2 and 2.3.
   for (const file of ["overlays/RadixOverlays.tsx", "SelectRadix.tsx"]) assert.match(read(file), /\btb-glass\b/, `${file} uses the kit glass`);
-  assert.match(material[2], /-webkit-backdrop-filter:var\(--blur\)/);
-  assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--blur\)/);
-  // The material is a skin role now (V3 PLAN 7.6): the bridge points the V2 glass names at --glass-strong, and the blur at --glass-blur.
-  const bridge = read("skin/v2-bridge.css");
-  assert.match(bridge, /--legacy-glass:\s*var\(--glass-strong\)/, "the V2 glass is the skin's strong glass");
-  assert.match(bridge, /--blur:\s*var\(--glass-blur\)/, "the V2 blur is the skin's glass blur");
+  assert.match(material[2], /-webkit-backdrop-filter:var\(--glass-blur\)/);
+  assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--glass-blur\)/);
+  // The material is a skin role (V3 PLAN 7.6): the sheet reads --glass-strong and --glass-blur directly (the V2 bridge is gone, PR 9.1).
   // Both themes obscure the content beneath the glass: the strong glass is at least 84% opaque, the blur is a real blur.
   const skin = read("skin/v3.css");
   const alphas = [...skin.matchAll(/--glass-strong:\s*rgba\([^)]*,\s*(\.?\d+(?:\.\d+)?)\)/g)].map(match => Number(match[1]));
