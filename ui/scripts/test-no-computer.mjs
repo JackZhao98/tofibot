@@ -138,7 +138,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const {page, close} = await open({computer: "none", tab: "general", view: "page"});
     assert.ok(!(await railTabs(page)).includes("keys"), "there is no Keys page in the rail");
     await goTab(page, "computer");
-    await page.getByText(en.none.title).waitFor();
+    await page.getByRole("heading", {name: en.devices.bot.title}).waitFor();
     assert.equal(await page.getByRole("button", {name: "Environment variables and SSH keys"}).count(), 0, "no Keys row without a Bot computer");
     assert.equal(await page.getByText(en.contents.title).count(), 0, "no 'What is on this Bot computer' without a Bot computer");
     await goTab(page, "advanced");
@@ -155,7 +155,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(apiOfComputer(), [], "a saved Keys link makes no /api/computer request without a Bot computer");
     await deep.close();
     const phone = await open({computer: "none", tab: "computer", view: "page"}, {width: 390, height: 844});
-    await phone.page.getByText(en.none.title).waitFor();
+    await phone.page.getByRole("heading", {name: en.devices.bot.title}).waitFor();
     assert.deepEqual(apiOfComputer(), [], "phone width: no /api/computer request without a Bot computer");
     if (shots) await phone.page.screenshot({path: join(shots, "no-computer-390.png")});
     assert.equal(await phone.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no horizontal scroll at 390px");
@@ -207,8 +207,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     for (const lang of LANGS.slice(1)) {
       const words = await catalog(lang, "computer");
       const localized = await open({computer: "kvm", tab: "computer", view: "page", lang});
-      await localized.page.getByRole("button", {name: words.environments.add}).waitFor();
-      assert.notEqual(words.environments.add, en.environments.add, `${lang}: add button is not an English copy`);
+      await localized.page.getByRole("heading", {name: words.devices.mine.title}).waitFor();
+      assert.notEqual(words.devices.mine.title, en.devices.mine.title, `${lang}: section title is not an English copy`);
       assert.notEqual(words.environments.access.all_bots, en.environments.access.all_bots, `${lang}: access wording is not an English copy`);
       await localized.close();
     }
