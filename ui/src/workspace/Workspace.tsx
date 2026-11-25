@@ -411,7 +411,7 @@ export function Workspace() {
   // The sidebar view is the one surface the address carries (`?side=tasks`): it is replaced in place, never a history entry, and
   // `tofi:open-sidebar` opens one from anywhere.
   useEffect(() => {
-    const search = withSideParam(window.location.search, sidebarId === "conversation" || sidebarId === "activity" ? null : sidebarId);
+    const search = withSideParam(window.location.search, sidebarId === "activity" ? null : sidebarId);
     if (search !== window.location.search) window.history.replaceState(window.history.state, "", window.location.pathname + search + window.location.hash);
   }, [sidebarId]);
   useEffect(() => subscribeSidebarDeepLinks(id => id === "terminal" ? openTerminalRef.current() : openSidebarId(id)), [openSidebarId]);
@@ -478,8 +478,6 @@ export function Workspace() {
   const viewOnlyChatTriggerRef = useRef<HTMLElement | null>(null);
   function openRelatedChat(target: ViewOnlyChatTarget) {
     viewOnlyChatTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // On wide browser windows the read-only chat is a sidebar view; elsewhere a full-screen modal.
-    if (columnMode) openWidgetId("conversation");
     setViewOnlyChat(target);
   }
   const showCreateMenu = useSurfacePresence(createMenuOpen ? "open" : null);
@@ -543,9 +541,6 @@ export function Workspace() {
   const contextPanelOpen = columnMode && surfaces.widgets.length > 0;
   // On the wide layout the read-only chat is a widget: closing the card releases it, and a card left behind without a chat (back in a
   // conversation whose widgets were stashed) closes.
-  const conversationWidgetOpen = surfaces.widgets.includes("conversation");
-  useEffect(() => { if (columnMode && viewOnlyChat && !conversationWidgetOpen && displayedSidebar !== "conversation") setViewOnlyChat(null); }, [columnMode, viewOnlyChat, conversationWidgetOpen, displayedSidebar]);
-  useEffect(() => { if (columnMode && conversationWidgetOpen && !viewOnlyChat) setSurfaces(state => closeWidget(state, "conversation")); }, [columnMode, conversationWidgetOpen, viewOnlyChat]);
   // The Settings window and the narrow drawer are modal panes (focus trap, backdrop); the other covers are Radix dialogs of their own.
   const modalPanelOpen = Boolean(settingsOpen || (compactViewport && surfaces.sidebar && !cover));
   // Below 1100 px the widget column does not exist: the computer is a floating window, the other widgets open as covers.
@@ -2491,7 +2486,7 @@ export function Workspace() {
       {searchOpen && <Suspense fallback={null}><SearchPalette conversations={conversations} onClose={() => setSearchOpen(false)} onOpenConversation={openFromPanel} onOpenMessage={surfaceCtx.openMessage} actions={{ newBot: () => void createNewBot(), newGroup: () => openCoverPanel("new-group"), settings: () => openSettings("general", "home") }} /></Suspense>}
       {deleteTarget && <Suspense fallback={null}><DeleteConversationDialog target={deleteTarget} bots={bots} onDelete={deleteConversation} onClose={() => setDeleteTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
       {hidePrimaryTarget && <Suspense fallback={null}><ReassignPrimaryDialog bot={hidePrimaryTarget} bots={bots} onConfirm={async (successorId) => { await api.setBotArchived(hidePrimaryTarget.id, true, successorId); setSidebarContextMenu(null); await refreshIndex(); }} onClose={() => setHidePrimaryTarget(null)} returnFocus={dialogOpener.current} /></Suspense>}
-      {viewOnlyChat && !columnMode && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
+      {viewOnlyChat && <Suspense fallback={null}><ViewOnlyChat target={viewOnlyChat} bots={bots} returnFocus={viewOnlyChatTriggerRef.current} onClose={() => setViewOnlyChat(null)} /></Suspense>}
       <FilePreviewHost />
     </div>
   );

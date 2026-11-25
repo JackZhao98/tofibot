@@ -3,16 +3,13 @@
     "color": 2
   },
   "boot-screen.css": {
-    "blur": 6
+    "blur": 2
   },
   "catalog/catalog.css": {
     "font": 1
   },
   "catalog/world.ts": {
     "svgPaint": 4
-  },
-  "cover-shell.css": {
-    "blur": 2
   },
   "desktop-presence.css": {
     "blur": 2
@@ -49,8 +46,5 @@
   },
   "terminal.css": {
     "blur": 2
-  },
-  "TerminalScreen.tsx": {
-    "font": 1
   }
 }

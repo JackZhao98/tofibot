@@ -119,12 +119,12 @@ for (const theme of themes) {
     check((await page.locator(".bs-count").innerText()).includes("25"), `${theme}: role character count`);
     // confirm on close
     await page.keyboard.press("Escape"); await page.waitForTimeout(500);
-    check(await page.locator(".cover-leave-dialog").count() === 1, `${theme}: Escape with unsaved changes asks`);
+    check(await page.locator(".cover-leave-scrim .tb-dialog").count() === 1, `${theme}: Escape with unsaved changes asks`);
     await shot("bs-8-confirm-close", 200);
     await page.getByRole("button", { name: "Keep editing" }).click(); await page.waitForTimeout(400);
-    check(await page.locator(".bot-settings").count() === 1 && await page.locator(".cover-leave-dialog").count() === 0, `${theme}: Keep editing returns to the form`);
-    await page.locator(".cover-close").click(); await page.waitForTimeout(400);
-    check(await page.locator(".cover-leave-dialog").count() === 1, `${theme}: the close button asks too`);
+    check(await page.locator(".bot-settings").count() === 1 && await page.locator(".cover-leave-scrim .tb-dialog").count() === 0, `${theme}: Keep editing returns to the form`);
+    await page.locator(".cover-window .tb-dialog-close").click(); await page.waitForTimeout(400);
+    check(await page.locator(".cover-leave-scrim .tb-dialog").count() === 1, `${theme}: the close button asks too`);
     await page.getByRole("button", { name: "Discard changes" }).click(); await page.waitForTimeout(700);
     check(await page.locator(".cover-window").count() === 0, `${theme}: Discard changes closes the cover`);
     check(writes.patch.length === 0, `${theme}: discarding wrote nothing`);
@@ -174,7 +174,7 @@ for (const theme of themes) {
     await page.locator(".gs-member", { hasText: "Atlas" }).click(); await page.waitForTimeout(700);
     await shot("group-settings-removal-impact", 300);
     await page.keyboard.press("Escape"); await page.waitForTimeout(500);
-    check(await page.locator(".cover-leave-dialog").count() === 1, `${theme}: group settings asks before losing edits`);
+    check(await page.locator(".cover-leave-scrim .tb-dialog").count() === 1, `${theme}: group settings asks before losing edits`);
     await page.getByRole("button", { name: "Discard changes" }).click(); await page.waitForTimeout(700);
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Group settings" }).click(); await page.locator(".group-settings").waitFor();

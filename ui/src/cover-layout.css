@@ -1,0 +1,32 @@
+/* Covers (docs/design/widgets-and-sidebar.md section 2.3): the layout of the window on the kit Dialog. The look (glass, radius, shadow,
+   scrim, the head with its close) is the kit's; this sheet sets only the reach of the window and of its body. Loads with CoverShell. */
+@layer legacy {
+.cover-scrim.cover-scrim.is-leaving { animation:cover-scrim-out var(--m-panel-out) var(--ease-settle) both; pointer-events:none; }
+.cover-window { display:flex; flex-direction:column; width:var(--window-w-cover); height:var(--window-h); max-height:var(--window-h); overflow:hidden; outline:none; }
+.cover-window.is-wide { width:var(--window-w-cover-wide); }
+.cover-window.is-leaving { animation:modal-leave var(--m-instant) var(--ease-settle) both; }
+.cover-body { flex:1 1 auto; min-height:0; overflow:hidden auto; overscroll-behavior:contain; }
+/* The panels inside keep their content and lose their own heading and close: the head carries both. */
+.cover-body .detail-content { padding:20px 28px 28px; background:transparent; }
+.cover-body .detail-heading :is(h2,.close-button) { display:none; }
+.cover-body .detail-heading:not(:has(> :not(h2):not(.close-button))) { display:none; }
+.cover-body .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
+@keyframes cover-scrim-out { to { opacity:0; } }
+@media (max-width:767px) {
+  .cover-scrim { padding:0; }
+  .cover-window, .cover-window.is-wide { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; }
+  .cover-body .detail-content { padding:16px 18px 24px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .cover-window.is-leaving { animation:none; }
+}
+/* The unsaved-changes bar (CoverForm.tsx, a kit Banner): it slides up from the bottom edge while the form has unsaved changes. Enter --m-quick, leave --m-press. */
+.cover-dirty-bar { position:absolute; z-index:var(--z-raised); left:20px; right:20px; bottom:18px; display:flex; justify-content:center; pointer-events:none;
+  opacity:0; visibility:hidden; transform:translateY(calc(100% + 28px));
+  transition:transform var(--m-press) var(--ease-in), opacity var(--m-press) var(--ease-in), visibility 0s linear var(--m-press); }
+.cover-dirty-bar[data-open] { opacity:1; visibility:visible; transform:none; pointer-events:auto; transition:transform var(--m-quick) var(--ease-out), opacity var(--m-quick) var(--ease-out), visibility 0s; }
+.cover-dirty-inner { width:min(560px,100%); }
+.cover-dirty-inner .tb-banner-action { display:flex; align-items:center; gap:8px; }
+@media (max-width:767px) { .cover-dirty-bar { left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); } }
+@media (prefers-reduced-motion:reduce) { .cover-dirty-bar, .cover-dirty-bar[data-open] { transition:none; } }
+}

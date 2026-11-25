@@ -6,13 +6,6 @@
     "important": 2,
     "tokenDef": 0
   },
-  "artifacts-panel.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 1,
-    "tokenDef": 0
-  },
   "boot-screen.css": {
     "global": 0,
     "rootBump": 1,
@@ -53,13 +46,6 @@
     "rootBump": 6,
     "webFork": 0,
     "important": 0,
-    "tokenDef": 0
-  },
-  "cover-shell.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 1,
     "tokenDef": 0
   },
   "desktop-presence.css": {

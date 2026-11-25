@@ -1,4 +1,5 @@
 import { Button } from "./ds/Button/Button";
+import { TextInput } from "./ds/TextInput/TextInput";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
@@ -106,12 +107,12 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
 
     <div className="detail-heading"><div><h2>{title}</h2></div><button type="button" className="close-button" aria-label={t("artifacts.close")} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
     <div className="artifacts-tab-layout">
-    <div className="artifacts-toolbar">{scopes && onScope && <Tabs.List className="artifacts-tabs artifacts-scopes" aria-label={t("artifacts.scope_label")}>{scopes.map(item => <Tabs.Trigger key={item.mode} value={item.mode}>{item.label}</Tabs.Trigger>)}</Tabs.List>}</div>
+    <div className="artifacts-toolbar">{scopes && onScope && <Tabs.List className="tb-tablist artifacts-tabs artifacts-scopes" aria-label={t("artifacts.scope_label")}>{scopes.map(item => <Tabs.Trigger key={item.mode} value={item.mode} className="tb-tab">{item.label}</Tabs.Trigger>)}</Tabs.List>}</div>
     {scopes?.filter(item => item.mode !== mode).map(item => <Tabs.Content key={item.mode} value={item.mode} forceMount hidden />)}
     <Tabs.Content value={mode} className="artifacts-scope-panel" aria-labelledby={undefined} aria-label={title}><Tabs.Root className="artifacts-kind-root" value={kind} onValueChange={value => setKind(value as Kind)}>
     <div className="artifacts-toolbar">
-      <Tabs.List className="artifacts-tabs artifacts-kinds" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <Tabs.Trigger key={value} value={value}>{label}</Tabs.Trigger>)}</Tabs.List>
-      <label className="artifacts-search"><TofiIcon name="search" size={16} /><input type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} /></label>
+      <Tabs.List className="tb-tablist artifacts-tabs artifacts-kinds" aria-label={t("artifacts.tabs_label")}>{kinds.map(([value, label]) => <Tabs.Trigger key={value} value={value} className="tb-tab">{label}</Tabs.Trigger>)}</Tabs.List>
+      <TextInput className="artifacts-search" icon="search" type="search" aria-label={t("artifacts.search_label")} placeholder={t("artifacts.search_placeholder")} value={search} onChange={event => setSearch(event.target.value)} />
       <label className="debug-toggle artifacts-uploads"><span>{t("artifacts.include_uploads")}</span><Switch checked={uploads} onChange={setUploads} /></label>
     </div>
     {kinds.filter(([value]) => value !== kind).map(([value]) => <Tabs.Content key={value} value={value} forceMount hidden />)}

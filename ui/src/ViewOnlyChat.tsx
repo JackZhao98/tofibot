@@ -37,27 +37,25 @@ function Participant({ ids, name }: { ids: string[]; name: string }) {
   return <div className="view-only-chat-participant"><AvatarStack ids={ids} /><strong>{name}</strong></div>;
 }
 
-export function ViewOnlyChat({ target, bots, onClose, returnFocus, sidebar = false }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null; sidebar?: boolean }) {
+export function ViewOnlyChat({ target, bots, onClose, returnFocus }: { target: ViewOnlyChatTarget; bots: Bot[]; onClose: () => void; returnFocus?: HTMLElement | null }) {
   const { t } = useTranslation("chat");
   const closeRef = useRef<HTMLButtonElement>(null);
   const botById = useMemo(() => new Map(bots.map((bot) => [bot.id, bot])), [bots]);
   const sourceIDs = participantIds(target.source, target.sourceBotIds);
   const targetIDs = participantIds(target.target, target.targetBotIds);
-  // In the sidebar the shell carries the title and the close; the surface keeps who talked to whom, the history and the footer.
-  const surface = <div className={`view-only-chat${sidebar ? " is-sidebar" : ""}`} role={sidebar ? "region" : "dialog"} aria-label={t("viewOnly.label")}>
+  const surface = <div className="view-only-chat" role="dialog" aria-label={t("viewOnly.label")}>
     <header className="view-only-chat-header">
       <div className="view-only-chat-identity">
         <Participant ids={sourceIDs} name={target.sourceName ?? target.source.name} />
         <span className="view-only-chat-arrow" aria-hidden="true"><TofiIcon name="bot-handoff" size={24} style={{ verticalAlign: "middle" }} /></span>
         <Participant ids={targetIDs} name={target.targetName ?? target.target.name} />
       </div>
-      {!sidebar && <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>}
+      <button ref={closeRef} type="button" className="view-only-chat-close" aria-label={t("viewOnly.close_label")} data-hint={t("viewOnly.close_label")} onClick={onClose}><TofiIcon name="close" size={20} /></button>
     </header>
     <ViewOnlyChatHistory key={JSON.stringify([target.target.id, target.runId ?? null])} conversationId={target.target.id} runId={target.runId} botById={botById} closeRef={closeRef} />
-    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span>{!sidebar && <Button onClick={onClose}>{t("viewOnly.close")}</Button>}</footer>
+    <footer className="view-only-chat-footer"><span><TofiIcon name="lock" size={16} /> {t("viewOnly.read_only")}</span><Button onClick={onClose}>{t("viewOnly.close")}</Button></footer>
   </div>;
-  // The wide web layout draws it in the sidebar. Narrow windows and the desktop app: a full-screen modal (Radix Dialog: trap, Escape, focus return, background hidden).
-  if (sidebar) return surface;
+  // A full-screen modal on every layout (Radix Dialog: trap, Escape, focus return, background hidden).
   return <ModalDialog onClose={onClose} initialFocus={closeRef} returnFocus={returnFocus}>{surface}</ModalDialog>;
 }
 

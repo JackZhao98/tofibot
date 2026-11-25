@@ -1,10 +1,10 @@
-import { useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useTranslation } from "./i18n";
-import { IconButton } from "./ds/IconButton/IconButton";
+import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
 import { CoverContext, requestCoverClose } from "./coverGuard";
 import { ModalDialog } from "./overlays/ModalDialog";
 import type { CoverId } from "./surfaces";
-import "./cover-shell.css";
+import "./cover-layout.css";
 
 /**
  * A cover (docs/design/widgets-and-sidebar.md section 2.3): an exclusive window over the whole workspace, with the
@@ -20,17 +20,12 @@ export function CoverShell({ id, leaving = false, wide = false, returnFocus, onC
 }) {
   const { t } = useTranslation("chat");
   const title = t(id === "bot-settings" ? "contextCard.title.bot-edit" : id === "group-settings" ? "header.group_settings" : id === "new-group" ? "contextCard.title.group-create" : id === "artifacts" ? "contextCard.title.artifacts" : "header.remembered_approvals");
-  const closeRef = useRef<HTMLButtonElement>(null);
   const state = { leaving, close: onClose, returnFocus };
   if (id === "new-group") return <CoverContext.Provider value={state}>{children}</CoverContext.Provider>;
   const close = () => requestCoverClose(onClose);
-  return <CoverContext.Provider value={state}><ModalDialog onClose={close} locked={leaving} overlayClassName={`cover-scrim${leaving ? " is-leaving" : ""}`} overlayProps={{ "data-cover": id }} initialFocus={closeRef} returnFocus={returnFocus} container={document.querySelector<HTMLElement>(".workspace")}>
-    <section className={`cover-window${wide ? " is-wide" : ""}${leaving ? " is-leaving" : ""}`} role="dialog" aria-label={title}>
-      <header className="cover-header">
-        <h2>{title}</h2>
-        <IconButton ref={closeRef} className="cover-close" icon="close" label={t("cover.close", { title })} onClick={close} />
-      </header>
+  return <CoverContext.Provider value={state}><ModalDialog onClose={close} locked={leaving} overlayClassName={`${DIALOG_SCRIM} cover-scrim${leaving ? " is-leaving" : ""}`} overlayProps={{ "data-cover": id }} returnFocus={returnFocus} container={document.querySelector<HTMLElement>(".workspace")}>
+    <Dialog flush title={title} onClose={close} closeLabel={t("cover.close", { title })} className={`cover-window${wide ? " is-wide" : ""}${leaving ? " is-leaving" : ""}`} aria-label={title}>
       <div className="cover-body">{children}</div>
-    </section>
+    </Dialog>
   </ModalDialog></CoverContext.Provider>;
 }

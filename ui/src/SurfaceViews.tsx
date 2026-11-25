@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "./api";
-import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, ViewOnlyChat, WorkPanel } from "./lazyPanels";
+import { ArchivePanel, ArtifactsPanel, ArtifactsWidget, chunk, MemoryPanel, WorkPanel } from "./lazyPanels";
 import { BotCard, type BotCardCtx } from "./BotCard";
 import { GroupSettingsPanel } from "./GroupSettingsPanel";
 import { NewGroupDialog } from "./NewGroupDialog";
@@ -74,7 +74,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
   }
   if (id === "activity") return ctx.activityView ? <div className="detail-content activity-sidebar">{ctx.activityView}</div> : null;
   if (id === "tasks") return active ? <Suspense fallback={<Loading />}><WorkPanel key={active.id} conversation={active} conversations={ctx.conversations} bots={ctx.bots} refreshToken={ctx.refreshToken} onClose={close} onNavigate={ctx.openConversation} /></Suspense> : null;
-  return ctx.viewOnlyChat ? <Suspense fallback={<Loading />}><ViewOnlyChat target={ctx.viewOnlyChat} bots={ctx.bots} sidebar onClose={() => { ctx.setViewOnlyChat(null); close(); }} /></Suspense> : null;
+  return null;
 }
 
 /** One widget's content (inside its card). */
@@ -88,7 +88,6 @@ export function WidgetView({ id, ctx, leaving = false, focusN = 0 }: { id: Exclu
     const bot = (ctx.terminalBotId && ctx.botById.get(ctx.terminalBotId)) || ctx.desktopBot;
     return bot ? <Suspense fallback={<DelayedFeedback><div className="inline-state" role="status">{t("detail.loading_terminal")}</div></DelayedFeedback>}><TerminalPanel key={bot.id} botId={bot.id} botName={bot.name} /></Suspense> : null;
   }
-  if (id === "conversation") return ctx.viewOnlyChat ? <Suspense fallback={<SurfaceSkeleton/>}><ViewOnlyChat target={ctx.viewOnlyChat} bots={ctx.bots} sidebar onClose={() => ctx.setViewOnlyChat(null)} /></Suspense> : null;
   return active ? <Suspense fallback={null}><ArtifactsWidget conversationId={active.id} refreshToken={ctx.lastMessageId} onAll={() => { ctx.setArtifactsMode("artifacts-group"); ctx.surf(current => openCover(current, "artifacts")); }} /></Suspense> : null;
 }
 

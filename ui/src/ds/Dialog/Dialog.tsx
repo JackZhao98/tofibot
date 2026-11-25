@@ -23,6 +23,8 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   closeLabel?: string;
   /** Work in flight: the dialog says so to assistive technology. */
   busy?: boolean;
+  /** A window: the body has no padding and fills the panel under the head (a cover's panels carry their own). */
+  flush?: boolean;
   /** Without it the dialog is the bare panel; ModalDialog supplies the scrim in the product. */
   scrim?: boolean;
   ref?: Ref<HTMLDivElement>;
@@ -32,17 +34,17 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
 /** A modal dialog on frosted glass with the largest soft shadow. Name the target and what is lost in the body; do not use
  *  a dialog for information only (use a Banner or Toast). In the product it is the child of `ModalDialog`
  *  (src/overlays/ModalDialog.tsx), which adds the scrim, the focus rules and the `data-state` motion. */
-export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, busy, scrim = false, className, children, ref, ...rest }: DialogProps) {
+export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, busy, flush = false, scrim = false, className, children, ref, ...rest }: DialogProps) {
   const { t } = useTranslation();
   const titleId = useId(), bodyId = useId();
   // The Dialog names itself from its title and describes itself from its body. Radix Dialog.Content passes ids of a Title and a
   // Description we do not render, so what arrives in `rest` is replaced here.
-  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, className)} role={tone === "danger" ? "alertdialog" : rest.role ?? "dialog"}
+  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, flush && "tb-dialog--flush", className)} role={tone === "danger" ? "alertdialog" : rest.role ?? "dialog"}
     aria-labelledby={rest["aria-label"] === undefined ? titleId : undefined} aria-describedby={children ? bodyId : undefined} aria-busy={busy || undefined}>
     <header className="tb-dialog-head">
       {tone === "danger" ? <span className="tb-dialog-mark"><Icon name="alert" size={20} /></span> : null}
       <h2 id={titleId} className="tb-dialog-title">{title}</h2>
-      {onClose ? <IconButton icon="close" label={closeLabel ?? t("ds.close")} size="sm" onClick={onClose} /> : null}
+      {onClose ? <IconButton className="tb-dialog-close" icon="close" label={closeLabel ?? t("ds.close")} size="sm" onClick={onClose} /> : null}
     </header>
     {children ? <div id={bodyId} className="tb-dialog-body">{children}</div> : null}
     {actions ? <footer className="tb-dialog-foot">{actions}</footer> : null}

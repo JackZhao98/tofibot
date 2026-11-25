@@ -170,7 +170,6 @@ try {
   {
     const state = newState();
     const { context, page } = await openWorkspace(browser, origin, state, { height: 900, group: true });
-    await page.locator(".chat-identity").click();
     await page.getByRole("button", { name: "Open artifacts" }).click();
     state.ownership = botOwner("run-g", GROUP);
     await poll(page, () => document.querySelector('.widget-column [data-card="computer"]'));

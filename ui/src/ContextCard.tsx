@@ -7,7 +7,7 @@ import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
 import { useLeaving } from "./surfacePresence";
 import "./context-column.css";
 
-const TITLE_KEY = { bot: "botCard.title", computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", conversation: "contextCard.title.conversation", artifacts: "contextCard.title.artifacts" } as const;
+const TITLE_KEY = { bot: "botCard.title", computer: "contextCard.title.desktop", terminal: "contextCard.title.terminal", artifacts: "contextCard.title.artifacts" } as const;
 
 /**
  * One widget in the column inside the chat (docs/design/widgets-and-sidebar.md): title on the left; fold and close on
