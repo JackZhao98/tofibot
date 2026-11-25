@@ -1,5 +1,7 @@
 /* After onboarding: the no-model banner above the composer (the sidebar chip is a kit SidebarRow). Layout only. */
 @layer legacy {
+/* The sheet's scrim is here, not in the lazy sheet: its layer is part of the stacking scale (test:layers). */
+.onb-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:var(--space-5) var(--space-4); box-sizing:border-box; background:var(--scrim); }
 .model-banner { box-sizing:border-box; max-width:var(--chat-max); margin:0 auto 10px; }
 /* Dim what is inside, not the row: the row is frosted glass, and fading it fades the blur, so the messages behind showed through sharp. */
 .composer.is-no-model .composer-row > * { opacity:.55; }

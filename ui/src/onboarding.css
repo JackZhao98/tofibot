@@ -4,7 +4,6 @@
    The no-model banner and its composer rule are in onboarding-chrome.css (they are in the entry, this sheet is lazy). */
 
 @layer legacy {
-.onb-scrim { position:fixed; inset:0; z-index:var(--z-dialog); display:grid; place-items:center; padding:var(--space-5) var(--space-4); box-sizing:border-box; background:var(--scrim); }
 /* The Dialog material (glass-strong, the largest shadow) at the sheet's own size; a phone drops the edge and the corners. */
 .onb-sheet { position:relative; display:flex; flex-direction:column; width:min(680px,100%); max-height:calc(100dvh - 48px); box-sizing:border-box; min-width:0;
   background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
