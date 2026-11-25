@@ -1,0 +1,14 @@
+/* First run (V3 PR 7.2): the kit EmptyState centred in the pane, or in the sidebar on phones, where the sidebar is the first screen. */
+@layer legacy {
+.first-run{display:grid;place-items:center;align-content:center;gap:12px;box-sizing:border-box;width:100%;min-height:100%;padding:clamp(16px,4vw,32px)}
+.first-run-card{width:min(480px,100%);box-sizing:border-box}
+.first-run-side{display:none;min-height:0;padding:12px 0 0}
+@media (max-width:767px){
+  .first-run-side{display:grid}
+  .first-run-hide-mobile{display:none}
+}
+@media (max-width:520px){
+  .first-run{padding:14px}
+  .first-run .first-run-create{width:100%}
+}
+}

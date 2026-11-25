@@ -10,7 +10,7 @@ import { FileTile } from "../../FileTile";
 import { AttachmentNotice } from "../../AttachmentNotice";
 import { useState } from "react";
 import { fileKind } from "../../filePreviewModel";
-import { CATS, EmptyCat, EmptyState } from "../../EmptyCat";
+import { EmptyState } from "../../EmptyCat";
 import GroupAvatar from "../../GroupAvatar";
 import { Avatar } from "../../ds/Avatar/Avatar";
 import { Banner } from "../../ds/Banner/Banner";
@@ -219,9 +219,7 @@ export const other: CatalogSection = {
       render: () => <MailDraftCard draft={mailDraft("pending", { demo: true })} bot={bot("bot_mochi")} group={false} onChanged={async () => {}} /> },
     ...(["pending", "sent", "declined"] as const).map(status => ({ id: `mail-${status}`, kind: "inline" as const, label: `Mail draft, ${status}`, context: ["catalog-column"],
       render: () => <MailDraftCard draft={mailDraft(status)} bot={bot("bot_mochi")} group={false} onChanged={async () => {}} /> })),
-    { id: "empty-cats", kind: "inline", label: "Empty-state cats", render: () => <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "end" }}>
-      {(["asleep", "awake", "curious"] as const).map(pose => <EmptyCat key={pose} look={CATS.mochi} pose={pose} name={`catalog-${pose}`} size={72} />)}</div> },
-    { id: "empty-state", kind: "inline", label: "Empty state", render: () => <EmptyState name="catalog-empty" look={CATS.miso} pose="curious"><p>Nothing here yet.</p></EmptyState> },
+    { id: "empty-state", kind: "inline", label: "Empty state", render: () => <EmptyState name="catalog-empty"><p>Nothing here yet.</p></EmptyState> },
     { id: "first-run", kind: "app", label: "First run: no Bots yet", app: { path: "/", empty: true } },
   ],
   gaps: ["Send flight and mail send flight (640 ms moments): send a message or a draft in a frame.", "Soft keyboard: needs a phone."],
