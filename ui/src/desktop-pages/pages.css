@@ -1,8 +1,5 @@
 @import "../desktop-settings/mac-settings.css";
 @layer legacy {
-.desktop-page{min-height:100dvh;background:var(--bg);color:var(--ink)}
-.desktop-page .mac-settings-inner{max-width:640px}
-.desktop-page .settings-page-body{padding-top:64px}
 .desktop-page fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:12px}
 .desktop-page form{display:grid;gap:16px}
 .desktop-page label{display:grid;gap:8px;font:var(--type-body);color:var(--ink-soft)}

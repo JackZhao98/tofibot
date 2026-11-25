@@ -2,15 +2,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "../i18n";
 import { Banner } from "../settings/components";
 import { LinkButton } from "./LinkButton";
+import { MacFrame } from "./MacFrame";
 
 export { LinkButton };
 export const detail = (cause: unknown) => String((cause as {message?: unknown})?.message || cause || "").slice(0, 2000);
 export function PageShell({ title, children, back = false }: {title: string; children: ReactNode; back?: boolean}) {
   const { t } = useTranslation("settings");
   useEffect(() => { document.title = `${title} · Tofi`; }, [title]);
-  return <div className="workspace mac-settings desktop-page"><div className="mac-settings-titlebar" aria-hidden="true" />
-    <main className="settings-page-body"><div className="mac-settings-inner"><header className="mac-settings-head"><h1>{title}</h1>
-      {back && <LinkButton className="mac-settings-back" href="/__desktop/settings">{t("desktop_pages.back")}</LinkButton>}</header>{children}</div></main></div>;
+  return <MacFrame title={title} back={back ? <LinkButton className="mac-settings-back" href="/__desktop/settings">{t("desktop_pages.back")}</LinkButton> : undefined}>{children}</MacFrame>;
 }
 export function usePageState<T>(url: string) {
   const [state, setState] = useState<T | null>(null);

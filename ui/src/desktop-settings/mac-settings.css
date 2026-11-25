@@ -1,13 +1,13 @@
 /* The Mac settings page of the desktop app. Tokens only; the rows, cards and badges come from settings-components.css. */
 @layer legacy {
-.mac-settings .settings-page-body{padding:28px 30px 48px}
-.mac-settings-inner{display:grid;gap:26px;align-content:start;width:min(760px,100%);margin-inline:auto;min-width:0}
-.mac-settings-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+/* The frame is the settings page's (settings-page.css); the Mac pages are narrower, and clear the traffic lights. */
+.mac-settings.settings-shell{--settings-frame-w:760px}
+html[data-desktop="darwin"] .mac-settings.settings-shell{padding-top:44px}
+.mac-settings .settings-page-body{padding:24px 28px 40px}
+.mac-settings-inner{display:grid;gap:26px;align-content:start;width:100%;max-width:640px;min-width:0}
 /* The window has no title bar (hiddenInset): this strip, over the page's top padding, is where it can be dragged. */
 .mac-settings-titlebar{display:none}
 html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;inset:0 0 auto 0;height:28px;z-index:var(--z-panel)}
-.mac-settings-head h1{margin:0;color:var(--ink);font:600 22px/1.3 var(--font-display)}
-.mac-settings-back{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;font-size:13px;text-decoration:none}
 .mac-settings .settings-row-control{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
 .mac-settings .settings-row-copy code{display:block;margin-top:2px;color:var(--ink-soft);font:12.5px/1.5 var(--font-mono);overflow-wrap:anywhere}
 .mac-settings .settings-row-control .primary-button{text-decoration:none}
@@ -15,10 +15,8 @@ html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;
 .mac-settings .settings-card-note[role="status"]:empty{display:none}
 @media(max-width:700px){
   .mac-settings .settings-page-body{padding:16px 16px 32px}
-  .mac-settings-head h1{font-size:19px}
-  .mac-settings .settings-row-control,.mac-settings .settings-row-v2:not(.is-inline) .settings-row-control{justify-content:flex-start}
+    .mac-settings .settings-row-control,.mac-settings .settings-row-v2:not(.is-inline) .settings-row-control{justify-content:flex-start}
   .mac-settings .settings-row-control .mac-input{width:100%}
   .mac-settings .st-button,.mac-settings .primary-button,.mac-settings .settings-row-control .st-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
 }
-.mac-dev-tag{margin-left:10px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);font:500 12px/1.4 var(--body);vertical-align:middle}
 }

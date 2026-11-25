@@ -291,7 +291,7 @@ for (const size of SIZES) {
   });
   await page.route(url => new URL(url).pathname.startsWith("/api/"), route => route.abort());
   await page.goto(origin + "/desktop-settings.html");
-  await page.locator(".mac-dev-tag").waitFor();
+  await page.locator(".tb-settings-tag").waitFor();
   const strip = await page.evaluate(() => { const el = document.querySelector(".mac-settings-titlebar"); const box = el?.getBoundingClientRect(); return el && getComputedStyle(el).webkitAppRegion === "drag" && box.width === innerWidth && box.height >= 24; });
   assert.ok(strip, `${size.width}x${size.height}: the Mac settings page has a full-width drag strip`);
   await check(page, "Mac settings page", size);
