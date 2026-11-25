@@ -3,13 +3,14 @@ import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { TofiIcon } from "./icons";
 import type { Bot } from "./types";
-import { flyMailDraft } from "./mailSendFlight";
 import { taskDraftLabel } from "./taskIssuePresentation";
 import { useTranslation } from "./i18n";
 import { formatClock } from "./i18n/format";
 import "./mail-draft-card.css";
 import type { MailDraft, MailDraftAttachment } from "./mailDrafts";
 import { fileSize } from "./filePreviewModel";
+/** The flight is its own chunk: it pulls in Motion, which stays out of the entry. */
+const flyMailDraft = async (letter: HTMLElement) => (await import("./mailSendFlight")).flyMailDraft(letter);
 
 export type { MailDraft, MailDraftAttachment } from "./mailDrafts";
 
