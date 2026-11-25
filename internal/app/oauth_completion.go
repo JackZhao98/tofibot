@@ -101,13 +101,14 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	}
 	t := func(key string) string { return oauthText(lang, key) }
 	title, heading, next := t("title_failed"), t("heading_failed"), t("next_failed")
+	badge := t("badge_failed")
 	switch page.State {
 	case "pending":
-		title, heading, next = t("title_pending"), t("heading_pending"), t("next_pending")
+		title, heading, next, badge = t("title_pending"), t("heading_pending"), t("next_pending"), t("badge_pending")
 	case "success":
-		title, heading, next = t("title_success"), t("heading_success"), t("next_success")
+		title, heading, next, badge = t("title_success"), t("heading_success"), t("next_success"), t("badge_success")
 	case "denied":
-		heading, next = t("heading_denied"), t("next_denied")
+		heading, next, badge = t("heading_denied"), t("next_denied"), t("badge_denied")
 	case "failed":
 	default:
 		page.State = "failed"
@@ -148,11 +149,12 @@ func writeOAuthCompletion(w http.ResponseWriter, status int, page oauthCompletio
 	view := struct {
 		oauthCompletionPage
 		Title, Heading, Next string
+		Badge                string
 		HTMLLang             string
 		T                    map[string]string
 		EnableButton         string
 		HandshakeLabel       string
-	}{page, title, heading, next, lang, oauthPageCatalogs[lang], "", oauthTextWith(lang, "handshake", map[string]string{"service": page.ServiceName})}
+	}{page, title, heading, next, badge, lang, oauthPageCatalogs[lang], "", oauthTextWith(lang, "handshake", map[string]string{"service": page.ServiceName})}
 	if page.EnableLabel != "" {
 		view.EnableButton = oauthTextWith(lang, "enable_named", map[string]string{"label": page.EnableLabel})
 	}
@@ -189,6 +191,7 @@ var oauthCompletionTemplate = template.Must(template.New("oauth-connection").Par
       <div class="oauth-dots" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="oauth-identity"><span class="oauth-logo oauth-provider"><img src="{{.LogoURL}}" alt="" width="64" height="64"></span><span>{{.ServiceName}}</span></div>
     </div>
+    <p class="oauth-badge" role="status">{{.Badge}}</p>
     <h1 id="connection-heading">{{.Heading}}</h1>
     {{if .Message}}<p class="oauth-message" role="status">{{.Message}}</p>{{else}}<p class="oauth-next">{{.Next}}</p>{{end}}
     <a class="oauth-return" href="/">{{index .T "return_link"}}</a>

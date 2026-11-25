@@ -31,7 +31,7 @@ func TestOAuthCompletionSevenLocales(t *testing.T) {
 			w := httptest.NewRecorder()
 			writeOAuthCompletion(w, http.StatusOK, page)
 			body := w.Body.String()
-			for _, want := range []string{`<html lang="` + row.lang + `">`, row.heading, row.connected, oauthText(row.lang, "service_default"), oauthText(row.lang, "return_link")} {
+			for _, want := range []string{`<html lang="` + row.lang + `">`, row.heading, row.connected, oauthText(row.lang, "service_default"), oauthText(row.lang, "return_link"), `<p class="oauth-badge" role="status">` + oauthText(row.lang, "badge_success") + `</p>`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("missing %q", want)
 				}

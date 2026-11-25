@@ -31,6 +31,11 @@
 .oauth-connection[data-state="pending"] .oauth-dots i { animation: oauth-connect 1.4s var(--ease-out) infinite; }
 .oauth-connection[data-state="pending"] .oauth-dots i:nth-child(2) { animation-delay: 160ms; }
 .oauth-connection[data-state="pending"] .oauth-dots i:nth-child(3) { animation-delay: 320ms; }
+/* The state as a stamp, the kit Badge look: mono caps, square corners, the state's hue. */
+.oauth-badge { display: inline-flex; align-items: center; height: 22px; margin: 0 0 14px; padding: 0 8px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--teal) 18%, var(--surface)); color: var(--teal-text); font: 600 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.oauth-connection[data-state="success"] .oauth-badge { background: color-mix(in srgb, var(--lime) 22%, var(--surface)); color: var(--lime-text); }
+.oauth-connection[data-state="failed"] .oauth-badge { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger-text); }
+.oauth-connection[data-state="denied"] .oauth-badge { background: color-mix(in srgb, var(--grape) 20%, var(--surface)); color: var(--grape-text); }
 .oauth-connection h1 { margin: 0 0 16px; font: var(--type-title); font-size: 24px; line-height: 1.35; }
 .oauth-message,.oauth-next { margin: 0 auto 12px; max-width: 48ch; overflow-wrap: anywhere; }
 .oauth-next { color: var(--ink-soft); }
