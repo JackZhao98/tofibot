@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "../i18n";
 import { SettingsCard, SettingsRow } from "../settings/components";
-import { PageShell, StateNotice, usePageState } from "../desktop-pages/shared";
+import { Button } from "../ds/Button/Button";
+import { LinkButton, PageShell, StateNotice, usePageState } from "../desktop-pages/shared";
 
 export type UpdateRequiredState = {reason: "server_too_old" | "app_too_old"; appVersion: string; uiContract: number; serverContract: number | null; minClient: string | null; serverURL: string; updaterAvailable: boolean};
 export function UpdateRequiredPage() {
@@ -35,8 +36,8 @@ export function UpdateRequiredPage() {
       <h2>{t(state.reason === "server_too_old" ? "desktop_pages.update.server_old" : "desktop_pages.update.app_old")}</h2>
       <p>{t(state.reason === "server_too_old" ? "desktop_pages.update.server_help" : "desktop_pages.update.app_help")}</p>
       <SettingsCard>{(["appVersion", "uiContract", "serverContract", "minClient"] as const).map(key => state[key] !== null && state[key] !== "" && <SettingsRow key={key} label={t(`desktop_pages.update.${key}`)} control={key === "minClient" ? t("desktop_pages.update.or_newer", {version: state[key]}) : String(state[key])}/>)}</SettingsCard>
-      {state.reason === "app_too_old" && (state.updaterAvailable ? <><button className="primary-button" disabled={busy} onClick={() => void update()}>{t(install ? "desktop_pages.update.install" : "desktop_pages.update.update")}</button><p role="status">{status}</p></> : <p>{t("desktop_pages.update.manual")}</p>)}
-      <div className="desktop-actions">{/^https?:\/\//.test(state.serverURL) && <a className="st-button" href={state.serverURL} target="_blank" rel="noreferrer">{t("desktop_pages.update.browser")}</a>}
+      {state.reason === "app_too_old" && (state.updaterAvailable ? <><Button variant="primary" disabled={busy} onClick={() => void update()}>{t(install ? "desktop_pages.update.install" : "desktop_pages.update.update")}</Button><p role="status">{status}</p></> : <p>{t("desktop_pages.update.manual")}</p>)}
+      <div className="desktop-actions">{/^https?:\/\//.test(state.serverURL) && <LinkButton href={state.serverURL} target="_blank" rel="noreferrer">{t("desktop_pages.update.browser")}</LinkButton>}
       <a className="st-link" href="/__desktop/setup">{t("desktop_pages.update.change")}</a></div>
     </>}
   </PageShell>;

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { LocalRunEvent, LocalRunResult, LocalRunSelection, LocalRunStatus } from "../desktop";
 import { useTranslation } from "../i18n";
+import { Button } from "../ds/Button/Button";
+import { Field } from "../ds/Field/Field";
+import { TextArea } from "../ds/TextArea/TextArea";
 import { Banner, SettingsCard, SettingsRow, SettingsSection } from "../settings/components";
 import { detail, PageShell } from "../desktop-pages/shared";
 
@@ -162,22 +165,22 @@ export function LocalRunPage() {
   return <PageShell title={t("desktop_pages.local.title")} back>
     <p>{t(native ? "desktop_pages.local.native_intro" : "desktop_pages.local.intro")}</p>
     {error && <Banner tone="error" title={error}/>}
-    <SettingsCard><SettingsRow label={t("desktop_pages.local.runtime")} description={<span role="status">{!ready ? t("desktop_pages.local.no_api") : !status ? t("mac.loading") : status.faulted ? t("desktop_pages.local.cleanup_unknown") : available ? t("desktop_pages.local.available") : status.reason || t("desktop_pages.local.no_api")}</span>} control={<button className="st-button" disabled={!ready || pending || running || stopping} onClick={() => void operation(refresh)}>{t("desktop_pages.local.refresh")}</button>}/></SettingsCard>
+    <SettingsCard><SettingsRow label={t("desktop_pages.local.runtime")} description={<span role="status">{!ready ? t("desktop_pages.local.no_api") : !status ? t("mac.loading") : status.faulted ? t("desktop_pages.local.cleanup_unknown") : available ? t("desktop_pages.local.available") : status.reason || t("desktop_pages.local.no_api")}</span>} control={<Button variant="secondary" disabled={!ready || pending || running || stopping} onClick={() => void operation(refresh)}>{t("desktop_pages.local.refresh")}</Button>}/></SettingsCard>
     {status?.lab && !native && <p>{t("desktop_pages.local.lab")}</p>}
     <SettingsSection title={t("desktop_pages.local.directory")}><SettingsCard>
-      <SettingsRow label={selection?.name || t("desktop_pages.local.none")} description={selection?.root && <code dir="auto">{selection.root}</code>} control={<button className="st-button" disabled={pending || busy || !available} onClick={() => void choose()}>{t("desktop_pages.local.choose")}</button>}/>
-      {native && <SettingsRow label={t(selection?.authorized ? "desktop_pages.local.authorized" : "desktop_pages.local.needs_authorization")} control={<button className="st-button" disabled={pending || busy || !available || !selection || selection.authorized || !api?.authorizeLocalRunDirectory} onClick={() => void authorize()}>{t("desktop_pages.local.authorize")}</button>}/>}
+      <SettingsRow label={selection?.name || t("desktop_pages.local.none")} description={selection?.root && <code dir="auto">{selection.root}</code>} control={<Button variant="secondary" disabled={pending || busy || !available} onClick={() => void choose()}>{t("desktop_pages.local.choose")}</Button>}/>
+      {native && <SettingsRow label={t(selection?.authorized ? "desktop_pages.local.authorized" : "desktop_pages.local.needs_authorization")} control={<Button variant="secondary" disabled={pending || busy || !available || !selection || selection.authorized || !api?.authorizeLocalRunDirectory} onClick={() => void authorize()}>{t("desktop_pages.local.authorize")}</Button>}/>}
     </SettingsCard>
       {!native && <><p>{t("desktop_pages.local.snapshot_hint")}</p>{selection && <p>{t("desktop_pages.local.manifest", {count: selection.files?.length ?? 0, bytes: selection.totalBytes ?? 0, excluded: selection.excludedCount ?? 0})}</p>}
       <ul className="desktop-files" aria-label={t("desktop_pages.local.snapshot_files")}>{selection?.files?.map(file => <li key={file.path}><code dir="auto">{file.path}</code> · {file.bytes} B</li>)}</ul></>}
     </SettingsSection>
     <form onSubmit={event => void run(event)}>
-      <label>{t("desktop_pages.local.command")}<textarea rows={3} maxLength={8192} spellCheck={false} autoCapitalize="off" autoComplete="off" value={command} disabled={busy} onChange={event => setCommand(event.target.value)} /></label>
+      <Field label={t("desktop_pages.local.command")}><TextArea rows={3} maxLength={8192} spellCheck={false} autoCapitalize="off" autoComplete="off" value={command} disabled={busy} onChange={event => setCommand(event.target.value)} /></Field>
       <p>{t("desktop_pages.local.command_hint")}</p>
-      {!native && <label>{t("desktop_pages.local.paths")}<textarea rows={2} value={paths} disabled={busy} onChange={event => setPaths(event.target.value)}/></label>}
+      {!native && <Field label={t("desktop_pages.local.paths")}><TextArea rows={2} value={paths} disabled={busy} onChange={event => setPaths(event.target.value)}/></Field>}
       <p id="run-boundary">{t(native ? "desktop_pages.local.native_boundary" : "desktop_pages.local.snapshot_boundary")}</p>
-      <div className="desktop-actions"><button className="primary-button" type="submit" aria-describedby="run-boundary" disabled={pending || busy || !available || !selection || (native && (!selection.authorized || !api?.authorizeLocalRunDirectory)) || !command.trim()}>{t("desktop_pages.local.run")}</button>
-      <button className="st-button" type="button" disabled={!busy || stopping || !api?.localRunStop} onClick={() => void stop()}>{t(stopping ? "desktop_pages.local.stopping" : "desktop_pages.local.stop")}</button></div>
+      <div className="desktop-actions"><Button variant="primary" type="submit" aria-describedby="run-boundary" disabled={pending || busy || !available || !selection || (native && (!selection.authorized || !api?.authorizeLocalRunDirectory)) || !command.trim()}>{t("desktop_pages.local.run")}</Button>
+      <Button variant="secondary" type="button" disabled={!busy || stopping || !api?.localRunStop} onClick={() => void stop()}>{t(stopping ? "desktop_pages.local.stopping" : "desktop_pages.local.stop")}</Button></div>
     </form>
     <p role="status">{note}{Number.isInteger(result?.exitCode) && <> · {t("desktop_pages.local.exit", {code: result!.exitCode})}</>}{result?.reason && <> · {detail(result.reason)}</>}</p>
     {result?.mode === "native" && <p role="status">{t(result.cleanup?.scope === "managed-process-group" && result.cleanup.status === "not-started" && !result.faulted ? "desktop_pages.local.not_started" : result.cleanup?.scope === "managed-process-group" && result.cleanup.status === "absent" ? "desktop_pages.local.cleaned" : "desktop_pages.local.cleanup_unknown")} {t("desktop_pages.local.effects_remain")}</p>}
@@ -205,5 +208,5 @@ function SaveFile({file}: {file: NonNullable<LocalRunResult["files"]>[number]}) 
     catch (cause) { setNote(t("desktop_pages.local.error", {message: detail(cause)})); }
     finally { setBusy(false); }
   }
-  return <SettingsCard><SettingsRow label={<code dir="auto">{file.path}</code>} description={<span role="status">{note}</span>} control={<button className="st-button" disabled={busy || !window.tofiDesktop?.localRunSaveFile} onClick={() => void save()}>{t("desktop_pages.local.save")}</button>}/></SettingsCard>;
+  return <SettingsCard><SettingsRow label={<code dir="auto">{file.path}</code>} description={<span role="status">{note}</span>} control={<Button variant="secondary" disabled={busy || !window.tofiDesktop?.localRunSaveFile} onClick={() => void save()}>{t("desktop_pages.local.save")}</Button>}/></SettingsCard>;
 }

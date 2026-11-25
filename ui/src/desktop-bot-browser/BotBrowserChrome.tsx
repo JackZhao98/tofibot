@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import * as Toolbar from "@radix-ui/react-toolbar";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useTranslation } from "../i18n";
-import { TofiIcon, type TofiIconName } from "../icons";
+import { TofiIcon } from "../icons";
+import type { IconName } from "../ds/Icon/Icon";
+import { Button } from "../ds/Button/Button";
+import { IconButton } from "../ds/IconButton/IconButton";
 import { addressURL, signal, useHostData } from "./hostBridge";
 
 export function BotBrowserChrome() {
@@ -16,9 +19,8 @@ export function BotBrowserChrome() {
       input.current.value = data.url && data.url !== "about:blank" ? data.url : "";
     }
   }, [data]);
-  const iconButton = (icon: TofiIconName, label: string, action: string, disabled = false) => (
-    <Toolbar.Button className="bb-icon-button" type="button" title={label} aria-label={label}
-      disabled={disabled} onClick={() => signal(action)}><TofiIcon name={icon} size={16} /></Toolbar.Button>
+  const iconButton = (icon: IconName, label: string, action: string, disabled = false) => (
+    <Toolbar.Button asChild><IconButton className="bb-icon-button" size="sm" icon={icon} label={label} disabled={disabled} onClick={() => signal(action)} /></Toolbar.Button>
   );
   return (
     <div className="bb-chrome">
@@ -41,8 +43,8 @@ export function BotBrowserChrome() {
         {data.phase === "bot" && data.acting && <span className="bb-status" role="status" title={text("bot")} aria-label={text("bot")}>
           <i className="bb-status-dot" /><span className="bb-status-text">{text("bot")}</span>
         </span>}
-        {(data.phase === "human" || data.phase === "stopped") && <Toolbar.Button className="bb-hand-back" type="button"
-          title={`${text("human")} · ${text("hand_back")}`} aria-label={text("hand_back")} onClick={() => signal("return")}>{text("hand_back_short")}</Toolbar.Button>}
+        {(data.phase === "human" || data.phase === "stopped") && <Toolbar.Button asChild><Button className="bb-hand-back" variant="primary" size="sm"
+          title={`${text("human")} · ${text("hand_back")}`} aria-label={text("hand_back")} onClick={() => signal("return")}>{text("hand_back_short")}</Button></Toolbar.Button>}
         {iconButton("close", text("close"), "close")}
         {data.loading && <span className="bb-progress" aria-hidden="true" />}
       </Toolbar.Root>

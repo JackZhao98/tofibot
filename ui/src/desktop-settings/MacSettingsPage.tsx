@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 // Types only: importing the runtime half of ../desktop would bind workspace IPC this page must not touch.
 import type { BrowserSettings, BrowserStatus, DesktopDeviceStatus } from "../desktop";
-import { TofiIcon } from "../icons";
 import { useTranslation } from "../i18n";
 import { Banner, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch } from "../settings/components";
+import { Button } from "../ds/Button/Button";
+import { LinkButton } from "../desktop-pages/LinkButton";
 import { RemoteControlBlock } from "../RemoteControl";
 import { useRemoteControl } from "../useRemoteControl";
 
@@ -54,7 +55,7 @@ export function MacSettingsPage() {
     <main className="settings-page-body"><div className="mac-settings-inner">
       <header className="mac-settings-head">
         <h1>{t("mac.title")}<span className="mac-dev-tag">{t("mac.inDevelopment")}</span></h1>
-        <a className="st-button mac-settings-back" href="/"><TofiIcon name="arrow-left" size={16} aria-hidden="true" />{t("mac.back")}</a>
+        <LinkButton className="mac-settings-back" href="/" icon="arrow-left">{t("mac.back")}</LinkButton>
       </header>
 
       {!canRead && <Banner tone="warn" title={t("mac.unavailable")} />}
@@ -68,7 +69,7 @@ export function MacSettingsPage() {
 
       <SettingsSection title={t("mac.local.title")} description={t("mac.local.description")}>
         <SettingsCard>
-          <SettingsRow label={t("mac.local.run")} control={<a className="st-button" href="/__desktop/local-run"><TofiIcon name="terminal" size={16} aria-hidden="true" />{t("mac.local.run")}</a>} />
+          <SettingsRow label={t("mac.local.run")} control={<LinkButton href="/__desktop/local-run" icon="terminal">{t("mac.local.run")}</LinkButton>} />
         </SettingsCard>
       </SettingsSection>
     </div></main>
@@ -111,8 +112,8 @@ export function BotBrowserSettings() {
     {!bridge ? <p role="status">{t(window.tofiDesktop ? 'bot_browser.browser_client_unsupported' : 'bot_browser.in_app')}</p> : <SettingsCard>
       {settings.map(key => <SettingsRow key={key} inline label={t(`bot_browser.${key}`)} description={key === 'botBrowserRetainLogin' ? t('bot_browser.login_hint') : key === 'botBrowserShareFrames' ? t('bot_browser.frames_hint') : undefined} control={<SettingsSwitch label={t(`bot_browser.${key}`)} checked={status?.settings[key] === true} disabled={busy || !status || !status.supported || status.code === 'no_connection'} showSaved={false} onChange={value => act({[key]: value})}/>} />)}
       <SettingsRow label={t('bot_browser.login_actions')} control={<>
-        <button type="button" className="st-button" disabled={busy || !status?.supported || status.code === 'no_connection'} onClick={() => void act()}>{t('bot_browser.open')}</button>
-        <button type="button" className="st-button" disabled={busy || !status?.supported || status.code === 'no_connection'} onClick={() => void act(undefined, true)}>{t('bot_browser.clear')}</button>
+        <Button variant="secondary" type="button" disabled={busy || !status?.supported || status.code === 'no_connection'} onClick={() => void act()}>{t('bot_browser.open')}</Button>
+        <Button variant="secondary" type="button" disabled={busy || !status?.supported || status.code === 'no_connection'} onClick={() => void act(undefined, true)}>{t('bot_browser.clear')}</Button>
       </>}/>
       {code && <p className="settings-card-note" role="alert">{t(`bot_browser.${code}` as 'bot_browser.browser_control_lost')}</p>}
       {cleared && <p className="settings-card-note" role="status">{t('bot_browser.cleared')}</p>}
