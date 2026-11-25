@@ -1,6 +1,11 @@
 import {useEffect, useId, useState, type FormEvent} from "react";
 import {api, ApiError, request} from "./api";
 import {useTranslation} from "./i18n";
+import {Banner} from "./ds/Banner/Banner";
+import {Button} from "./ds/Button/Button";
+import {Field} from "./ds/Field/Field";
+import {TextInput} from "./ds/TextInput/TextInput";
+import {Panel} from "./onboardingParts";
 import {Select} from "./Select";
 import type {CompatListedModel} from "./types";
 
@@ -56,22 +61,21 @@ export default function OnboardingServer({formId, onBusy, onConnected}: {formId:
    await onConnected();
   } catch (cause) { failure(cause); setWorking(""); }
  }
- return <form id={formId} className="onb-panel onb-server" onSubmit={event => void connect(event)} aria-busy={Boolean(working)}>
+ return <Panel className="onb-server" aria-busy={Boolean(working)}><form id={formId} onSubmit={event => void connect(event)}>
   <div className="onb-presets" role="group" aria-label={t("settings:providers.compat.presets")}>
-   <button type="button" className="secondary-button" aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setModels(null); setError(""); }}>Ollama</button>
+   <Button size="sm" icon={isOllama(baseUrl) ? "check" : undefined} aria-pressed={isOllama(baseUrl)} disabled={Boolean(working)} onClick={() => { setBaseUrl(OLLAMA_URL); setModels(null); setError(""); }}>Ollama</Button>
   </div>
-  <label htmlFor={`${ids}-url`}>{t("settings:providers.compat.url_label")}</label>
-  <input id={`${ids}-url`} type="url" inputMode="url" required autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={baseUrl} disabled={Boolean(working)} data-autofocus onChange={event => { setBaseUrl(event.target.value); setModels(null); setError(""); }}/>
-  {isOllama(baseUrl) && <p className="onb-small" data-compat-note="ollama">{t("settings:providers.compat.ollama_note")}</p>}
-  <label htmlFor={`${ids}-key`}>{t("settings:providers.compat.key_label")}</label>
-  <input id={`${ids}-key`} type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="sk-…" value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setModels(null); setError(""); }}/>
+  <Field id={`${ids}-url`} label={t("settings:providers.compat.url_label")} hint={isOllama(baseUrl) ? <span data-compat-note="ollama">{t("settings:providers.compat.ollama_note")}</span> : undefined}>
+   <TextInput mono type="url" inputMode="url" required autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={baseUrl} disabled={Boolean(working)} data-autofocus onChange={event => { setBaseUrl(event.target.value); setModels(null); setError(""); }}/>
+  </Field>
+  <Field id={`${ids}-key`} label={t("settings:providers.compat.key_label")}>
+   <TextInput mono type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="sk-…" value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setModels(null); setError(""); }}/>
+  </Field>
   <div className="onb-server-test">
-   <button type="button" className="secondary-button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void test()}>{working === "test" ? t("settings:providers.compat.fetching") : t("chat:onboarding.server_test")}</button>
+   <Button disabled={Boolean(working) || !baseUrl.trim()} busy={working === "test"} onClick={() => void test()}>{working === "test" ? t("settings:providers.compat.fetching") : t("chat:onboarding.server_test")}</Button>
    {models && models.length > 0 && <span className="onb-small" role="status">{t("settings:providers.compat.found", {count: models.length})}</span>}
   </div>
-  {models && models.length > 0 && <>
-   <label>{t("chat:onboarding.server_pick")}<Select aria-label={t("chat:onboarding.server_pick")} value={model} disabled={Boolean(working)} onValueChange={setModel} options={models.map(item => ({value: item.id, label: item.id}))}/></label>
-  </>}
-  {error && <p className="onb-error" role="alert">{error}</p>}
- </form>;
+  {models && models.length > 0 && <Field label={t("chat:onboarding.server_pick")}><Select value={model} disabled={Boolean(working)} onValueChange={setModel} options={models.map(item => ({value: item.id, label: item.id}))}/></Field>}
+  {error && <Banner tone="error" className="onb-error">{error}</Banner>}
+ </form></Panel>;
 }

@@ -23,7 +23,6 @@
 .service-mark{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border:0;border-radius:12px;background:var(--surface-2);color:var(--ink)}
 .service-mark-brand{display:block;--mark-tile:var(--logo-tile);--mark-line:color-mix(in srgb,var(--shade) 14%,transparent);padding:7px;box-sizing:border-box;background:var(--mark-tile);border-color:var(--mark-line)}
 .service-mark-brand[data-tile="dark"]{--mark-tile:var(--mark-plate-dark);--mark-line:color-mix(in srgb,var(--white) 20%,transparent)}
-.onb-queue .service-mark-brand{padding:4px}
 .service-mark-brand img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
 .extension-panel .extension-actions button{font-size:12px;min-height:34px;padding:7px 12px}
 .extension-panel .extension-card>.disclosure{margin:10px 0 0 52px}
