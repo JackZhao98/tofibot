@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import * as Toolbar from "@radix-ui/react-toolbar";
-import * as Tabs from "@radix-ui/react-tabs";
 import { useTranslation } from "../i18n";
 import { TofiIcon } from "../icons";
 import type { IconName } from "../ds/Icon/Icon";
 import { Button } from "../ds/Button/Button";
 import { IconButton } from "../ds/IconButton/IconButton";
+import { Tabs } from "../ds/Tabs/Tabs";
 import { addressURL, signal, useHostData } from "./hostBridge";
 
 export function BotBrowserChrome() {
@@ -48,14 +48,8 @@ export function BotBrowserChrome() {
         {iconButton("close", text("close"), "close")}
         {data.loading && <span className="bb-progress" aria-hidden="true" />}
       </Toolbar.Root>
-      {data.targets.length >= 2 && <Tabs.Root value={data.active ?? ""} onValueChange={signal}>
-        <Tabs.List className="bb-tabs" aria-label={text("empty_title")}>
-          {data.targets.map(target => <Tabs.Trigger className="bb-tab" key={target.target_id} value={target.target_id} title={target.url}>
-            {target.title || target.url}
-          </Tabs.Trigger>)}
-        </Tabs.List>
-        {data.targets.map(target => <Tabs.Content forceMount key={target.target_id} value={target.target_id} hidden />)}
-      </Tabs.Root>}
+      {data.targets.length >= 2 && <Tabs compact className="bb-tabs" label={text("empty_title")} value={data.active ?? ""} onChange={signal}
+        tabs={data.targets.map(target => ({ value: target.target_id, label: <span title={target.url}>{target.title || target.url}</span> }))} />}
       {data.active === null && <main className="bb-empty">
         <TofiIcon name="globe" size={40} /><h1>{text("empty_title")}</h1><p>{text("empty_body")}</p>
       </main>}
