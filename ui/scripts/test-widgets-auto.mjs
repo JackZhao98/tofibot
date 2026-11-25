@@ -29,7 +29,7 @@ try {
     assert.deepEqual(await cards(page), [], "nothing is open for a conversation without files");
     await page.locator(".composer textarea").focus().catch(() => undefined);
     state.addFile(1);
-    await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"] .artifact-row'));
+    await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"] .tb-filerow'));
     assert.deepEqual(await cards(page), ["artifacts"], "the first file opens the Artifacts widget");
     assert.equal(await page.evaluate(() => document.activeElement?.closest("[data-card]") === null), true, "opening by itself takes no focus");
     assert.equal(await page.locator('[data-card="artifacts"] li[data-fresh]').count(), 0, "the first file is not flagged: the whole widget is new");
@@ -39,9 +39,9 @@ try {
     await page.waitForTimeout(1200);
     assert.deepEqual(await cards(page), [], "a widget the person closed does not come back for the next file");
     await page.getByRole("button", { name: "Open artifacts" }).click();
-    await poll(page, () => document.querySelector('[data-card="artifacts"] .artifact-row'));
+    await poll(page, () => document.querySelector('[data-card="artifacts"] .tb-filerow'));
     state.addFile(3);
-    await poll(page, () => document.querySelectorAll('[data-card="artifacts"] .artifact-row').length === 3);
+    await poll(page, () => document.querySelectorAll('[data-card="artifacts"] .tb-filerow').length === 3);
     assert.equal(await page.locator('[data-card="artifacts"] li[data-fresh]').count(), 1, "a later file refreshes the list and flags the new row");
     assert.match(await page.locator('[data-card="artifacts"] [role=status]').textContent(), /New file: /);
     if (shots) await page.screenshot({ path: `${shots}/artifacts-auto-1440.png` });

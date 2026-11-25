@@ -8,8 +8,10 @@ import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
 import { CATS, EmptyState } from "./EmptyCat";
 import { DelayedFeedback } from "./DelayedFeedback";
-import { FileTile } from "./FileTile";
-import { attachmentUrl, fileKind, fileSize, openFilePreview } from "./filePreviewModel";
+import { ArtifactCard as KitArtifactCard } from "./ds/ArtifactCard/ArtifactCard";
+import { FileRow } from "./ds/FileRow/FileRow";
+import type { FileKind as KitFileKind } from "./ds/FileTile/parts";
+import { attachmentUrl, fileKind, fileSize, openFilePreview, tileLabel, type FileKind } from "./filePreviewModel";
 import { formatRelativeTime } from "./i18n/format";
 import { useTranslation } from "./i18n";
 import { errorText } from "./i18n/errors";
@@ -32,6 +34,8 @@ type Kind = "all" | "image" | "document";
 const fetchArtifacts = (params: Record<string, string>, signal?: AbortSignal) =>
   request<Page>(`/api/artifacts?${new URLSearchParams(params)}`, { signal });
 
+/** The product's file kinds on the kit glyph's hues (as MessageAttachment). */
+const kitKind: Record<FileKind, KitFileKind> = { md: "md", txt: "text", code: "code", csv: "sheet", tsv: "sheet", json: "code", pdf: "pdf", image: "image", xlsx: "sheet", docx: "doc", pptx: "slides", zip: "archive", audio: "audio", video: "video", other: "text" };
 const isRaster = (item: ArtifactItem) => item.mime.startsWith("image/") && item.mime !== "image/svg+xml";
 const openItem = (item: ArtifactItem) => openFilePreview({ id: item.id, name: item.name, mime: item.mime, size: item.size, conversationId: item.conversation_id });
 
@@ -143,16 +147,11 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
     catch { setState("error"); }
   }
 
-  return <li className="artifact-card">
-    <button type="button" className="artifact-open" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
-      <span className="artifact-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={kind} size={56} />}{item.version_count > 1 && <span className="artifact-badge" aria-hidden="true">v{item.version_count}</span>}</span>
-      <span className="artifact-copy"><b className="artifact-name">{item.name}</b><small>{fileSize(item.size)}{item.uploaded ? ` · ${t("artifacts.uploaded")}` : ""}</small></span>
-    </button>
-    <div className="artifact-meta">
-      {showBot && (item.bot_id ? <BotAvatar id={item.bot_id} mini /> : <span className="artifact-you" title={t("artifacts.you")}><TofiIcon name="user" size={14} /></span>)}
-      <span className="artifact-source">{showConversation && <span className="artifact-conversation">{item.conversation_name}{item.conversation_archived && <em>{t("artifacts.archived")}</em>}</span>}<time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time></span>
-      <button type="button" className="ghost-button artifact-goto" aria-label={t("artifacts.go_aria", { name: item.name })} data-hint={t("artifacts.go_to_message")} onClick={() => onOpenMessage(item.conversation_id, item.message_id)}><TofiIcon name="arrow-right" size={16} /></button>
-    </div>
+  return <li className="artifact-item">
+    <KitArtifactCard wide name={item.name} kind={kitKind[kind]} ext={tileLabel(item.name, kind)} meta={[fileSize(item.size), item.uploaded ? t("artifacts.uploaded") : "", formatRelativeTime(item.created_at)].filter(Boolean).join(" · ")}
+      preview={isRaster(item) ? { type: "image", src: attachmentUrl(item.id) } : undefined} tag={item.uploaded ? null : undefined} version={item.version_count > 1 ? `v${item.version_count}` : undefined}
+      from={<>{showBot && (item.bot_id ? <BotAvatar id={item.bot_id} mini /> : <TofiIcon name="user" size={14} />)}{showConversation && <span className="artifact-conversation">{item.conversation_name}{item.conversation_archived && <em>{t("artifacts.archived")}</em>}</span>}</>}
+      gotoLabel={t("artifacts.go_to_message")} onGoto={() => onOpenMessage(item.conversation_id, item.message_id)} onOpen={() => openItem(item)} />
     {item.version_count > 1 && <Collapsible.Root open={open} onOpenChange={next => void toggleVersions(next)}>
       <Collapsible.Trigger className="text-button artifact-versions-toggle">{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</Collapsible.Trigger>
       <CollapsibleContent><ul className="artifact-versions">
@@ -199,11 +198,8 @@ export function ArtifactsWidget({ conversationId, refreshToken, onAll }: { conve
     {items === null ? (failed ? <p className="artifacts-widget-note" role="alert">{t("artifacts.error")}</p> : <div className="artifacts-widget-skeleton" aria-busy="true" aria-label={t("artifacts.loading")}><i /><i /></div>)
       : !items.length ? <p className="artifacts-widget-note">{t("artifacts.widget_empty")}</p>
       : <ul className="artifacts-widget-list" aria-label={t("artifacts.list_label")}>{items.map(item => <li key={item.id} data-fresh={fresh.has(item.id) || undefined}>
-        <button type="button" className="artifact-row" aria-label={t("artifacts.open", { name: item.name })} onClick={() => openItem(item)}>
-          <span className="artifact-row-thumb">{isRaster(item) ? <img src={attachmentUrl(item.id)} alt="" loading="lazy" decoding="async" /> : <FileTile name={item.name} kind={fileKind(item.name, item.mime)} size={30} />}</span>
-          <span className="artifact-row-name">{item.name}</span>
-          <time dateTime={item.created_at}>{formatRelativeTime(item.created_at)}</time>
-        </button>
+        <FileRow name={item.name} kind={kitKind[fileKind(item.name, item.mime)]} ext={tileLabel(item.name, fileKind(item.name, item.mime))} thumb={isRaster(item) ? attachmentUrl(item.id) : undefined} meta={formatRelativeTime(item.created_at)}
+          fresh={fresh.has(item.id)} aria-label={t("artifacts.open", { name: item.name })} onOpen={() => openItem(item)} />
       </li>)}</ul>}
     <span className="sr-only" role="status">{announce}</span>
     <button type="button" className="artifacts-widget-all" onClick={onAll}>{t("artifacts.widget_all")}<TofiIcon name="arrow-right" size={14} /></button>
