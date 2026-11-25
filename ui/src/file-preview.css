@@ -44,11 +44,4 @@
 @media (prefers-reduced-transparency: no-preference) { .file-preview::backdrop { -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); } }
 
 /* Code blocks in chat. */
-.message-code-block { margin:2px 0 9px; max-width:100%; }
-.message-code-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 8px 5px 13px; border:1px solid var(--line-soft); border-bottom:0; border-radius:10px 10px 0 0; background:var(--surface-2); color:var(--muted); font:11px/1.2 var(--mono); }
-.message-code-copy, .message-code-more { padding:3px 8px; border:0; border-radius:6px; background:transparent; color:var(--ink-soft); font:600 11px/1.2 var(--display); }
-.message-code-copy:hover, .message-code-more:hover { background:color-mix(in srgb, var(--ink) 10%, transparent); color:var(--ink); }
-.message-code-block > .message-code { margin:0; border-radius:0 0 10px 10px; }
-.message-code-block > .message-code.is-collapsed { max-height:calc(16 * 1.5em + 22px); overflow-y:hidden; }
-.message-code-more { display:block; width:100%; margin-top:2px; text-align:left; }
 }

@@ -1,3 +1,4 @@
+import { CodeBlock as KitCodeBlock } from "./ds/CodeBlock/CodeBlock";
 import { Children, createContext, isValidElement, memo, useContext, useState, type ReactNode } from "react";
 import type { Root, Element } from "hast";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
@@ -63,24 +64,22 @@ function nodeText(node: ReactNode): string {
   return isValidElement<{ children?: ReactNode }>(node) ? nodeText(node.props.children) : "";
 }
 
-// Sunk block: language and line count in a header, copy always visible, long code folded.
+function hasTypingCursor(node: ReactNode): boolean {
+  if (Array.isArray(node)) return node.some(hasTypingCursor);
+  if (!isValidElement<{ className?: string; children?: ReactNode; node?: { properties?: Record<string, unknown> }; "data-typing-cursor"?: unknown }>(node)) return false;
+  const p = node.props;
+  return Boolean(p["data-typing-cursor"] || p.node?.properties?.["data-typing-cursor"]) || /\btyping-cursor\b/.test(p.className ?? "") || hasTypingCursor(p.children);
+}
+
+// V3 3.6: code a Bot sent is the kit CodeBlock (terminal plate, line numbers, the spec's highlighter, copy, long code folded).
 function CodeBlock({ children }: { children?: ReactNode }) {
   const { t } = useTranslation("chat");
-  const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const code = Children.toArray(children).find(isValidElement<{ className?: string }>);
   const language = /language-([\w+#.-]+)/.exec(code?.props.className ?? "")?.[1] ?? "";
   const text = nodeText(children).replace(/\n$/, "");
-  const lines = text.split("\n").length;
-  const long = lines > CODE_COLLAPSE_LINES;
-  async function copy() {
-    try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { /* clipboard may be blocked; the text stays selectable */ }
-  }
-  return <div className="message-code-block">
-    <div className="message-code-head"><span className="message-code-meta">{[language, t("markdown.lines", { count: lines })].filter(Boolean).join(" · ")}</span><button type="button" className="message-code-copy" onClick={() => void copy()}>{copied ? t("markdown.copied") : t("markdown.copy")}</button></div>
-    <pre className={`message-code${long && !expanded ? " is-collapsed" : ""}`} tabIndex={0} role="region" aria-label={t("markdown.code")}>{children}</pre>
-    {long && <button type="button" className="message-code-more" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? t("markdown.show_less") : t("markdown.show_more", { count: lines - CODE_COLLAPSE_LINES })}</button>}
-  </div>;
+  // While a reply streams, the typing cursor sits inside the code: keep the nodes on the plate until it is done.
+  if (hasTypingCursor(children)) return <figure className="tb-code message-code-block is-live"><pre className="tb-code-body" tabIndex={0} role="region" aria-label={t("markdown.code")}>{children}</pre></figure>;
+  return <KitCodeBlock className="message-code-block" code={text} lang={language || undefined} maxLines={CODE_COLLAPSE_LINES} regionLabel={t("markdown.code")} />;
 }
 
 // Insert a structured mention after Markdown parsing; task text cannot create one.

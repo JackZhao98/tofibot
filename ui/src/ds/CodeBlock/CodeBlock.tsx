@@ -32,6 +32,8 @@ export type CodeBlockProps = {
   moreLabel?: string;
   lessLabel?: string;
   className?: string;
+  /** Names the code region: it takes focus so the keyboard can scroll long lines sideways. */
+  regionLabel?: string;
 };
 
 const fill = (text: string, n: number) => text.replace("{{count}}", String(n));
@@ -43,7 +45,7 @@ function Line({ text, n }: { text: string; n: number }) {
 
 /** Code a Bot sent, on the terminal plate: a head, copy that turns into a tick, line numbers and the palette's five syntax colours.
  *  Long lines scroll sideways; they never wrap. */
-export function CodeBlock({ lines, code, filename, lang, maxLines = 16, expanded, onCopy, copied, onDownload, showActions, copyLabel, copiedLabel, downloadLabel, linesLabel, moreLabel, lessLabel, className }: CodeBlockProps) {
+export function CodeBlock({ lines, code, filename, lang, maxLines = 16, expanded, onCopy, copied, onDownload, showActions, copyLabel, copiedLabel, downloadLabel, linesLabel, moreLabel, lessLabel, className, regionLabel }: CodeBlockProps) {
   const { t } = useTranslation();
   const all = lines ?? String(code ?? "").split("\n");
   const folded = all.length > maxLines;
@@ -69,7 +71,7 @@ export function CodeBlock({ lines, code, filename, lang, maxLines = 16, expanded
         <button type="button" className={cx("tb-code-act", done && "is-done")} onClick={press}><Icon name={done ? "check" : "copy"} size={13} />{done ? (copiedLabel ?? t("ds.code.copied")) : (copyLabel ?? t("ds.code.copy"))}</button>
       </span>
     </figcaption>
-    <pre className="tb-code-body">
+    <pre className="tb-code-body" tabIndex={regionLabel ? 0 : undefined} role={regionLabel ? "region" : undefined} aria-label={regionLabel}>
       {head.map((text, i) => <Line key={i} text={text} n={i + 1} />)}
       {folded ? <Collapsible.Content asChild><span className="tb-fold"><span className="tb-code-rest">{rest.map((text, i) => <Line key={i} text={text} n={maxLines + i + 1} />)}</span></span></Collapsible.Content> : null}
     </pre>
