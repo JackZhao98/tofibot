@@ -1,3 +1,5 @@
+import { Button } from "./ds/Button/Button";
+import "./ds/TaskCard/TaskCard.css";
 import { memo, useState } from "react";
 import { api, request } from "./api";
 import { Disclosure } from "./InteractionPrimitives";
@@ -59,13 +61,13 @@ export const TaskCard = memo(function TaskCard({ card }: { card: TaskCardModel }
   const results = card.results ?? [];
   const planned = new Set(card.items.map(item => item.task_id).filter(Boolean));
   const loose = results.filter(result => !planned.has(result.taskId));
-  return <section className="task-card" data-task-id={card.id} data-status={card.status} data-paused={card.paused || undefined} data-claimed={card.claimed || undefined} aria-label={t("card.label", { title: card.title })}>
+  return <section className={`task-card${card.paused ? ` tb-task${card.autoResume ? " is-paused" : ""}` : ""}`} data-task-id={card.id} data-status={card.status} data-paused={card.paused || undefined} data-claimed={card.claimed || undefined} aria-label={t("card.label", { title: card.title })}>
     <Disclosure title={<span className="task-card-line">{line}</span>} defaultOpen={card.paused || undefined}>
       <p className="task-card-title">{card.title}</p>
       {card.paused && <div className="task-card-actions">
         {card.autoResume && <span className="task-card-note">{t("card.resumes_after")}</span>}
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => act(() => request(`/api/work-items/${encodeURIComponent(card.id)}/resume`, { method: "POST" }))}>{t("card.resume")}</button>
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => act(() => api.updateWorkItem(card.id, { status: "cancelled" }))}>{t("card.drop")}</button>
+        <Button variant={card.autoResume ? "secondary" : "primary"} size="sm" disabled={busy} onClick={() => act(() => request(`/api/work-items/${encodeURIComponent(card.id)}/resume`, { method: "POST" }))}>{t("card.resume")}</Button>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => act(() => api.updateWorkItem(card.id, { status: "cancelled" }))}>{t("card.drop")}</Button>
       </div>}
       {card.items.length > 0 && <ul className="task-card-items">
         {card.items.map(item => <CardItem key={item.id} item={item} results={item.task_id ? results.filter(result => result.taskId === item.task_id) : []} />)}
