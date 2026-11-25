@@ -14,7 +14,7 @@
 .task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px;border-radius:3px}
 .task-issue-context{color:var(--ink-soft)}
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
-.task-issue-actions .secondary-button,.task-record-page .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
+.task-issue-actions .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
 .task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
 .task-issue-technical>summary,.task-activity>.process-line,.task-tool-records :is(summary,.task-step-trigger),.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--ink-soft);overflow-wrap:anywhere}
 .task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--sunk);color:var(--ink);font:var(--type-code)}
@@ -40,7 +40,6 @@
 .task-step-problem{display:grid;gap:var(--space-2);margin:var(--space-2) 0;padding:var(--space-3);border:1px solid color-mix(in srgb,var(--status-error) 35%,transparent);border-radius:var(--radius-sm,10px);background:color-mix(in srgb,var(--status-error) 7%,var(--surface))}
 .task-step-problem>p{margin:0;font:var(--type-body);color:var(--ink)}
 .task-step-actions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
-.task-step-actions .secondary-button{display:inline-flex;align-items:center;gap:6px;min-height:36px;border-width:1px;box-shadow:none}
 .task-step-technical>summary{font:var(--type-meta);color:var(--ink-soft)}
 .task-step-technical>p{margin:var(--space-2) 0 0;font:var(--type-meta);color:var(--ink-soft);overflow-wrap:anywhere}
 .task-step-time{color:var(--ink-soft);font:var(--type-meta)}

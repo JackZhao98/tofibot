@@ -3,6 +3,13 @@ import { TextInput } from "./ds/TextInput/TextInput";
 import { Button } from "./ds/Button/Button";
 import { IconButton } from "./ds/IconButton/IconButton";
 import { Segmented } from "./ds/Segmented/Segmented";
+import { Badge, type BadgeTone } from "./ds/Badge/Badge";
+import { Banner } from "./ds/Banner/Banner";
+import { Card } from "./ds/Card/Card";
+import { Checkbox } from "./ds/Checkbox/Checkbox";
+import { Field } from "./ds/Field/Field";
+import { ScheduleCard } from "./ds/ScheduleCard/ScheduleCard";
+import { Tag } from "./ds/Tag/Tag";
 import * as Tabs from "@radix-ui/react-tabs";
 import { scheduleDisplay } from "./displayMetadata";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -17,7 +24,8 @@ import { BotAvatar } from "./BotAvatar";
 import { ConfirmAction } from "./ConfirmAction";
 import { Disclosure } from "./InteractionPrimitives";
 import { useUserTimezone } from "./UserTimezone";
-import { formatZonedTime } from "./timezone";
+import { dateTimeFormat, formatZonedTime } from "./timezone";
+import { formatClock, intlLocale } from "./i18n/format";
 import { WorkExecution } from "./WorkExecution";
 import { WorkTaskFacts } from "./WorkTaskFacts";
 import { workExecutionActive, workExecutionStatusKeys } from "./workExecutionState";
@@ -29,6 +37,7 @@ import "./work-panel.css";
 import { Select } from "./Select";
 
 const workStatusKeys = { todo: "status.todo", in_progress: "status.in_progress", blocked: "status.blocked", review: "status.review", input_required: "status.input_required", done: "status.done", cancelled: "status.cancelled", failed: "status.failed" } as const satisfies Record<WorkStatus, string>;
+const statusTones = { todo: "neutral", in_progress: "working", blocked: "error", review: "needs", input_required: "needs", done: "done", cancelled: "neutral", failed: "error" } as const satisfies Record<WorkStatus, BadgeTone>;
 type Props = { conversation: Conversation; conversations: Conversation[]; bots: Bot[]; refreshToken: number; onClose: () => void; onNavigate: (id: string) => void };
 
 export function WorkPanel(props: Props) {
@@ -103,16 +112,22 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     return ids.includes(item.bot_id) ? ids : [item.bot_id, ...ids];
   }
   function provenance(item: WorkItem | Schedule) {
-    return <div className="work-provenance">{botView ? <button onClick={() => onNavigate(item.conversation_id)}>{lookupSource(item.conversation_id, item.conversation_name)}</button> : <span><BotAvatar id={item.bot_id} mini />{lookupBot(item.bot_id, item.bot_name)}</span>}</div>;
+    return botView
+      ? <Button variant="ghost" size="sm" className="work-provenance" onClick={() => onNavigate(item.conversation_id)}>{lookupSource(item.conversation_id, item.conversation_name)}</Button>
+      : <Tag className="work-provenance"><BotAvatar id={item.bot_id} mini />{lookupBot(item.bot_id, item.bot_name)}</Tag>;
   }
   function renderItem(item: WorkItem) {
     const readOnly = itemReadOnly(item);
+    const locked = !!pending || workExecutionActive(item);
     return <article className={`work-row work-${item.status}`} key={item.id}>
-      <button className="work-complete" aria-label={item.status === "done" ? t("panel.reopen_item", { title: item.title }) : t("panel.complete_item", { title: item.title })} disabled={!!pending || item.status === "cancelled" || item.status === "failed" || readOnly || workExecutionActive(item)} onClick={() => void updateStatus(item, item.status === "done" ? "todo" : "done")}><span>{item.status === "done" && <TofiIcon name="check" size={16} variant="filled" />}</span></button>
-      <div className="work-row-main"><strong>{item.title}</strong><div className="work-row-meta">{provenance(item)}{item.status !== "todo" && <span className={`work-state state-${item.status}`}>{t(workStatusKeys[item.status])}</span>}</div>
+      <Checkbox className="work-complete" aria-label={item.status === "done" ? t("panel.reopen_item", { title: item.title }) : t("panel.complete_item", { title: item.title })} checked={item.status === "done"} disabled={!!pending || item.status === "cancelled" || item.status === "failed" || readOnly || workExecutionActive(item)} onChange={checked => void updateStatus(item, checked ? "done" : "todo")} />
+      <div className="work-row-main"><strong>{item.status === "done" ? <s>{item.title}</s> : item.title}</strong><div className="work-row-meta">{provenance(item)}{item.status !== "todo" && <Badge tone={statusTones[item.status]}>{t(workStatusKeys[item.status])}</Badge>}</div>
         <WorkTaskFacts item={item} timezone={preference.timezone} />
-        {item.parent_goal_id && <small className="work-parent">{items.find(goal => goal.id === item.parent_goal_id)?.title || t("panel.linked_group_goal")}</small>}
-        <details className="work-item-details"><summary>{t("panel.details")}</summary>{item.description && <p>{item.description}</p>}<small>{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />{!readOnly && <label>{t("panel.status")}<Select size="sm" aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={!!pending || workExecutionActive(item)} onValueChange={value => { const status = value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).filter(([value]) => value !== "input_required" && value !== "failed" || value === item.status).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</Select></label>}{!readOnly && !botView && <label>{t("panel.assignee")}<Select size="sm" aria-label={t("panel.assignee_aria", { title: item.title })} value={item.bot_id} disabled={!!pending || workExecutionActive(item)} onValueChange={value => void updateAssignee(item, value)}>{assignees(item).map(id => <option key={id} value={id}>{lookupBot(id, id === item.bot_id ? item.bot_name : undefined)}</option>)}</Select></label>}</details>
+        {item.parent_goal_id && <Tag className="work-parent">{items.find(goal => goal.id === item.parent_goal_id)?.title || t("panel.linked_group_goal")}</Tag>}
+        <Disclosure title={t("panel.details")}><div className="work-item-details">{item.description && <p>{item.description}</p>}<small className="tb-mono">{formatZonedTime(item.updated_at, preference.timezone)}</small><WorkExecution item={item} readOnly={!!readOnly} pending={!!pending} mutate={mutate} onExecuted={accept} />
+          {!readOnly && <Field label={t("panel.status")}><Select size="sm" aria-label={t("panel.status_aria", { title: item.title })} value={item.status} disabled={locked} onValueChange={value => { const status = value as WorkStatus; void updateStatus(item, status); }}>{Object.entries(workStatusKeys).filter(([value]) => value !== "input_required" && value !== "failed" || value === item.status).map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}</Select></Field>}
+          {!readOnly && !botView && <Field label={t("panel.assignee")}><Select size="sm" aria-label={t("panel.assignee_aria", { title: item.title })} value={item.bot_id} disabled={locked} onValueChange={value => void updateAssignee(item, value)}>{assignees(item).map(id => <option key={id} value={id}>{lookupBot(id, id === item.bot_id ? item.bot_name : undefined)}</option>)}</Select></Field>}
+        </div></Disclosure>
       </div>
     </article>;
   }
@@ -121,10 +136,10 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     <div className="work-toolbar"><Tabs.List className="tb-tablist work-tabs" aria-label={t("panel.scope")}><Tabs.Trigger value="open" className="tb-tab">{t("panel.tab_open")}</Tabs.Trigger><Tabs.Trigger value="history" className="tb-tab">{t("panel.tab_history")}</Tabs.Trigger></Tabs.List><IconButton icon={creating ? "close" : "plus"} label={creating ? t("panel.cancel_new") : t("panel.new")} disabled={conversation.archived || creatingBusy} onClick={() => setCreating(value => !value)} /></div>
     <Tabs.Content value={history ? "open" : "history"} forceMount hidden />
     <Tabs.Content value={history ? "history" : "open"}>
-    {!botView && <div className="work-member-select"><Select className="work-member-filter" aria-label={t("panel.member_filter")} value={member} onValueChange={value => setMember(value)}><option value="">{t("panel.all_members")}</option>{conversation.bot_ids.map(id => <option key={id} value={id}>{lookupBot(id)}</option>)}</Select>{!!allGoals.length && <Select className="work-member-filter work-goal-filter" aria-label={t("panel.goal_filter")} value={goal} onValueChange={value => setGoalFilter(value)}><option value="">{t("panel.all_goals")}</option>{allGoals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>}</div>}
+    {!botView && <div className="work-member-select"><Select size="sm" className="work-member-filter" aria-label={t("panel.member_filter")} value={member} onValueChange={value => setMember(value)}><option value="">{t("panel.all_members")}</option>{conversation.bot_ids.map(id => <option key={id} value={id}>{lookupBot(id)}</option>)}</Select>{!!allGoals.length && <Select size="sm" className="work-member-filter work-goal-filter" aria-label={t("panel.goal_filter")} value={goal} onValueChange={value => setGoalFilter(value)}><option value="">{t("panel.all_goals")}</option>{allGoals.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</Select>}</div>}
     {creating && <WorkCreate onBusyChange={setCreatingBusy} conversation={conversation} conversations={conversations} bots={bots} goals={items.filter(item => item.kind === "goal")} onDone={() => { setCreating(false); setHistory(false); void reload(); }} onCancel={() => setCreating(false)} />}
-    {operationError && <div className="error-banner" role="alert">{operationError.text}<button className="text-button" disabled={!!pending} onClick={() => void mutate(operationError.id, operationError.retry)}>{t("panel.retry_action")}</button></div>}
-    {error && <div className="error-banner" role="alert">{error}<button className="text-button" disabled={!!pending} onClick={() => void reload()}>{t("panel.reload")}</button></div>}
+    {operationError && <Banner tone="error" className="work-banner" action={<Button variant="ghost" size="sm" disabled={!!pending} onClick={() => void mutate(operationError.id, operationError.retry)}>{t("panel.retry_action")}</Button>}>{operationError.text}</Banner>}
+    {error && <Banner tone="error" className="work-banner" action={<Button variant="ghost" size="sm" disabled={!!pending} onClick={() => void reload()}>{t("panel.reload")}</Button>}>{error}</Banner>}
     {loading && <DelayedFeedback><div className="inline-state">{t("panel.loading")}</div></DelayedFeedback>}
     {!loading && !error && !goals.length && !tasks.length && !visibleSchedules.length && <EmptyState name={history ? "work-history-empty" : "work-empty"} className="work-empty" look={history ? CATS.kiwi : CATS.taro} pose={history ? "asleep" : "curious"}><p>{history ? t("panel.empty_history") : t("panel.empty")}</p></EmptyState>}
     {!!goals.length && <section className="work-section"><h3>{t("panel.goals")} <span>{goals.length}</span></h3>{goals.map(renderItem)}</section>}
@@ -132,9 +147,19 @@ function WorkPanelView({ conversation, conversations, bots, refreshToken, onClos
     {!!visibleSchedules.length && <section className="work-section"><h3>{history ? t("panel.schedules_ended") : t("panel.schedules")}<span>{preference.timezone}</span></h3><div className="work-timeline">{visibleSchedules.map(item => {
       const attention = item.execution_status === "failed" || item.execution_status === "interrupted";
       const waiting = item.execution_status === "waiting";
-      const label = waiting ? t(workExecutionStatusKeys.waiting) : item.status === "paused" ? t("panel.paused") : item.execution_status && (item.kind === "once" || attention || ["running", "queued"].includes(item.execution_status)) ? t(workExecutionStatusKeys[item.execution_status]) : item.kind === "daily" ? t("panel.daily_at", { time: item.daily_time }) : item.kind === "weekly" ? weeklyCadence(item.weekdays, item.daily_time) : item.kind === "interval" ? t("panel.every_minutes", { count: Math.round((item.interval_seconds || 0) / 60) }) : t("panel.once");
+      const running = item.execution_status === "running" || item.execution_status === "queued";
+      const label = waiting ? t(workExecutionStatusKeys.waiting) : item.status === "paused" ? t("panel.paused") : item.execution_status && (item.kind === "once" || attention || running) ? t(workExecutionStatusKeys[item.execution_status]) : item.kind === "daily" ? t("panel.daily_at", { time: item.daily_time }) : item.kind === "weekly" ? weeklyCadence(item.weekdays, item.daily_time) : item.kind === "interval" ? t("panel.every_minutes", { count: Math.round((item.interval_seconds || 0) / 60) }) : t("panel.once");
       const display = scheduleDisplay(item);
-      return <article className={`work-schedule${attention ? " needs-attention" : ""}`} key={item.id}><time dateTime={item.next_at_utc}>{formatZonedTime(item.next_at_utc, preference.timezone)}</time><strong>{display.title}</strong><p className="work-schedule-description">{display.description}</p><div className="work-row-meta">{provenance(item)}<span className="work-state">{label}</span></div><details className="work-item-details"><summary>{t("panel.manage")}</summary><div className="schedule-instructions"><strong>{t("panel.instructions")}</strong><p>{item.content}</p></div>{(() => { const open = !(conversation.archived || item.conversation_archived || item.bot_archived); const actions = <>{item.status === "active" && <ScheduleIconButton icon="pause" label={t("panel.pause")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.pauseSchedule(item.id))} />}{item.status === "paused" && <ScheduleIconButton icon="play" label={t("panel.resume")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.resumeSchedule(item.id))} />}{waiting && item.last_run_id && <ScheduleIconButton icon="stop" label={t("panel.stop_turn")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.cancelRun(item.last_run_id!))} />}{attention && item.last_run_id && <ScheduleIconButton icon="retry" label={t("panel.rerun")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.retryRun(item.last_run_id!))} />}<ScheduleDeleteButton label={t("panel.delete")} question={t("panel.delete_confirm")} disabled={!!pending} onConfirm={() => mutate(item.id, () => api.deleteSchedule(item.id))} /></>; return open ? <ScheduleEditor schedule={item} disabled={!!pending} onSave={action => mutate(item.id, action)} actions={actions} /> : null; })()}{item.timezone !== preference.timezone && <small>{t("panel.schedule_zone", { zone: item.timezone })}</small>}</details></article>;
+      const next = Number.isFinite(Date.parse(item.next_at_utc));
+      const open = !(conversation.archived || item.conversation_archived || item.bot_archived);
+      const owner = botView ? lookupSource(item.conversation_id, item.conversation_name) : lookupBot(item.bot_id, item.bot_name);
+      const actions = <>{item.status === "active" && <ScheduleIconButton icon="pause" label={t("panel.pause")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.pauseSchedule(item.id))} />}{item.status === "paused" && <ScheduleIconButton icon="play" label={t("panel.resume")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.resumeSchedule(item.id))} />}{waiting && item.last_run_id && <ScheduleIconButton icon="stop" label={t("panel.stop_turn")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.cancelRun(item.last_run_id!))} />}{attention && item.last_run_id && <ScheduleIconButton icon="retry" label={t("panel.rerun")} disabled={!!pending} onClick={() => void mutate(item.id, () => api.retryRun(item.last_run_id!))} />}<ScheduleDeleteButton label={t("panel.delete")} question={t("panel.delete_confirm")} disabled={!!pending} onConfirm={() => mutate(item.id, () => api.deleteSchedule(item.id))} /></>;
+      return <ScheduleCard key={item.id} className="work-schedule" state={attention ? "error" : waiting || running ? "run" : "done"} statusLabel={label} time={next ? formatClock(item.next_at_utc, { timeZone: preference.timezone }) : "--:--"} day={next ? dateTimeFormat(intlLocale(), { timeZone: preference.timezone, month: "short", day: "numeric" }).format(new Date(item.next_at_utc)) : undefined} title={display.title} meta={[owner, display.description].filter(Boolean).join(" · ")} bodyLabel={t("panel.instructions")}>
+        <p className="schedule-instructions">{item.content}</p>
+        {botView && provenance(item)}
+        {open && <ScheduleEditor schedule={item} disabled={!!pending} onSave={action => mutate(item.id, action)} actions={actions} />}
+        {item.timezone !== preference.timezone && <small>{t("panel.schedule_zone", { zone: item.timezone })}</small>}
+      </ScheduleCard>;
     })}</div></section>}
     </Tabs.Content>
   </div></Tabs.Root>;
@@ -170,11 +195,11 @@ function WorkCreate({ conversation, conversations, bots, goals, onDone, onCancel
     } catch (cause) { setError(message(cause)); }
     finally { setBusy(false); onBusyChange(false); }
   }
-  return <form aria-busy={busy} className="work-create" onSubmit={event => void create(event)}><fieldset disabled={busy} style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }}><Segmented className="work-create-kind" label={t("create.type_aria")} value={type} onChange={setType} options={(["task", "goal", "schedule"] as const).map(value => ({ value, label: t(`create.type.${value}`) }))} />
+  return <Card variant="quiet" className="work-create-card"><form aria-busy={busy} className="work-create" onSubmit={event => void create(event)}><fieldset disabled={busy} style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }}><Segmented className="work-create-kind" label={t("create.type_aria")} value={type} onChange={setType} options={(["task", "goal", "schedule"] as const).map(value => ({ value, label: t(`create.type.${value}`) }))} />
     <label>{t(`create.content_label.${type}`)}<TextArea autoFocus aria-label={t("create.content_aria")} maxLength={type === "schedule" ? 32000 : 240} value={title} onChange={event => setTitle(event.target.value)} rows={2} required /></label>
     {botView && <label>{t("create.source")}<Select value={sourceID} onValueChange={value => { setSourceID(value); setParent(""); }} aria-label={t("create.source_aria")}>{sources.map(value => <option key={value.id} value={value.id}>{value.kind === "dm" ? t("create.direct") : value.name}</option>)}</Select></label>}
     {!botView && <label>{t("create.owner")}<Select aria-label={t("create.owner_aria")} value={botID} onValueChange={value => setBotID(value)}>{members.map(bot => <option key={bot.id} value={bot.id}>{bot.name}</option>)}</Select></label>}
     {type === "schedule" ? <><label>{t("create.schedule_title")}<TextInput aria-label={t("create.schedule_title")} required maxLength={120} value={scheduleTitle} onChange={event => setScheduleTitle(event.target.value)} placeholder={t("create.schedule_title_placeholder")} /></label><label>{t("create.schedule_description")}<TextArea aria-label={t("create.schedule_description")} maxLength={280} required value={description} onChange={event => setDescription(event.target.value)} rows={2} /></label><ScheduleTimingFields draft={timing} timezone={timezone} onChange={change => setTiming(current => ({ ...current, ...change }))} /></> : <Disclosure title={t("create.more")}><label>{t("create.description")}<TextArea aria-label={t("create.description_aria")} rows={3} value={description} onChange={event => setDescription(event.target.value)} /></label>{type === "task" && !!goalOptions.length && <label>{t("create.parent_goal")}<Select value={parent} onValueChange={value => setParent(value)}><option value="">{t("create.no_goal")}</option>{goalOptions.map(goal => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</Select></label>}</Disclosure>}
     {error && <p className="error-text" role="alert">{error}</p>}<div className="work-create-actions"><Button variant="ghost" onClick={onCancel}>{t("create.cancel")}</Button><Button variant="primary" type="submit" disabled={busy || !title.trim() || !botID || (type === "schedule" && (!preference.ready || !scheduleTitle.trim() || !description.trim() || (kind === "weekly" && !weekdays.length)))}>{busy ? t("create.saving") : t("create.add")}</Button></div>
-  </fieldset></form>;
+  </fieldset></form></Card>;
 }

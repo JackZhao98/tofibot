@@ -1,3 +1,4 @@
+import { Checkbox } from "./ds/Checkbox/Checkbox";
 import { Disclosure } from "./InteractionPrimitives";
 import { useTranslation } from "./i18n";
 import { weekdayName } from "./scheduleCadence";
@@ -80,7 +81,7 @@ export function ScheduleTimingFields({ draft, timezone, onChange, disabled }: { 
   const clock = kind === "daily" || kind === "weekly";
   return <>
     <label>{t("create.repeat")}<Select aria-label={t("create.repeat_aria")} value={kind} disabled={disabled} onValueChange={value => onChange({ kind: value as ScheduleKind })}><option value="once">{t("create.repeat_once")}</option><option value="daily">{t("create.repeat_daily")}</option><option value="weekly">{t("create.repeat_weekly")}</option><option value="interval">{t("create.repeat_interval")}</option></Select></label>
-    {kind === "weekly" && <fieldset className="work-weekdays" aria-label={t("create.weekdays")} disabled={disabled}><legend>{t("create.weekdays")}</legend>{WEEKDAYS.map(day => <button key={day} type="button" aria-pressed={draft.weekdays.includes(day)} onClick={() => onChange({ weekdays: draft.weekdays.includes(day) ? draft.weekdays.filter(value => value !== day) : [...draft.weekdays, day] })}>{weekdayName(day)}</button>)}</fieldset>}
+    {kind === "weekly" && <fieldset className="work-weekdays" aria-label={t("create.weekdays")} disabled={disabled}><legend>{t("create.weekdays")}</legend>{WEEKDAYS.map(day => <Checkbox key={day} checked={draft.weekdays.includes(day)} onChange={checked => onChange({ weekdays: checked ? [...draft.weekdays, day] : draft.weekdays.filter(value => value !== day) })}>{weekdayName(day)}</Checkbox>)}</fieldset>}
     <label>{clock ? t("create.daily_time") : t("create.run_time")}{clock ? <input type="time" required disabled={disabled} value={draft.dailyTime} onChange={event => onChange({ dailyTime: event.target.value })} /> : <input type="datetime-local" required disabled={disabled} value={draft.runAt} onChange={event => onChange({ runAt: event.target.value })} />}</label>
     {kind === "interval" && <label>{t("create.interval_minutes")}<input type="number" min="1" max="525600" value={draft.interval} disabled={disabled} onChange={event => onChange({ interval: event.target.value })} required /></label>}
     <Disclosure title={t("create.timezone", { zone: timezone })}><TimezoneSelect value={timezone} disabled={disabled} onChange={zone => onChange({ zone })} /></Disclosure>

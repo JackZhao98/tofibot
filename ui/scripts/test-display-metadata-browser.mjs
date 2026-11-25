@@ -74,7 +74,7 @@ try {
   await page.getByText("新记忆", { exact: true }).waitFor();
   await page.getByRole("button", { name: "日程列表", exact: true }).click();
   const row = page.locator(".work-schedule").filter({ has: page.getByText("标题 daily", { exact: true }) });
-  await row.locator(":scope > details > summary").click();
+  await row.locator(".tb-sched-row").click();
   await row.getByRole("button", { name: "编辑", exact: true }).click();
   const instruction = await page.getByRole("textbox", { name: "编辑日程执行指令" }).inputValue();
   await page.getByRole("textbox", { name: "编辑日程标题" }).fill("更新的日程标题");

@@ -76,7 +76,6 @@
     "daily_at": "毎日 {{time}}",
     "every_minutes_other": "{{count}}分ごと",
     "once": "1回のみ",
-    "manage": "管理",
     "instructions": "指示の全文",
     "pause": "一時停止",
     "resume": "再開",

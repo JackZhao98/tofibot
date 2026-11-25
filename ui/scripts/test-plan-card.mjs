@@ -343,7 +343,9 @@ try {
         assert.deepEqual(await titles(), ["Ship the launch", "Support macros"], `${engineName}: the goal and the to-dos under it`);
         await pickSelect(panel.locator("button.work-goal-filter"), "");
         const faq = panel.locator(".work-row", { hasText: "Update the FAQ" });
-        await faq.locator("summary").click();
+        await faq.locator(".work-row-main > .disclosure > .disclosure-toggle").click();
+        // The drawer opens over --m-base; a Select opened inside it meanwhile is placed against a moving trigger.
+        await faq.locator(".work-row-main > .disclosure > .disclosure-region").evaluate(region => Promise.all(region.getAnimations().map(animation => animation.finished)));
         const patched = page.waitForResponse(response => response.request().method() === "PATCH" && response.url().includes("/api/work-items/"));
         await pickSelect(faq.locator('button.ui-select-trigger[aria-label="Assignee of Update the FAQ"]'), "bot_c");
         await patched;
@@ -410,7 +412,7 @@ try {
           await work.page.locator(".plan-dock-tasks").click();
           const panel = work.page.locator(".work-panel");
           await panel.locator(".work-row").first().waitFor({ timeout: 8000 });
-          await panel.locator(".work-row", { hasText: "Update the FAQ" }).locator("summary").click();
+          await panel.locator(".work-row", { hasText: "Update the FAQ" }).locator(".work-row-main > .disclosure > .disclosure-toggle").click();
           await work.page.waitForTimeout(600);
           await work.page.screenshot({ path: join(shotsDir, `work-${label}-${theme}-${engineName}.png`) });
           await work.context.close();
