@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/JackZhao98/tofibot/internal/computer"
+	"github.com/JackZhao98/tofibot/internal/computer/e2b"
 )
 
 const (
@@ -66,6 +67,10 @@ func (s *Server) maybeUpdateE2BImage() {
 		return
 	}
 	st := p.Status()
+	// A computer E2B refuses (a revoked key) cannot be updated: wait for the person to replace the key.
+	if st.Phase == e2b.PhaseFailed {
+		return
+	}
 	if !st.GuestOutdated || st.SandboxID == "" {
 		return
 	}

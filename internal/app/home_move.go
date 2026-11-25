@@ -170,7 +170,7 @@ func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int
 	dir := homeMoveDir(moveID)
 	size, err := guestShell(ctx, from, "du -sb --exclude='uploads/.tofi-move-*' /workspace/home | cut -f1", 60)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, guestStepError("could not measure home", size, err)
 	}
 	used, err := strconv.ParseInt(strings.TrimSpace(size.Stdout), 10, 64)
 	if err != nil {
@@ -181,7 +181,7 @@ func packHome(ctx context.Context, from guestCall, moveID string) ([]string, int
 	}
 	pack := fmt.Sprintf(`mkdir -p %[1]s && setsid nohup sh -c 'cd /workspace && tar --exclude="home/uploads/.tofi-move-*" -czf %[1]s/home.tgz home; rc=$?; if [ $rc -le 1 ]; then cd %[1]s && split -b %[2]s home.tgz part. && rm home.tgz && sha256sum part.* > sums && echo done > state; else echo failed:$rc > state; fi' >/dev/null 2>&1 &`, dir, homeMovePartBytes)
 	if out, err := guestShell(ctx, from, pack, 30); err != nil || out.ExitCode != 0 {
-		return nil, used, errors.New("could not start packing")
+		return nil, used, guestStepError("could not start packing", out, err)
 	}
 	if err := waitGuestState(ctx, from, dir+"/state"); err != nil {
 		return nil, used, err
@@ -225,7 +225,7 @@ func unpackHome(ctx context.Context, to guestCall, moveID string) error {
 	}
 	unpack := fmt.Sprintf(`setsid nohup sh -c 'cd %[1]s && cat part.* | tar --no-same-owner -xzf - -C /workspace; rc=$?; if [ $rc -eq 0 ]; then echo done > unpacked; else echo failed:$rc > unpacked; fi' >/dev/null 2>&1 &`, dir)
 	if out, err := guestShell(ctx, to, unpack, 30); err != nil || out.ExitCode != 0 {
-		return errors.New("could not start unpacking")
+		return guestStepError("could not start unpacking", out, err)
 	}
 	return waitGuestState(ctx, to, dir+"/unpacked")
 }
@@ -311,4 +311,30 @@ func (s *Server) moveHomeFunc() func(ctx context.Context, from, to guestCall, mo
 		return s.homeMover
 	}
 	return moveHome
+}
+
+// guestStepError keeps what the guest said (the call error, the exit code and the first line of stderr) for the
+// server log; the page shows only the move's named reason.
+func guestStepError(step string, out guestShellResult, err error) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", step, err)
+	}
+	line := strings.TrimSpace(out.Stderr)
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	if len(line) > 200 {
+		line = line[:200]
+	}
+	return fmt.Errorf("%s: exit %d: %s", step, out.ExitCode, line)
+}
+
+// clear forgets a finished or failed move, so a stale failure does not stay on the page after the person fixed
+// its cause (a new key, a removed computer, a switch that went through).
+func (m *homeMoveState) clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.phase != "moving" {
+		m.phase, m.target, m.errorCode = "", "", ""
+	}
 }
