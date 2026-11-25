@@ -1,6 +1,7 @@
 import { TofiIcon } from "./icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DesktopPermissionKind, DesktopPermissionSnapshot } from "./desktop";
+import { Button } from "./ds/Button/Button";
 import "./permission-coach.css";
 import { i18n, useTranslation } from "./i18n";
 
@@ -106,12 +107,12 @@ export function PermissionCoach({ permissions, onDismiss, force = false, open = 
         return <section className={`permission-coach-item${granted ? " is-granted" : ""}`} key={kind}>
           <div className="permission-coach-item-copy"><strong>{definition.name}</strong><span>{definition.description}</span></div>
           <span className="permission-coach-status">{granted ? <><TofiIcon name="check" size={16} variant="filled" style={{ verticalAlign: "middle" }} /> {t("permissions.granted")}</> : statusText(snapshot, kind)}</span>
-          {!granted && <div className="permission-coach-actions"><button type="button" className="primary-button" disabled={busy !== null} onClick={() => void request(kind)}>{busy === kind ? t("action.processing") : t("permissions.allow")}</button><button type="button" className="secondary-button" disabled={busy !== null} onClick={() => void openSettings(kind)}>{definition.setting}</button></div>}
+          {!granted && <div className="permission-coach-actions"><Button variant="primary" size="sm" disabled={busy !== null} busy={busy === kind} onClick={() => void request(kind)}>{busy === kind ? t("action.processing") : t("permissions.allow")}</Button><Button size="sm" disabled={busy !== null} onClick={() => void openSettings(kind)}>{definition.setting}</Button></div>}
           {!granted && showDrop && <div className="permission-guide-hint"><span>{t("permissions.drag_hint")}</span><small>{t("permissions.drag_detail")}</small></div>}
         </section>;
       })}
     </div>
     {error && <p className="permission-coach-error" role="alert">{error}</p>}
-    <div className="permission-coach-footer"><span>{t("permissions.no_restart")}</span><button type="button" className="text-button" onClick={() => void refresh()}>{t("permissions.recheck")}</button></div>
+    <div className="permission-coach-footer"><span>{t("permissions.no_restart")}</span><Button variant="ghost" size="sm" onClick={() => void refresh()}>{t("permissions.recheck")}</Button></div>
   </aside>;
 }

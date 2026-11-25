@@ -50,14 +50,8 @@
   "day-one.css": {
     "bridgeUse": 5
   },
-  "desktop-bot-browser/bot-browser-chrome.css": {
-    "bridgeUse": 3
-  },
   "desktop-presence.css": {
     "bridgeUse": 39
-  },
-  "desktop-settings/mac-settings.css": {
-    "bridgeUse": 1
   },
   "display-card.css": {
     "bridgeUse": 21
@@ -122,9 +116,6 @@
   },
   "onboarding.css": {
     "bridgeUse": 49
-  },
-  "permission-coach.css": {
-    "bridgeUse": 12
   },
   "plan-card.css": {
     "bridgeUse": 13
