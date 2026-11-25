@@ -103,10 +103,10 @@
   "bot_sections": [
     "identity",
     "role",
-    "model",
     "tools",
     "secrets",
-    "advanced"
+    "export",
+    "danger"
   ],
   "group_sections": [
     "general",
@@ -324,8 +324,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/b/{bot}/settings#model",
-      "manual": "bot-settings/model",
+      "link": "/b/{bot}/settings#role",
+      "manual": "bot-settings/role",
       "label_key": "settings:model.label",
       "audit": true
     },
@@ -336,8 +336,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/b/{bot}/settings#model",
-      "manual": "bot-settings/model",
+      "link": "/b/{bot}/settings#role",
+      "manual": "bot-settings/role",
       "label_key": "settings:model.effort_label",
       "audit": true
     },
@@ -371,6 +371,25 @@
       "audit": true
     },
     {
+      "key": "bot.tool_tier",
+      "scope": "bot",
+      "kind": "enum",
+      "options": [
+        "global",
+        "read_only",
+        "write",
+        "high_risk"
+      ],
+      "risk": {
+        "self": "confirm",
+        "other": "confirm"
+      },
+      "link": "/b/{bot}/settings#tools",
+      "manual": "bot-settings/tools",
+      "label_key": "extensions:tools.tier.write",
+      "audit": true
+    },
+    {
       "key": "bot.archived",
       "scope": "bot",
       "kind": "bool",
@@ -389,8 +408,8 @@
       "risk": {
         "self": "confirm"
       },
-      "link": "/b/{bot}/settings#advanced",
-      "manual": "bot-settings/advanced",
+      "link": "/b/{bot}/settings#danger",
+      "manual": "bot-settings/danger",
       "label_key": "chat:header.delete_bot",
       "audit": true
     },

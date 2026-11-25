@@ -159,7 +159,7 @@
   },
   "skills": {
     "title": "Skills",
-    "hint": "Skills this Bot can use. A library Skill is off until you turn it on here; the Bot can also turn Skills on for itself. Official Skills are on unless you turn them off.",
+    "hint": "Library skills start off. Official skills start on. The Bot can switch its own.",
     "loading": "Loading Skills…",
     "empty": "The library has no Skills yet. Add them in Settings › Skills.",
     "official_title": "Official Skills",
@@ -219,52 +219,25 @@
   "tools": {
     "connections": {
       "title": "Connections",
-      "hint": "Turn a connection off to keep this Bot away from it. A new connection starts on for every Bot.",
+      "hint": "Off keeps this Bot away from a connection. New ones start on.",
       "loading": "Loading…",
       "error": "Couldn't load connections. Try again.",
       "none": "No connections yet.",
       "add": "Add one in Settings",
       "switch": "Let {{bot}} use {{connection}}",
       "open": "Open {{connection}} in Settings",
-      "save_failed": "Couldn't save. Try again.",
-      "allowed_one": "{{count}} always allowed",
-      "allowed_other": "{{count}} always allowed"
+      "save_failed": "Couldn't save. Try again."
     },
     "skills": {
       "manage": "Manage library"
     },
-    "web": {
-      "title": "Web",
-      "search": "Search",
-      "fetch": "Fetch",
-      "on": "On · {{chain}}",
-      "search_none": "Off · no source configured",
-      "configure": "Configure sources"
-    },
-    "computer": {
-      "title": "Environments",
-      "none": "No Bot computer yet. Add one in Settings so Bots can browse and run code.",
-      "manage": "Manage environments",
-      "always": "Always",
-      "mac": "When you allow it on that Mac",
-      "error": "Couldn't read environments."
-    },
-    "builtin": {
-      "title": "Built in",
-      "summary": "What every Bot can do",
-      "items": "Files and attachments · Images · Memory · Tasks and schedules · Ask a person · Workspace admin (on demand)"
-    },
-    "permissions": {
-      "title": "Permissions for this Bot",
-      "manage": "All permissions",
-      "empty": "Nothing is allowed without asking. Choose “Always allow” on an approval to add one.",
-      "allowed": "Allowed {{time}}",
-      "used_one": "used {{count}} time",
-      "used_other": "used {{count}} times",
-      "remembered_one": "Remembered in {{count}} chat",
-      "remembered_other": "Remembered in {{count}} chats",
-      "remembered_none": "Remembered in chats: none",
-      "error": "Couldn't load permissions. Try again."
+    "tier": {
+      "show": "Tool permissions for {{connection}}",
+      "label": "{{bot}} on {{tool}}",
+      "follow": "Default · {{tier}}",
+      "changed": "Tool changed since you set this.",
+      "error": "Couldn't load tools. Try again.",
+      "empty": "No tools seen yet."
     }
   }
 }

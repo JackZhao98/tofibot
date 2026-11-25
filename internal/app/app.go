@@ -457,6 +457,8 @@ type Store struct {
 	guestBlobsMu sync.RWMutex
 	// maxPersonalComputers caps personal computers (0 = DefaultMaxPersonalComputers).
 	maxPersonalComputers int
+	// botTiers mirrors bot_tool_tiers for the lookup the review path makes inside transactions (bot_tool_tiers.go).
+	botTiers botTierCache
 	// deviceTag names the account in the claim codes and device tokens this store
 	// issues, so an account gateway can route a device request (which has no
 	// session) to the workspace that issued it. Empty on a single-account server.
@@ -999,6 +1001,12 @@ CREATE INDEX IF NOT EXISTS events_delta ON events(conversation_id,id) WHERE type
 		return err
 	}
 	if err := migrateConnectionAccess(s.db); err != nil {
+		return err
+	}
+	if err := migrateBotToolTiers(s.db); err != nil {
+		return err
+	}
+	if err := s.loadBotToolTiers(); err != nil {
 		return err
 	}
 	if err := migrateToolActivity(s.db); err != nil {
@@ -3201,7 +3209,7 @@ func NewServer(c Config) (*Server, error) {
 	} else if switched > 0 {
 		log.Printf("[model-settings] %d Bot(s) now follow the global model", switched)
 	}
-	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, AllowPrivateEndpoints: server.mcpPrivateAllowed, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, HasBotComputer: func() bool { return server.computer() != nil }, ConnectionAccess: st.connectionAccessFilter, ServerIdentityChanged: server.markStandingServerChanged})
+	server.extensions = extensions.NewManager(extensions.Config{MCPConfigPath: c.MCPConfigPath, SkillsDir: c.SkillsDir, ExpandToolQuery: server.expandToolSearchQuery, HTTPTransport: server.localMCPTransport, AllowPrivateEndpoints: server.mcpPrivateAllowed, ServerUsable: server.mcpServerUsable, SkillAccess: st.skillEnabledFilter, HasBotComputer: func() bool { return server.computer() != nil }, ConnectionAccess: st.connectionAccessFilter, BotToolTier: st.botToolTier, BotToolTierRaised: st.botToolTierRaised, ServerIdentityChanged: server.markStandingServerChanged})
 	if err := server.migrateSkillLibraryData(); err != nil {
 		st.Close()
 		return nil, fmt.Errorf("skill library migration: %w", err)
@@ -3397,7 +3405,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	if s.routeDesktopStream(w, r, p) {
 		return
 	}
-	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeComputerAttach(w, r, p) || s.routeStorage(w, r, p) {
+	if s.handleBotSecrets(w, r) || s.handleBotSkills(w, r) || s.handleBotConnections(w, r) || s.handleBotToolTiers(w, r) || s.handleSecrets(w, r) || s.handleSSHKeys(w, r) || s.routeComputerResources(w, r, p) || s.routeComputerAttach(w, r, p) || s.routeStorage(w, r, p) {
 		return
 	}
 	if s.routeBrowser(w, r, p) {

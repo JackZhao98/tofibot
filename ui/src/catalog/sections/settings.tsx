@@ -145,7 +145,7 @@ const BOT_LIST: BotSkillListing = {
 };
 const botProps = (extra: Partial<BotSkillsViewProps> = {}): BotSkillsViewProps => ({ botId: "bot_mochi", listing: BOT_LIST, loading: false, busy: false, error: "", onToggle: noop, onToggleBundle: noop, ...extra });
 const botState = (id: string, label: string, props: Partial<BotSkillsViewProps> | (() => Partial<BotSkillsViewProps>)): CatalogState =>
-  ({ id: `bot-skills-${id}`, kind: "inline", label, context: ["cover-window", "bot-settings", "bs-page", "bs-scroll", "bs-sections", "bs-section"], render: () => <BotSkillsView {...botProps(typeof props === "function" ? props() : props)} /> });
+  ({ id: `bot-skills-${id}`, kind: "inline", label, context: ["cover-window", "bot-settings", "bs-scroll", "bs-sections", "bs-section"], render: () => <BotSkillsView {...botProps(typeof props === "function" ? props() : props)} /> });
 
 function AccountSample({ long = false }: { long?: boolean }) {
   const owner = long

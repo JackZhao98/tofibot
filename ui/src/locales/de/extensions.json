@@ -490,6 +490,7 @@
       "refresh_failed": "Tool-Liste konnte nicht aktualisiert werden."
     },
     "explain": "Läuft ohne Rückfrage: Tools, die der Dienst oder du als nur lesend markierst. Fragt bei Unsicherheit: Jeder Aufruf wird geprüft; was du verlangt hast, läuft, alles andere fragt zuerst. Fragt immer nach: Du entscheidest jeden Aufruf.",
+    "default_note": "Der Standard für jeden Bot. Jeder Bot kann in seinen Einstellungen einen eigenen festlegen.",
     "group": {
       "read_only": "Läuft ohne Rückfrage",
       "write": "Fragt bei Unsicherheit",

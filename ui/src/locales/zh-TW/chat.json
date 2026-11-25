@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bot 設定分區",
-    "back": "全部分區",
     "avatar_title": "頭像",
     "avatar_hint": "這隻貓在清單和聊天裡的樣子。",
     "name_required": "名稱不能為空。",
@@ -89,19 +88,20 @@
     "export_action": "匯出",
     "delete_hint": "刪除這個 Bot 和它的聊天，無法復原。",
     "section": {
-      "identity": "身分",
-      "role": "職能",
-      "model": "模型",
+      "identity": "資料",
+      "role": "職能與模型",
+      "tools": "工具",
       "secrets": "金鑰",
-      "advanced": "進階",
-      "tools": "工具"
+      "export": "匯出",
+      "danger": "危險操作"
     },
     "desc": {
       "identity": "頭像、名稱和主要助理。",
-      "role": "這個 Bot 負責什麼。它在每次回覆前都會讀到這裡。",
-      "model": "這個 Bot 用哪個模型，思考多深。",
-      "advanced": "系統提示詞、匯出和刪除。",
-      "tools": "{{name}} 能用什麼。連線和技能由你開關,其餘跟隨工作區設定。"
+      "role": "這個 Bot 的職能與所用模型。",
+      "tools": "此 Bot 的連線、工具權限和技能。",
+      "secrets": "這個 Bot 保存的金鑰。",
+      "export": "分享檔案、資料匯出和系統提示詞。",
+      "danger": "刪除這個 Bot。"
     },
     "role_count_other": "{{count}} 個字元",
     "ground_label": "頭像底色",

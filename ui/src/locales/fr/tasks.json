@@ -300,7 +300,8 @@
         "revert": "La valeur d'avant la modification précédente revient.",
         "change": "Le réglage change.",
         "bot_skills": "Les compétences d'un autre Bot changent.",
-        "bot_avatar": "L'avatar d'un autre Bot change."
+        "bot_avatar": "L'avatar d'un autre Bot change.",
+        "bot_tool_tier": "La fréquence à laquelle ce Bot demande avant d’utiliser cet outil change."
       }
     },
     "standing_decision": "Approuvé par l'autorisation permanente de ce Bot ; personne n'a été sollicité. L'étape ci-dessous indique si l'appel a eu lieu."

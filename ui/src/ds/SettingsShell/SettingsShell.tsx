@@ -41,6 +41,8 @@ export type SettingsShellProps = {
   /** The title's heading level: a page that is the whole window (the Mac pages) uses h1. */
   titleAs?: "h1" | "h2";
   hooks?: SettingsShellHooks;
+  /** The frame is the window's own (a cover): no border and no radius of its own. */
+  flush?: boolean;
   className?: string;
   children?: ReactNode;
 };
@@ -50,7 +52,7 @@ export type SettingsShellProps = {
  * narrower the rail is one row of links above the content and the group names go. The links are buttons, because a page that holds
  * unsaved edits has to ask before it navigates; an item that is a real route can wrap this and render its own anchors later.
  */
-export function SettingsShell({ groups, active, onNavigate, navLabel, crumb, title, tag, status, actions, actionsRef, titleAs: Title = "h2", hooks = {}, className, children }: SettingsShellProps) {
+export function SettingsShell({ groups, active, onNavigate, navLabel, crumb, title, tag, status, actions, actionsRef, titleAs: Title = "h2", hooks = {}, flush, className, children }: SettingsShellProps) {
   // No groups: a single page with no rail (the Mac pages), only the head row and the content.
   const plain = groups.length === 0;
   const rail = useRef<HTMLElement>(null);
@@ -61,7 +63,7 @@ export function SettingsShell({ groups, active, onNavigate, navLabel, crumb, tit
     if (!strip || !on || strip.scrollWidth <= strip.clientWidth) return;
     strip.scrollLeft = Math.max(0, on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2);
   }, [active]);
-  return <div className={cx("tb-settings", plain && "tb-settings--plain", hooks.root, className)}>
+  return <div className={cx("tb-settings", plain && "tb-settings--plain", flush && "tb-settings--flush", hooks.root, className)}>
     {plain ? null : <nav ref={rail} className={cx("tb-settings-rail", hooks.nav)} aria-label={navLabel}>
       {groups.map(group => <div key={group.id} className={cx("tb-settings-group", hooks.group)} data-group={group.id}>
         {group.label ? <div className={cx("tb-settings-grouplabel", hooks.groupLabel)}>{group.label}</div> : null}

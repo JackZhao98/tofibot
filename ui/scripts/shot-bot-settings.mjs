@@ -30,7 +30,7 @@ const failures = [];
 const check = (ok, message) => { console.log(`${ok ? "ok  " : "FAIL"} ${message}`); if (!ok) failures.push(message); };
 
 async function open(theme, width, { group = false } = {}) {
-  const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme });
+  const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme, deviceScaleFactor: Number(process.env.SHOT_SCALE || 1) });
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(`${theme} ${width}: ${error.message}`));
   const writes = { patch: [], group: [], primary: 0 };
@@ -49,6 +49,9 @@ async function open(theme, width, { group = false } = {}) {
     if (p.endsWith("/debug-preview")) return json({ system_prompt: "You are Mochi.\nYou keep the launch calendar.\nBe brief and kind.", tools: [] });
     if (p === "/api/model-settings") return json({ model: "synthetic-model", reasoning_effort: "medium" });
     if (p === "/api/models") return json({ models: [{ id: "synthetic-model", label: "Synthetic model", name: "Synthetic model", provider: "anthropic", reasoning_efforts: ["low", "medium", "high"], default_reasoning: "medium" }, { id: "other-model", label: "Other model", name: "Other model", provider: "anthropic", reasoning_efforts: ["low", "high"], default_reasoning: "low" }], source: "live" });
+    if (p === "/api/extensions/mcp" && method === "GET") return json({ servers: [{ name: "notion", url: "https://mcp.notion.com/mcp", oauth: { client_id: "", connected: true }, status: { checked_at: NOW, ok: true, tool_count: 3 } }, { name: "github", url: "https://api.githubcopilot.com/mcp/", status: { checked_at: NOW, ok: true, tool_count: 9 } }] });
+    if (p.endsWith("/connections") && method === "GET") return json({ connections: [{ server: "notion", enabled: true }, { server: "github", enabled: false }] });
+    if (/\/tool-tiers\/[^/]+$/.test(p) && method === "GET") return json({ tools: [{ name: "create_page", tier: "write", global_tier: "write" }, { name: "delete_page", tier: "high_risk", global_tier: "write", bot_tier: "high_risk" }, { name: "search", tier: "read_only", global_tier: "read_only" }] });
     if (p.endsWith("/task-cards")) return json(TASKS);
     if (p.endsWith("/task-impact")) return json({ given_tasks: 1, held_tasks: 0, open_waits: 0 });
     return route.fallback();
@@ -60,6 +63,14 @@ async function open(theme, width, { group = false } = {}) {
   await page.waitForTimeout(900);
   if (group) { await page.locator(".conversation-row", { hasText: "Launch crew" }).click(); await page.waitForTimeout(600); }
   return { context, page, writes };
+}
+
+/** The cat opens the Bot card on the wide layout, and the card's link opens the cover; on a phone the cat opens the cover itself. */
+async function openCover(page) {
+  // The card can still be open after a cover closed: then only its link is left to press.
+  if (!(await page.locator(".bot-card-advanced").count())) await page.locator(".chat-identity").click();
+  await page.locator(".bot-card-advanced, .cover-window .bot-settings").first().waitFor();
+  if (await page.locator(".bot-card-advanced").count()) await page.locator(".bot-card-advanced").click();
 }
 
 async function strip(page, name, action, { count = 5, settle = 700 } = {}) {
@@ -92,28 +103,30 @@ for (const theme of themes) {
   {
     const { context, page, writes } = await open(theme, 1280);
     const shot = async (name, wait = 700) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${theme}-1280-${name}.png` }); };
-    await page.locator(".chat-identity").click();
+    await openCover(page);
     await page.locator(".bot-settings").waitFor();
     await shot("bs-1-identity", 900);
-    for (const [index, id] of [[2, "role"], [3, "model"], [4, "tools"], [5, "secrets"], [6, "advanced"]]) {
-      await page.locator(`.bs-nav-item[data-section="${id}"]`).click();
+    for (const [index, id] of [[2, "role"], [3, "tools"], [4, "secrets"], [5, "export"], [6, "danger"]]) {
+      await page.locator(`.bs-nav-item[data-tab="${id}"]`).click();
       await shot(`bs-${index}-${id}`, 600);
     }
-    await page.locator('.bs-nav-item[data-section="advanced"]').click();
-    await page.locator(".bot-inspector > summary").click(); await shot("bs-6-advanced-prompt-open", 700);
-    await page.locator('.bs-nav-item[data-section="identity"]').click(); await page.waitForTimeout(400);
-    await page.locator(".bs-avatar-row .bs-button").click();
+    await page.locator('.bs-nav-item[data-tab="tools"]').click();
+    await page.locator(".bt-tiers-trigger").first().click(); await page.locator(".bt-tool").first().waitFor(); await shot("bs-3-tools-tiers-open", 700);
+    await page.locator('.bs-nav-item[data-tab="export"]').click();
+    await page.locator(".bot-inspector > summary").click(); await shot("bs-5-export-prompt-open", 700);
+    await page.locator('.bs-nav-item[data-tab="identity"]').click(); await page.waitForTimeout(400);
+    await page.locator('.bs-section[data-section="identity"] button[aria-haspopup="dialog"]').click();
     await page.locator(".bot-style-pop").waitFor(); await shot("bs-1-identity-style-popover", 700);
     await page.keyboard.press("Escape"); await page.waitForTimeout(400);
     check(await page.locator(".bot-settings").count() === 1, `${theme}: Escape closes the style popover only`);
     // dirty bar
     check(await page.locator(".cover-dirty-bar[data-open]").count() === 0, `${theme}: no dirty bar before an edit`);
-    await page.locator('.bs-field input').first().fill("Mochi Prime");
+    await page.locator("#bs-name").fill("Mochi Prime");
     await page.waitForTimeout(400);
     check(await page.locator(".cover-dirty-bar[data-open]").count() === 1, `${theme}: an edit opens the dirty bar`);
     await shot("bs-7-dirty-bar", 200);
     // switching sections keeps the draft and the bar
-    await page.locator('.bs-nav-item[data-section="role"]').click(); await page.waitForTimeout(300);
+    await page.locator('.bs-nav-item[data-tab="role"]').click(); await page.waitForTimeout(300);
     check(await page.locator(".cover-dirty-bar[data-open]").count() === 1, `${theme}: the bar stays across sections`);
     await page.locator(".bs-field textarea").fill("Keep the launch calendar.");
     check((await page.locator(".bs-count").innerText()).includes("25"), `${theme}: role character count`);
@@ -129,16 +142,16 @@ for (const theme of themes) {
     check(await page.locator(".cover-window").count() === 0, `${theme}: Discard changes closes the cover`);
     check(writes.patch.length === 0, `${theme}: discarding wrote nothing`);
     // Delete Bot goes through the existing confirm dialog, over the cover
-    await page.locator(".chat-identity").click(); await page.locator(".bot-settings").waitFor();
-    await page.locator('.bs-nav-item[data-section="advanced"]').click(); await page.waitForTimeout(300);
-    await page.locator(".bs-button.is-danger").click(); await page.locator(".delete-dialog").waitFor();
+    await openCover(page); await page.locator(".bot-settings").waitFor();
+    await page.locator('.bs-nav-item[data-tab="danger"]').click(); await page.waitForTimeout(300);
+    await page.locator(".bs-section[data-section='danger'] .tb-btn--danger").click(); await page.locator(".delete-dialog").waitFor();
     await shot("bs-10-delete-confirm", 500);
     check(await page.getByRole("button", { name: "Cancel" }).isVisible(), `${theme}: the delete question is readable (the cover closed first)`);
     await page.getByRole("button", { name: "Cancel" }).click(); await page.waitForTimeout(500);
     check(await page.locator(".delete-dialog").count() === 0 && await page.locator(".cover-window").count() === 0, `${theme}: cancelling the delete leaves the chat`);
     // save keeps the cover open
-    await page.locator(".chat-identity").click(); await page.locator(".bot-settings").waitFor();
-    await page.locator('.bs-field input').first().fill("Mochi Prime");
+    await openCover(page); await page.locator(".bot-settings").waitFor();
+    await page.locator("#bs-name").fill("Mochi Prime");
     await page.locator(".cover-dirty-save").click(); await page.waitForTimeout(900);
     check(writes.patch.length === 1 && writes.patch[0].name === "Mochi Prime", `${theme}: Save sends one PATCH with the form`);
     check(await page.locator(".bot-settings").count() === 1, `${theme}: Save keeps the cover open`);
@@ -147,20 +160,20 @@ for (const theme of themes) {
     BOT.name = "Mochi"; // restore for the next theme
     await context.close();
   }
-  // ---- 390: list -> page ----
+  // ---- 390: the rail is a strip above the page ----
   {
     const { context, page } = await open(theme, 390);
     const shot = async (name, wait = 700) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${theme}-390-${name}.png` }); };
-    await page.locator(".chat-identity").click(); await page.locator(".bot-settings").waitFor();
-    await shot("bs-phone-1-list", 900);
-    await page.locator('.bs-nav-item[data-section="model"]').click();
-    await shot("bs-phone-2-page-model", 700);
-    check(await page.locator(".bot-settings[data-view='page']").count() === 1, `${theme}: phone: choosing a section shows the page`);
-    await page.locator(".bs-back").click(); await page.waitForTimeout(500);
-    check(await page.locator(".bot-settings[data-view='list']").count() === 1, `${theme}: phone: the back arrow returns to the list`);
-    await page.locator('.bs-nav-item[data-section="identity"]').click(); await page.waitForTimeout(500);
-    await page.locator('.bs-field input').first().fill("Mochi Prime"); await page.waitForTimeout(400);
-    await shot("bs-phone-3-dirty-bar", 200);
+    await openCover(page); await page.locator(".bot-settings").waitFor();
+    await shot("bs-phone-1-profile", 900);
+    await page.locator('.bs-nav-item[data-tab="role"]').click();
+    await shot("bs-phone-2-role", 700);
+    check(await page.locator(".bs-section[data-section='role']:not([hidden])").count() === 1, `${theme}: phone: choosing a section shows the page`);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${theme}: phone: no horizontal page scroll`);
+    await page.locator('.bs-nav-item[data-tab="tools"]').click(); await page.waitForTimeout(500); await shot("bs-phone-3-tools", 400);
+    await page.locator('.bs-nav-item[data-tab="identity"]').click(); await page.waitForTimeout(500);
+    await page.locator("#bs-name").fill("Mochi Prime"); await page.waitForTimeout(400);
+    await shot("bs-phone-4-dirty-bar", 200);
     await context.close();
   }
   // ---- group: settings cover, new group dialog ----
@@ -197,8 +210,8 @@ for (const theme of themes) {
     {
       const { context, page } = await open(theme, 1280);
       const log = (name, times) => console.log(`${theme} ${name}: ${times.join(",")} ms`);
-      log("cover-bot-settings-open", await strip(page, `${theme}-1280-cover-bot-settings-open`, () => page.locator(".chat-identity").click())); await page.waitForTimeout(800);
-      log("section-switch", await strip(page, `${theme}-1280-section-switch`, () => page.locator('.bs-nav-item[data-section="role"]').click(), { count: 5, settle: 400 })); await page.waitForTimeout(300);
+      log("cover-bot-settings-open", await strip(page, `${theme}-1280-cover-bot-settings-open`, () => openCover(page))); await page.waitForTimeout(800);
+      log("section-switch", await strip(page, `${theme}-1280-section-switch`, () => page.locator('.bs-nav-item[data-tab="role"]').click(), { count: 5, settle: 400 })); await page.waitForTimeout(300);
       log("dirty-bar-in", await strip(page, `${theme}-1280-dirty-bar-in`, () => page.locator(".bs-field textarea").fill("Changed role"), { settle: 400 })); await page.waitForTimeout(300);
       log("dirty-bar-out", await strip(page, `${theme}-1280-dirty-bar-out`, () => page.locator(".cover-dirty-discard").click(), { settle: 400 })); await page.waitForTimeout(300);
       log("cover-bot-settings-close", await strip(page, `${theme}-1280-cover-bot-settings-close`, () => page.keyboard.press("Escape"))); await page.waitForTimeout(600);
@@ -218,9 +231,8 @@ for (const theme of themes) {
     {
       const { context, page } = await open(theme, 390);
       const log = (name, times) => console.log(`${theme} 390 ${name}: ${times.join(",")} ms`);
-      log("cover-open", await strip(page, `${theme}-390-cover-bot-settings-open`, () => page.locator(".chat-identity").click())); await page.waitForTimeout(800);
-      log("page-in", await strip(page, `${theme}-390-section-page-in`, () => page.locator('.bs-nav-item[data-section="role"]').click(), { settle: 500 })); await page.waitForTimeout(500);
-      log("page-out", await strip(page, `${theme}-390-section-page-out`, () => page.locator(".bs-back").click(), { settle: 500 })); await page.waitForTimeout(400);
+      log("cover-open", await strip(page, `${theme}-390-cover-bot-settings-open`, () => openCover(page))); await page.waitForTimeout(800);
+      log("section-switch", await strip(page, `${theme}-390-section-switch`, () => page.locator('.bs-nav-item[data-tab="role"]').click(), { settle: 500 })); await page.waitForTimeout(500);
       log("cover-close", await strip(page, `${theme}-390-cover-bot-settings-close`, () => page.keyboard.press("Escape")));
       await context.close();
     }

@@ -1,12 +1,12 @@
-// Bot settings > Tools (docs/design/tools-and-connections.md section 3.4). Mounts the real BotTools in a Vite fixture inside the cover's
-// markup, with every /api/* call stubbed (synthetic data only), and drives it with Playwright. Needs PLAYWRIGHT_MODULE.
+// Bot settings > Tools (BotTools.tsx). Mounts the real BotTools in a Vite fixture inside the cover's markup, with every /api/* call
+// stubbed (synthetic data only), and drives it with Playwright. Needs PLAYWRIGHT_MODULE.
 //
 // Invariants this pins:
-//   - six groups in order: Connections, Skills, Web, Computer, Built in, Permissions for this Bot
-//   - a connection row has a switch for this Bot (on by default), its status and counts, and a chevron that leaves the cover for the
+//   - two sections in order: Connections, Skills
+//   - a connection row has a switch for this Bot (on by default), its status and tool count, and a chevron that leaves the cover for the
 //     connection's page (tofi:open-connection); a paused connection shows Paused with its switch disabled; a failed save puts the switch back
-//   - Web and Computer are read-only facts that follow workspace settings; Built in is folded
-//   - a revoked allowance folds away (data-leaving) and is gone; reduced motion removes it at once
+//   - an open connection lists its tools with this Bot's own tier: a tool with none says Default and the connection's tier; choosing a tier
+//     is one PUT for this Bot; Default sends an empty tier; a closed or paused connection has no list
 //   - 390 px has no horizontal scroll; every locale renders without raw keys
 //
 // BT_SHOTS=<dir> also saves screenshots (1280 / 390 px, light / dark).
@@ -26,6 +26,8 @@ if (shots) await mkdir(shots, {recursive: true});
 const fixture = await mkdtemp(join(ui, ".bot-tools-"));
 let server, browser;
 const unexpected = [];
+/** This Bot's own tier per notion tool, as the stub's PUT leaves it. */
+let own = {};
 try {
   const main = await readFile(join(ui, "src/main.tsx"), "utf8");
   const styles = [...main.matchAll(/^import "\.\/([\w/-]+\.css)";$/gm)].map(match => `import '../src/${match[1]}';`).join("");
@@ -75,6 +77,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     if (path === "/api/environments") return q.get("computer") === "none" ? {environments: [], add: {e2b: true, mac: true, vm_command: ""}, e2b: null} : {environments: [{id: "firecracker", kind: "vm", name: "", state: "ready", error_code: "", bot_computer: true, access: "all_bots", actions: ["configure"]}, {id: "e2b", kind: "e2b", name: "", state: "asleep", error_code: "", bot_computer: false, access: "none", actions: ["use", "remove"]}, {id: "mac_1", kind: "mac", name: "Studio MacBook", state: "online", bot_computer: false, access: "allowed_on_mac", actions: ["disconnect"]}], add: {e2b: false, mac: true, vm_command: ""}, e2b: null};
     if (path === "/api/web-tools") return {enabled: true, computer: true, search_offered: !q.get("nosearch"), search: [{id: "native", label: "Claude native", kind: "native", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...chain(["tavily", "Tavily", "ready"], ["brave", "Brave", "off", false])], fetch: [{id: "builtin", label: "Built-in", kind: "builtin", paid: false, fixed: true, enabled: true, status: "always", testable: false}, ...chain(["firecrawl", "Firecrawl", "ready"])]};
     if (path === "/api/standing-allowances" && method === "GET") return {allowances: q.get("none") ? [] : [{id: "al-1", bot_id: "bot_a", bot_name: "Mochi", server: "notion", tool: "create_page", state: "active", created_at: "2026-10-21T16:00:00Z", use_count: 5}, {id: "al-2", bot_id: "bot_a", bot_name: "Mochi", server: "github", tool: "create_issue", state: "tool_changed", created_at: "2026-10-22T16:00:00Z", use_count: 0}], remembered: q.get("none") ? [] : [{id: "rm-1"}]};
+    if (path === "/api/bots/bot_a/tool-tiers/notion" && method === "GET") return {tools: [
+      {name: "create_page", tier: own.create_page ?? "write", global_tier: "write", ...(own.create_page ? {bot_tier: own.create_page} : {})},
+      {name: "delete_page", tier: "high_risk", global_tier: "write", bot_tier: "high_risk", bot_changed: true},
+      {name: "search", tier: "read_only", global_tier: "read_only"},
+    ]};
+    if (/^\/api\/bots\/bot_a\/tool-tiers\/notion\/[^/]+$/.test(path) && method === "PUT") return {ok: true};
     if (path === "/api/bots/bot_a/skills") return {skills: [{name: "web-research", description: "Search the web and read pages", builtin: true, enabled: true}, {name: "calendar-notes", description: "Keep a running calendar of launches", enabled: true, set_by: "owner", set_at: checked}], bundles: []};
     if (path === "/api/bots/bot_a/debug-preview") return {system_prompt: "x", tools: []};
     return {};
@@ -84,17 +92,19 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await context.addInitScript(value => { try { localStorage.setItem("tofi:appearance", value); } catch {} }, theme);
     const page = await context.newPage();
     const writes = [];
+    own = {};
     page.on("pageerror", error => unexpected.push(`pageerror: ${error.message}`));
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url()), method = request.method();
       if (url.origin !== origin) { await route.abort(); return; }
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       if (method !== "GET") writes.push({method, path: url.pathname, body: request.postData() ?? ""});
+      if (method === "PUT" && /\/tool-tiers\/notion\//.test(url.pathname)) { const tier = JSON.parse(request.postData() ?? "{}").tier; own[decodeURIComponent(url.pathname.split("/").pop())] = tier || undefined; }
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       await route.fulfill({status: body?.__status ?? 200, contentType: "application/json", body: JSON.stringify(body ?? {})});
     });
     await page.goto(`${origin}/${basename(fixture)}/index.html?${new URLSearchParams({lang: "en", ...params})}`);
-    try { await page.locator(".bot-tools .bt-group").first().waitFor({timeout: 20000}); }
+    try { await page.locator(".bot-tools .tb-ssec").first().waitFor({timeout: 20000}); }
     catch (error) { console.log("page errors:", unexpected, "\nbody:", (await page.locator("body").innerText().catch(() => "")).slice(0, 400)); throw error; }
     await page.locator(".bot-tools .bt-conn, .bot-tools .bt-empty").first().waitFor();
     return {page, writes, close: () => context.close()};
@@ -107,11 +117,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const full = await open({}, {width, height, theme});
       await full.page.waitForTimeout(700);
       await shot(full.page, "tools", width, theme);
-      await full.page.getByRole("button", {name: /What every Bot can do/}).click();
+      await conn(full.page, "notion").locator(".bt-tiers-trigger").click();
+      await full.page.locator(".bt-tool").first().waitFor();
       await full.page.waitForTimeout(500);
-      await shot(full.page, "tools-builtin-open", width, theme);
+      await shot(full.page, "tools-tiers", width, theme);
       await full.close();
-      const bare = await open({none: "1", computer: "none"}, {width, height, theme});
+      const bare = await open({none: "1"}, {width, height, theme});
       await bare.page.waitForTimeout(500);
       await shot(bare.page, "tools-empty", width, theme);
       await bare.close();
@@ -119,13 +130,13 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     console.log(`shots saved to ${shots}`);
   }
 
-  // ---- 1. Groups, rows, statuses, switches.
+  // ---- 1. Sections, rows, statuses, switches.
   {
     const {page, close} = await open();
-    assert.deepEqual(await page.locator(".bot-tools .bt-group").evaluateAll(list => list.map(item => item.getAttribute("data-group"))), ["connections", "skills", "web", "computer", "builtin", "permissions"], "six groups, in order");
+    assert.deepEqual(await page.locator(".bot-tools .tb-ssec").evaluateAll(list => list.map(item => item.id)), ["connections", "skills"], "two sections, in order");
     assert.deepEqual(await page.locator(".bt-conn").evaluateAll(list => list.map(item => item.getAttribute("data-server"))), ["notion", "github", "linear", "acme_tracker"]);
     const text = server => conn(page, server).locator(".bt-row-copy").innerText();
-    assert.match(await text("notion"), /Notion\s+Connected · 12 tools · 1 always allowed/, "status, tool count and this Bot's allowances");
+    assert.match(await text("notion"), /Notion\s+Connected · 12 tools$/, "status and tool count");
     assert.match(await text("linear"), /Needs sign-in/);
     assert.match(await text("acme_tracker"), /Paused/);
     const sw = server => conn(page, server).getByRole("switch");
@@ -134,21 +145,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.equal(await sw("acme_tracker").isDisabled(), true, "a paused connection's switch is disabled");
     assert.equal(await sw("acme_tracker").isChecked(), false);
     assert.equal(await conn(page, "github").getAttribute("data-off"), "true", "an off connection dims");
-    assert.match(await page.locator('[data-group="web"] dl').innerText(), /Search\s+On · Claude native → Tavily\s+Fetch\s+On · Built-in → Firecrawl/, "the web chains in order, only the sources that are on");
-    const environments = page.locator('[data-group="computer"]');
-    const envText = await environments.innerText();
-    assert.match(envText, /This server\s*Always\s*Ready/, "the Bot computer: always, with its state");
-    assert.match(envText, /Studio MacBook\s*When you allow it on that Mac\s*Online/, "a Mac: only where the Bot is allowed on it");
-    assert.ok(!/E2B/.test(envText), "an environment that is not the Bot computer is not listed");
-    assert.equal(await environments.getByRole("button", {name: /Manage environments/}).count(), 1, "one link to Settings > Environments");
-    assert.equal(await page.locator('[data-group="builtin"] .disclosure-toggle').getAttribute("aria-expanded"), "false", "Built in is folded");
-    assert.equal(await page.locator('[data-group="builtin"] .disclosure-region').evaluate(node => node.inert && node.getAttribute("aria-hidden") === "true"), true, "closed disclosure retains its content outside focus and accessibility navigation");
+    assert.equal(await conn(page, "github").locator(".bt-tiers-trigger").count(), 0, "a closed connection has no tool list");
+    assert.equal(await conn(page, "acme_tracker").locator(".bt-tiers-trigger").count(), 0, "a paused connection has no tool list");
     assert.equal(await page.locator('.bot-skill-row').count(), 2, "Skills are the library checkboxes");
-    assert.equal(await page.locator('[data-group="skills"] h2').count(), 0, "the group is the Skills heading; the Skills view adds none");
-    assert.equal(await page.locator('[data-allowance-id]').count(), 2);
-    assert.match(await page.locator('[data-group="permissions"] > .bt-remembered').innerText(), /Remembered in 1 chat/);
+    assert.equal(await page.locator("#skills .bot-v2-subtitle").count(), 0, "the section is the Skills heading; the Skills view adds none");
     await close();
-    console.log("PASS tools: six groups, rows with status and counts, switches follow this Bot's choice, paused disabled, web and computer facts, built in folded");
+    console.log("PASS tools: two sections, rows with status and counts, switches follow this Bot's choice, paused and closed have no tool list");
   }
 
   // ---- 2. The switch is one PUT; a failed save puts it back; the chevron leaves the cover for the connection's page.
@@ -167,41 +169,46 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await conn(page, "notion").getByRole("button", {name: "Open Notion in Settings"}).click();
     assert.deepEqual(await page.evaluate(() => window.left), ["cover-close", {server: "notion"}], "the cover closes first, then the connection's page is opened");
     await page.getByRole("button", {name: "Manage library"}).click();
-    await page.getByRole("button", {name: "Configure sources"}).click();
-    await page.getByRole("button", {name: "All permissions"}).click();
-    assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab).map(item => item.tab), ["skills", "connections", "permissions"], "each link opens its Settings page");
+    assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab).map(item => item.tab), ["skills"], "the library link opens Settings > Skills");
     await close();
     console.log("PASS switch: one PUT per change, a failed save reverts, links leave the cover and open the right page");
   }
 
-  // ---- 3. Revoking an allowance folds the row away; reduced motion removes it at once.
+  // ---- 3. Tool tiers per Bot: Default follows the connection, a choice is one PUT, Default sends an empty tier.
   {
     const {page, close, writes} = await open();
-    await page.locator('[data-allowance-id="al-1"]').getByRole("button", {name: "Revoke"}).click();
-    await page.locator('[data-allowance-id="al-1"][data-leaving]').waitFor({timeout: 2000});
-    await page.locator('[data-allowance-id="al-1"]').waitFor({state: "detached", timeout: 3000});
-    assert.ok(writes.some(item => item.method === "DELETE" && item.path === "/api/standing-allowances/al-1"), "Revoke deletes that allowance");
-    assert.equal(await page.locator('[data-allowance-id="al-2"] .bt-warning').count(), 1, "a voided allowance says it asks again");
-    assert.match(await conn(page, "notion").locator(".bt-row-copy").innerText(), /Connected · 12 tools\s*$/, "the connection's count drops with the allowance");
+    assert.equal(await conn(page, "notion").locator(".bt-tool").count(), 0, "the list loads when the connection is opened");
+    await conn(page, "notion").locator(".bt-tiers-trigger").click();
+    await page.locator(".bt-tool").first().waitFor();
+    assert.deepEqual(await page.locator(".bt-tool").evaluateAll(list => list.map(item => item.getAttribute("data-tool"))), ["create_page", "delete_page", "search"]);
+    const pick = tool => page.getByRole("combobox", {name: `Mochi on ${tool}`});
+    assert.match(await pick("create_page").innerText(), /Default · Asks when unsure/, "no tier of its own: Default and what the connection says");
+    assert.match(await pick("search").innerText(), /Default · Runs without asking/);
+    assert.match(await pick("delete_page").innerText(), /Always asks me/, "this Bot's own tier");
+    assert.equal(await page.locator('.bt-tool[data-tool="delete_page"] .bt-warning').count(), 1, "a tool that changed since the choice says so");
+    await pick("create_page").click();
+    await page.getByRole("option", {name: "Runs without asking"}).click();
+    await page.waitForFunction(() => /Runs without asking/.test(document.querySelector('.bt-tool[data-tool="create_page"]')?.textContent ?? ""));
+    const put = writes.find(item => item.path === "/api/bots/bot_a/tool-tiers/notion/create_page");
+    assert.deepEqual(put && JSON.parse(put.body), {tier: "read_only"}, "choosing a tier is one PUT for this Bot");
+    assert.equal(await page.locator('.bt-tool[data-tool="create_page"]').getAttribute("data-own"), "true");
+    await pick("create_page").click();
+    await page.getByRole("option", {name: /^Default/}).click();
+    await page.waitForFunction(() => /Default · Asks when unsure/.test(document.querySelector('.bt-tool[data-tool="create_page"]')?.textContent ?? ""));
+    const back = writes.filter(item => item.path === "/api/bots/bot_a/tool-tiers/notion/create_page").map(item => JSON.parse(item.body));
+    assert.deepEqual(back, [{tier: "read_only"}, {tier: ""}], "Default clears this Bot's own tier");
     await close();
-    const reduced = await open({}, {reducedMotion: "reduce"});
-    await reduced.page.locator('[data-allowance-id="al-2"]').getByRole("button", {name: "Revoke"}).click();
-    await reduced.page.locator('[data-allowance-id="al-2"]').waitFor({state: "detached", timeout: 1000});
-    await reduced.close();
-    console.log("PASS allowances: Revoke folds the row away (instantly with reduced motion), the count follows");
+    console.log("PASS tiers: Default follows the connection, a choice is one PUT, Default sends an empty tier");
   }
 
   // ---- 4. Empty and missing pieces.
   {
-    const {page, close} = await open({none: "1", computer: "none", nosearch: "1"});
+    const {page, close} = await open({none: "1"});
     assert.match(await page.locator(".bt-empty").innerText(), /No connections yet\.\s+Add one in Settings/);
-    assert.match(await page.locator('[data-group="web"] dl').innerText(), /Off · no source configured/);
-    assert.match(await page.locator('[data-group="computer"]').innerText(), /No Bot computer yet/);
-    assert.match(await page.locator('[data-group="permissions"]').innerText(), /Nothing is allowed without asking/);
     await page.getByRole("button", {name: "Add one in Settings"}).click();
     assert.deepEqual((await page.evaluate(() => window.left)).filter(item => item.tab), [{tab: "connections"}]);
     await close();
-    console.log("PASS empty: no connections, no search source, no Bot computer, no allowances each say so and where to fix it");
+    console.log("PASS empty: no connections says so and where to fix it");
   }
 
   // ---- 5. Phone width and every locale.

@@ -110,6 +110,7 @@ function ToolsSection({ serverName, tiers, onTiers, busy, community, refreshing,
   return <section className="conn-section" data-section="tools" aria-labelledby="conn-tools-title" aria-busy={refreshing} ref={list}>
     <h4 id="conn-tools-title">{t("tools.title", { count: tiers?.tools.length ?? 0 })}</h4>
     <p className="conn-lead">{t("tools.explain")}</p>
+    <p className="conn-lead" data-note="bot-default">{t("tools.default_note")}</p>
     {community && <p className="conn-lead" data-capability="community">{t("capabilities.community_note")}</p>}
     {(error || loadError) && <p className="mcp-service-error" role="alert">{error || loadError}</p>}
     {tiers && tiers.tools.length === 0 && <p className="conn-lead">{t("tools.empty")}</p>}

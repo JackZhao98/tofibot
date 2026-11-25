@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -156,7 +157,7 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 		if _, err = tx.Exec(`UPDATE work_items SET parent_goal_id=NULL WHERE parent_goal_id IN (SELECT id FROM work_items WHERE bot_id=?)`, id); err != nil {
 			return DeleteResult{}, err
 		}
-		for _, query := range []string{`DELETE FROM work_items WHERE bot_id=?`, `DELETE FROM waits WHERE bot_id=?`, `DELETE FROM command_waits WHERE bot_id=?`, `DELETE FROM bot_inbox WHERE bot_id=?`, `DELETE FROM schedules WHERE bot_id=?`, `DELETE FROM bot_connection_access WHERE bot_id=?`, `DELETE FROM memories WHERE bot_id=?`, `DELETE FROM computer_jobs WHERE bot_id=?`} {
+		for _, query := range []string{`DELETE FROM work_items WHERE bot_id=?`, `DELETE FROM waits WHERE bot_id=?`, `DELETE FROM command_waits WHERE bot_id=?`, `DELETE FROM bot_inbox WHERE bot_id=?`, `DELETE FROM schedules WHERE bot_id=?`, `DELETE FROM bot_connection_access WHERE bot_id=?`, `DELETE FROM bot_tool_tiers WHERE bot_id=?`, `DELETE FROM memories WHERE bot_id=?`, `DELETE FROM computer_jobs WHERE bot_id=?`} {
 			if _, err = tx.Exec(query, id); err != nil {
 				return DeleteResult{}, err
 			}
@@ -196,6 +197,12 @@ func (s *Store) deleteWorkspaceTargetWith(id string, bot bool, actor *Run, succe
 	}
 	if err = tx.Commit(); err != nil {
 		return DeleteResult{}, err
+	}
+	if bot {
+		// Its own tool tiers went in the transaction; the cache follows.
+		if err := s.loadBotToolTiers(); err != nil {
+			log.Printf("bot tool tiers: reload after deleting %s: %v", id, err)
+		}
 	}
 	if bot && s.portabilitySecrets != nil {
 		// A deleted Bot's saved secrets go with it.

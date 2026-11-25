@@ -495,6 +495,7 @@
       "refresh_failed": "Impossible d'actualiser la liste des outils."
     },
     "explain": "S’exécute sans demander : outils que le service ou vous marquez en lecture seule. Demande en cas de doute : chaque appel est examiné ; ce que vous avez demandé s’exécute, le reste vous demande d’abord. Demande toujours : vous décidez de chaque appel.",
+    "default_note": "La valeur par défaut de chaque Bot. Chaque Bot peut définir la sienne dans ses réglages.",
     "group": {
       "read_only": "S’exécute sans demander",
       "write": "Demande en cas de doute",

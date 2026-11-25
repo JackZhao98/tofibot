@@ -468,7 +468,7 @@ func (s *Server) rememberMCPApproval(q Question, actor string) (MCPRememberedApp
 	if s.extensions == nil {
 		return MCPRememberedApproval{}, errRememberStale
 	}
-	probe := extensions.MCPCallApproval{Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}
+	probe := extensions.MCPCallApproval{BotID: q.BotID, Server: server, Tool: tool, ConfigVersion: config, TierBinding: tierBinding}
 	run, err := s.store.GetRun(runID)
 	if err != nil {
 		return MCPRememberedApproval{}, errRememberNotAvailable

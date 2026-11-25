@@ -37,7 +37,9 @@ const (
 // Tier sources, as the UI shows them: the owner set it, the provider marked
 // the tool read only, or neither (reviewed each time).
 const (
-	MCPTierSourceOwner    = "owner"
+	MCPTierSourceOwner = "owner"
+	// MCPTierSourceBot: the owner set the tier for one Bot, over the global one.
+	MCPTierSourceBot      = "bot"
 	MCPTierSourceProvider = "provider"
 	MCPTierSourceDefault  = "default"
 
@@ -260,11 +262,18 @@ func (s *mcpToolTierStore) migrateTrustedLocked(name string, cfg MCPServerConfig
 // MCPToolTierView is the resolved policy for one tool, as the UI and the gate
 // see it. Binding changes whenever anything that produced Tier changes.
 type MCPToolTierView struct {
-	RemoteName      string      `json:"name"`
-	Description     string      `json:"description,omitempty"`
-	Tier            MCPToolTier `json:"tier"`
-	Source          string      `json:"source"`
-	Override        string      `json:"override,omitempty"`
+	RemoteName  string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	Tier        MCPToolTier `json:"tier"`
+	Source      string      `json:"source"`
+	Override    string      `json:"override,omitempty"`
+	// GlobalTier is the tier every Bot gets until its own is set; it equals
+	// Tier unless a Bot's own tier is in force. BotTier is that Bot's own
+	// choice ("" when it follows the global tier), and BotChanged says the tool
+	// changed after it was set (a stale choice only tightens).
+	GlobalTier      MCPToolTier `json:"global_tier,omitempty"`
+	BotTier         string      `json:"bot_tier,omitempty"`
+	BotChanged      bool        `json:"bot_changed,omitempty"`
 	Changed         bool        `json:"changed,omitempty"`
 	Duplicated      bool        `json:"duplicated,omitempty"`
 	ReadOnlyHint    bool        `json:"read_only_hint,omitempty"`
@@ -338,6 +347,43 @@ func (s *mcpToolTierStore) resolve(server string, cfg MCPServerConfig, tool stri
 	return resolveMCPToolTier(tool, rec, legacy, communityServer(cfg))
 }
 
+// resolveForBot is resolve with one Bot's own tier laid over the global one
+// (Config.BotToolTier). A Bot with no tier of its own gets the global view
+// unchanged, binding included, so nothing bound to it moves. A fresh choice
+// wins, a stale one (the tool changed since) only tightens, exactly as the
+// global override does; the binding then also covers the Bot's choice.
+func (m *Manager) resolveForBot(botID, server string, cfg MCPServerConfig, tool string) MCPToolTierView {
+	view := m.tiers.resolve(server, cfg, tool)
+	view.GlobalTier = view.Tier
+	if botID == "" || m.cfg.BotToolTier == nil {
+		return view
+	}
+	tier, digest, ok := m.cfg.BotToolTier(botID, server, tool)
+	if !ok || !ValidMCPToolTier(tier) {
+		return view
+	}
+	view.BotTier = tier
+	if digest != "" && digest == view.Digest {
+		view.Tier, view.Source = MCPToolTier(tier), MCPTierSourceBot
+	} else {
+		view.BotChanged = true
+		if mcpTierRank(MCPToolTier(tier)) > mcpTierRank(view.Tier) {
+			view.Tier, view.Source = MCPToolTier(tier), MCPTierSourceBot
+		}
+	}
+	sum := sha256.Sum256([]byte(view.Binding + "|bot|" + botID + "|" + tier + "|" + digest))
+	view.Binding = hex.EncodeToString(sum[:])
+	return view
+}
+
+// MCPToolTierForBot is the policy one Bot runs under.
+func (m *Manager) MCPToolTierForBot(botID, server, tool string) MCPToolTierView {
+	m.mu.RLock()
+	servers, _ := loadServers(m.cfg.MCPConfigPath)
+	m.mu.RUnlock()
+	return m.resolveForBot(botID, server, servers[server], tool)
+}
+
 // MCPToolTier resolves the current policy for one remote tool of a configured
 // server. It reads the configuration only for the legacy trusted list.
 func (m *Manager) MCPToolTier(server, tool string) MCPToolTierView {
@@ -349,6 +395,10 @@ func (m *Manager) MCPToolTier(server, tool string) MCPToolTierView {
 
 func (m *Manager) toolReadOnly(server string, cfg MCPServerConfig, tool string) bool {
 	return m.tiers.resolve(server, cfg, tool).Tier == MCPTierReadOnly
+}
+
+func (m *Manager) toolReadOnlyForBot(botID, server string, cfg MCPServerConfig, tool string) bool {
+	return m.resolveForBot(botID, server, cfg, tool).Tier == MCPTierReadOnly
 }
 
 // MCPCallTier resolves the tier of one proposal against the current disk
@@ -367,7 +417,7 @@ func (m *Manager) MCPCallTier(call MCPCallApproval) (MCPToolTier, bool) {
 	if call.TierBinding == "" {
 		return MCPTierWrite, true
 	}
-	view := m.tiers.resolve(call.Server, cfg, call.Tool)
+	view := m.resolveForBot(call.BotID, call.Server, cfg, call.Tool)
 	if view.Binding != call.TierBinding {
 		return MCPTierWrite, false
 	}
@@ -410,7 +460,7 @@ func (m *Manager) tierBindingCurrent(call MCPCallApproval, cfg MCPServerConfig) 
 	if call.TierBinding == "" {
 		return true
 	}
-	return m.tiers.resolve(call.Server, cfg, call.Tool).Binding == call.TierBinding
+	return m.resolveForBot(call.BotID, call.Server, cfg, call.Tool).Binding == call.TierBinding
 }
 
 // ObserveTools records one complete tools/list for a server: digests, hints
@@ -538,6 +588,12 @@ type MCPToolTierList struct {
 }
 
 func (m *Manager) ListToolTiers(server string) MCPToolTierList {
+	return m.ListToolTiersForBot("", server)
+}
+
+// ListToolTiersForBot is ListToolTiers as one Bot runs it: Tier is the
+// effective tier, GlobalTier the one it would have without its own.
+func (m *Manager) ListToolTiersForBot(botID, server string) MCPToolTierList {
 	m.mu.RLock()
 	servers, _ := loadServers(m.cfg.MCPConfigPath)
 	m.mu.RUnlock()
@@ -567,6 +623,20 @@ func (m *Manager) ListToolTiers(server string) MCPToolTierList {
 		}
 		legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, name)
 		view := resolveMCPToolTier(name, rec, legacy, communityServer(cfg))
+		view.GlobalTier = view.Tier
+		if botID != "" && m.cfg.BotToolTier != nil {
+			if tier, digest, ok := m.cfg.BotToolTier(botID, server, name); ok && ValidMCPToolTier(tier) {
+				view.BotTier = tier
+				if digest != "" && digest == view.Digest {
+					view.Tier, view.Source = MCPToolTier(tier), MCPTierSourceBot
+				} else {
+					view.BotChanged = true
+					if mcpTierRank(MCPToolTier(tier)) > mcpTierRank(view.Tier) {
+						view.Tier, view.Source = MCPToolTier(tier), MCPTierSourceBot
+					}
+				}
+			}
+		}
 		out.Tools = append(out.Tools, view)
 		switch view.Tier {
 		case MCPTierReadOnly:
@@ -631,6 +701,11 @@ func (m *Manager) RunToolReadOnly(runToolName string) bool {
 		rec = srv.Tools[matched]
 	}
 	legacy := (srv == nil || !srv.MigratedTrusted) && trustedReadOnlyTool(cfg, matched)
+	// A tool some Bot has made stricter for itself is not an observation: the
+	// recorded step does not say which Bot ran it.
+	if m.cfg.BotToolTierRaised != nil && m.cfg.BotToolTierRaised(server, matched) {
+		return false
+	}
 	return resolveMCPToolTier(matched, rec, legacy, communityServer(cfg)).Tier == MCPTierReadOnly
 }
 

@@ -13,20 +13,6 @@
     "important": 0,
     "tokenDef": 0
   },
-  "bot-settings.css": {
-    "global": 0,
-    "rootBump": 2,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
-  "bot-tools.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 1,
-    "tokenDef": 0
-  },
   "connections/connections.css": {
     "global": 0,
     "rootBump": 2,

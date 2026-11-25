@@ -157,7 +157,7 @@
   },
   "skills": {
     "title": "技能",
-    "hint": "这个 Bot 可以使用的 Skill。技能库里的 Skill 需要在这里打开才会生效，Bot 也可以自己为自己打开。官方 Skill 默认开启，可单独关闭。",
+    "hint": "技能库里的技能默认关闭，官方技能默认开启。Bot 也可以自己开关。",
     "loading": "正在读取技能…",
     "empty": "技能库里还没有 Skill。请在“设置 › Skills”中添加。",
     "official_title": "官方 Skill",
@@ -216,49 +216,25 @@
   "tools": {
     "connections": {
       "title": "连接",
-      "hint": "关掉某个连接,这个 Bot 就用不了它。新连接默认对所有 Bot 开启。",
+      "hint": "关闭后这个 Bot 不会使用该连接。新连接默认开启。",
       "loading": "加载中…",
       "error": "连接加载失败,请重试。",
       "none": "还没有连接。",
       "add": "在设置里添加",
       "switch": "让 {{bot}} 使用 {{connection}}",
       "open": "在设置里打开 {{connection}}",
-      "save_failed": "保存失败,请重试。",
-      "allowed_other": "{{count}} 项始终放行"
+      "save_failed": "保存失败,请重试。"
     },
     "skills": {
       "manage": "管理技能库"
     },
-    "web": {
-      "title": "网页",
-      "search": "搜索",
-      "fetch": "读取页面",
-      "on": "开启 · {{chain}}",
-      "search_none": "关闭 · 没有配置来源",
-      "configure": "配置来源"
-    },
-    "computer": {
-      "title": "环境",
-      "none": "还没有 Bot 电脑。在设置里添加后,Bot 才能浏览网页和运行代码。",
-      "manage": "管理环境",
-      "always": "始终可用",
-      "mac": "在那台 Mac 上放行后可用",
-      "error": "未能读取环境。"
-    },
-    "builtin": {
-      "title": "内置",
-      "summary": "每个 Bot 都会的",
-      "items": "文件和附件 · 图片 · 记忆 · 任务和日程 · 询问用户 · 工作区管理(按需)"
-    },
-    "permissions": {
-      "title": "这个 Bot 的权限",
-      "manage": "全部权限",
-      "empty": "没有任何东西不问就放行。在审批卡上选“始终允许”即可添加。",
-      "allowed": "放行于 {{time}}",
-      "used_other": "用过 {{count}} 次",
-      "remembered_other": "在 {{count}} 个对话中记住",
-      "remembered_none": "对话中记住的:无",
-      "error": "权限加载失败,请重试。"
+    "tier": {
+      "show": "{{connection}} 的工具权限",
+      "label": "{{bot}} 对 {{tool}} 的权限",
+      "follow": "默认 · {{tier}}",
+      "changed": "工具在你设置后有变动。",
+      "error": "无法加载工具，请重试。",
+      "empty": "还没有发现工具。"
     }
   }
 }

@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Bereiche der Bot-Einstellungen",
-    "back": "Alle Bereiche",
     "avatar_title": "Avatar",
     "avatar_hint": "So sieht diese Katze in der Liste und im Chat aus.",
     "name_required": "Ein Name ist erforderlich.",
@@ -89,19 +88,20 @@
     "export_action": "Exportieren",
     "delete_hint": "Entfernt diesen Bot und seinen Chat. Das lässt sich nicht rückgängig machen.",
     "section": {
-      "identity": "Identität",
-      "role": "Rolle",
-      "model": "Modell",
+      "identity": "Profil",
+      "role": "Rolle und Modell",
+      "tools": "Werkzeuge",
       "secrets": "Geheimnisse",
-      "advanced": "Erweitert",
-      "tools": "Werkzeuge"
+      "export": "Export",
+      "danger": "Gefahrenbereich"
     },
     "desc": {
       "identity": "Avatar, Name und Hauptassistent.",
-      "role": "Wofür dieser Bot zuständig ist. Er liest das vor jeder Antwort.",
-      "model": "Auf welchem Modell dieser Bot läuft und wie tief er nachdenkt.",
-      "advanced": "Systemprompt, Export und Löschen.",
-      "tools": "Was {{name}} nutzen kann. Verbindungen und Skills schaltest du selbst; der Rest folgt den Arbeitsbereich-Einstellungen."
+      "role": "Aufgabe und Modell dieses Bots.",
+      "tools": "Verbindungen, Werkzeugrechte und Skills dieses Bots.",
+      "secrets": "Geheimnisse, die dieser Bot hält.",
+      "export": "Freigabedatei, Datenexport und Systemprompt.",
+      "danger": "Diesen Bot löschen."
     },
     "role_count_one": "{{count}} Zeichen",
     "role_count_other": "{{count}} Zeichen",

@@ -45,7 +45,7 @@ function BundleCheckRow({ bundle, members, busy, onToggle, onToggleBundle, defau
 }
 
 export type BotSkillsViewProps = { botId: string; listing: BotSkillListing; loading: boolean; busy: boolean; error: string; onToggle: (name: string, next: boolean) => void; onToggleBundle: (id: string, next: boolean) => void; openBundles?: string[];
-  /** Inside Bot settings > Tools the group supplies the heading; only the hint stays. */
+  /** Inside Bot settings > Tools the section supplies the heading and the hint. */
   bare?: boolean };
 
 /** One Bot's enabled set: the whole library as checkboxes, bundles expandable (decision 0058). Presentational. */
@@ -56,8 +56,8 @@ export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, 
   const own = loose.filter(skill => !skill.builtin);
   const official = loose.filter(skill => skill.builtin);
   const libraryEmpty = !loading && !error && own.length === 0 && listing.bundles.length === 0;
-  return <section className="bot-skills" aria-labelledby={`bot-skills-${botId}`}>
-    {bare ? <p className="field-note" id={`bot-skills-${botId}`}>{t("skills.hint")}</p> : <div className="bot-v2-subtitle"><h2 id={`bot-skills-${botId}`}>{t("skills.title")}</h2><p>{t("skills.hint")}</p></div>}
+  return <section className="bot-skills" aria-labelledby={bare ? undefined : `bot-skills-${botId}`} aria-label={bare ? t("skills.title") : undefined}>
+    {!bare && <div className="bot-v2-subtitle"><h2 id={`bot-skills-${botId}`}>{t("skills.title")}</h2><p>{t("skills.hint")}</p></div>}
     {loading ? <p className="field-note" role="status">{t("skills.loading")}</p> : <>
       {libraryEmpty && <p className="field-note">{t("skills.empty")}</p>}
       {(own.length > 0 || listing.bundles.length > 0) && <ul className="bot-skill-list">

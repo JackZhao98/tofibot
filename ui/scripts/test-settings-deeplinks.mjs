@@ -141,7 +141,7 @@ void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getEleme
   console.log("PASS bot-settings and connection links open the cover of a Bot in the index and the connection page");
   // A Bot that is not in the account's index opens nothing.
   await page.evaluate(() => { window.__links.length = 0; });
-  await page.evaluate(() => window.__openLink({kind: "bot-settings", botId: "someone_elses_bot", section: "model"}));
+  await page.evaluate(() => window.__openLink({kind: "bot-settings", botId: "someone_elses_bot", section: "role"}));
   await page.waitForTimeout(400);
   assert.deepEqual(await page.evaluate(() => window.__links), [], "an unknown Bot opens nothing");
   console.log("PASS an id outside the index opens nothing");

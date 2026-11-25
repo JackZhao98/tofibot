@@ -48,6 +48,19 @@ func init() {
 		_, err = sr.s.store.UpdateBotReasoningEffort(t.BotID, effort)
 		return err
 	})
+	bindSettingWrite("bot.tool_tier", func(ctx context.Context, sr settingRun, t Target, v any) error {
+		tier := v.(string)
+		if tier == "global" {
+			tier = ""
+		}
+		if _, err := sr.s.applyBotToolTier(t.BotID, t.Connection, t.Tool, tier); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return errors.New("the connection has no tool with this name")
+			}
+			return err
+		}
+		return nil
+	})
 	bindSettingWrite("bot.connections", func(ctx context.Context, sr settingRun, t Target, v any) error {
 		if sr.s.extensions == nil {
 			return errors.New("connections are not available in this workspace")

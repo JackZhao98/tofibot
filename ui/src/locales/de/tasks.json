@@ -298,7 +298,8 @@
         "revert": "Der Wert von vor der früheren Änderung kommt zurück.",
         "change": "Die Einstellung ändert sich.",
         "bot_skills": "Die Skills eines anderen Bots ändern sich.",
-        "bot_avatar": "Der Avatar eines anderen Bots ändert sich."
+        "bot_avatar": "Der Avatar eines anderen Bots ändert sich.",
+        "bot_tool_tier": "Wie oft dieser Bot vor diesem Werkzeug nachfragt, ändert sich."
       }
     },
     "standing_decision": "Durch die Dauerfreigabe dieses Bots genehmigt; niemand wurde gefragt. Der Schritt darunter zeigt, ob er lief."

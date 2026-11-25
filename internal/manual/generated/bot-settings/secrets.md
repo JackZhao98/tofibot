@@ -1,7 +1,7 @@
 ---
 id: bot-settings/secrets
 title: {{ui:chat:header.bot_settings}} › {{ui:chat:botSettings.section.secrets}}
-summary: Settings on this page.
+summary: {{ui:chat:botSettings.desc.secrets}}
 link: /b/{bot}/settings#secrets
 kind: reference
 ---

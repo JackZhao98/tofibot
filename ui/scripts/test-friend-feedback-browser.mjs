@@ -249,7 +249,7 @@ try {
     assert.match(await page.locator(".detail-content").filter({ has: page.getByRole("heading", { name: "这个 Bot 的记忆", exact: true }) }).innerText(), /不同模型/);
     await page.getByRole("button", { name: "关闭记忆", exact: true }).click();
     await menu("Bot 设置");
-    await page.locator('.bs-nav-item[data-section="model"]').click();
+    await page.locator('.bs-nav-item[data-tab="role"]').click();
     await pickSelect(page.locator(".model-fields .ui-select-trigger").first(), "fixture-b");
     assert.match(await page.locator(".model-fields").innerText(), /保留已保存的记忆和聊天记录/);
     const saved = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === `/api/bots/${botID}`);

@@ -75,7 +75,6 @@
   },
   "botSettings": {
     "nav": "Sections des réglages du Bot",
-    "back": "Toutes les sections",
     "avatar_title": "Avatar",
     "avatar_hint": "Voyez à quoi ressemble ce chat dans la liste et dans le chat.",
     "name_required": "Un nom est requis.",
@@ -89,19 +88,20 @@
     "export_action": "Exporter",
     "delete_hint": "Supprime ce Bot et sa discussion. Cette action est irréversible.",
     "section": {
-      "identity": "Identité",
-      "role": "Rôle",
-      "model": "Modèle",
+      "identity": "Profil",
+      "role": "Rôle et modèle",
+      "tools": "Outils",
       "secrets": "Secrets",
-      "advanced": "Avancé",
-      "tools": "Outils"
+      "export": "Export",
+      "danger": "Zone de danger"
     },
     "desc": {
       "identity": "Avatar, nom et assistant principal.",
-      "role": "De quoi ce Bot est responsable. Il le lit avant chaque réponse.",
-      "model": "Sur quel modèle ce Bot tourne et à quel point il réfléchit.",
-      "advanced": "Prompt système, export et suppression.",
-      "tools": "Ce que {{name}} peut utiliser. Les connexions et les Skills sont à vous ; le reste suit les réglages de l'espace de travail."
+      "role": "Rôle et modèle de ce Bot.",
+      "tools": "Connexions, droits des outils et Skills de ce Bot.",
+      "secrets": "Secrets que ce Bot conserve.",
+      "export": "Fichier de partage, export des données et prompt système.",
+      "danger": "Supprimer ce Bot."
     },
     "role_count_many": "{{count}} caractères",
     "role_count_one": "{{count}} caractère",
