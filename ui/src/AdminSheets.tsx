@@ -1,5 +1,4 @@
 import {useEffect, useId, useState, type ReactNode} from "react";
-import {TofiIcon} from "./icons";
 import {useTranslation} from "./i18n";
 import {StatusBadge} from "./settings/components";
 import type {AdminAccount} from "./adminApi";
@@ -27,8 +26,7 @@ export function CopyButton({value, label, onFail}: {value: string; label?: strin
   async function copy() {
     try { await navigator.clipboard.writeText(value); setCopied(true); } catch { onFail?.(); }
   }
-  return <Button type="button" className="admin-copy" onClick={() => void copy()}>
-    <TofiIcon name={copied ? "check" : "copy"} size={16} aria-hidden="true"/>
+  return <Button type="button" className="admin-copy" icon={copied ? "check" : "copy"} onClick={() => void copy()}>
     <span aria-live="polite">{copied ? t("admin.copied") : label ?? t("admin.copy")}</span>
   </Button>;
 }

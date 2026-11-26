@@ -281,6 +281,7 @@ import {ActionHints} from '../src/InteractionSystem';
 import {WorkspaceToast} from '../src/WorkspaceToast';
 import {AdminSheet} from '../src/AdminSheets';
 import {Button} from '../src/ds/Button/Button';
+import {Dialog,DIALOG_SCRIM_DOCK} from '../src/ds/Dialog/Dialog';
 import {ModalDialog,ConfirmDialog} from '../src/overlays/ModalDialog';
 
 installFocusModality();
@@ -301,7 +302,7 @@ function Harness(){
   <div className="settings-shell"><div className="settings-page-body"><div className="settings-section"><h3 id="ref-h3">Reference heading</h3><Button variant="primary" id="ref-primary">Reference</Button><button id="ref-plain">Reference</button></div></div></div>
  </aside>
  {sheet&&<AdminSheet title="Synthetic sheet" onClose={()=>{w.__closed.push('sheet');setSheet(false)}} locked={locked}><input id="field" aria-label="Field"/><button id="open-inner" onClick={()=>setInner(true)}>Inner</button><button id="lock" onClick={()=>setLocked(value=>!value)}>{locked?'Unlock':'Lock'}</button>
-  {inner&&<ModalDialog onClose={()=>{w.__closed.push('inner');setInner(false)}} overlayClassName="sheet-overlay"><div className="sheet" role="dialog" aria-label="Inner" tabIndex={-1}><button id="inner-a">A</button><button id="inner-b">B</button></div></ModalDialog>}
+  {inner&&<ModalDialog onClose={()=>{w.__closed.push('inner');setInner(false)}} overlayClassName={DIALOG_SCRIM_DOCK}><Dialog dock title="Inner" aria-label="Inner" tabIndex={-1}><button id="inner-a">A</button><button id="inner-b">B</button></Dialog></ModalDialog>}
  </AdminSheet>}
  {confirm&&<ConfirmDialog onClose={()=>setConfirm(false)} initialFocus={keep} overlayClassName="settings-leave-overlay"><div className="settings-leave-dialog" aria-labelledby="c-title"><h3 id="c-title">Synthetic confirmation</h3><div className="settings-leave-actions"><button ref={keep} id="c-keep" onClick={()=>setConfirm(false)}>Keep</button><button id="c-go">Go</button></div></div></ConfirmDialog>}
  {remote&&<ModalDialog onClose={()=>setRemote(false)} closeOnEscape={false} closeOnOutside={false} overlayClassName="mcp-oauth-overlay"><div className="mcp-oauth-dialog" role="dialog" aria-label="Remote" tabIndex={-1}><button id="r-cancel" onClick={()=>setRemote(false)}>Cancel</button>

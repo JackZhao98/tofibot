@@ -3,13 +3,6 @@
 
 /* Shell and navigation: the web sidebar is solid, never decorative glass. */
 @layer legacy {
-/* The small modal sheet from settings/settings-components.css (V3 PR 6.1), at the top of the layer so the sheet's own rules still win a tie, as they did when these lived in an earlier sheet; goes with its last caller (PR 9.1 at the latest). */
-/* Sheet (small modal form). Skill access used it before decision 0058; keep it for the next sheet. */
-.sheet-overlay{position:fixed;inset:0;z-index:calc(var(--z-dialog) + 1);display:grid;place-items:center;padding:24px;background:var(--scrim)}
-.sheet{display:flex;flex-direction:column;gap:14px;box-sizing:border-box;width:min(440px,100%);max-height:calc(100dvh - 48px);overflow:auto;padding:20px;background:var(--surface);color:var(--ink);border:3px solid var(--line);border-radius:22px;box-shadow:var(--shadow);outline:none}
-.sheet>h3{margin:0;font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
-.sheet-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
-@media(max-width:767px){.sheet-overlay{padding:8px;align-items:end}.sheet{padding:16px;border-radius:18px;max-height:calc(100dvh - 16px)}.sheet-actions>button{flex:1}}
 .workspace,.workspace .chat-pane {
   background:var(--bg); color:var(--ink);
 }
@@ -314,28 +307,28 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
+:root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
   background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
 }
-:root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.settings-leave-overlay,.terminal-confirm) {
+:root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.settings-leave-overlay,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
 }
 /* Popups (menus, popovers, selects, context menus, hover cards) are the kit's: ds/pop.css. The dialogs below still grow
-   from their centre and the big panels (cover, sheet) only fade, until their surfaces are rebuilt. */
+   from their centre and the big panel (cover) only fades, until their surfaces are rebuilt. */
 @keyframes pop-in { from { opacity:0; transform:scale(.96); } }
 :root :is(.new-group-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
   transform-origin:center; animation:pop-in var(--m-pop-in) var(--ease-pop) both;
 }
-:root :is(.cover-window,.sheet) { animation:menu-enter var(--m-pop-in) var(--ease-pop) both; }
+:root .cover-window { animation:menu-enter var(--m-pop-in) var(--ease-pop) both; }
 :root :is(.cover-scrim,.cover-leave-scrim,.new-group-scrim) { animation-duration:var(--m-quick); }
 :root :is(.cover-window,.cover-scrim,.new-group-dialog,.new-group-scrim).is-leaving {
   animation:menu-leave var(--m-pop-out) var(--ease-in) both; pointer-events:none;
 }
 :root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line); }
 @media (prefers-reduced-motion:reduce) {
-  :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
+  :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 }

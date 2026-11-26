@@ -26,7 +26,7 @@ export function focusRingProbe() {
   const field = el.tagName === "IFRAME" || el.matches("input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]), textarea, select, [contenteditable=true]");
   const related = [el, ...[...el.querySelectorAll(".message-content")].slice(0, 2)];
   for (let node = el.parentElement, depth = 0; node && node !== document.body && depth < 4; node = node.parentElement, depth++) if (node.matches(":focus-within")) related.push(node);
-  const label = el.closest("label, .sheet-radio, .sheet-check, .check-row"); if (label) related.push(label);
+  const label = el.closest("label, .check-row"); if (label) related.push(label);
   const hits = related.map(node => ({node: name(node), ring: outlineOf(node) || shadowOf(node)})).filter(item => item.ring);
   return {none: false, field, focused: name(el), html: el.outerHTML.slice(0, 160), ring: hits[0] ?? null};
 }

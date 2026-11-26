@@ -7,9 +7,9 @@ const read = name => readFileSync(new URL(`../src/${name}`, import.meta.url), "u
 test("overlapping surfaces share tinted glass and paired backdrop filters", () => {
   const css = read("v2-app.css");
   // Locate the material rule by its declarations, rather than lazy component file order.
-  const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".sheet,") && body.includes("background:var(--glass-strong)"));
+  const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".cover-window,") && body.includes("background:var(--glass-strong)"));
   assert.ok(material, "one shared surface recipe exists");
-  for (const name of ["cover-window", "sheet", "search-palette"]) {
+  for (const name of ["cover-window", "search-palette"]) {
     assert.ok(material[1].includes(`.${name}`), `${name} uses the shared material`);
   }
   // Menus, popovers and the Select list are on the kit's glass since PRs 2.2 and 2.3.

@@ -5,13 +5,13 @@
 .mcp-service-detail{margin-left:2px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .mcp-service-detail::before{content:"\00b7";margin-right:6px}
 
-/* The connect dialog reuses the sheet frame; the directory and forms inside it are plain lists, not cards. */
-.sheet.connect-dialog{width:min(560px,100%);gap:16px;padding:0}
-.connect-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:18px 20px 8px;background:var(--surface)}
-.connect-title{min-width:0;flex:1}
-.connect-title h3{margin:0;font:600 17px/1.3 var(--font-display);overflow-wrap:anywhere}
-.connect-title p{margin:4px 0 0;font-size:12px;line-height:1.5;color:var(--muted);max-width:52ch}
-.connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 20px 20px}
+/* The connect dialog is the kit Dialog, flush: the directory and forms inside it are plain lists, not cards; each view pads itself. */
+.connect-dialog{width:min(560px,100%)}
+.connect-dialog .tb-dialog-title{display:flex;align-items:center;gap:10px}
+.connect-dialog .tb-dialog-body{gap:16px}
+.connect-lede{display:flex;align-items:flex-start;gap:8px;margin:0;padding:0 20px}
+.connect-lede .tb-dialog-note{margin:0;max-width:52ch}
+.connect-dialog .tb-dialog-body>:is(.connect-directory,.connect-form,.connect-body){padding:0 20px 20px}
 .connect-dialog .integration-search{margin:0 0 16px}
 .connect-dialog .integration-grid{grid-template-columns:1fr;gap:0}
 .connect-dialog .integration-tile{min-height:68px;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 4px;background:transparent;box-shadow:none;transform:none}
@@ -42,9 +42,8 @@
 .connect-dialog .mcp-google-setup nav{display:flex;flex-wrap:wrap;column-gap:18px}
 .connect-dialog .mcp-google-setup a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink-soft);font:var(--type-meta);text-underline-offset:4px}
 @media(max-width:767px){
-  .sheet.connect-dialog{max-height:calc(100dvh - 16px)}
-  .connect-head{padding:14px 16px 8px}
-  .connect-dialog>:is(.connect-directory,.connect-form,.connect-body){padding:0 16px 16px}
+  .connect-lede{padding:0 16px}
+  .connect-dialog .tb-dialog-body>:is(.connect-directory,.connect-form,.connect-body){padding:0 16px 16px}
 }
 .repo-link{display:inline-flex;align-items:center;gap:6px;min-height:24px;color:var(--muted);font-size:12px;text-decoration:none;overflow-wrap:anywhere}
 .repo-link:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
@@ -71,7 +70,7 @@
 /* Paste-back sign-in. */
 .paste-back .paste-back-steps{margin:0;padding-left:20px;display:grid;gap:12px;font:var(--type-meta);color:var(--muted)}
 .paste-back .paste-back-steps label{display:grid;gap:6px;color:var(--ink)}
-.paste-back .paste-back-note{margin:0;font:var(--type-meta);color:var(--muted)}
+.paste-back .paste-back-note{margin:0;padding:0 20px 20px;font:var(--type-meta);color:var(--muted)}
 .paste-back .paste-back-error{margin:0;font:var(--type-meta);color:var(--danger-text)}
 
 /* Connections list and detail page (docs/design/tools-and-connections.md sections 3.2, 3.3). Filled surfaces, no outlined
