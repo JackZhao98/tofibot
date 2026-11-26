@@ -1,6 +1,7 @@
 // Message arrival and message actions in the browser build.
 //  - a streamed message that is saved must not blink (opacity stays 1) and a message that arrives whole fades in once;
-//  - the action bar is mounted only for the message under the pointer or focus, sits on that bubble's edge, and appears at once;
+//  - the action bar is mounted only for the message under the pointer or focus, sits beside that bubble (on its top edge in a narrow pane), and appears at once;
+//  - right click and a touch long press open the same actions as a menu;
 //  - Copy writes the message as displayed; reactions apply before the server answers and roll back on failure;
 //  - the list is a single tab stop and arrows move between messages.
 // Synthetic data; the app's /api is answered in the browser. Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:chat-motion
@@ -254,7 +255,7 @@ const barGeometry = (page, id) => page.evaluate(id => {
   if (!barEl) return null;
   const content = blockEl.querySelector(".tb-bubble");
   const others = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".tb-bubble, .message-reactions")].map(rect));
-  return { joinsNext: blockEl.dataset.joinsNext === "true", bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
+  return { joinsNext: blockEl.dataset.joinsNext === "true", bar: rect(barEl), content: rect(content), others, avatars: [...document.querySelectorAll(".sender-avatar")].map(rect), vw: innerWidth, pane: document.querySelector('.chat-pane').getBoundingClientRect().width, isUser: blockEl.querySelector(".message-user") !== null, position: getComputedStyle(barEl).position, background: getComputedStyle(barEl).backgroundColor, shadow: getComputedStyle(barEl).boxShadow, borderWidth: getComputedStyle(barEl).borderTopWidth };
 }, id);
 const intersects = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
 const heights = page => page.evaluate(() => [...document.querySelectorAll(".message-block")].map(el => el.getBoundingClientRect().height));
@@ -263,9 +264,9 @@ const latencies = [], firstSeen = [];
 // duration (structure) are asserted either way. Run the clock checks on a quiet machine (docs/process.md 3.3).
 const skipTiming = process.env.TOFI_SKIP_TIMING === "1";
 
-for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5"]], ["group", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"]]]) {
-  await check(`${layout}: the bar sits below its own bubble, clear of every other message, with no layout shift`, async () => {
-    const { page, context } = await open({ inGroup });
+for (const [layout, inGroup, ids, width] of [["DM", false, ["m1", "m2", "m3", "m4", "m5"], 1180], ["group", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"], 1180], ["DM wide", false, ["m1", "m2", "m3", "m4", "m5"], 1700], ["group wide", true, ["g1", "g2", "g3", "g4", "g5", "g6", "g7"], 1700]]) {
+  await check(`${layout}: the bar sits beside its own bubble (on its top edge in a narrow pane), clear of every other message, with no layout shift`, async () => {
+    const { page, context } = await open({ inGroup, width });
     for (const id of ids) {
       await block(page, id).evaluate(el => el.scrollIntoView({ block: "center" }));
       await page.waitForTimeout(60);
@@ -284,31 +285,28 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
       const after = await heights(page);
       assert.deepEqual(after, before, `${layout} ${id}: hovering changed a message height`);
       const g = await barGeometry(page, id);
-      if (g.joinsNext) {
-        // A bubble that joins the next one has no reserved row: its bar floats over its own top edge (bubble padding only), on the aligned side.
-        assert.equal(g.position, "static", `${layout} ${id}: the floating bar's own box stays static inside its absolute row`);
-        assert.ok(g.bar.top >= g.content.top - 40 && g.bar.bottom <= g.content.top + 12, `${layout} ${id}: the floating bar (${g.bar.top}..${g.bar.bottom}) is not on the bubble's top edge (${g.content.top})`);
-        assert.ok(g.bar.bottom <= g.content.bottom - 12, `${layout} ${id}: the floating bar reaches the bubble's own text`);
-        const next = g.others.find(other => other.top >= g.content.bottom - 0.5 && other.top - g.content.bottom < 8);
-        if (next) assert.ok(!intersects(g.bar, next), `${layout} ${id}: the floating bar covers the next bubble`);
-        for (const other of g.avatars) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers an avatar`);
-        for (const other of g.others) if (other.bottom <= g.content.top + 0.5) assert.ok(g.bar.top >= other.bottom - 12, `${layout} ${id}: the floating bar covers the previous bubble's text`);
-        assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
+      if (g.pane >= 1000) {
+        // A wide pane: bare icons beside the bubble on its open side (a Bot's right, the reader's left), centred on it, with no container.
+        assert.ok(Math.abs((g.bar.top + g.bar.bottom) / 2 - (g.content.top + g.content.bottom) / 2) <= 8, `${layout} ${id}: the bar is not centred on its bubble`);
+        if (g.isUser) assert.ok(g.bar.right <= g.content.left && g.content.left - g.bar.right <= 16, `${layout} ${id}: the reader's bar is not just left of the bubble (${g.bar.right} vs ${g.content.left})`);
+        else assert.ok(g.bar.left >= g.content.right && g.bar.left - g.content.right <= 16, `${layout} ${id}: the Bot's bar is not just right of the bubble (${g.bar.left} vs ${g.content.right})`);
+        assert.ok(g.background === "rgba(0, 0, 0, 0)" && g.shadow === "none" && g.borderWidth === "0px", `${layout} ${id}: the wide bar draws a container`);
+        for (const other of [...g.others, ...g.avatars]) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers another message or avatar`);
       } else {
-      // The row is pulled 4px up toward the bubble (e9fa15a5), so the bar may overlap the bubble's bottom edge by at most those 4px.
-      assert.ok(g.bar.top >= g.content.bottom - 4.5, `${layout} ${id}: bar top ${g.bar.top} is more than 4px above its bubble's bottom ${g.content.bottom}`);
-      assert.ok(g.bar.top - g.content.bottom <= 40, `${layout} ${id}: bar is ${g.bar.top - g.content.bottom}px below its bubble`);
-      assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
-      for (const other of [...g.others, ...g.avatars]) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers another message or avatar`);
-      // The bar belongs to the bubble's side: the reader's messages end at the bubble's right edge, a Bot's begin at its left.
-      if (g.isUser) assert.ok(Math.abs(g.bar.right - g.content.right) <= 4, `${layout} ${id}: bar is not on the bubble's right edge`);
-      else assert.ok(g.bar.left >= g.content.left - 8 && g.bar.left <= g.content.left + 8, `${layout} ${id}: bar is not on the bubble's left edge (${g.bar.left} vs ${g.content.left})`);
-      // Quiet style: no container.
-      assert.ok(g.background === "rgba(0, 0, 0, 0)" && g.shadow === "none" && g.borderWidth === "0px", `${layout} ${id}: the bar draws a container`);
+        // A narrow pane: the same bar as a small chip straddling the bubble's top edge, on the open side.
+        assert.ok(g.bar.top >= g.content.top - 40 && g.bar.bottom <= g.content.top + 12, `${layout} ${id}: the chip (${g.bar.top}..${g.bar.bottom}) is not on the bubble's top edge (${g.content.top})`);
+        assert.ok(g.bar.bottom <= g.content.bottom - 12, `${layout} ${id}: the chip reaches the bubble's own text`);
+        const next = g.others.find(other => other.top >= g.content.bottom - 0.5 && other.top - g.content.bottom < 8);
+        if (next) assert.ok(!intersects(g.bar, next), `${layout} ${id}: the chip covers the next bubble`);
+        for (const other of g.avatars) assert.ok(!intersects(g.bar, other), `${layout} ${id}: bar covers an avatar`);
+        for (const other of g.others) if (other.bottom <= g.content.top + 0.5) assert.ok(g.bar.top >= other.bottom - 12, `${layout} ${id}: the chip covers the previous bubble's text`);
+        if (g.isUser) assert.ok(Math.abs(g.bar.right - g.content.right) <= 16, `${layout} ${id}: the reader's chip is not on the bubble's right edge`);
+        else assert.ok(Math.abs(g.bar.left - g.content.left) <= 16, `${layout} ${id}: the Bot's chip is not on the bubble's left edge`);
       }
+      assert.ok(g.bar.left >= 0 && g.bar.right <= g.vw, `${layout} ${id}: bar stays inside the window`);
       // Pointer path bubble -> bar crosses no dead space.
       const bb = await block(page, id).locator(".message-hover-actions").boundingBox();
-      const fromY = box.y + box.height - 2, toY = bb.y + bb.height / 2;
+      const fromY = box.y + box.height / 2, toY = bb.y + bb.height / 2;
       for (let step = 1; step <= 8; step++) {
         await page.mouse.move(box.x + 30 + (bb.x + 10 - box.x - 30) * step / 8, fromY + (toY - fromY) * step / 8);
         assert.equal(await block(page, id).locator(".message-hover-actions").count(), 1, `${layout} ${id}: bar closed on the way from the bubble to the bar (step ${step})`);
@@ -320,29 +318,25 @@ for (const [layout, inGroup, ids] of [["DM", false, ["m1", "m2", "m3", "m4", "m5
   });
 }
 
-await check("the gap between messages: a run is 3px with a floating bar, the run's last bubble reserves the bar's row, a speaker change is wider", async () => {
+await check("the gap between messages: a run is 3px, a speaker change is wider", async () => {
   for (const [layout, inGroup, run, change] of [["DM", false, ["m2", "m3"], ["m3", "m4"]], ["group", true, ["g2", "g3"], ["g4", "g5"]]]) {
     const { page, context } = await open({ inGroup });
     const gap = async (a, b) => page.evaluate(([a, b]) => document.querySelector(`[data-message-id="${b}"] .message`).getBoundingClientRect().top - document.querySelector(`[data-message-id="${a}"] .message`).getBoundingClientRect().bottom, [a, b]);
     const sameSender = await gap(...run), speaker = await gap(...change);
     console.log(`  ${layout}: gap between consecutive messages of one sender ${sameSender}px, at a speaker change ${speaker}px`);
-    // Messages of one sender inside a bubble run sit 3px apart (their bars float); the run's last bubble keeps the row below it.
     assert.ok(sameSender >= 2 && sameSender <= 6, `${layout}: the gap inside a sender's run is ${sameSender}px, want about 3`);
-    const rows = await page.evaluate(() => [...document.querySelectorAll(".message-block[data-joins-prev]:not([data-joins-next])")].map(b => getComputedStyle(b.querySelector(".message-actions-row")).minHeight));
-    assert.ok(rows.length > 0 && rows.every(row => row === "28px"), `${layout}: a run's last bubble keeps its reserved 28px row (${rows.join(", ")})`);
+    assert.ok(await page.evaluate(() => document.querySelectorAll(".message-actions-row").length === 0), `${layout}: nothing reserves a row for the bar`);
     assert.ok(speaker > sameSender, `${layout}: a speaker change (${speaker}px) is not wider than a run (${sameSender}px)`);
     await context.close();
   }
 });
 
-await check("a person's bubble has no receipt row and no tick: spacing is the action row's, and hovering moves nothing", async () => {
+await check("a person's bubble has no receipt row and no tick, and hovering moves nothing", async () => {
   const { page, context } = await open({ extra: [base("m_r", 70, "user", "Synthetic receipt probe", { client_message_id: "cm-r" }), base("m_r2", 71, "assistant", "Synthetic answer to the probe")] });
   await page.mouse.move(2, 2);
   assert.equal(await page.locator(".send-receipt, .send-receipt-mark").count(), 0, "a receipt is on show without hover");
   const heights = () => page.locator(".message-list .message-block").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height));
   const rest = await heights();
-  const spacing = await block(page, "m_r").evaluate(node => { const article = node.querySelector(".message-user").getBoundingClientRect(); const row = node.querySelector(".message-actions-row")?.getBoundingClientRect(); return row ? row.top - article.bottom : null; });
-  assert.ok(spacing !== null && spacing <= 6, `the action row's reserve sits right under the person's bubble (${spacing}px)`);
   await block(page, "m_r").scrollIntoViewIfNeeded();
   const box = await block(page, "m_r").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
@@ -471,36 +465,77 @@ await check("keyboard: the list is one tab stop, arrows move between messages, t
   await context.close();
 });
 
-await check("touch: tapping beside the bubble does nothing; tapping the bubble opens the bar below it", async () => {
+const menu = page => page.locator(".reaction-context-menu");
+const menuLabels = async page => (await menu(page).locator('[role="menuitem"]:not(.tb-reactpick-item)').allInnerTexts()).map(label => label.trim());
+/** A held finger: pointer events of a touch, for engines that cannot drive a real long press. */
+const hold = (page, selector, { ms = 520, slide = 0 } = {}) => page.evaluate(async ([selector, ms, slide]) => {
+  const target = document.querySelector(selector), r = target.getBoundingClientRect(), x = r.left + 24, y = r.top + 10;
+  const fire = (type, dx = 0) => target.dispatchEvent(new PointerEvent(type, { pointerType: "touch", isPrimary: true, pointerId: 7, bubbles: true, cancelable: true, clientX: x + dx, clientY: y }));
+  fire("pointerdown");
+  if (slide) { await new Promise(resolve => setTimeout(resolve, 60)); fire("pointermove", slide); }
+  await new Promise(resolve => setTimeout(resolve, ms));
+  fire("pointerup", slide);
+  await new Promise(resolve => setTimeout(resolve, 340));
+}, [selector, ms, slide]);
+
+await check("right click opens the actions as a menu: Bot messages with the reactions, yours without; More opens the same", async () => {
+  const { page, context } = await open();
+  await block(page, "m3").scrollIntoViewIfNeeded();
+  await block(page, "m3").locator(".tb-bubble").click({ button: "right" });
+  await menu(page).waitFor();
+  assert.ok(await menu(page).locator(".tb-reactpick-item").count() >= 8, "a Bot's message offers the eight");
+  assert.deepEqual(await menuLabels(page), ["Reply", "Copy"]);
+  await page.keyboard.press("Escape");
+  await menu(page).waitFor({ state: "detached" });
+  await block(page, "m4").locator(".tb-bubble").click({ button: "right" });
+  await menu(page).waitFor();
+  assert.equal(await menu(page).locator(".tb-reactpick-item").count(), 0, "yours has no reactions");
+  assert.deepEqual(await menuLabels(page), ["Reply", "Copy"]);
+  await menu(page).getByRole("menuitem", { name: "Copy" }).click();
+  assert.equal(await page.evaluate(() => window.__clip), LONG, "Copy in the menu copies the message");
+  await menu(page).waitFor({ state: "detached" });
+  const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 10);
+  await block(page, "m3").locator('[data-action="more"]').click();
+  await menu(page).waitFor();
+  assert.ok(await menu(page).locator(".tb-reactpick-item").count() >= 8, "More opens the same menu");
+  await page.keyboard.press("Escape");
+  await menu(page).waitFor({ state: "detached" });
+  await block(page, "m4").locator(".tb-bubble").click({ button: "right" });
+  await menu(page).getByRole("menuitem", { name: "Reply" }).click();
+  await page.locator(".composer-reply").waitFor();
+  await context.close();
+});
+
+await check("touch: a tap opens nothing, a held press opens the menu, a slide or a short press does not", async () => {
   const { page, context } = await open({ width: 420, height: 800, touch: true });
-  await block(page, "m4").scrollIntoViewIfNeeded();
-  const content = await block(page, "m4").locator(".tb-bubble").boundingBox();
-  const host = await block(page, "m4").locator(".message-hover-host").boundingBox();
-  assert.ok(content.x - host.x > 8, "the reader's bubble leaves empty row space on its left");
-  await page.touchscreen.tap(host.x + 3, content.y + content.height / 2);
-  await page.waitForTimeout(150);
-  assert.equal(await bar(page).count(), 0, "a tap beside the bubble opens nothing");
+  await block(page, "m3").scrollIntoViewIfNeeded();
+  const content = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.touchscreen.tap(content.x + 30, content.y + 10);
-  await bar(page).first().waitFor();
-  const geometry = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); const blockEl = b.closest(".message-block"); const c = blockEl.querySelector(".tb-bubble").getBoundingClientRect(); const br = b.getBoundingClientRect(), btn = b.querySelector("button").getBoundingClientRect(); const next = blockEl.nextElementSibling?.getBoundingClientRect(); return { static: getComputedStyle(b).position === "static", size: Math.min(btn.width, btn.height), belowBubble: br.top >= c.bottom - 0.5, rightEdge: Math.abs(br.right - c.right) <= 4, overlapsNext: next ? br.bottom > next.top + 1 && br.top < next.bottom : false, inside: br.left >= 0 && br.right <= innerWidth }; });
-  assert.ok(geometry.static, "bar is in the flow");
-  assert.ok(geometry.belowBubble, "bar is below its bubble");
-  assert.ok(geometry.rightEdge, "the reader's bar ends at the bubble's right edge");
-  assert.ok(geometry.inside, "bar stays inside the window");
-  assert.ok(!geometry.overlapsNext, "bar does not cover the next message");
-  assert.ok(geometry.size >= 44, `touch targets are ${geometry.size}px`);
-  // A press on the bar itself keeps it open (the bar sits outside the bubble's host).
-  const time = await bar(page).locator("time").boundingBox();
-  await page.touchscreen.tap(time.x + time.width / 2, time.y + time.height / 2);
-  await page.waitForTimeout(150);
-  assert.equal(await bar(page).count(), 1, "a tap on the bar does not close it");
-  // Radix DismissableLayer closes a touch layer on the tap's click, not on pointerdown (so the tap cannot reach what was under
-  // the bar): wait for it instead of sleeping a fixed time.
+  await page.waitForTimeout(200);
+  assert.equal(await bar(page).count(), 0, "a tap mounts no bar: touch has none");
+  assert.equal(await menu(page).count(), 0, "a tap opens no menu");
+  await hold(page, '[data-message-id="m3"] .tb-bubble', { ms: 150 });
+  await page.waitForTimeout(500);
+  assert.equal(await menu(page).count(), 0, "a short press opens no menu");
+  await hold(page, '[data-message-id="m3"] .tb-bubble', { slide: 30 });
+  await page.waitForTimeout(100);
+  assert.equal(await menu(page).count(), 0, "a slide is a scroll and cancels the hold");
+  await hold(page, '[data-message-id="m3"] .tb-bubble');
+  await menu(page).waitFor();
+  assert.ok(await menu(page).locator(".tb-reactpick-item").count() >= 8, "a Bot's message offers the eight");
+  assert.deepEqual(await menuLabels(page), ["Reply", "Copy"]);
+  const geometry = await page.evaluate(() => { const r = document.querySelector(".reaction-context-menu").getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, vw: innerWidth, vh: innerHeight }; });
+  assert.ok(geometry.left >= 0 && geometry.right <= geometry.vw && geometry.top >= 0 && geometry.bottom <= geometry.vh, `the menu stays inside the screen (${JSON.stringify(geometry)})`);
+  await menu(page).locator('.tb-reactpick-item[aria-label*="👍"]').click();
+  await menu(page).waitFor({ state: "detached" });
+  await block(page, "m4").scrollIntoViewIfNeeded();
+  await hold(page, '[data-message-id="m4"] .tb-bubble');
+  await menu(page).waitFor();
+  assert.equal(await menu(page).locator(".tb-reactpick-item").count(), 0, "yours has no reactions");
+  assert.deepEqual(await menuLabels(page), ["Reply", "Copy"]);
   await page.touchscreen.tap(5, 300);
-  await page.waitForFunction(() => document.querySelectorAll(".message-hover-actions").length === 0, null, { timeout: 2000 }).catch(() => {});
-  // Failed once in eight runs (2026-11-13) with no cause found; say what kept the bar if it happens again.
-  const left = await page.evaluate(() => { const b = document.querySelector(".message-hover-actions"); return b ? { message: b.closest(".message-block")?.dataset.messageId, focused: document.activeElement?.className?.toString().slice(0, 60), focusVisible: document.activeElement?.matches(":focus-visible") } : null; });
-  assert.equal(left, null, `a tap elsewhere closes it (still open: ${JSON.stringify(left)})`);
+  await menu(page).waitFor({ state: "detached" });
   await context.close();
 });
 

@@ -94,9 +94,7 @@ export const menus: CatalogSection = {
       drive: async step => { await step.click(".sidebar-account-identity"); await step.find(".sidebar-account-menu"); } },
     { id: "reactions", kind: "app", label: "Reaction menu", app: DM, probe: ".reaction-context-menu", keyboard: { close: "Escape" },
       drive: async step => {
-        const host = await step.find('.message-block[data-message-id="m_dm_mochi_2"] .message-hover-host');
-        await step.hover(host);
-        await step.click('.message-block[data-message-id="m_dm_mochi_2"] [data-action="react"]');
+        await step.contextMenu('.message-block:last-child .tb-bubble');
         await step.find(".reaction-context-menu");
       } },
     { id: "create", kind: "app", label: "New menu (Bot, group, import)", app: LIST, probe: ".create-menu", keyboard: { close: "Escape" },

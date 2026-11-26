@@ -375,7 +375,8 @@
     "toolbar": "Actions du message",
     "view_activity": "Voir l’activité",
     "hide_activity": "Masquer l’activité",
-    "just_now": "À l’instant"
+    "just_now": "À l’instant",
+    "more": "Plus"
   },
   "list": {
     "separator": ", "

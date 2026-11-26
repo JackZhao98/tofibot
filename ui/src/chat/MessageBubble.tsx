@@ -1,4 +1,5 @@
-import { MessageHoverActions } from "../MessageHoverActions";
+import { MessageHoverActions, writeClipboard } from "../MessageHoverActions";
+import { hadSelectionAtPress } from "../messageLongPress";
 import { readReplyMarker } from "../replyMarker";
 import { i18n, useTranslation } from "../i18n";
 import { isDesktop } from "../desktop";
@@ -28,7 +29,7 @@ import type { TaskCardModel } from "../taskCards";
 import { useSmoothStreamText } from "../useSmoothStreamText";
 import type { Bot, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary } from "../types";
 import { MOTION, EASE } from "../motion";
-import { Avatar, blockKey, jumpToMessage, messageId, previewText } from "./shared";
+import { Avatar, jumpToMessage, messageId, previewText } from "./shared";
 import { Notice } from "../ds/Notice/Notice";
 import { Button } from "../ds/Button/Button";
 import { Divider } from "../ds/Divider/Divider";
@@ -67,7 +68,7 @@ function SmoothStreamMarkdown({ content, mention, active, streaming = false }: {
   const visible = useSmoothStreamText(content, active);
   return <MessageMarkdown content={visible} mention={mention} cursor={active} reuse={!streaming} />;
 }
-export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, onNavigate, onMention }: { receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
+export function MessageBubble({ receipt, message, replyTarget, replyTargetName, sender, senderName, targetBot, run, tools, scheduleOccurrence, schedulePending, schedule, onRetrySchedule, onDraftReply, draft, relatedChat, onOpenRelatedChat, compact = false, showAvatar = true, showIdentity = true, noticeTargetAvailable = true, allowOpenDM = false, actions, onNavigate, onMention }: { actions?: React.ReactNode; receipt?: React.ReactNode; relatedChat?: ViewOnlyChatTarget | null; onOpenRelatedChat?: (target: ViewOnlyChatTarget) => void; noticeTargetAvailable?: boolean; allowOpenDM?: boolean; onMention?: (bot: Bot) => void; message: Message; replyTarget?: Message; replyTargetName?: string; sender?: Bot; senderName?: string; targetBot?: Bot; run?: Run; tools?: React.ReactNode; scheduleOccurrence?: ScheduleOccurrence; schedulePending?: boolean; schedule?: Schedule; onRetrySchedule?: (id: string) => Promise<void>; onDraftReply?: () => Promise<boolean>; draft?: string | StreamDraft; compact?: boolean; showAvatar?: boolean; showIdentity?: boolean; onNavigate?: (id: string) => void }) {
   const hasComputer = useHasComputer();
   const { t } = useTranslation("chat");
   const ground = useBotGround(sender?.id ?? (message.sender_bot_id && message.sender_bot_id !== "system" ? message.sender_bot_id : undefined));
@@ -177,7 +178,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
   const author = showIdentity && !isUser && (!compact || showAvatar) ? label : undefined;
   const botAttachments = !isUser && hasAttachments ? <div className="message-attachments bot-attachments"><AttachmentList attachments={message.attachments} /></div> : null;
   const bubble = mediaOnly ? undefined : <div className="message-content" ref={answerRef}><SmoothStreamMarkdown content={body} mention={inlineMention} active={draft !== undefined && !isDesktop} streaming={draft !== undefined} />{draft !== undefined && isDesktop && <span className="typing-cursor tb-caret" />}</div>;
-  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${sending ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}>{scheduled && <div className={`message-meta ${hideMeta ? "compact" : ""}`}><span>{t("message.scheduled")}</span></div>}{(toolsRunning || !isDesktop) && toolRow}{userAttachments}<KitBubble role={isUser ? "user" : "bot"} botColor={!isUser && message.sender_bot_id && message.sender_bot_id !== "system" ? ground ?? "tomato" : undefined} author={author} avatar={avatar} avatarColumn={grouped} hangAvatar={grouped} quote={quote} sending={sending} attachments={mediaOnly ? (isUser ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : botAttachments) : undefined}>{bubble}</KitBubble>{!isUser && hasAttachments && !mediaOnly && botAttachments}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
+  return <article data-sender={grouped ? message.sender_bot_id : undefined} data-from={isUser ? "user" : message.sender_bot_id || "bot"} data-at={message.created_at} className={`message ${isUser ? "message-user" : "message-bot"}${sending ? " is-sending" : ""}${mediaOnly ? " is-media-only" : ""}${grouped ? " is-group" : !isUser ? " is-dm" : ""} ${message.kind === "segment" ? "message-segment" : ""} ${message.kind === "forward_result" ? "message-forward-result" : ""} ${compact ? "message-compact" : ""}`} title={isDesktop ? `${formatExactTime(message.created_at, timezone)} · ${timezone}` : undefined}><div className={`message-body${tools && !isDesktop ? ` web-tool-body ${toolsRunning ? "is-tools-live" : "is-tools-done"}` : ""}`}>{scheduled && <div className={`message-meta ${hideMeta ? "compact" : ""}`}><span>{t("message.scheduled")}</span></div>}{(toolsRunning || !isDesktop) && toolRow}{userAttachments}<KitBubble role={isUser ? "user" : "bot"} botColor={!isUser && message.sender_bot_id && message.sender_bot_id !== "system" ? ground ?? "tomato" : undefined} author={author} avatar={avatar} avatarColumn={grouped} hangAvatar={grouped} quote={quote} sending={sending} actions={actions} showActions={Boolean(actions)} attachments={mediaOnly ? (isUser ? <div className="message-attachments"><AttachmentList attachments={message.attachments} /></div> : botAttachments) : undefined}>{bubble}</KitBubble>{!isUser && hasAttachments && !mediaOnly && botAttachments}{receipt}{!toolsRunning && isDesktop && toolRow}{relatedChat && onOpenRelatedChat && <RelatedMessageLink target={relatedChat} onOpen={onOpenRelatedChat} />}</div></article>;
 }
 /** Everything one timeline row draws, derived by the workspace. Plain data only: the row is skipped when none of it changed. */
 export interface RowModel {
@@ -206,8 +207,6 @@ export interface RowModel {
 export interface RowHandlers {
   openMenu: (messageId: string, x: number, y: number) => void;
   closeMenu: () => void;
-  hostPointerDown: () => void;
-  hostClick: (event: React.MouseEvent<HTMLElement>, messageId: string) => void;
   react: (messageId: string, anchor: DOMRect) => void;
   toggleActivity: (runId: string) => void;
   reply: (message: Message) => void;
@@ -239,14 +238,23 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
   const tools = m.processTools ? <ToolActivityList activities={m.processTools} progress={m.processProgress} summaries={m.processSummaries} summaryErrors={m.processSummaryErrors} summaryLoading={m.processSummaryLoading} details={m.toolLists!.details} onLoadDetails={h.loadDetails} onRetrySummary={h.retrySummary} botById={m.toolLists!.botById} activeRunIds={m.toolLists!.activeRunIds} /> : undefined;
   const receipt = m.receipt && (m.receipt.state === "failed" || m.receipt.state === "sending" || m.receipt.state === "retrying") ? <SendReceipt receipt={m.receipt} onRetry={m.canRetryReceipt ? () => h.retrySend(message.client_message_id!) : undefined} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} /> : message.delivery ? <DeliveryNote state={message.delivery} /> : undefined;
   const actions = m.hasBar ? <MessageActionsSlot id={message.id}><MessageHoverActions message={message} timezone={m.timezone} copyText={m.copyText}
-      onReact={anchor => h.react(message.id, anchor)}
+      onReact={anchor => h.react(message.id, anchor)} onMore={anchor => h.react(message.id, anchor)}
       onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen}
       onReply={m.canReply ? () => h.reply(message) : undefined} /></MessageActionsSlot> : undefined;
-  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} tabIndex={m.isLast ? 0 : -1} onContextMenu={m.canReact && isDesktop && message.role !== "user" ? event => { event.preventDefault(); h.openMenu(message.id, event.clientX, event.clientY); } : failedHere ? event => { event.preventDefault(); const box = event.currentTarget.querySelector(".tb-bubble")?.getBoundingClientRect(); setUnsentMenu(event.clientX || event.clientY || !box ? { x: event.clientX, y: event.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 }); } : undefined}>
+  // Right click, and the Menu key on the focused block, open the same actions as the bar: a menu at the pointer, or at the bubble for the key.
+  const openContext = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("a,input,textarea") || ((event.clientX || event.clientY) && hadSelectionAtPress())) return;
+    event.preventDefault();
+    const box = event.currentTarget.querySelector(".tb-bubble")?.getBoundingClientRect();
+    if (event.clientX || event.clientY || !box) h.openMenu(message.id, event.clientX, event.clientY);
+    else h.openMenu(message.id, box.left + box.width / 2, box.top + box.height / 2);
+  };
+  return <div className={`message-block${m.arrival ? ` new-arrival${m.streamed ? " was-streamed" : ""}` : ""}`} data-message-seq={message.seq} data-message-id={message.id} data-owns-next={m.ownsNext ? "" : undefined} tabIndex={m.isLast ? 0 : -1} data-actions={m.hasBar ? "" : undefined} onContextMenu={m.hasBar ? openContext : failedHere ? event => { event.preventDefault(); const box = event.currentTarget.querySelector(".tb-bubble")?.getBoundingClientRect(); setUnsentMenu(event.clientX || event.clientY || !box ? { x: event.clientX, y: event.clientY } : { x: box.left + box.width / 2, y: box.top + box.height / 2 }); } : undefined}>
     {m.dividerLabel !== undefined && <Divider className="date-divider">{m.dividerLabel}</Divider>}
     {m.unread && <Divider tone="unread" className="unread-divider" label={t("history.unread_below")}>{t("history.unread")}</Divider>}
-    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id} onPointerDownCapture={!isDesktop && m.canReact ? h.hostPointerDown : undefined} onClick={!isDesktop && m.canReact ? event => h.hostClick(event, message.id) : undefined}>
-      <MessageBubble receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
+    <div className={`message-hover-host${message.role === "user" ? " is-user" : ""}`} data-host-id={message.id}>
+      <MessageBubble actions={actions} receipt={receipt} message={message} replyTarget={m.replyTarget} replyTargetName={m.replyTargetName} senderName={m.senderName} targetBot={m.targetBot} sender={m.sender}
         run={m.run} tools={tools}
         scheduleOccurrence={m.scheduleOccurrence} schedulePending={m.schedulePending} schedule={m.schedule} onRetrySchedule={m.canRetrySchedule ? h.retryRun : undefined}
         draft={draft}
@@ -254,8 +262,7 @@ export const MessageRow = memo(function MessageRow({ model: m, h, stream }: { mo
         compact={m.compact} showAvatar={m.isGroup} showIdentity={m.showIdentity} noticeTargetAvailable={m.noticeTargetAvailable} allowOpenDM={m.allowOpenDM} onDraftReply={m.canDraftReply ? () => h.draftReply(message) : undefined} onMention={m.canMention ? h.mention : undefined} onNavigate={h.navigate} />
     </div>
     {unsentMenu && failedHere && message.client_message_id && <Suspense fallback={null}><UnsentMenu x={unsentMenu.x} y={unsentMenu.y} t={t} onEdit={() => h.editUnsent(message.client_message_id!)} onDelete={() => h.deleteUnsent(message.client_message_id!)} close={() => setUnsentMenu(null)} /></Suspense>}
-    {m.canReact && <MessageReactions message={message} botNames={m.botNames} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
-    {actions && <div className="message-actions-row" data-host-id={message.id} data-side={message.role === "user" ? "user" : "bot"} data-gutter={m.isGroup && message.role !== "user" && message.kind !== "ui_card" ? "" : undefined}>{actions}</div>}
+    {m.canReact && <MessageReactions message={message} botNames={m.botNames} onReply={m.hasBar && m.canReply ? () => h.reply(message) : undefined} onCopy={m.copyText ? () => void writeClipboard(m.copyText!) : undefined} menuPosition={m.menuPosition} onCloseMenu={h.closeMenu} onActivity={m.activityToggle && m.activityRunId ? () => h.toggleActivity(m.activityRunId!) : undefined} activityOpen={m.activityOpen} onSet={(emoji, present) => h.setReaction(message, emoji, present)} />}
     {m.traceRun && <div className="message-work-trace"><Suspense fallback={null}><WorkTrace run={m.traceRun} /></Suspense></div>}
     {m.ownerNodes}
     {m.taskCards && <Suspense fallback={null}>{m.taskCards.map(card => <TaskCard key={card.id} card={card} />)}</Suspense>}

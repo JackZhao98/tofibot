@@ -274,39 +274,29 @@ html:not([data-desktop]) .workspace .web-memory-empty{display:grid;justify-items
 html:not([data-desktop]) .workspace .web-memory-empty strong{margin-top:8px;color:var(--ink);font:700 18px/1.2 var(--font-display)}
 html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--muted);font:var(--type-meta)}
 
-/* Browser-mode message actions: a quiet row directly under the message (after its reaction chips), no container: line icons
-   in muted ink that darken on hover, the relative time last. It is mounted only for the message the pointer, focus or a tap is on,
-   and appears in the same frame (no fade). The row's space is reserved for every message on hover devices, so showing the bar
-   never moves anything; that reserve is also the gap between messages (28px row + 4px, then 14px more where the speaker changes).
-   The row is a child of .message-block, so the pointer travelling from the bubble to the bar never leaves the block. */
+/* Message actions (V3 3.4b): bare icons beside the bubble, vertically centred on its open side (right of a Bot's bubble, left of yours),
+   in muted ink that darken on hover, the relative time last. The kit's MessageBubble places the slot; the bar is mounted only for the
+   message the pointer or keyboard focus is on and appears in the same frame (only its opacity eases in). Nothing reserves room for it, so
+   it never moves a bubble. A pane too narrow to hold it beside the bubble gets the same bar as a small chip on the bubble's top edge, on the bubble's own side.
+   Touch has no bar: a long press opens the same actions as a menu (messageLongPress.ts). */
 .workspace .message-hover-host { position:relative; }
 .workspace .message-content { position:relative; }
-.workspace .message-actions-row { --bar-btn:28px; display:flex; align-items:flex-start; justify-content:flex-start; }
-.workspace .message-actions-row[data-side="user"] { justify-content:flex-end; }
-.workspace .message-actions-row[data-gutter] { padding-left:var(--sender-gutter); }
-/* The bar is mounted on hover and appears at once; only its opacity eases in (--m-instant, no delay, no movement). */
-.workspace .message-hover-actions { display:flex; align-items:center; height:var(--bar-btn); -webkit-user-select:none; user-select:none; animation:message-bar-in var(--m-instant) var(--ease-out) both; }
+.workspace .message-hover-actions { --bar-btn:28px; display:flex; align-items:center; height:var(--bar-btn); white-space:nowrap; -webkit-user-select:none; user-select:none; animation:message-bar-in var(--m-instant) var(--ease-out) both; }
+.workspace .message-user .message-hover-actions { flex-direction:row-reverse; }
 @keyframes message-bar-in { from { opacity:0; } }
-.workspace .message-hover-actions time { margin:0 0 0 4px; padding:0 2px; color:var(--muted); font:12px/1 var(--font-body); white-space:nowrap; }
+.workspace .message-hover-actions time { margin:0 4px; padding:0 2px; color:var(--muted); font:12px/1 var(--font-body); white-space:nowrap; }
 .workspace .message-hover-actions button {
   display:grid; place-items:center; width:var(--bar-btn); height:var(--bar-btn); padding:0; border:0; border-radius:8px;
   background:transparent; color:var(--muted);
 }
-.workspace .message-actions-row[data-side="bot"]:not([data-gutter]) .message-hover-actions button:first-child { margin-left:calc(14px + (15px - var(--bar-btn)) / 2); }
 .workspace .message-hover-actions button:hover { color:var(--ink); }
 .workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:-2px; color:var(--ink); }
-@media (hover:hover) {
-  /* Pulled 4px up toward the bubble; the bottom margin grows by the same 4px, so the gap between messages is unchanged. */
-  .workspace .message-actions-row { min-height:28px; margin-top:-4px; margin-bottom:8px; }
-  .workspace .message-block:has(>.message-actions-row) .message-hover-host .message { margin-bottom:0; }
-  .workspace .message-block:has(>.message-actions-row) .message-reactions { margin:4px 0 0; }
-  /* Reactions on your own message stay under it, on the right. */
-  .workspace .message-block:has(>.message-actions-row) .message-reactions.is-user { margin-left:auto; }
-  .workspace .message-block:has(>.message-actions-row) .message[data-speaker-change="true"] { margin-top:14px; }
+@container (max-width:999px) {
+  .workspace .message-body > .tb-msg { --tb-side-top:-14px; --tb-side-shift:none; --tb-side-left:8px; --tb-side-right:auto; --tb-side-left-user:auto; --tb-side-right-user:8px; }
+  .workspace .message-hover-actions { --bar-btn:24px; padding:0 4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
 }
-/* Touch (no hover): a tap on the bubble opens the bar under it, in the flow, so it never covers a neighbouring message. */
 @media (hover:none) {
-  .workspace .message-actions-row { --bar-btn:44px; margin-top:2px; }
+  .workspace .message-content { -webkit-touch-callout:none; }
 }
 
 .workspace .composer-reply {

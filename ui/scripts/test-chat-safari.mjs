@@ -222,7 +222,13 @@ await check("selection across bubbles copies message text without toolbar timest
 
 // 2c. Touch: a press that lands on selected text dismisses the selection and leaves the tap actions alone;
 //     a plain tap still opens them (iPad behaviour).
-await check("touch: tapping selected text does not also open the message actions; plain tap does", async () => {
+/** A held finger: the pointer events of a touch, for engines that cannot drive a real long press. */
+const holdOn = (page, selector, ms = 520) => page.evaluate(async ([selector, ms]) => {
+  const target = document.querySelector(selector), r = target.getBoundingClientRect();
+  const fire = type => target.dispatchEvent(new PointerEvent(type, { pointerType: "touch", isPrimary: true, pointerId: 5, bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 6 }));
+  fire("pointerdown"); await new Promise(resolve => setTimeout(resolve, ms)); fire("pointerup"); await new Promise(resolve => setTimeout(resolve, 340));
+}, [selector, ms]);
+await check("touch: a tap, with or without selected text, opens no actions; a hold opens the menu", async () => {
   const { page, context } = await open({ width: 820, height: 1180, touch: true, mobile: true });
   await settle(page);
   assert.ok(await page.evaluate(() => matchMedia("(hover: none)").matches), "context has no hover, like an iPad");
@@ -233,11 +239,15 @@ await check("touch: tapping selected text does not also open the message actions
   const box = await para.boundingBox();
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".message-hover-actions").count(), 0, "tap on selected text opened the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions, .reaction-context-menu").count(), 0, "tap on selected text opened the actions");
   await page.evaluate(() => getSelection().removeAllRanges());
   await page.touchscreen.tap(box.x + 20, box.y + 6);
   await page.waitForTimeout(300);
-  assert.equal(await page.locator(".message-hover-actions").count(), 1, "a plain tap opens the actions toolbar");
+  assert.equal(await page.locator(".message-hover-actions, .reaction-context-menu").count(), 0, "a plain tap opened the actions: touch has no bar");
+  await para.evaluate(p => p.setAttribute("data-probe", "hold"));
+  await holdOn(page, '[data-probe="hold"]');
+  await page.locator(".reaction-context-menu").waitFor();
+  assert.equal(await page.locator(".reaction-context-menu").count(), 1, "a hold opens one menu");
   await context.close();
 });
 
@@ -371,41 +381,29 @@ await check("phone: keyboard open returns room to the conversation", async () =>
   assert.ok(open_.top - headerH <= 9, `keyboard-open top padding is ${open_.top}px (header ${headerH}px)`);
   await context.close();
 });
-await check("phone: tap toolbar opens below the bubble, one toolbar, one 44px Copy", async () => {
-  // Merged design: ui-chat's in-bubble bar (opens in the flow below the bubble) replaces the floating placement
-  // clamp; the phone requirement that remains is that a tap yields exactly one toolbar with a reachable Copy.
+await check("phone: a hold opens one menu inside the screen, with a Copy a thumb can hit", async () => {
   const { page, context } = await phone();
   await settle(page);
   await rowFor(page, "Simile Cat").tap();
   await settle(page);
-  const id = await page.evaluate(() => { const hosts = [...document.querySelectorAll(".message-hover-host")].filter(host => !host.classList.contains("is-user") && host.querySelector(".message-content")); const host = hosts.at(-1); host.scrollIntoView({ block: "center" }); return host.dataset.hostId; });
+  const id = await page.evaluate(() => { const hosts = [...document.querySelectorAll(".message-hover-host")].filter(host => !host.classList.contains("is-user") && host.querySelector(".message-content")); const host = hosts.at(-1); host.scrollIntoView({ block: "center" }); host.querySelector(".message-content").setAttribute("data-probe", "hold"); return host.dataset.hostId; });
   await page.waitForTimeout(300);
   await page.locator(`.message-hover-host[data-host-id="${id}"] .message-content`).first().tap();
   await page.waitForTimeout(300);
-  const bar = await page.evaluate(() => {
-    const bars = [...document.querySelectorAll(".message-hover-actions")].filter(el => el.getBoundingClientRect().height > 0);
-    const copies = document.querySelectorAll('.message-hover-actions [data-action="copy"]').length;
-    const el = bars[0]; if (!el) return { count: 0, copies };
-    const header = document.querySelector(".chat-header").getBoundingClientRect().bottom, composer = document.querySelector(".composer").getBoundingClientRect().top;
-    const r = el.getBoundingClientRect(); const copy = el.querySelector('[data-action="copy"]');
-    return { count: bars.length, copies, top: r.top, bottom: r.bottom, header, composer, copyW: copy ? copy.getBoundingClientRect().width : 0 };
+  assert.equal(await page.locator(".message-hover-actions").count(), 0, "a tap mounts no bar on touch");
+  await holdOn(page, '[data-probe="hold"]');
+  await page.locator(".reaction-context-menu").waitFor();
+  const menu = await page.evaluate(() => {
+    const el = document.querySelector(".reaction-context-menu"), r = el.getBoundingClientRect();
+    const copy = [...el.querySelectorAll('[role="menuitem"]')].find(item => /copy/i.test(item.textContent || ""));
+    return { count: document.querySelectorAll(".reaction-context-menu").length, copy: copy ? copy.getBoundingClientRect().height : 0, left: r.left, right: r.right, top: r.top, bottom: r.bottom, vw: innerWidth, vh: innerHeight };
   });
-  assert.equal(bar.count, 1, "exactly one visible toolbar on touch");
-  assert.equal(bar.copies, 1, "exactly one Copy button");
-  assert.ok(bar.copyW >= 44, `Copy button is ${bar.copyW}px wide`);
-  assert.ok(bar.top >= bar.header - 1 && bar.bottom <= bar.composer + 1, `toolbar ${bar.top}-${bar.bottom} outside header ${bar.header} / composer ${bar.composer}`);
-  const placement = await page.evaluate(() => {
-    const el = [...document.querySelectorAll(".message-hover-actions")].find(b => b.getBoundingClientRect().height > 0);
-    const blockEl = el.closest(".message-block"), c = blockEl.querySelector(".message-content").getBoundingClientRect(), b = el.getBoundingClientRect();
-    const next = blockEl.nextElementSibling?.querySelector(".message-content")?.getBoundingClientRect();
-    return { belowBubble: b.top >= c.bottom - 0.5, overNext: next ? b.bottom > next.top + 0.5 && b.top < next.bottom && b.right > next.left && b.left < next.right : false, inside: b.left >= 0 && b.right <= innerWidth };
-  });
-  assert.ok(placement.belowBubble, "the toolbar is below its own bubble");
-  assert.ok(!placement.overNext, "the toolbar does not cover the next message");
-  assert.ok(placement.inside, "the toolbar stays inside the window");
+  assert.equal(menu.count, 1, "exactly one menu");
+  assert.ok(menu.copy >= 36, `the Copy row is ${menu.copy}px high`);
+  assert.ok(menu.left >= 0 && menu.right <= menu.vw && menu.top >= 0 && menu.bottom <= menu.vh, `the menu leaves the screen: ${JSON.stringify(menu)}`);
   await context.close();
 });
-await check("desktop: the hover bar sits below its bubble, clear of the neighbours, and hovering moves nothing", async () => {
+await check("desktop: the hover bar sits beside its bubble (on its top edge in a narrow pane), clear of the neighbours, and hovering moves nothing", async () => {
   const { page, context } = await open();
   await settle(page);
   await rowFor(page, "Simile Cat").click();
@@ -423,13 +421,13 @@ await check("desktop: the hover bar sits below its bubble, clear of the neighbou
     assert.deepEqual(await heights(), before, `${id}: hovering changed a message height`);
     const geometry = await page.evaluate(id => {
       const blockEl = document.querySelector(`.message-block[data-message-id="${id}"]`), b = blockEl.querySelector(".message-hover-actions").getBoundingClientRect(), c = blockEl.querySelector(".message-content").getBoundingClientRect();
-      const floating = blockEl.dataset.joinsNext === "true" || blockEl.dataset.ownsNext !== undefined;
-      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom - (floating && r.bottom <= c.top + 0.5 ? 12 : 0)) - Math.max(b.top, r.top) > 0.5; }); // a floating bar may sit over the previous bubble's 12px bottom padding, never its text
-      // The row is pulled 4px up toward the bubble (e9fa15a5): the bar may overlap its bubble's bottom edge by at most 4px.
-      // A bubble that joins the next one has no reserved row (32bbd79b): its bar floats on its own top edge, above its text.
-      return { floating, below: floating ? b.top >= c.top - 40 && b.bottom <= c.top + 12 : b.top >= c.bottom - 4.5, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
+      const pane = document.querySelector(".chat-pane").getBoundingClientRect().width, user = blockEl.querySelector(".message-user") !== null;
+      const hit = [...document.querySelectorAll(".message-block")].filter(el => el !== blockEl).flatMap(el => [...el.querySelectorAll(".message-content")]).some(el => { const r = el.getBoundingClientRect(); return Math.min(b.right, r.right) - Math.max(b.left, r.left) > 0.5 && Math.min(b.bottom, r.bottom - (pane < 1000 && r.bottom <= c.top + 0.5 ? 12 : 0)) - Math.max(b.top, r.top) > 0.5; }); // a chip may sit over the previous bubble's 12px bottom padding
+      // A wide pane: beside the bubble, centred on it. A narrow one: a chip on the bubble's top edge, above its text.
+      const placed = pane >= 1000 ? (user ? b.right <= c.left + 0.5 : b.left >= c.right - 0.5) && Math.abs((b.top + b.bottom) / 2 - (c.top + c.bottom) / 2) <= 8 : b.top >= c.top - 40 && b.bottom <= c.top + 12;
+      return { floating: pane < 1000, below: placed, hit, inside: b.left >= 0 && b.right <= innerWidth, btn: blockEl.querySelector(".message-hover-actions button").getBoundingClientRect().width };
     }, id);
-    assert.ok(geometry.below, `${id}: bar is not where its bubble's kind puts it (under the bubble, or on the top edge of a bubble that joins the next)`);
+    assert.ok(geometry.below, `${id}: bar is not where the pane puts it (beside the bubble, or on its top edge in a narrow pane)`);
     assert.ok(!geometry.hit, `${id}: bar covers another message`);
     assert.ok(geometry.inside, `${id}: bar leaves the window`);
     assert.ok(geometry.btn >= (geometry.floating ? 24 : 28), `${id}: desktop hit targets are ${geometry.btn}px`);

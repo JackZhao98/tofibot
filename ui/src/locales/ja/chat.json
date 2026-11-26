@@ -365,7 +365,8 @@
     "toolbar": "メッセージの操作",
     "view_activity": "アクティビティを表示",
     "hide_activity": "アクティビティを隠す",
-    "just_now": "たった今"
+    "just_now": "たった今",
+    "more": "その他"
   },
   "list": {
     "separator": "、"

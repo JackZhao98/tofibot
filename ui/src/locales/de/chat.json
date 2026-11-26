@@ -370,7 +370,8 @@
     "toolbar": "Nachrichtenaktionen",
     "view_activity": "Aktivität ansehen",
     "hide_activity": "Aktivität ausblenden",
-    "just_now": "Gerade eben"
+    "just_now": "Gerade eben",
+    "more": "Mehr"
   },
   "list": {
     "separator": ", "

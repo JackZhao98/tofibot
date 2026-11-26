@@ -450,29 +450,33 @@ try {
     } finally { await context.close(); }
   });
   for (const [kind, url] of [["group", "/g/grp_1"], ["dm", "/b/bot_a"]]) {
-    await scenario(`tap "View activity" on a message (${kind}, touch)`, async () => {
+    await scenario(`hold a message and pick "View activity" (${kind}, touch)`, async () => {
       const { page, context, errors } = await open(url, { width: 1180, height: 820, theme: "light", touch: true, mobile: true });
       try {
         assert.ok(await page.evaluate(() => matchMedia("(hover: none)").matches), "the context has no hover, like an iPad");
-        // The bar is a row under the message, so its container is the message block.
+        // Touch has no bar: holding the message opens its actions as a menu.
         const host = page.locator(`.message-block[data-message-id="a5"]`);
-        assert.equal(await host.locator(".message-hover-actions").isVisible(), false, "actions are hidden until a tap");
-        await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
-        await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
-        const action = host.locator('button[aria-label="查看工作过程"]');
-        assert.equal(await action.count(), 1, "the actions offer View activity");
-        // A message whose run did no work offers none.
-        assert.equal(await page.locator('.message-block[data-message-id="u1"] button[aria-label="查看工作过程"]').count(), 0, "a person's message has no activity action");
+        const hold = () => page.evaluate(async () => {
+          const target = document.querySelector('.message-block[data-message-id="a5"] .tb-bubble'), r = target.getBoundingClientRect();
+          const fire = type => target.dispatchEvent(new PointerEvent(type, { pointerType: "touch", isPrimary: true, pointerId: 9, bubbles: true, cancelable: true, clientX: r.left + 24, clientY: r.top + 10 }));
+          fire("pointerdown"); await new Promise(resolve => setTimeout(resolve, 520)); fire("pointerup"); await new Promise(resolve => setTimeout(resolve, 340));
+        });
+        await host.locator(".message-content").first().tap();
+        assert.equal(await page.locator(".message-hover-actions").count(), 0, "a tap opens no bar on touch");
+        await hold();
+        await page.waitForSelector(".reaction-context-menu", { state: "visible" });
+        const action = page.locator('.reaction-context-menu [role="menuitem"]', { hasText: "查看工作过程" });
+        assert.equal(await action.count(), 1, "the menu offers View activity");
         await action.tap();
         // V3 4.3: the work opens in the Activity sidebar view, not in the conversation.
         await page.waitForFunction(() => document.querySelectorAll('.sidebar-pane .is-activity-view[data-run-id="run_c"] .task-step').length >= 7);
         assert.equal(await page.locator('.message-list .task-activity').count(), 0, "nothing unfolds in the conversation");
         assert.equal(await page.locator('.sidebar-pane .is-activity-view[data-run-id="run_a"]').count(), 0, "only the asked run opens");
         await page.screenshot({ path: join(heroDir, `after-view-activity-${kind}-1180x820-light.png`) });
-        // Tapping again on the same message offers Hide activity.
-        await page.locator(`.message-block[data-message-id="a5"] .message-content`).first().tap();
-        await page.waitForSelector(`.message-block[data-message-id="a5"] .message-hover-actions`, { state: "visible" });
-        await host.locator('button[aria-label="收起工作过程"]').tap();
+        // Holding the same message again offers Hide activity.
+        await hold();
+        await page.waitForSelector(".reaction-context-menu", { state: "visible" });
+        await page.locator('.reaction-context-menu [role="menuitem"]', { hasText: "收起工作过程" }).tap();
         await page.waitForFunction(() => !document.querySelector('.sidebar-pane .is-activity-view'));
         assert.deepEqual(errors, [], "page errors");
       } finally { await context.close(); }

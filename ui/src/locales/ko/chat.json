@@ -365,7 +365,8 @@
     "toolbar": "메시지 작업",
     "view_activity": "활동 보기",
     "hide_activity": "활동 숨기기",
-    "just_now": "방금"
+    "just_now": "방금",
+    "more": "더 보기"
   },
   "list": {
     "separator": ", "

@@ -27,7 +27,8 @@ import { FilePreviewHost } from "../FileViewer";
 import "../MessageReactions";
 import { applyUserReaction } from "../reactionState";
 import { applyMessageTask } from "../messageLink";
-import { setMessageActions, tappedMessageActionsId } from "../messageActionsStore";
+import { setMessageActions } from "../messageActionsStore";
+import { attachMessageLongPress } from "../messageLongPress";
 import { useQuestions } from "../useQuestions";
 import { toolActivityKey } from "../toolTimeline";
 import { setToolResultLoader } from "../toolResultLoader";
@@ -305,7 +306,6 @@ export function Workspace() {
   /** Ids that appeared as a streaming draft: their text was already read in place, so the saved message must not replay an arrival. */
   const streamedIDs = useRef(new Set<string>());
   /** A press that lands while text is selected dismisses the selection; it must not also toggle the tap actions. */
-  const selectionOnPress = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   // Group chats: avatar and name open a sender group once; later units from the same Bot only indent.
   const [messageRecords, setMessages] = useState<Message[]>([]);
@@ -2168,7 +2168,8 @@ export function Workspace() {
     hoverExitTimer.current = window.setTimeout(() => setMessageActions("hover", ""), 120);
   };
   // Only keyboard focus raises the bar: pressing on a message focuses it too, and a press must not open actions by itself.
-  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible")) setMessageActions("focus", messageIdOf(event.target)); };
+  // Touch draws no bar, so a focus on a touch screen mounts none either.
+  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible") && window.matchMedia("(hover: hover)").matches) setMessageActions("focus", messageIdOf(event.target)); };
   const onMessageListBlur = (event: React.FocusEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMessageActions("focus", ""); };
   // The list is one tab stop (the newest message); arrows move between messages, Tab enters the focused message's bar, Escape comes back.
   const onMessageListKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -2331,16 +2332,8 @@ export function Workspace() {
   rowApi.current = {
     openMenu: (messageId, x, y) => setReactionMenu({ messageId, x, y }),
     closeMenu: () => setReactionMenu(null),
-    hostPointerDown: () => { selectionOnPress.current = Boolean(window.getSelection()?.toString()); },
-    hostClick: (event, messageId) => {
-      const hadSelection = selectionOnPress.current || Boolean(window.getSelection()?.toString());
-      selectionOnPress.current = false;
-      const target = event.target as HTMLElement;
-      if (hadSelection || !window.matchMedia("(hover: none)").matches || !target.closest(".tb-bubble, .message-content") || target.closest("a,button,summary,input,textarea,pre,[role=button],.message-hover-actions")) return;
-      setMessageActions("tap", tappedMessageActionsId() === messageId ? "" : messageId);
-    },
     react: (messageId, anchor) => setReactionMenu({ messageId, x: anchor.left, y: anchor.top - 6, h: anchor.height + 12 }),
-    toggleActivity: runId => { setMessageActions("tap", ""); toggleActivitySidebar(runId); },
+    toggleActivity: runId => toggleActivitySidebar(runId),
     reply: message => {
       if (!active) return;
       updateComposerDraft(active.id, current => ({ ...current, reply: { id: message.id, name: message.role === "user" ? t("message.you") : message.sender_bot_name ?? (message.sender_bot_id ? botById.get(message.sender_bot_id)?.name : undefined) ?? "Bot", excerpt: previewText(readReplyMarker(message.content).body) || t("message.attachment") } }));
@@ -2372,9 +2365,11 @@ export function Workspace() {
       }
     },
   };
+  // A held touch on a message opens its menu; the listener lives on the page, the row carries nothing.
+  useEffect(() => attachMessageLongPress(document, (id, x, y) => rowApi.current.openMenu(id, x, y)), []);
   const rowHandlers = useMemo<RowHandlers>(() => {
     const call = <K extends keyof RowHandlers>(key: K) => ((...args: unknown[]) => (rowApi.current[key] as (...a: unknown[]) => unknown)(...args)) as unknown as RowHandlers[K];
-    return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), hostPointerDown: call("hostPointerDown"), hostClick: call("hostClick"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), editUnsent: call("editUnsent"), deleteUnsent: call("deleteUnsent"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
+    return { openMenu: call("openMenu"), closeMenu: call("closeMenu"), react: call("react"), toggleActivity: call("toggleActivity"), reply: call("reply"), retrySend: call("retrySend"), editUnsent: call("editUnsent"), deleteUnsent: call("deleteUnsent"), retryRun: call("retryRun"), loadDetails: call("loadDetails"), retrySummary: call("retrySummary"), navigate: call("navigate"), openRelated: call("openRelated"), draftReply: call("draftReply"), mention: call("mention"), setReaction: call("setReaction") };
   }, []);
   // Sender marks change the gaps between rows after the scroll position was set: the position is taken again once they are in.
   useLayoutEffect(() => { markSenderGroups(messageListRef.current); viewport.reposition(); }, [viewport.reposition, conversationItems, timelineFrom, taskOwners, toolTimeline, pendingRuns, drafts, loadingMessages, active?.id, active?.kind, active?.archived, viewport.unreadSeq, error, historyError, hasMore, runs, toolSummaryAnchors, toolSummaryErrorAnchors, toolSummaryLoadingAnchors, toolDetailState, toolSummaryState, loadedToolActivities, terminalToolSummaries, questions.items, mailDrafts.items, activityView, bots, conversations, messageRecords]);
