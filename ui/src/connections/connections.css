@@ -7,6 +7,7 @@
 
 /* The connect dialog is the kit Dialog, flush: the directory and forms inside it are plain lists, not cards; each view pads itself. */
 .connect-dialog{width:min(560px,100%)}
+.connect-dialog .tb-dialog-title{display:flex;align-items:center;gap:10px}
 .connect-dialog .tb-dialog-body{gap:16px}
 .connect-lede{display:flex;align-items:flex-start;gap:8px;margin:0;padding:0 20px}
 .connect-lede .tb-dialog-note{margin:0;max-width:52ch}
