@@ -1,3 +1,4 @@
+import { IconButton } from "./ds/IconButton/IconButton";
 import {type CSSProperties} from "react";
 import {useTranslation} from "./i18n";
 import "./computer-resources.css";
@@ -23,9 +24,9 @@ function ResourceField({id,label,unit,current,value,min,max,step,hint,disabled,f
    <span className="resource-field-values"><span className="resource-field-was">{format(current)}</span>{changed&&<><span aria-hidden="true" className="resource-field-arrow">→</span><strong className="resource-field-now">{format(value)}</strong></>}<small>{unit}</small></span>
   </div>
   <div className="resource-field-control">
-   <button type="button" className="resource-step" aria-label={t("resources.decrease",{field:label})} disabled={disabled||value<=min} onClick={()=>onChange(clamp(value-step))}>−</button>
+   <IconButton className="resource-step" icon="minus" variant="solid" label={t("resources.decrease",{field:label})} disabled={disabled||value<=min} onClick={()=>onChange(clamp(value-step))}/>
    <input id={id} type="range" aria-labelledby={id+"-label"} min={min} max={max} step={step} value={value} disabled={disabled||max<=min} style={{"--fill":pct+"%"} as CSSProperties} onChange={event=>onChange(clamp(Number(event.target.value)))}/>
-   <button type="button" className="resource-step" aria-label={t("resources.increase",{field:label})} disabled={disabled||value>=max} onClick={()=>onChange(clamp(value+step))}>+</button>
+   <IconButton className="resource-step" icon="plus" variant="solid" label={t("resources.increase",{field:label})} disabled={disabled||value>=max} onClick={()=>onChange(clamp(value+step))}/>
   </div>
   <div className="resource-field-foot"><span>{format(min)}</span><span className="resource-field-hint">{hint}</span><span>{format(max)}</span></div>
  </div>;

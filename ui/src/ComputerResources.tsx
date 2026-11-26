@@ -134,7 +134,7 @@ export function ComputerResources({onOpenAdmin,bare=false}:{onOpenAdmin?:()=>voi
   <div className="settings-row">{bare?<span/>:<h3>{t("resources.title")}</h3>}{canEdit&&data&&!editing&&<Button type="button" size="sm" disabled={busy||restarting} onClick={()=>{const next=!editing;editingRef.current=next;setDesired(data.desired);setEditing(next);setActionError("")}}>{editing?t("resources.cancel"):t("resources.adjust")}</Button>}</div>
   {data&&<>
    <div className="resource-grid"><div><span>CPU</span><strong>{data.current.vcpus}<small> {t("resources.unit.cores")}</small></strong></div><div><span>{t("resources.memory")}</span><strong>{Number((data.current.memory_mib/1024).toFixed(1))}<small> GB</small></strong></div><div><span>{t("resources.disk_allocated")}</span><strong>{data.current.disk_gib}<small> GB</small></strong></div></div>
-   {!canEdit&&<p className="field-note resource-admin-note">{isAdmin?t("resources.admin_sets_admin"):t("resources.admin_sets")}{isAdmin&&onOpenAdmin&&<> <button className="text-button" type="button" onClick={onOpenAdmin}>{t("resources.open_admin")}</button></>}</p>}
+   {!canEdit&&<p className="field-note resource-admin-note">{isAdmin?t("resources.admin_sets_admin"):t("resources.admin_sets")}{isAdmin&&onOpenAdmin&&<> <Button size="sm" variant="ghost" onClick={onOpenAdmin}>{t("resources.open_admin")}</Button></>}</p>}
    {debug&&(canEdit||isAdmin)&&<p className="field-note">{t("resources.host",{cpus:data.host.cpus,memory:Math.round(data.host.memory_total_mib/1024),disk:Math.floor(data.host.disk_available_gib)})}</p>}
    {data.pending&&<div className="settings-notice resource-pending"><span>{t("resources.pending",{cpus:data.desired.vcpus,memory:data.desired.memory_mib/1024,disk:data.desired.disk_gib})}</span>{!restarting&&<Button ref={restartButton} type="button" size="sm" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.restart_apply")}</Button>}</div>}
   </>}
@@ -143,7 +143,7 @@ export function ComputerResources({onOpenAdmin,bare=false}:{onOpenAdmin?:()=>voi
   {restarting&&<p className="settings-feedback" role="status">{t("resources.restarting")}</p>}
   {!restarting&&status&&<p className="settings-feedback" role="status">{status}</p>}
   {failure&&<div className="resource-read-error" role="alert"><span>{failure}</span>{data?.state==="error"&&!data.pending&&!restarting&&<Button ref={restartButton} type="button" size="sm" disabled={busy||editing} onClick={()=>setConfirming(true)}>{t("resources.retry_restart")}</Button>}</div>}
-  {readError&&!settling&&<div className="resource-read-error" role="alert"><span>{readError}</span><button className="text-button" type="button" disabled={reading||busy} onClick={()=>void refresh()}>{reading?t("resources.reading"):t("resources.retry")}</button></div>}
+  {readError&&!settling&&<div className="resource-read-error" role="alert"><span>{readError}</span><Button size="sm" variant="ghost" disabled={reading||busy} onClick={()=>void refresh()}>{reading?t("resources.reading"):t("resources.retry")}</Button></div>}
   {!data&&(settling||!readError)&&<p className="field-note" role="status">{t("resources.loading")}</p>}
   {confirming&&<RestartConfirmation onCancel={()=>setConfirming(false)} onConfirm={()=>void apply()}/>}
  </section>;

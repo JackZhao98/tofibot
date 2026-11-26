@@ -32,6 +32,6 @@ export function ComputerContentsView({data, failed, retry, openTab}: {data: Cont
       <SettingsRow label={t("contents.config.name")} description={<>{t("contents.config.what")}<span className="computer-row-note">{data ? (saved > 0 ? t("contents.config.saved", {count: saved}) : t("contents.config.none")) : " "}</span></>}
         control={<Button type="button" size="sm" onClick={() => { openTab("computer"); revealSection("computer", "keys"); revealSection("computer", null); }}>{t("contents.config.manage")}</Button>}/>
     </SettingsCard>
-    {failed && <p className="computer-loss-note is-error" role="alert">{t("contents.load_failed")} <button className="text-button" type="button" onClick={retry}>{t("contents.retry")}</button></p>}
+    {failed && <p className="computer-loss-note is-error" role="alert">{t("contents.load_failed")} <Button size="sm" variant="ghost" onClick={retry}>{t("contents.retry")}</Button></p>}
   </SettingsSection>;
 }

@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import {TofiIcon} from "./icons";
 import {useTranslation} from "./i18n";
 import {useComputerContents, type ComputerContents} from "./useComputerContents";
@@ -31,6 +32,6 @@ export function ComputerLossView({data, failed, retry}: {data: ComputerContents 
       {data && pending > 0 && <li className="is-warn">{t("loss.pending", {count: pending})}</li>}
     </ul>
     {!data && !failed && <p className="computer-loss-note" role="status"><TofiIcon name="loading" size={14} aria-hidden="true"/>{t("loss.loading")}</p>}
-    {failed && <p className="computer-loss-note is-error" role="alert">{t("loss.load_failed")} <button className="text-button" type="button" onClick={retry}>{t("contents.retry")}</button></p>}
+    {failed && <p className="computer-loss-note is-error" role="alert">{t("loss.load_failed")} <Button size="sm" variant="ghost" onClick={retry}>{t("contents.retry")}</Button></p>}
   </div>;
 }

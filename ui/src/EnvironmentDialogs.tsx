@@ -70,7 +70,7 @@ export function E2BDialog({onClose, onSaved}: {onClose: () => void; onSaved: (bo
         <Field id="env-e2b-template" label={t("environments.e2b.template_id")} hint={t("environments.e2b.template_hint")}>
           <TextInput mono name="e2b-template-id" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={template} disabled={busy} onChange={event => setTemplate(event.target.value)}/>
         </Field>
-      </> : <button type="button" className="text-button env-template-toggle" aria-expanded={false} onClick={() => setShowTemplate(true)}>{t("environments.e2b.template_toggle")}</button>}
+      </> : <Button size="sm" variant="ghost" className="env-template-toggle" aria-expanded={false} onClick={() => setShowTemplate(true)}>{t("environments.e2b.template_toggle")}</Button>}
       <div className="resource-restart-actions"><Button type="button" disabled={busy} onClick={onClose}>{t("environments.cancel")}</Button><Button type="submit" variant="primary" disabled={busy || !key.trim()}>{busy ? t("environments.e2b.saving") : t("environments.save")}</Button></div>
     </form>
   </ModalDialog>;
@@ -85,7 +85,7 @@ export function DeniedBotsDialog({bots, onUndo, onClose}: {bots: {bot_id: string
       <h3 id="env-denied-title">{t("environments.rc.denied.title")}</h3>
       <p id="env-denied-body" className="env-dialog-note">{t("environments.rc.denied.body")}</p>
       {bots.length === 0 ? <p className="env-dialog-note" role="status">{t("environments.rc.denied.empty")}</p> : <ul className="rc-denied-list">
-        {bots.map(bot => <li key={bot.bot_id} data-bot={bot.bot_id}><span>{bot.bot_name || t("environments.rc.denied.unnamed")}</span><button type="button" className="rc-action" onClick={() => onUndo(bot.bot_id)}>{t("environments.rc.denied.allow")}</button></li>)}
+        {bots.map(bot => <li key={bot.bot_id} data-bot={bot.bot_id}><span>{bot.bot_name || t("environments.rc.denied.unnamed")}</span><Button size="sm" variant="ghost" className="rc-action" onClick={() => onUndo(bot.bot_id)}>{t("environments.rc.denied.allow")}</Button></li>)}
       </ul>}
       <div className="resource-restart-actions"><Button ref={close} type="button" onClick={onClose}>{t("environments.close")}</Button></div>
     </section>

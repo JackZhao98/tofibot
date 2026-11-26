@@ -1,3 +1,4 @@
+import { IconButton } from "./ds/IconButton/IconButton";
 import {EnvironmentFeatures} from "./EnvironmentFeatures";
 import {AutomationRows} from "./AutomationSettings";
 import {useEffect, useRef, useState, type ReactNode, type RefObject} from "react";
@@ -54,8 +55,8 @@ function RowMenu({item, name, items, onAction, disabled}: {item: Environment; na
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return <>
-    <button ref={trigger} type="button" className="st-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={t("environments.more", {name})} data-hint={t("environments.more", {name})}
-      {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
+    <IconButton ref={trigger} className="env-more" icon="more" label={t("environments.more", {name})} filled={open} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
+      {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}/>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={t("environments.more", {name})} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {items.map(action => <button key={action} type="button" className="mcp-menu-danger is-danger" data-action={action} onClick={() => { setOpen(false); onAction(action, item); }}>{t(`environments.action.${action}`)}</button>)}
     </OverlayMenu>}
