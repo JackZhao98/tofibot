@@ -73,6 +73,11 @@ export const status: CatalogState[] = [
       <Progress value={96} label="Spend" showValue tone="danger" />
       <Progress value={60} />
     </div> },
+  { id: "progress-meter", kind: "inline", label: "Progress · meter on its own scale, stacked parts",
+    render: () => <div className="catalog-stack">
+      <Progress value={25} label="Spend this month" showValue meter={{ max: 50, now: 12.5, label: "Spend this month" }} />
+      <Progress value={0} ariaLabel="Storage" valueText="1.2 GB of 5 GB" segments={[{ key: "a", value: 12 }, { key: "b", value: 8 }, { key: "c", value: 4 }]} />
+    </div> },
   { id: "skeleton", kind: "inline", label: "Skeleton · 1, 3 and 5 lines",
     render: () => <div className="catalog-stack"><Skeleton lines={1} /><Skeleton /><Skeleton lines={5} /></div> },
   { id: "empty", kind: "inline", label: "EmptyState · icon, art, with and without action",

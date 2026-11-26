@@ -3,6 +3,8 @@ import {request} from "./api";
 import {useTranslation} from "./i18n";
 import {formatDateTime, formatNumber} from "./i18n/format";
 import {Select} from "./Select";
+import {Button} from "./ds/Button/Button";
+import {Progress} from "./ds/Progress/Progress";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import {useSettingsActive} from "./settingsActivity";
 import "./settings/spend-cap.css";
@@ -49,7 +51,7 @@ export function SpendCap() {
 
   if (!status) {
     return <SettingsSection title={t("spend.title")} description={t("spend.description")}>
-      {error ? <p className="error-text" role="alert">{error}<button type="button" className="text-button" onClick={() => void load()}>{t("action.retry")}</button></p> : <p className="muted">{t("spend.loading")}</p>}
+      {error ? <p className="error-text" role="alert">{error}<Button size="sm" variant="ghost" onClick={() => void load()}>{t("action.retry")}</Button></p> : <p className="muted">{t("spend.loading")}</p>}
     </SettingsSection>;
   }
   const current = status.limit_usd;
@@ -63,7 +65,7 @@ export function SpendCap() {
       <SettingsRow label={t("spend.this_month")}
         description={<>{stateText}{current > 0 && <> · {t("spend.resets", {date: resets})}</>}</>}
         control={<span className="spend-figure" data-state={status.state} data-testid="spend-figure">{t("spend.amount_exact", {amount: money(status.spend_usd)})}</span>}/>
-      {current > 0 && <div className="spend-meter" role="meter" aria-label={t("spend.this_month")} aria-valuemin={0} aria-valuemax={current} aria-valuenow={Math.min(current, status.spend_usd)} data-state={status.state}><span style={{width: `${percent}%`}}/></div>}
+      {current > 0 && <Progress className="spend-meter" trackClassName="spend-meter-track" value={percent} state={status.state} tone={status.state === "reached" ? "danger" : status.state === "near" ? "warning" : "default"} meter={{max: current, now: Math.min(current, status.spend_usd), label: t("spend.this_month")}}/>}
       <SettingsRow label={t("spend.limit_label")} labelFor="spend-limit"
         description={<>{t("spend.limit_help")}{saved && <span role="status" className="auto-saved"> {t("automation.saved")}</span>}{error && <span className="error-text auto-error" role="alert"> {error}</span>}</>}
         control={<Select id="spend-limit" value={String(current)} disabled={busy} onValueChange={value => void change(Number(value))}>{steps.map(step => <option key={step} value={step}>{label(step)}</option>)}</Select>}/>
