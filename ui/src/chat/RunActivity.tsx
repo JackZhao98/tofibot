@@ -18,6 +18,7 @@ import type { Bot, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSumma
 import { MOTION, EASE } from "../motion";
 import { ComputerLookButton } from "../ComputerLookButton";
 import { SenderHead, formatTime } from "./shared";
+import { Button } from "../ds/Button/Button";
 
 export type ToolDetailState = { loaded: number; toolCount: number; hasMore: boolean; loading: boolean; error?: string };
 const runStatusKeys = {
@@ -339,7 +340,7 @@ export function WebToolActivityRun({ runId, items, notes, summary, summaryError,
       </div>
       <CollapsibleContent forceMount className={`web-tool-drawer${expanded ? " is-open" : ""}`} inert={!expanded}><div className="web-tool-drawer-inner">
       {clipped && <p className="web-tool-full">{fullLabel}</p>}
-      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><button type="button" className="secondary-button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><button type="button" className="secondary-button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</button></li>}</ol>
+      <ol className="web-tool-steps" ref={stepsRef}>{summaryLoading && <li className="web-tool-step is-note"><span>{t("tools.summary_loading")}</span></li>}{summaryError && <li className="web-tool-step is-note"><span>{t("tools.summary_failed", { error: summaryError })}</span><Button type="button" onClick={() => onRetrySummary?.(runId)}>{t("common:action.retry")}</Button></li>}{!entries.length && <li className="web-tool-step is-note"><span>{detail?.loading ? t("tools.details_loading") : detail?.error ? t("tools.details_failed", { error: detail.error }) : t("tools.expand_to_load")}</span></li>}<WebToolSteps entries={entries} live={live} now={now} timezone={timezone} />{hasMoreDetails && <li className="web-tool-step is-note"><Button type="button" disabled={detail?.loading} onClick={loadDetails}>{detail?.loading ? t("action.loading") : t("tools.load_more", { shown: items.length, total: count ?? "?" })}</Button></li>}</ol>
       <RunContextEntry runId={runId} timezone={timezone} />
       </div></CollapsibleContent>
     </Collapsible.Root>

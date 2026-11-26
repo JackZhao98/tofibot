@@ -7,6 +7,7 @@ import { useTranslation } from "./i18n";
 import type { Attachment, Run } from "./types";
 import { traceCellAt, traceCells, traceThumbStyle } from "./workTraceLayout";
 import "./work-trace.css";
+import { Button } from "./ds/Button/Button";
 
 
 
@@ -79,10 +80,10 @@ export default function WorkTrace({ run }: { run: Run }) {
     {asking
       ? <span className="work-trace-confirm" role="group" aria-label={t("trace.delete_confirm")}>
         <span>{t("trace.delete_confirm")}</span>
-        <button type="button" className="text-button" onClick={() => void remove()}>{t("trace.delete_yes")}</button>
-        <button type="button" className="text-button" onClick={() => setAsking(false)}>{t("trace.delete_no")}</button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void remove()}>{t("trace.delete_yes")}</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setAsking(false)}>{t("trace.delete_no")}</Button>
       </span>
-      : <button type="button" className="text-button work-trace-delete" onClick={() => setAsking(true)}>{t("trace.delete")}</button>}
+      : <Button type="button" variant="ghost" size="sm" className="work-trace-delete" onClick={() => setAsking(true)}>{t("trace.delete")}</Button>}
     {error && <small className="error-text" role="alert">{error}</small>}
     {index !== null && <Suspense fallback={null}><Lightbox images={images} index={index} onIndex={setIndex} onClose={() => setIndex(null)} origin={() => button.current} cellAt={cellAt} stepButtons={stepButtons} stepsLabel={t("trace.title")} /></Suspense>}
   </div>;

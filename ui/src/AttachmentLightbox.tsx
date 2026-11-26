@@ -6,6 +6,7 @@ import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { useTranslation } from "./i18n";
 import { attachmentUrl } from "./filePreviewModel";
 import { MOTION, EASE } from "./motion";
+import { Button } from "./ds/Button/Button";
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -66,7 +67,7 @@ export default function AttachmentLightbox({ images, index, onIndex, onClose, or
         {isDesktop ? <button type="button" onClick={() => void save()} aria-label={t("attachment.save", { name: current.name })}><TofiIcon name="download" size={16} /></button> : <a href={attachmentUrl(current.id)} download={current.name} aria-label={t("attachment.download", { name: current.name })}><TofiIcon name="download" size={16} /></a>}
       </div>
       {stepButtons && stepButtons.length > 1 && <ul className="attachment-lightbox-steps" aria-label={stepsLabel}>
-        {stepButtons.map(step => <li key={step.to}><button type="button" className="text-button" aria-current={step.to === index ? "true" : undefined} onClick={() => onIndex(step.to)}>{step.label}</button></li>)}
+        {stepButtons.map(step => <li key={step.to}><Button type="button" variant="ghost" size="sm" aria-current={step.to === index ? "true" : undefined} onClick={() => onIndex(step.to)}>{step.label}</Button></li>)}
       </ul>}
       {error && <small className="attachment-lightbox-error" role="alert">{error}</small>}
       {copied && <span className="sr-only" role="status">{t("attachment.copied")}</span>}

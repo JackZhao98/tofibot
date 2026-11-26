@@ -4,8 +4,8 @@ import { cx } from "../cx";
 import "./Button.css";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
-  /** primary: the one main action of a view. danger: destructive, always naming the target. */
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  /** primary: the one main action of a view. danger: destructive, always naming the target. link: an action inside a sentence, drawn as an underlined word. */
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "link";
   /** md is 40px, sm is 32px. */
   size?: "md" | "sm";
   icon?: IconName;

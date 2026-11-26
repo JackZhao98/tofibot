@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BotAvatar } from "./BotAvatar";
 import { ApiError, request } from "./api";
 import { useTranslation } from "./i18n";
+import { Button } from "./ds/Button/Button";
 
 type InputEvent = { type: string; [key: string]: unknown };
 export type RemoteControlHandle = { release: () => Promise<void>; acquire: () => Promise<void> };
@@ -180,7 +181,7 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
     enqueue({ type: "clipboard-barrier" });
   }
   return <div className={`remote-desktop ${owned ? "in-control" : ""}`}>
-    {expanded && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><button className="secondary-button" aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</button></div>}
+    {expanded && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><Button aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</Button></div>}
     {owned && waiting && <p className="field-note" role="status">{t("remote.bot_waiting")}</p>}
     {notice && <p className="field-note" role="status">{notice}</p>}
     {error && <p className="error-text">{error}</p>}
@@ -247,6 +248,6 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
         onCopy={event => { event.preventDefault(); event.stopPropagation(); void copy(false); }}
         onCut={event => { event.preventDefault(); event.stopPropagation(); void copy(true); }} />
     </div>
-    {copyText !== null && <div className="remote-copy-fallback"><p>{t("remote.copy.note")}</p><textarea aria-label={t("remote.copy.aria")} readOnly value={copyText} onFocus={event => event.currentTarget.select()} /><button className="secondary-button" onClick={() => setCopyText(null)}>{t("remote.copy.close")}</button></div>}
+    {copyText !== null && <div className="remote-copy-fallback"><p>{t("remote.copy.note")}</p><textarea aria-label={t("remote.copy.aria")} readOnly value={copyText} onFocus={event => event.currentTarget.select()} /><Button onClick={() => setCopyText(null)}>{t("remote.copy.close")}</Button></div>}
   </div>;
 }

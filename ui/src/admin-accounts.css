@@ -109,9 +109,9 @@
   .admin-detail{animation:admin-push var(--m-base) var(--ease-settle)}
   .admin-detail-head{align-items:flex-start}
   .admin-export-actions>*{flex:1 1 auto}
-  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .st-button,.admin-danger-rows .settings-row-v2:not(.is-inline) .tb-btn{width:100%;min-height:44px}
+  .admin-danger-rows .settings-row-v2:not(.is-inline) .admin-danger-button, .admin-danger-rows .settings-row-v2:not(.is-inline) .tb-btn{width:100%;min-height:44px}
   .admin-secret-line{flex-direction:column}
-  .admin-sheet .admin-danger-button,.admin-sheet .primary-button,.admin-sheet .secondary-button,.admin-sheet .st-button,.admin-sheet .tb-btn{min-height:44px}
+  .admin-sheet .admin-danger-button, .admin-sheet .tb-btn{min-height:44px}
 }
 @keyframes admin-push{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.admin-detail{animation:none}}

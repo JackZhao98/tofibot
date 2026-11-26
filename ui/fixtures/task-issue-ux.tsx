@@ -10,7 +10,6 @@ import "../src/v2-app.css";
 import "../src/web-tool-steps.css";
 import "../src/workspace/sidebar.css";
 import "../src/context-card.css";
-import "../src/ds/legacy-aliases.css";
 const params = new URLSearchParams(location.search);
 document.documentElement.lang = params.get("lang") === "en" ? "en" : "zh-CN";
 localStorage.setItem("tofi:appearance", params.get("theme") === "dark" ? "dark" : "light");

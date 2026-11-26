@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { i18n } from "./i18n";
 import { linkRuntime } from "./settings/deepLinks";
 import type { ApprovalFacts } from "./questionTimeline";
+import { Button } from "./ds/Button/Button";
 
 type Translate = TFunction<"tasks">;
 type Row = { label: string; value: ReactNode };
@@ -60,6 +61,6 @@ function settingFactRows(setting: NonNullable<ApprovalFacts["setting"]>, t: Tran
   }
   rows.push({ label: t("record.facts.setting_effect"), value: i18n.exists(`tasks:${effectKey}`) ? t(effectKey as never) : setting.effect });
   if (setting.loosens) rows.push({ label: t("record.facts.setting_loosens"), value: <span className="approval-warn">{t("record.facts.setting_loosens_value")}</span> });
-  rows.push({ label: t("record.facts.setting_page"), value: <button type="button" className="text-button" onClick={() => void linkRuntime().then(module => module.openHref(setting.link))}>{t("record.facts.setting_open")}</button> });
+  rows.push({ label: t("record.facts.setting_page"), value: <Button type="button" variant="ghost" size="sm" onClick={() => void linkRuntime().then(module => module.openHref(setting.link))}>{t("record.facts.setting_open")}</Button> });
   return rows;
 }

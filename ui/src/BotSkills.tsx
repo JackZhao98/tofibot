@@ -6,6 +6,7 @@ import { useTranslation } from "./i18n";
 import { setByLine, type BotSkill, type BotSkillListing, type LibraryBundle } from "./skillLibrary";
 import "./bot-secrets.css";
 import "./skill-library.css";
+import { Button } from "./ds/Button/Button";
 
 const titleOf = (skill: { name: string }) => skillCatalog.find(item => item.name === skill.name)?.title ?? skill.name;
 const textOf = (skill: { name: string; description: string }) => skillCatalog.find(item => item.name === skill.name)?.description ?? skill.description;
@@ -36,9 +37,9 @@ function BundleCheckRow({ bundle, members, busy, onToggle, onToggleBundle, defau
         <Check label={t("skills.bundle_label", { name: bundle.id })} checked={members.length > 0 && on === members.length} indeterminate={on > 0 && on < members.length} disabled={busy} onChange={next => onToggleBundle(bundle.id, next)} />
         <span className="bot-skill-copy"><strong>{bundle.id}</strong><small>{[bundle.description, t("skills.bundle_count", { count: members.length })].filter(Boolean).join(" · ")}</small></span>
       </label>
-      <button type="button" className="text-button skill-expand" aria-expanded={open} aria-label={open ? t("skills.hide_members", { name: bundle.id }) : t("skills.show_members", { name: bundle.id })} onClick={() => setOpen(value => !value)}>
+      <Button type="button" variant="ghost" size="sm" className="skill-expand" aria-expanded={open} aria-label={open ? t("skills.hide_members", { name: bundle.id }) : t("skills.show_members", { name: bundle.id })} onClick={() => setOpen(value => !value)}>
         {t("skills.on_of", { on, total: members.length })}<TofiIcon name="chevron-down" size={14} />
-      </button>
+      </Button>
     </div>
     {open && <ul className="bot-skill-members">{members.map(member => <SkillCheckRow key={member.name} skill={member} busy={busy} onToggle={onToggle} nested />)}</ul>}
   </li>;

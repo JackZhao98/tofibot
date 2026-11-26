@@ -80,7 +80,7 @@ export function PasteBackView({ title, session, pasted, busy, error, onPasted, o
     <header className="connect-head"><div className="connect-title"><h3 id={headingId}>{t("paste.title", { title })}</h3><p>{t("paste.lead", { title })}</p></div></header>
     {!session ? <p className="paste-back-note" role="status">{t("paste.starting")}</p> : <form className="connect-form" onSubmit={e => { e.preventDefault(); onSubmit(); }}>
       <ol className="paste-back-steps">
-        <li><a className="mcp-button" href={session.authorization_url} target="_blank" rel="noopener noreferrer">{t("paste.open", { title })}</a></li>
+        <li><a className="tb-btn tb-btn--secondary tb-btn--sm" href={session.authorization_url} target="_blank" rel="noopener noreferrer">{t("paste.open", { title })}</a></li>
         <li>{t("paste.step_copy")}</li>
         <li><label>{t("paste.label")}<TextInput mono value={pasted} onChange={e => onPasted(e.target.value)} inputMode="url" autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={4096} disabled={busy} placeholder={session.redirect_uri + "?code=…"} /></label></li>
       </ol>

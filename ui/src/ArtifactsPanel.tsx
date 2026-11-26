@@ -123,7 +123,7 @@ export function ArtifactsPanel({ mode, conversation, bot, onClose, onOpenMessage
     </div>
     {kinds.filter(([value]) => value !== kind).map(([value]) => <Tabs.Content key={value} value={value} forceMount hidden />)}
     <Tabs.Content value={kind} className="artifacts-result-panel">
-    {error && <p className="error-text" role="alert">{error} <button type="button" className="text-button" onClick={() => items.length ? void loadMore() : setAttempt(value => value + 1)}>{t("artifacts.retry")}</button></p>}
+    {error && <p className="error-text" role="alert">{error} <Button type="button" variant="link" onClick={() => items.length ? void loadMore() : setAttempt(value => value + 1)}>{t("artifacts.retry")}</Button></p>}
     {loading && !items.length ? <DelayedFeedback><div className="inline-state" role="status"><div className="spinner" />{t("artifacts.loading")}</div></DelayedFeedback>
       : !items.length ? !error && <EmptyState name="artifacts-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{filtered ? t("artifacts.empty_filtered") : t("artifacts.empty")}</p></EmptyState>
       : <ul className="artifacts-grid" aria-label={t("artifacts.list_label")} aria-busy={loading}>{items.map(item => <ArtifactCard key={item.id} item={item} showBot={scope.kind !== "bot"} showConversation={scope.kind !== "conversation"} onOpenMessage={onOpenMessage} />)}</ul>}

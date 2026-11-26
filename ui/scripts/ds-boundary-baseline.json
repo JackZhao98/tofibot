@@ -1,7 +1,4 @@
 {
-  "ds/legacy-aliases.css": {
-    "aliasRule": 23
-  },
   "environments.css": {
     "webFork": 1
   },

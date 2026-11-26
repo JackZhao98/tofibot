@@ -103,7 +103,7 @@ const synthLocal: LocalState = { loaded: true, available: true, plugins: [{ id: 
 const synthGoogle: GoogleOverview = { client: { configured: true, project_id: "tofi-sample-123456", project_number: "622599621014" }, apis: [] };
 function Reopen({ children }: { children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(true);
-  return open ? <>{children(() => setOpen(false))}</> : <button type="button" className="secondary-button catalog-reopen" onClick={() => setOpen(true)}>Add connection</button>;
+  return open ? <>{children(() => setOpen(false))}</> : <Button type="button" className="catalog-reopen" onClick={() => setOpen(true)}>Add connection</Button>;
 }
 function connectDialog(id: string, label: string, request: DialogRequest, google: GoogleOverview | null = null, extra: Partial<CatalogState> = {}, onOneClick: () => Promise<void> = never): CatalogState {
   return { id: `connect-${id}`, kind: "overlay", label, probe: ".connect-dialog", keyboard: { close: "Escape", reopen: { focus: ".catalog-reopen", key: "Enter" } }, ...extra,
@@ -268,15 +268,15 @@ export const settings: CatalogSection = {
     botState("error", "Bot settings, Skills: could not save", () => ({ error: t("bots:skills.error.save") })),
     { id: "rows", kind: "inline", label: "Section, card and rows", render: () => <SettingsSection title={t("settings:appearance.title")} hint="3" description="A synthetic description under the section title.">
       <SettingsCard>
-        <SettingsRow label="Row with a control" description="The control sits on the right; on a phone it drops below." control={<button type="button" className="st-button">{t("common:action.retry")}</button>} />
+        <SettingsRow label="Row with a control" description="The control sits on the right; on a phone it drops below." control={<Button type="button" size="sm">{t("common:action.retry")}</Button>} />
         <SettingsRow inline label="Inline row" description="Switches and segmented controls stay beside the text on a phone." control={<Choice />} />
         <SettingsRow label="Row without a control" description="Read-only information." />
       </SettingsCard>
     </SettingsSection> },
     { id: "row-link", kind: "inline", label: "Subpage row: grey current value and a chevron", note: "the whole row opens the subpage; the subpage has Back, a title and returns focus to the row", render: () => <SubpageSample /> },
     { id: "row-status", kind: "inline", label: "Row with a status", render: () => <SettingsCard>
-      <SettingsRow label="Acme tracker" description="Reached 6 seconds ago." status={<StatusBadge state="ok">Connected</StatusBadge>} control={<button type="button" className="st-button">Refresh</button>} />
-      <SettingsRow label="Acme docs" status={<StatusBadge state="need">Needs sign-in</StatusBadge>} control={<button type="button" className="st-button">Sign in</button>} />
+      <SettingsRow label="Acme tracker" description="Reached 6 seconds ago." status={<StatusBadge state="ok">Connected</StatusBadge>} control={<Button type="button" size="sm">Refresh</Button>} />
+      <SettingsRow label="Acme docs" status={<StatusBadge state="need">Needs sign-in</StatusBadge>} control={<Button type="button" size="sm">Sign in</Button>} />
     </SettingsCard> },
     { id: "changed-value", kind: "inline", label: "Changed value: Changed, default X, Reset", note: "honey text, no pill; shown only when the value differs from its default", render: () => <SettingsCard>
       <SettingsRow label="Keep history for" description={<ChangedNote defaultValue="30 days" onReset={noop} />} control={<PickOne />} />
@@ -288,10 +288,10 @@ export const settings: CatalogSection = {
       <SettingsRow inline label="Saves slowly" description="Flip it: Saved appears for 1.5 seconds once the save resolves." control={<SwitchSample slow label="Saves slowly" />} />
     </SettingsCard> },
     { id: "buttons", kind: "inline", label: "Buttons: quiet (default), quiet danger, the one primary", note: "inside Settings every secondary action is a quiet button; one orange primary per view, none on a view without an add or submit action", render: () => <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-      <button type="button" className="st-button">Quiet</button>
-      <button type="button" className="st-button" disabled>Disabled</button>
-      <button type="button" className="st-button is-danger">Remove…</button>
-      <button type="button" className="primary-button">Add connection</button>
+      <Button type="button" size="sm">Quiet</Button>
+      <Button type="button" size="sm" disabled>Disabled</Button>
+      <Button type="button" variant="danger" size="sm">Remove…</Button>
+      <Button type="button" variant="primary">Add connection</Button>
       <button type="button" className="st-link">Text action</button>
     </div> },
     { id: "settings-section-jump", kind: "inline", label: "Section reached by a link", note: "a link such as /settings/general#region scrolls here and frames the section once (data-jump-target, cleared after 1.7 s)", render: () => <div data-section="region" data-jump-target=""><SettingsSection title={t("settings:general.appearance")}><SettingsCard><SettingsRow label={t("settings:language.label")} description="A synthetic description under the label." control={<StatusBadge state="ok" />} /></SettingsCard></SettingsSection></div> },

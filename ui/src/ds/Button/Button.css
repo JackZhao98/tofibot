@@ -19,6 +19,11 @@
 .tb-btn--danger { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
 .tb-btn--ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .tb-btn--ghost:hover:not(:disabled) { background-color: var(--hover); transform: none; box-shadow: none; }
+/* link: the sentence's own type and line, underlined; a finger still gets 44 px. */
+.tb-btn--link { height: auto; min-height: 0; margin-inline-start: 4px; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; letter-spacing: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.tb-btn--link:hover:not(:disabled) { background-image: none; }
+.tb-btn--link:active:not(:disabled) { transform: none; }
+@media (pointer: coarse) { .tb-btn--link { min-height: 44px; } }
 .tb-btn--secondary[aria-pressed="true"] { background: var(--sunk); border-color: var(--ink); }
 .tb-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
 .tb-btn.is-busy .tb-btn-label { opacity: .6; }

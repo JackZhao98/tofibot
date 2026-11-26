@@ -83,8 +83,8 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
       <CardHead id={titleId} title={t("admin.org.backup.name")} state={state} status={!view?.configured ? t("admin.org.backup.not_configured") : view.stale ? t("admin.org.backup.stale") : undefined} tag={t("admin.org.backup.tag")}/>
       {view?.configured && view.destination && <p className="provider-key-line"><code className="provider-key-mask">{t("admin.org.file_store.summary", {bucket: view.destination.bucket, endpoint: view.destination.endpoint})}</code></p>}
       {view?.configured && <div className="provider-actions">
-        <button type="button" className="text-button" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{t("admin.org.edit")}</button>
-        <button type="button" className="text-button" data-action="test" onClick={() => void act(async () => { onResource(await adminOrgApi.testResource("backup_store")); }, t("admin.org.file_store.test_ok"))}>{t("admin.org.file_store.test")}</button>
+        <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => setEditing(value => !value)}>{t("admin.org.edit")}</Button>
+        <Button type="button" variant="ghost" size="sm" data-action="test" onClick={() => void act(async () => { onResource(await adminOrgApi.testResource("backup_store")); }, t("admin.org.file_store.test_ok"))}>{t("admin.org.file_store.test")}</Button>
         <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.backup.name")})} onConfirm={async () => { try { await adminOrgApi.deleteResource("backup_store"); setView(null); setDraft(null); await load(); } catch (cause) { throw new Error(orgError(cause)); } }}/>
       </div>}
       {showForm && <form className="provider-key-form" onSubmit={event => void saveDestination(event)}>
@@ -118,7 +118,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
           <div className="provider-actions">
             {view.key.present ? <ConfirmAction label={t("admin.org.backup.key_rotate")} question={t("admin.org.backup.key_rotate_question")} onConfirm={async () => { try { const out = await backupApi.recoveryKey(); setFreshKey(out.recovery_key ?? ""); setTyped(""); await load(); } catch (cause) { throw new Error(backupError(cause)); } }}/>
               : <Button type="button" size="sm" onClick={() => void createKey()}>{t("admin.org.backup.key_create")}</Button>}
-            {view.key.fingerprint && <a className="text-button" href="/api/admin/backups/recovery-card" download>{t("admin.org.backup.card")}</a>}
+            {view.key.fingerprint && <a className="tb-btn tb-btn--ghost tb-btn--sm" href="/api/admin/backups/recovery-card" download>{t("admin.org.backup.card")}</a>}
           </div>
           {!view.key.present && <div className="provider-key-row">
             <input aria-label={t("admin.org.backup.key_import")} name="backup-key-import" type="password" autoComplete="off" spellCheck={false} value={importKey} onChange={event => setImportKey(event.target.value)}/>
@@ -151,7 +151,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <div className="provider-actions">
           <Button type="button" size="sm" data-action="run" disabled={running || !keyReady} onClick={() => void act(() => backupApi.run(), t("admin.org.backup.started"))}>{t("admin.org.backup.run_now")}</Button>
           <Button type="button" size="sm" data-action="verify" disabled={running || !keyReady || !hasSnapshot} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</Button>
-          <button type="button" className="text-button" data-action="snapshots" disabled={!keyReady} onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</button>
+          <Button type="button" variant="ghost" size="sm" data-action="snapshots" disabled={!keyReady} onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</Button>
         </div>
         {!keyReady && <p className="field-note" data-hint="key-not-ready">{t("admin.org.backup.error.backup_not_ready")}</p>}
         {snapshots && (snapshots.length === 0 ? <p className="field-note">{t("admin.org.backup.snapshots_none")}</p> : <ul className="backup-snapshots">{[...snapshots].reverse().map(item => <li key={item.name}>{when(item.at)} · {item.reason}</li>)}</ul>)}
@@ -212,7 +212,7 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
       <input id={`${formId}-name`} name="backup-restore-confirm" type="text" autoComplete="off" spellCheck={false} value={name} onChange={event => setName(event.target.value)}/>
       <Button type="button" size="sm" data-action="restore-account" disabled={busy || !snapshot || !target || name !== target.username} onClick={() => void restore()}>{t("admin.org.backup.restore_button")}</Button>
     </>}
-    {account && undo && <button type="button" className="text-button" data-action="undo-restore" disabled={busy} onClick={() => void undoRestore()}>{t("admin.org.backup.undo")}</button>}
-    {held && <button type="button" className="text-button" data-action="interrupt-runs" disabled={busy || (held === "restore" && name !== target?.username)} onClick={() => void (held === "restore" ? restore(true) : undoRestore(true))}>{t(held === "restore" ? "admin.org.backup.interrupt_and_restore" : "admin.org.backup.interrupt_and_undo")}</button>}
+    {account && undo && <Button type="button" variant="ghost" size="sm" data-action="undo-restore" disabled={busy} onClick={() => void undoRestore()}>{t("admin.org.backup.undo")}</Button>}
+    {held && <Button type="button" variant="ghost" size="sm" data-action="interrupt-runs" disabled={busy || (held === "restore" && name !== target?.username)} onClick={() => void (held === "restore" ? restore(true) : undoRestore(true))}>{t(held === "restore" ? "admin.org.backup.interrupt_and_restore" : "admin.org.backup.interrupt_and_undo")}</Button>}
   </div>;
 }

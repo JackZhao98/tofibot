@@ -70,13 +70,13 @@ export function ApprovalCard({ title, avatar, time, exactTime, facts = [], verif
           <button type="button" className="approval-remember-button" disabled={disabled || Boolean(busy) || !pending} onClick={onRemember}>{busy === "remember" ? t("approval.submitting") : t("approval.remember")}</button>
           {rememberHint && <span className="approval-remember-hint">{rememberHint}</span>}
         </div>}
-        {onAlwaysAllow && alwaysAllowHint && <p className="approval-remember-hint approval-always-hint">{alwaysAllowHint} {manage && <button type="button" className="text-button approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button>}</p>}
+        {onAlwaysAllow && alwaysAllowHint && <p className="approval-remember-hint approval-always-hint">{alwaysAllowHint} {manage && <Button type="button" variant="ghost" size="sm" className="approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></Button>}</p>}
         {note && <p className="approval-note">{note}</p>}
       </div>
     </div>
     {resolution && <div className={`approval-result tb-approval-done${resolution.accepted === false ? " is-declined" : ""}`}>
       <b className="tb-stamp">{resolution.label}</b>{resolution.answer && <strong>{resolution.answer}</strong>}
-      {manage && !onAlwaysAllow && <button type="button" className="text-button approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></button>}
+      {manage && !onAlwaysAllow && <Button type="button" variant="ghost" size="sm" className="approval-manage" aria-label={manage.label} onClick={manage.onClick}>{t("approval.manage")}<TofiIcon name="chevron-right" size={12} aria-hidden="true" /></Button>}
     </div>}
     {error && <p className="approval-error" role="alert">{error}</p>}
   </section>;

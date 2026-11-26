@@ -1411,7 +1411,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const column = Math.max(0, ...[...body.children].filter(visible).filter(node => !node.classList.contains("st-wide") && !node.classList.contains("settings-stack")).map(node => node.getBoundingClientRect().width));
       const stack = body.querySelector(":scope > .settings-stack");
       const stackWidest = stack ? Math.max(0, ...[...stack.children].filter(visible).filter(node => !node.classList.contains("st-wide")).map(node => node.getBoundingClientRect().width)) : 0;
-      return {bordered, hard, primaries: all.filter(node => node.matches(".primary-button, .tb-btn--primary")).length, column: Math.max(column, stackWidest), wide: body.querySelectorAll(".st-wide").length};
+      return {bordered, hard, primaries: all.filter(node => node.matches(".tb-btn--primary")).length, column: Math.max(column, stackWidest), wide: body.querySelectorAll(".st-wide").length};
     });
     for (const id of ["general", "advanced"]) {
       await page.locator(`.settings-tabs [data-tab="${id}"]`).click();
