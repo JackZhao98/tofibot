@@ -7,7 +7,7 @@ import { formatExactTime } from "../timezone";
 import { AttachmentList } from "../MessageAttachment";
 import { MessageReactions } from "../MessageReactions";
 import { useMessageActionsOpen } from "../messageActionsStore";
-import { DisplayCard } from "../DisplayCard";
+const DisplayCard = lazy(() => import("../DisplayCard").then(module => ({ default: module.DisplayCard })));
 import { TaskCard } from "../lazyPanels";
 import { linkRuntime } from "../settings/deepLinks";
 import { BotIdentityCard } from "../BotIdentityCard";
@@ -94,7 +94,7 @@ export function MessageBubble({ receipt, message, replyTarget, replyTargetName, 
     const label = sender?.name ?? senderName ?? "Bot";
     return <article className={`message message-bot message-ui-card${showAvatar ? " is-group" : " is-dm"}`} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>
       {showAvatar && <div className="message-avatar tb-cat-only"><Avatar label={label} id={message.sender_bot_id ?? "bot"} mini /></div>}
-      <div className="message-body">{showIdentity && (!compact || showAvatar) && <div className="message-meta"><strong>{label}</strong></div>}<DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} />{tools && <div className="message-tools">{tools}</div>}</div>
+      <div className="message-body">{showIdentity && (!compact || showAvatar) && <div className="message-meta"><strong>{label}</strong></div>}<Suspense fallback={null}><DisplayCard card={message.card} bot={message.sender_bot_id ? { id: message.sender_bot_id, name: label } : undefined} onDraftReply={onDraftReply} /></Suspense>{tools && <div className="message-tools">{tools}</div>}</div>
     </article>;
   }
   if (message.kind === "scheduled_task") {

@@ -19,7 +19,7 @@ export const mailCards: CatalogSection = {
   states: [
     display("mail-in", "Mail read, with the Bot's note", mail),
     display("mail-in-long", "Mail read, folded", { ...mail, body: LONG }, { note: "the fold button opens the rest" }),
-    display("text", "Text card", { type: "text", title: "Meeting notes", body: BODY, source: "Notes" }),
+    display("mail-text", "Text card", { type: "text", title: "Meeting notes", body: BODY, source: "Notes" }),
     mailDraft("draft-pending", "Draft waiting for Send", draft()),
     mailDraft("draft-demo", "Draft, demo", draft({ demo: true })),
     mailDraft("draft-sent", "Draft, sent", draft({ status: "sent" })),
