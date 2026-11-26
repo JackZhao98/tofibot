@@ -45,8 +45,10 @@ if(query.get('computer')==='none')setComputerCapability({backend:'none',availabl
 (window as any).left=[];
 window.addEventListener('tofi:open-connection',event=>(window as any).left.push({server:(event as CustomEvent).detail.server}));
 function Fixture(){
+ const [token,setToken]=React.useState(0);
+ React.useEffect(()=>{const bump=()=>setToken(value=>value+1);window.addEventListener('bt-refresh',bump);return()=>window.removeEventListener('bt-refresh',bump);},[]);
  return <div className="workspace"><div className="cover-body"><div className="bot-settings" data-view="page" style={{display:'block',height:'auto'}}><div className="bs-page"><div className="bs-scroll" style={{overflow:'visible'}}><div className="bs-sections"><section className="bs-section" data-section="tools">
-  <BotTools bot={{id:'bot_a',name:'Mochi'}} leaveTo={go=>{(window as any).left.push('cover-close');go();}} onOpenSettings={tab=>(window as any).left.push({tab})}/>
+  <BotTools bot={{id:'bot_a',name:'Mochi'}} refreshToken={token} leaveTo={go=>{(window as any).left.push('cover-close');go();}} onOpenSettings={tab=>(window as any).left.push({tab})}/>
  </section></div></div></div></div></div></div>;
 }
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><OwnerSessionGate><Fixture/></OwnerSessionGate></TimezoneProvider>));
@@ -100,6 +102,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (!url.pathname.startsWith("/api/")) { await route.continue(); return; }
       if (method !== "GET") writes.push({method, path: url.pathname, body: request.postData() ?? ""});
       if (method === "PUT" && /\/tool-tiers\/notion\//.test(url.pathname)) { const tier = JSON.parse(request.postData() ?? "{}").tier; own[decodeURIComponent(url.pathname.split("/").pop())] = tier || undefined; }
+      // A save takes a moment, as on a loaded machine: the test must not depend on it finishing before the next click.
+      if (method === "PUT" && /\/connections\//.test(url.pathname)) await new Promise(resolve => setTimeout(resolve, 250));
       const body = stub(url, method, new URLSearchParams(page.url().split("?")[1] ?? ""));
       await route.fulfill({status: body?.__status ?? 200, contentType: "application/json", body: JSON.stringify(body ?? {})});
     });
@@ -160,9 +164,12 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await page.waitForFunction(() => document.querySelector('.bt-conn[data-server="notion"]')?.getAttribute("data-off") === "true");
     const put = writes.find(item => item.path === "/api/bots/bot_a/connections/notion");
     assert.deepEqual(put && JSON.parse(put.body), {enabled: false}, "turning a connection off is one PUT for this Bot");
+    // One save at a time: a click on another row while a save is in flight is dropped, so wait for the first to finish.
+    await page.waitForFunction(() => !document.querySelector(".bt-conn [aria-busy]"));
     await conn(page, "github").getByRole("switch").click();
     await page.waitForFunction(() => document.querySelector('.bt-conn[data-server="github"]')?.getAttribute("data-off") === null);
     assert.equal(await conn(page, "github").getByRole("switch").isChecked(), true);
+    await page.waitForFunction(() => !document.querySelector(".bt-conn [aria-busy]"));
     await conn(page, "linear").getByRole("switch").click();
     await page.getByRole("alert").filter({hasText: /not saved/}).waitFor();
     assert.equal(await conn(page, "linear").getByRole("switch").isChecked(), true, "a failed save puts the switch back");
@@ -199,6 +206,24 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     assert.deepEqual(back, [{tier: "read_only"}, {tier: ""}], "Default clears this Bot's own tier");
     await close();
     console.log("PASS tiers: Default follows the connection, a choice is one PUT, Default sends an empty tier");
+  }
+
+  // ---- 3b. An open tool list stays open: a refresh (the panel's refresh token, a focus, a connections change) swaps data, not the DOM.
+  {
+    const {page, close} = await open();
+    await conn(page, "notion").locator(".bt-tiers-trigger").click();
+    await page.locator(".bt-tool").first().waitFor();
+    await conn(page, "notion").locator(".bt-tool").first().evaluate(node => node.setAttribute("data-mark", "same-node"));
+    await page.evaluate(() => { window.dispatchEvent(new Event("bt-refresh")); window.dispatchEvent(new Event("tofi:connections-changed")); window.dispatchEvent(new Event("focus")); });
+    const end = Date.now() + 2000;
+    while (Date.now() < end) {
+      assert.equal(await conn(page, "notion").locator(".bt-tiers-trigger").getAttribute("aria-expanded"), "true", "the tool list stays open");
+      assert.equal(await conn(page, "notion").locator('.bt-tool[data-mark="same-node"]').count(), 1, "the list is not remounted by a refresh");
+      await page.waitForTimeout(100);
+    }
+    assert.equal(await conn(page, "notion").locator(".bt-tool").count(), 3, "still three tools after 2 s");
+    await close();
+    console.log("PASS tiers stay open: a refresh keeps the tool list open for 2 s");
   }
 
   // ---- 4. Empty and missing pieces.

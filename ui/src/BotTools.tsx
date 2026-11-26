@@ -122,7 +122,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
   const { t } = useTranslation("bots");
   const [servers, setServers] = useState<MCP[] | null>(null);
   const [access, setAccess] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState("");
+  const [error, setError] = useState<"load" | "save" | string>("");
   const [saving, setSaving] = useState("");
   const [tiers, setTiers] = useState<Record<string, BotTierState>>({});
   const opened = useRef<Set<string>>(new Set());
@@ -138,16 +138,18 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
       setServers(list.value.servers ?? []);
       setAccess(Object.fromEntries((mine.value.connections ?? []).map(row => [row.server, row.enabled])));
       setError("");
-    } else { setServers(current => current ?? []); setError(t("tools.connections.error")); }
-  }, [id, t]);
+    } else { setServers(current => current ?? []); setError("load"); }
+  }, [id]);
   const loadTiers = useCallback(async (server: string) => {
     try {
       const value = await request<{ tools?: BotToolTier[] }>(`/api/bots/${id}/tool-tiers/${encodeURIComponent(server)}`);
       if (alive.current) setTiers(current => ({ ...current, [server]: { tools: value.tools ?? [], error: false, saving: "" } }));
     } catch { if (alive.current) setTiers(current => ({ ...current, [server]: { tools: current[server]?.tools ?? null, error: true, saving: "" } })); }
   }, [id]);
+  // A new Bot starts from nothing. A refresh keeps what is on screen (so an open tool list stays open) and only swaps the data.
+  useEffect(() => { setServers(null); setTiers({}); opened.current = new Set(); }, [id]);
   useEffect(() => {
-    alive.current = true; setServers(null); setTiers({}); opened.current = new Set(); void load();
+    alive.current = true; void load();
     const focus = () => { if (!document.hidden) { void load(); opened.current.forEach(server => void loadTiers(server)); } };
     const changed = () => { void load(); opened.current.forEach(server => void loadTiers(server)); };
     window.addEventListener("focus", focus);
@@ -181,7 +183,7 @@ export function BotTools({ bot, refreshToken = 0, leaveTo, onOpenSettings }: {
     const name = displayName(server, presetFor(server));
     return { server: server.name, name, mark: markName(server, name), kind: storedKind(server), tools: server.status?.tool_count, enabled: access[server.name] !== false };
   });
-  return <BotToolsView botName={bot.name} connections={rows} connectionsError={error} saving={saving}
+  return <BotToolsView botName={bot.name} connections={rows} connectionsError={error === "load" ? t("tools.connections.error") : error} saving={saving}
     onToggle={(server, next) => void toggle(server, next)} onOpenConnection={server => leaveTo(() => openConnectionDeepLink({ server }))} onAddConnection={() => leaveTo(() => onOpenSettings("connections"))}
     tiers={tiers} onOpenTiers={openTiers} onSetTier={(server, tool, tier) => void setTier(server, tool, tier)}
     skills={<BotSkills botId={bot.id} refreshToken={refreshToken} bare />} onOpenSkills={() => leaveTo(() => onOpenSettings("skills"))} />;
