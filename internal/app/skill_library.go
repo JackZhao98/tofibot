@@ -161,6 +161,14 @@ type librarySkillView struct {
 	Versions    []skillVersionView `json:"versions,omitempty"`
 	EnabledBots int                `json:"enabled_bots"`
 	BotsTotal   int                `json:"bots_total"`
+	// OffBots lists the active Bots that turned an official skill off (Q4:
+	// the library shows such a skill as a non-normal row).
+	OffBots []skillBotRef `json:"off_bots,omitempty"`
+}
+
+type skillBotRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type libraryBundleView struct {
@@ -940,7 +948,7 @@ func (s *Server) libraryListing() ([]librarySkillView, []libraryBundleView, []ex
 		return nil, nil, nil, err
 	}
 	enabled := map[string]int{}
-	offBots := map[string]int{}
+	offBots := map[string][]skillBotRef{}
 	erows, err := s.store.db.Query(`SELECT bot_id,skill_name,enabled FROM skill_enablement`)
 	if err != nil {
 		return nil, nil, nil, err
@@ -958,7 +966,7 @@ func (s *Server) libraryListing() ([]librarySkillView, []libraryBundleView, []ex
 		if on != 0 {
 			enabled[skill]++
 		} else {
-			offBots[skill]++
+			offBots[skill] = append(offBots[skill], skillBotRef{ID: bot, Name: names[bot]})
 		}
 	}
 	erows.Close()
@@ -983,7 +991,11 @@ func (s *Server) libraryListing() ([]librarySkillView, []libraryBundleView, []ex
 	for _, v := range views {
 		item := librarySkillView{SkillView: v, BotsTotal: len(active)}
 		if v.Builtin {
-			item.EnabledBots = len(active) - offBots[v.Name]
+			item.EnabledBots = len(active) - len(offBots[v.Name])
+			item.OffBots = offBots[v.Name]
+			sort.Slice(item.OffBots, func(i, j int) bool {
+				return item.OffBots[i].Name < item.OffBots[j].Name || (item.OffBots[i].Name == item.OffBots[j].Name && item.OffBots[i].ID < item.OffBots[j].ID)
+			})
 		} else {
 			item.EnabledBots = enabled[v.Name]
 			if r, ok := known[v.Name]; ok {
