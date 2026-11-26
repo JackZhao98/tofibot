@@ -17,7 +17,7 @@
     "global": 0,
     "rootBump": 2,
     "webFork": 0,
-    "important": 2,
+    "important": 0,
     "tokenDef": 0
   },
   "copy-feedback.css": {
@@ -46,13 +46,6 @@
     "rootBump": 0,
     "webFork": 1,
     "important": 0,
-    "tokenDef": 0
-  },
-  "extensions-system.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 4,
     "tokenDef": 0
   },
   "file-preview.css": {

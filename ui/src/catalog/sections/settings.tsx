@@ -127,7 +127,7 @@ const LIB: LibraryListing = {
 const SYNTH_BOTS = [{ id: "bot_mochi", name: "Mochi" }, { id: "bot_taro", name: "Taro" }, { id: "bot_miso", name: "Miso" }];
 const libProps = (extra: Partial<SkillLibraryViewProps> = {}): SkillLibraryViewProps => ({
   listing: LIB, loaded: true, loading: false, busy: false, error: "", notice: "", form: false, formState: { name: "", text: "" }, showReload: false,
-  onToggleForm: noop, onFormChange: noop, onSubmitForm: noop, onPickFolder: noop, onStarter: noop, onRemove: never, onRemoveBundle: never, onRollback: noop, onReload: noop, bots: SYNTH_BOTS, pending: null, onCancelPending: noop, onConfirmPending: noop, ...extra,
+  onToggleForm: noop, onFormChange: noop, onSubmitForm: noop, onPickFolder: noop, onStarter: noop, onRemove: never, onRemoveBundle: never, onRollback: noop, onTurnOn: noop, onReload: noop, bots: SYNTH_BOTS, pending: null, onCancelPending: noop, onConfirmPending: noop, ...extra,
 });
 const libraryState = (id: string, label: string, props: Partial<SkillLibraryViewProps> | (() => Partial<SkillLibraryViewProps>), extra: Partial<CatalogState> = {}): CatalogState =>
   ({ id: `skills-${id}`, kind: "inline", label, render: () => <SkillLibraryView {...libProps(typeof props === "function" ? props() : props)} />, ...extra });

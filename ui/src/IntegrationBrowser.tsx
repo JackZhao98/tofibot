@@ -1,3 +1,4 @@
+import { TextInput } from "./ds/TextInput/TextInput";
 import { TofiIcon } from "./icons";
 import { ServiceMark } from "./ServiceMark";
 import { CATS, EmptyState } from "./EmptyCat";
@@ -35,7 +36,7 @@ export function IntegrationBrowser({ query, servers, googleAdded, localAvailable
   const tile = (item: IntegrationPreset) => <IntegrationTile key={item.id} item={item} installed={servers.some(server => server.url === item.url)} stars={stars} onSelect={onSelect} />;
   const nothing = services.length === 0 && held.length === 0 && !showGoogle;
   return <div className="connect-directory">
-    <label className="integration-search"><TofiIcon name="search" size={20} /><input aria-label={t("browser.search")} placeholder={t("browser.search")} value={query} onChange={e => onQueryChange(e.target.value)} /></label>
+    <TextInput className="integration-search" icon="search" aria-label={t("browser.search")} placeholder={t("browser.search")} value={query} onChange={e => onQueryChange(e.target.value)} />
     {(showGoogle || services.length > 0) && <section className="integration-section"><h3>{t("browser.services")}</h3><div className="integration-grid">
       {showGoogle && <div className="integration-item"><button className="integration-tile" data-integration-id="google" onClick={onGoogle}><ServiceMark name="Google" /><span><strong>{googleName}</strong><small>{googleText}</small><small className="integration-details">{localAvailable ? t("browser.local_details") : t("browser.google_workspace_details")}</small></span>{googleAdded ? <span className="integration-added">{t("browser.added")}</span> : <TofiIcon name="chevron-right" size={16} />}</button>{localAvailable && <div className="integration-repo"><RepoLink repo={LOCAL_PLUGIN_REPOS.gog} stars={stars[LOCAL_PLUGIN_REPOS.gog]} /></div>}</div>}
       {services.map(item => tile(item))}

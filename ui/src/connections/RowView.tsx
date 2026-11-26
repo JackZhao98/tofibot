@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { arrowOpens, OverlayMenu, pressToggle } from "../overlays/OverlayHost";
 import { TofiIcon } from "../icons";
 import { Button } from "../ds/Button/Button";
+import { IconButton } from "../ds/IconButton/IconButton";
 import { ServiceMark } from "../ServiceMark";
 import { useTranslation } from "../i18n";
 import type { ConnectionKind } from "./status";
@@ -26,9 +27,7 @@ export function MoreMenu({ name, menu, busy = false }: { name: string; menu: Row
   const anchor = useRef<HTMLDivElement>(null);
   const label = t("mcp.more_actions", { name });
   return <div className="mcp-menu-anchor" ref={anchor}>
-    <button ref={trigger} type="button" className="mcp-button mcp-menu-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={busy} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}>
-      <TofiIcon name="more" size={20} variant={open ? "filled" : "outline"} />
-    </button>
+    <IconButton ref={trigger} className="mcp-menu-trigger" icon="more" label={label} filled={open} aria-haspopup="menu" aria-expanded={open} disabled={busy} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)} />
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu" label={label} trigger={trigger} anchor={anchor} align="end" sideOffset={7}>
       {menu.map(item => <button key={item.key} className={item.danger ? "mcp-menu-danger is-danger" : undefined} onClick={() => { setOpen(false); item.onSelect(); }}>{item.label}</button>)}
     </OverlayMenu>}

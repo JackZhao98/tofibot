@@ -424,6 +424,8 @@
       "intro": "整个工作区共用一个技能库。新添加的 Skill 会为你选的 Bot 打开，之后可随时在各个 Bot 的设置里调整。",
       "official_note": "官方 · 对所有 Bot 开启，除非在其设置里关闭",
       "official_title": "官方 Skill",
+      "off_for_other": "{{count}} 个 Bot 已关闭",
+      "turn_on": "为所有 Bot 开启",
       "on_for_other": "已为 {{on}} / {{total}} 个 Bot 开启",
       "remove_bundle_confirm": "移除这个套装及其所有 Skill？",
       "roll_back": "回退到此版本",

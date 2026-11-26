@@ -1,3 +1,4 @@
+import { Checkbox } from "../ds/Checkbox/Checkbox";
 import { useState } from "react";
 import { Disclosure } from "../InteractionPrimitives";
 import { TofiIcon } from "../icons";
@@ -97,7 +98,7 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       {preset?.lan && <LanAddress url={url} onChange={value => { setURL(value); setToken(""); }} />}
       {preset?.auth === "token" && <label>{preset.lan ? t("lan.token_label") : t("form.token")}<TextInput type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
       {preset?.lan && <p className="field-note">{t("lan.token_hint")} {profilePage(url) && <a href={profilePage(url)} target="_blank" rel="noopener noreferrer">{t("lan.token_link")}</a>}</p>}
-      {!preset && <label className="extension-check"><input type="checkbox" checked={oauth} onChange={e => setOAuth(e.target.checked)} disabled={Boolean(initial?.oauth)} />{t("auth.oauth")}</label>}
+      {!preset && <Checkbox className="extension-check" checked={oauth} onChange={setOAuth} disabled={Boolean(initial?.oauth)}>{t("auth.oauth")}</Checkbox>}
       {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <Button size="sm" variant="ghost" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</Button></p>}
       {oauth && !preset?.dcr && !savedClient && <>
         <label>{preset?.category !== "google" ? t("form.client_id_optional") : t("form.client_id")}<TextInput required={preset?.category === "google"} value={clientID} onChange={e => setClientID(e.target.value)} autoComplete="off" /></label>

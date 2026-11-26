@@ -424,6 +424,8 @@
       "intro": "ワークスペース全体で 1 つのライブラリを共有します。新しい Skill は選んだ Bot でオンになり、あとから各 Bot の設定で変更できます。",
       "official_note": "公式 · 各 Bot の設定でオフにしない限りすべての Bot でオン",
       "official_title": "公式 Skill",
+      "off_for_other": "{{count}} 体の Bot でオフ",
+      "turn_on": "すべてでオンにする",
       "on_for_other": "{{total}} 体中 {{on}} 体の Bot でオン",
       "remove_bundle_confirm": "このバンドルとその Skill をすべて削除しますか？",
       "roll_back": "このバージョンに戻す",

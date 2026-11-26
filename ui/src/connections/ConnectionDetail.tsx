@@ -1,3 +1,4 @@
+import { Checkbox } from "../ds/Checkbox/Checkbox";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
 import { BotAvatar } from "../BotAvatar";
@@ -53,10 +54,8 @@ function TierMenu({ tool, busy, saving, onPick }: { tool: ToolTierView; busy: bo
   const pick = (value: ToolTier | "auto") => { setOpen(false); if (value !== current) onPick(value); };
   const options: (ToolTier | "auto")[] = ["auto", ...TIERS];
   return <div className="mcp-tier-anchor">
-    <button ref={trigger} type="button" className="mcp-tier-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={busy || saving} data-tier={tool.tier}
-      onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}>
-      <span>{t(`tools.tier.${tool.tier}`)}</span><TofiIcon name="chevron-down" size={14} aria-hidden="true" />
-    </button>
+    <Button ref={trigger} size="sm" className="mcp-tier-trigger" iconAfter="chevron-down" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={busy || saving} data-tier={tool.tier}
+      onClick={() => setOpen(value => !value)} onKeyDown={arrowOpens(setOpen)}>{t(`tools.tier.${tool.tier}`)}</Button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu mcp-tier-menu" label={label} trigger={trigger} anchor={trigger} align="end" sideOffset={6}>
       {options.map(value => <button key={value} type="button" data-value={value} aria-current={current === value ? "true" : undefined} onClick={() => pick(value)}>
         <span>{t(`tools.tier.${value}`)}</span>{current === value && <TofiIcon name="check" size={14} aria-hidden="true" />}
@@ -153,7 +152,7 @@ function BotsSection({ name, bots, onAll, onChosen }: { name: string; bots: Conn
       <div className="conn-bots-fold" data-open={mode === "chosen" ? "true" : undefined} inert={mode !== "chosen" || undefined}>
         <div>
           <ul className="conn-bots" aria-label={t("detail.bots.choose")}>{bots.bots.map(bot => <li key={bot.bot_id} data-bot-id={bot.bot_id}>
-            <label><input type="checkbox" aria-label={t("detail.bots.check", { bot: bot.bot_name, name })} checked={bot.enabled} disabled={bots.saving} onChange={event => toggle(bot.bot_id, event.target.checked)} /><BotAvatar id={bot.bot_id} mini /><span>{bot.bot_name}</span></label>
+            <Checkbox aria-label={t("detail.bots.check", { bot: bot.bot_name, name })} checked={bot.enabled} disabled={bots.saving} onChange={checked => toggle(bot.bot_id, checked)}><BotAvatar id={bot.bot_id} mini /><span>{bot.bot_name}</span></Checkbox>
           </li>)}</ul>
           {allowed.length === 0 && <p className="conn-lead">{t("detail.bots.none")}</p>}
           <p className="conn-lead">{t("detail.bots.new_note")}</p>

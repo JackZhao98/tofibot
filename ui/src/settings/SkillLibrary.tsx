@@ -1,3 +1,4 @@
+import { Checkbox } from "../ds/Checkbox/Checkbox";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, request } from "../api";
 import { ConfirmAction } from "../ConfirmAction";
@@ -35,7 +36,7 @@ export function EnableChoicePicker({ bots, busy, onChoose, onCancel }: { bots: B
   return <div className="skill-enable" data-step="choose">
     <fieldset className="skill-enable-bots" disabled={busy}>
       <legend>{t("skills.library.choose_title")}</legend>
-      {bots.map(bot => <label key={bot.id}><input type="checkbox" checked={picked.includes(bot.id)} onChange={event => setPicked(current => event.target.checked ? [...current, bot.id] : current.filter(id => id !== bot.id))} /><span>{bot.name}</span></label>)}
+      {bots.map(bot => <Checkbox key={bot.id} checked={picked.includes(bot.id)} onChange={checked => setPicked(current => checked ? [...current, bot.id] : current.filter(id => id !== bot.id))}>{bot.name}</Checkbox>)}
     </fieldset>
     <div className="extension-actions">
       <Button size="sm" variant="primary" disabled={busy} onClick={() => onChoose({ mode: "bots", ids: picked })}>{picked.length ? t("skills.library.add_enable", { count: picked.length }) : t("skills.library.add_without")}</Button>
@@ -83,7 +84,7 @@ function SkillMeta({ skill }: { skill: LibrarySkill }) {
   return <p className="skill-meta">{parts.join(" · ")}</p>;
 }
 
-type RowHandlers = { busy: boolean; onRemove: (name: string) => Promise<void>; onRollback: (name: string, version: number) => void };
+type RowHandlers = { busy: boolean; onRemove: (name: string) => Promise<void>; onRollback: (name: string, version: number) => void; onTurnOn: (name: string) => void };
 
 function SkillRow({ skill, member, handlers }: { skill: LibrarySkill; member?: boolean; handlers: RowHandlers }) {
   const { t } = useTranslation("extensions");
@@ -94,6 +95,10 @@ function SkillRow({ skill, member, handlers }: { skill: LibrarySkill; member?: b
     </strong>
     <p>{skillText(skill)}</p>
     <SkillMeta skill={skill} />
+    {skill.builtin && skill.enabled_bots < skill.bots_total && <div className="extension-actions skill-off" data-state="off">
+      <span className="skill-tag" data-tone="off">{t("skills.library.off_for", { count: skill.bots_total - skill.enabled_bots })}</span>
+      <Button size="sm" disabled={handlers.busy} onClick={() => handlers.onTurnOn(skill.name)}>{t("skills.library.turn_on")}</Button>
+    </div>}
     {skill.versions && skill.versions.length > 1 && <VersionList skill={skill} busy={handlers.busy} onRollback={handlers.onRollback} />}
     {!skill.builtin && !member && <div className="extension-actions">
       <ConfirmAction label={t("skills.remove")} question={t("skills.remove_confirm")} disabled={handlers.busy} onConfirm={() => handlers.onRemove(skill.name)} />
@@ -125,7 +130,7 @@ export type SkillLibraryViewProps = {
   form: boolean; formState: AddFormState;
   onToggleForm: () => void; onFormChange: (next: Partial<AddFormState>) => void; onSubmitForm: (choice: EnableChoice) => void;
   onPickFolder: (files: File[]) => void; onStarter: (name: string) => void;
-  onRemove: (name: string) => Promise<void>; onRemoveBundle: (id: string) => Promise<void>; onRollback: (name: string, version: number) => void;
+  onRemove: (name: string) => Promise<void>; onRemoveBundle: (id: string) => Promise<void>; onRollback: (name: string, version: number) => void; onTurnOn: (name: string) => void;
   onReload: () => void; showReload: boolean; openBundles?: string[];
   bots: BotRef[]; pending: string | null; onCancelPending: () => void; onConfirmPending: (choice: EnableChoice) => void;
 };
@@ -135,7 +140,7 @@ export type AddFormState = { name: string; text: string };
 export function SkillLibraryView(props: SkillLibraryViewProps) {
   const { t } = useTranslation("extensions");
   const { listing } = props;
-  const handlers: RowHandlers = { busy: props.busy, onRemove: props.onRemove, onRollback: props.onRollback };
+  const handlers: RowHandlers = { busy: props.busy, onRemove: props.onRemove, onRollback: props.onRollback, onTurnOn: props.onTurnOn };
   const folderInput = useRef<HTMLInputElement>(null);
   const bundled = new Set(listing.bundles.flatMap(bundle => bundle.skills));
   const loose = listing.skills.filter(skill => !bundled.has(skill.name));
@@ -275,5 +280,6 @@ export function SkillLibrary({ refreshToken = 0, debug = false }: { refreshToken
     onRemove={async name => { await act(() => request(`/api/extensions/skills/${encodeURIComponent(name)}`, { method: "DELETE" }), t("skills.removed")); }}
     onRemoveBundle={async id => { await act(() => request(`/api/extensions/skill-bundles/${encodeURIComponent(id)}`, { method: "DELETE" }), t("skills.removed")); }}
     onRollback={(name, versionNumber) => void act(() => request(`/api/extensions/skills/${encodeURIComponent(name)}/rollback`, post({ version: versionNumber })), t("skills.library.rolled_back"))}
+    onTurnOn={name => void act(() => Promise.all(bots.map(bot => request(`/api/bots/${encodeURIComponent(bot.id)}/skills/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify({ enabled: true }) }))))}
     onReload={() => { setLoading(true); void refresh(); }} />;
 }

@@ -4,6 +4,8 @@ import { CollapsibleContent } from "../ds/Collapsible/Collapsible";
 import { Segmented as KitSegmented } from "../ds/Segmented/Segmented";
 import {useCallback, useEffect, useId, useRef, useState, type ReactNode} from "react";
 import { Switch } from "../ds/Switch/Switch";
+import { Banner as KitBanner } from "../ds/Banner/Banner";
+import { Button } from "../ds/Button/Button";
 import {TofiIcon} from "../icons";
 import {useTranslation} from "../i18n";
 import { Disclosure } from "../InteractionPrimitives";
@@ -101,19 +103,15 @@ export function StatusBadge({state, children}: {state: BadgeState; children?: Re
   return <span className={`status-badge is-${state}`} data-state={state}><i className="status-dot" aria-hidden="true"/>{children ?? t(`status.${state}`)}</span>;
 }
 
-const bannerIcon = {error: "error", warn: "alert", info: "info"} as const;
-/** Banner: a bold "what happened", one line "what to do", at most one action. Only errors announce themselves. */
+const bannerTone = {error: "error", warn: "warning", info: "info"} as const;
+/** Banner: a bold "what happened", one line "what to do", at most one action. The kit Banner; only errors announce themselves. */
 export function Banner({tone, title, children, action, details}: {tone: "error" | "warn" | "info"; title: ReactNode; children?: ReactNode; action?: {label: ReactNode; onClick: () => void; disabled?: boolean}; details?: string}) {
   const {t} = useTranslation("settings");
   const [open, setOpen] = useState(false);
   const detailsId = useId();
-  return <div className={`settings-banner is-${tone}`} role={tone === "error" ? "alert" : undefined}>
-    <TofiIcon name={bannerIcon[tone]} size={18} aria-hidden="true"/>
-    <div className="settings-banner-copy"><strong>{title}</strong>{children && <p>{children}</p>}
-      {details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><CollapsibleContent><pre id={detailsId} className="settings-banner-details">{details}</pre></CollapsibleContent></Collapsible.Root>}
-    </div>
-    {action && <button type="button" className="st-button settings-banner-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>}
-  </div>;
+  return <KitBanner className={`settings-banner is-${tone}`} tone={bannerTone[tone]} title={title}
+    action={action && <Button size="sm" className="settings-banner-action" disabled={action.disabled} onClick={action.onClick}>{action.label}</Button>}
+    more={details && <Collapsible.Root open={open} onOpenChange={setOpen}><Collapsible.Trigger className="settings-banner-more">{t("banner.details")}</Collapsible.Trigger><CollapsibleContent><pre id={detailsId} className="settings-banner-details">{details}</pre></CollapsibleContent></Collapsible.Root>}>{children}</KitBanner>;
 }
 
 /** Danger zone: a plain section titled by the caller ("Danger zone"), last on the page. Only the action's text is red (`st-button is-danger`); no frame. */
