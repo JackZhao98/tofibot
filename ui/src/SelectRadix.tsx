@@ -29,7 +29,7 @@ export default function SelectRadixImpl(props: SelectProps & { options: NonNulla
   const { value, onValueChange, options, placeholder, disabled, id, name, className, size = "md" } = props;
   const trigger = useRef<HTMLButtonElement>(null);
   const hasEmpty = flatOptions(options).some(option => option.value === "");
-  // Inside a modal (Settings) the list stacks just above it (interaction-system.css: data-layer="dialog").
+  // Inside a modal (Settings) the list stacks just above it (ds/pop.css: data-layer="dialog").
   const [layer, setLayer] = useState<"dialog" | undefined>();
   return <RadixSelect.Root value={hasEmpty || value !== "" ? encode(value) : ""} onValueChange={next => onValueChange(decode(next))} disabled={disabled} name={name}
     onOpenChange={open => { if (open) setLayer(trigger.current?.closest('[aria-modal="true"]') ? "dialog" : undefined); }}>

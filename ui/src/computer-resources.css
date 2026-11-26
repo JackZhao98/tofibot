@@ -40,4 +40,8 @@
 .admin-computer-size{min-width:0}
 @media(max-width:700px){.resource-sheet.is-flush .resource-field{padding:14px 16px}.resource-sheet.is-flush .resource-sheet-actions{padding:12px 16px}}
 .computer-kind{color:var(--muted);font-weight:400}
+/* The sheet is glass and grows from its centre (V2 dialog, until it is rebuilt on the kit). */
+.resource-restart-dialog { background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); transform-origin:center; animation:pop-in var(--m-pop-in) var(--ease-pop) both; }
+@media (prefers-reduced-motion:reduce) { .resource-restart-dialog { animation:none; } }
+@media (prefers-reduced-transparency:reduce) { .resource-restart-dialog { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; } }
 }

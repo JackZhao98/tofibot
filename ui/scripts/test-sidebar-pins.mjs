@@ -635,7 +635,7 @@ await check("reduced motion: neighbours do not glide, but the row still follows 
     assert.ok(probe.dragged < -50, "the dragged row follows the pointer either way");
     await page.mouse.up();
     // The drop settles the row with a glide, unless motion is reduced: then it lands at once. Reduced motion still runs
-    // every CSS transition for 0.01 ms (interaction-system.css switch-off); whether one is caught in this frame is timing,
+    // every CSS transition for 0.01 ms (forced.css switch-off); whether one is caught in this frame is timing,
     // so only motion longer than 1 ms counts as a glide.
     const gliding = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(document.getAnimations().filter(a => a.effect?.target?.matches?.("[data-dnd-id]") && Number(a.effect.getComputedTiming().duration) > 1).length))));
     if (reduced) assert.equal(gliding, 0, "no settle animation under reduced motion");

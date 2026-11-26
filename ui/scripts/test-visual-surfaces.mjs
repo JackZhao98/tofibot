@@ -5,17 +5,19 @@ import test from "node:test";
 const read = name => readFileSync(new URL(`../src/${name}`, import.meta.url), "utf8");
 
 test("overlapping surfaces share tinted glass and paired backdrop filters", () => {
-  const css = read("v2-app.css");
-  // Locate the material rule by its declarations, rather than lazy component file order.
-  const material = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.includes(".cover-window,") && body.includes("background:var(--glass-strong)"));
-  assert.ok(material, "one shared surface recipe exists");
-  for (const name of ["cover-window", "search-palette"]) {
-    assert.ok(material[1].includes(`.${name}`), `${name} uses the shared material`);
-  }
+  // Each V2 overlay that is not on the kit Dialog draws its own glass in its own sheet; the kit dialogs get theirs from tb-glass.
+  const recipe = (file, name) => {
+    const css = read(file).replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = [...css.matchAll(/([^{}]+)\{([^{}]+)\}/g)].find(([, selectors, body]) => selectors.split(",").some(part => part.trim() === `.${name}`) && body.includes("background:var(--glass-strong)"));
+    assert.ok(rule, `${file}: .${name} draws the shared glass`);
+    assert.match(rule[2], /-webkit-backdrop-filter:\s*var\(--glass-blur\)/, `${name} blurs`);
+    assert.match(rule[2], /(?<!-webkit-)backdrop-filter:\s*var\(--glass-blur\)/, `${name} blurs`);
+    return rule;
+  };
+  for (const [file, name] of [["computer-resources.css", "resource-restart-dialog"], ["layout/settings-page.css", "settings-leave-dialog"], ["permission-coach.css", "permission-coach"], ["conversation-workspace.css", "view-only-chat"]]) recipe(file, name);
+  for (const name of ["cover-window", "search-palette"]) assert.match(read(name === "cover-window" ? "CoverShell.tsx" : "SearchPalette.tsx"), /ds\/Dialog\/Dialog/, `${name} is the kit Dialog`);
   // Menus, popovers and the Select list are on the kit's glass since PRs 2.2 and 2.3.
   for (const file of ["overlays/RadixOverlays.tsx", "SelectRadix.tsx"]) assert.match(read(file), /\btb-glass\b/, `${file} uses the kit glass`);
-  assert.match(material[2], /-webkit-backdrop-filter:var\(--glass-blur\)/);
-  assert.match(material[2], /(?<!-webkit-)backdrop-filter:var\(--glass-blur\)/);
   // The material is a skin role (V3 PLAN 7.6): the sheet reads --glass-strong and --glass-blur directly (the V2 bridge is gone, PR 9.1).
   // Both themes obscure the content beneath the glass: the strong glass is at least 84% opaque, the blur is a real blur.
   const skin = read("skin/v3.css");
@@ -27,7 +29,7 @@ test("overlapping surfaces share tinted glass and paired backdrop filters", () =
 });
 
 test("popup keyframes fade in place without corner origins or translation", () => {
-  for (const file of ["interaction-system.css", "search-palette.css", "permission-coach.css"]) {
+  for (const file of ["styles.css", "search-palette.css", "permission-coach.css"]) {
     for (const [, name, body] of read(file).matchAll(/@keyframes ([\w-]+)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g)) {
       if (/^(menu-|modal-|drawer-|search-panel-|delete-dialog-arrive|permission-coach-in)/.test(name)) {
         assert.doesNotMatch(body, /translate|transform|scale/, `${file}: ${name} stays in place`);
@@ -37,7 +39,9 @@ test("popup keyframes fade in place without corner origins or translation", () =
   }
   assert.doesNotMatch(read("FloatingDesktop.tsx"), /transformOrigin:/, "mini window never flies from a corner");
   assert.doesNotMatch(read("AttachmentLightbox.tsx"), /transform:|translate\(/, "image dialog opens in place");
-  assert.match(read("v2-app.css"), /prefers-reduced-motion:reduce\)\s*\{\s*(?:\.tofi-pop\[data-state\],\s*)?:root:root[^{}]+\{ animation:none;/, "reduced motion overrides closed-state selectors too");
+  for (const [file, name] of [["computer-resources.css", "resource-restart-dialog"], ["layout/settings-page.css", "settings-leave-dialog"], ["permission-coach.css", "permission-coach"]]) {
+    assert.match(read(file), new RegExp(`prefers-reduced-motion:\\s*reduce\\)\\s*\\{[^{}]*\\.${name}\\s*\\{\\s*animation:\\s*none`), `${file}: reduced motion stops the ${name} grow`);
+  }
 });
 
 test("native title row controls clear traffic lights and use no-drag hit targets", () => {

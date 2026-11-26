@@ -10,4 +10,5 @@
 .new-group-dialog .gs-block-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 @keyframes new-group-scrim-out { to { opacity:0; } }
 @media (prefers-reduced-motion:reduce) { .new-group-scrim.is-leaving, .new-group-dialog.is-leaving { animation:none; transition:none; } }
+.new-group-scrim { background:var(--scrim); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); }
 }

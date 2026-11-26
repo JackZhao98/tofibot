@@ -37,7 +37,7 @@ html[data-desktop] { --sender-avatar:38px; }
 
 /* Software keyboard up: the reserved band shrinks to the composer plus a gap, so the message being answered stays
    visible above the keyboard instead of sitting under ~280px of padding. */
-html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll { padding-top:calc(var(--chat-header-height,0px) + 8px); padding-bottom:calc(var(--composer-height,110px) + 48px); }
+.workspace.keyboard-viewport-open .message-scroll { padding-top:calc(var(--chat-header-height,0px) + 8px); padding-bottom:calc(var(--composer-height,110px) + 48px); }
 /* A live-only group block is not a sender unit: its line starts in the avatar column, the loading mark centred where the avatar sits. */
 .workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line { margin-left:calc(var(--sender-gutter) * -1); }
 .workspace .task-run-block.in-group:not([data-sender]) > .task-run-live-line .process-line { gap:var(--sender-gap); }
@@ -61,7 +61,7 @@ html:not([data-desktop]) .workspace.keyboard-viewport-open .message-scroll { pad
 .workspace .message-block[data-owns-next][data-message-id] .message-hover-host .message { margin-bottom:0; }
 
 /* A pane under 1000px has no room beside the bubble: the same bar becomes a small chip on the bubble's top edge, on the bubble's own side.
-   The longer selector wins over the bar's own rule in v2-app.css whatever the order of the sheets. */
+   The longer selector wins over the bar's own rule in conversation-workspace.css whatever the order of the sheets. */
 @container (max-width:999px) {
   .workspace .message-body > .tb-msg { --tb-side-top:-14px; --tb-side-shift:none; --tb-side-left:8px; --tb-side-right:auto; --tb-side-left-user:auto; --tb-side-right-user:8px; }
   .workspace .message-body > .tb-msg .message-hover-actions { --bar-btn:24px; padding:0 4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }

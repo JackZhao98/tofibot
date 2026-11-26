@@ -3,8 +3,7 @@ import { createRoot } from "react-dom/client";
 import { OwnerSessionGate, SidebarAccount } from "../../src/OwnerSession";
 import { HelpAndFeedback } from "../../src/settings/HelpAndFeedback";
 import { i18nReady, setLanguage } from "../../src/i18n";
-import "../../src/interaction-system.css";
-import "../../src/v2-app.css";
+import "../../src/skin/default.css";
 import "../../src/desktop-system.css";
 
 function Fixture() {

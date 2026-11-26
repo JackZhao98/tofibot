@@ -122,7 +122,7 @@
   --sender-caption:21px;
 }
 
-/* Shell widths (v2-app.css). */
+/* Shell widths. */
 :root {
   --v2-sidebar-width:272px;
   --v2-chat-width:760px;

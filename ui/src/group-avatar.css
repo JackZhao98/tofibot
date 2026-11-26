@@ -8,3 +8,7 @@
 .group-heads .group-head-cat > .avatar, .group-heads .group-head-cat .tofi-avatar { display:block; width:100%; height:100%; }
 .archive-group-mark { width:34px; height:34px; background:transparent; }
 }
+/* Moved from the V2 sheets (V3 PR 9.1). */
+@layer legacy {
+.group-avatar{background:var(--hover);color:var(--ink-soft)}
+}

@@ -289,3 +289,113 @@
 .workspace-status.workspace-toast{pointer-events:auto;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:var(--z-toast);width:max-content}
 /* A failure notice in the conversation is the app speaking, never a Bot reply. */
 }
+/* Moved from the V2 sheets (V3 PR 9.1). */
+@layer legacy {
+.bot-avatar-picker{display:grid;gap:12px;margin:0 0 18px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2)}
+.tofi-avatar{display:block;width:100%;height:100%}
+.tofi-avatar>svg{display:block;width:100%;height:100%}
+@keyframes menu-enter{from{opacity:0}to{opacity:1}}
+@keyframes menu-leave{to{opacity:0}}
+@keyframes hint-enter{from{opacity:0}to{opacity:1}}
+.detail-pane.visible{background:var(--surface);animation:drawer-enter var(--m-quick) var(--ease-out) both;box-shadow:var(--shadow)}
+.detail-pane.surface-exiting{animation:drawer-leave var(--m-instant) var(--ease-settle) both;pointer-events:none}
+@keyframes drawer-enter{from{opacity:0}to{opacity:1}}
+@keyframes drawer-leave{to{opacity:0}}
+.detail-backdrop{background:var(--scrim);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);animation:hint-enter var(--m-base) var(--ease-out) both}
+/* Dialogs appear at their final position with a short fade. */
+@keyframes modal-enter{from{opacity:0}to{opacity:1}}
+@keyframes modal-leave{to{opacity:0}}
+.detail-pane:has(.computer-detail.is-expanded){animation:none;translate:none;scale:none}
+.detail-heading h2{font-size:18px;font-weight:600}
+@media (max-width:767px) {
+ .top-icon-button, .icon-button{width:40px;height:40px;min-width:40px}
+}
+.computer-detail:not(.is-expanded){display:flex;flex-direction:column}
+.computer-detail:not(.is-expanded)>.detail-heading{order:0}
+.computer-detail:not(.is-expanded)>.computer-info{order:4}
+.computer-detail:not(.is-expanded)>.computer-info:not(:has(.tb-note--error)):not(:has(button)){display:none}
+.computer-detail:not(.is-expanded)>.computer-aux-fields{order:5}
+.computer-detail:not(.is-expanded) .remote-desktop-surface{aspect-ratio:8/5;display:grid;place-items:center;border-radius:16px}
+.computer-detail:not(.is-expanded) .computer-screen{width:100%;height:100%;max-height:none;object-fit:contain}
+.computer-tools>summary{font-size:12px;color:var(--muted)}
+.bot-identity-card{position:relative;z-index:var(--z-popover);width:280px;padding:18px}
+.identity-card-anchor{display:inline-flex;border-radius:10px;outline-offset:4px}
+.identity-card-title{display:flex;align-items:center;gap:12px}
+.identity-card-title>div{display:grid;gap:2px;min-width:0}
+.identity-card-title strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.identity-card-title span:not(.avatar){font-size:11px;color:var(--muted)}
+.bot-identity-card p{font-size:13px;line-height:21px;color:var(--ink-soft);margin:14px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.bot-identity-card button{width:100%;display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border:0;border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:12px}
+.bot-identity-card button:hover{background:var(--hover)}
+.computer-detail.is-expanded .remote-control-bar{color:var(--desktop-controls-ink);padding:4px 4px 10px}
+.computer-detail.is-expanded .remote-control-bar button{background:var(--desktop-controls-edge);color:var(--desktop-controls-ink);border:1px solid var(--desktop-controls-edge);font-size:12px;min-height:30px;padding:6px 10px}
+.remote-desktop:not(.in-control) .remote-desktop-surface{touch-action:pan-y}
+@media (max-width:767px) {.remote-control-bar{gap:8px;font-size:12px}
+}
+/* Progressive controls share one quiet expansion rhythm in both themes. */
+.disclosure{min-width:0;margin:8px 0}
+.disclosure-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:38px;padding:8px 0;border:0;background:transparent;color:var(--ink-soft);text-align:left;font-size:13px}
+.disclosure-toggle:hover{color:var(--ink)}
+.disclosure-chevron{flex:none;transition:transform var(--m-base) var(--ease-settle)}
+.disclosure[data-state="open"]>.disclosure-toggle .disclosure-chevron{transform:rotate(180deg)}
+.disclosure-inner{min-height:0;overflow:hidden}
+.disclosure-inner>label{display:grid;gap:7px;margin:10px 0}
+.disclosure-inner>.model-fields{margin:8px 0}
+.archive-open{display:block;max-width:100%;padding:0;border:0;background:transparent;color:var(--ink);text-align:left;font-weight:600;overflow-wrap:anywhere}
+.archive-open:hover{text-decoration:underline;text-underline-offset:3px}
+.bot-identity-card button{margin-top:7px}
+.extension-card>.disclosure{margin:6px 0 0}
+.extension-card>.disclosure .disclosure-inner{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.extension-card>.disclosure .disclosure-inner>button{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:12px}
+.extension-card>strong{display:block;overflow-wrap:anywhere}
+.confirm-action{display:inline-flex;max-width:100%;align-items:center}
+@media (prefers-reduced-motion:reduce) {.disclosure-region,.disclosure-chevron{transition:none}
+}
+/* Shared form geometry; fieldsets freeze pending inputs without another visual box. */
+.form-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
+@media (pointer:coarse) {
+  .top-icon-button, .icon-button, .close-button{width:44px;height:44px;min-width:44px}
+}
+.archive-card{background:var(--surface)}
+.archive-group-mark{background:var(--surface-2)}
+.danger-link {
+  min-height:36px; padding:7px 12px; border:2px solid var(--danger);
+  border-radius:12px; color:var(--danger-text); background:transparent; box-shadow:none;
+  font:600 13px/1.2 var(--font-display);
+}
+.danger-link:not(:disabled):hover { background:color-mix(in srgb,var(--danger) 10%,transparent); }
+.danger-link:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:3px; }
+:is(.icon-button,.top-icon-button,.close-button):focus-visible {
+  outline:var(--focus-ring-width) solid var(--focus); outline-offset:3px;
+}
+.close-button { color:var(--ink-soft); background:transparent; box-shadow:none; }
+.close-button:hover { color:var(--ink); background:var(--surface-2); }
+:is(.icon-button,.top-icon-button,.close-button) {
+  width:36px; height:36px; min-width:36px; border:1.5px solid var(--line);
+  border-radius:12px; background:var(--surface); color:var(--ink-soft);
+}
+:is(.icon-button,.top-icon-button,.close-button):hover { background:var(--surface-2); color:var(--ink); }
+:is(.icon-button,.top-icon-button,.close-button) svg { width:18px; height:18px; }
+.close-button { border-radius:50%; }
+/* Surfaces — the normal card is flat or hairline, never a raised slab. */
+:is(.archive-card,.extension-card,.verification-card,.bot-avatar-picker) {
+  background:var(--surface-2); border:1px solid var(--line);
+  border-radius:16px; box-shadow:none; color:var(--ink-soft);
+}
+:is(.archive-card,.extension-card,.verification-card) strong { color:var(--ink); }
+/* Authentication, inspector, and secondary views belong to the same world. */
+.workspace .detail-pane { color:var(--ink); }
+.workspace .bot-v2-subtitle { margin:18px 0 16px; }
+.workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--font-display); }
+.workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
+/* Popups (menus, popovers, selects, context menus, hover cards) are the kit's: ds/pop.css. The V2 dialogs (the restart and attach
+   sheets, the settings leave dialog, the permission coach) still grow from their centre until their surfaces are rebuilt. */
+@keyframes pop-in { from { opacity:0; transform:scale(.96); } }
+
+}
+/* Element defaults of the web entries (main, catalog, Mac pages): the page text size and the touch behaviour of a button. */
+@layer base {
+body{font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+form[aria-busy=true]{cursor:progress}
+}

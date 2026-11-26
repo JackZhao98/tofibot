@@ -1,15 +1,8 @@
 {
-  "environments.css": {
-    "webFork": 1
-  },
   "lib/tofi-avatar/acceptance/style.css": {
     "rootToken": 1
   },
   "sender-groups.css": {
-    "rootToken": 1,
-    "webFork": 1
-  },
-  "v2-app.css": {
-    "webFork": 21
+    "rootToken": 1
   }
 }

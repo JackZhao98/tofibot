@@ -2,6 +2,6 @@
   "note": "Ceiling of local z-index values above 3 per file (component-internal stacking that predates the layer scale). Only ever shrinks; regenerate with npm run test:layers -- --update-baseline.",
   "files": {
     "src/styles.css": 2,
-    "src/v2-app.css": 1
+    "src/conversation-workspace.css": 1
   }
 }

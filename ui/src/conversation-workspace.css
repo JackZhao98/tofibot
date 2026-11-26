@@ -127,3 +127,354 @@
 .view-only-message.is-bot[data-joins-prev] .view-only-message-bubble { border-top-left-radius:var(--radius-bubble-joined); }
 .view-only-message.is-bot[data-joins-next] .view-only-message-bubble { border-bottom-left-radius:var(--radius-bubble-joined); }
 }
+/* Moved from the V2 sheets (V3 PR 9.1). */
+@layer legacy {
+.workspace :is(button,a,summary):focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:3px}
+.contact-section,.message-scroll,.settings-page-body{scrollbar-color:var(--line) transparent}
+.search-box input:focus-visible,.composer-row textarea:focus-visible{outline:none}
+/* Chat header, timeline and bubbles: the kit (ds/ChatHeader, ds/MessageBubble). */
+.scheduled-task-row{max-width:var(--chat-max);margin:8px auto 16px;color:var(--muted);font-size:12px}
+.scheduled-task-row details{border-radius:10px;background:var(--surface-2)}
+.scheduled-task-row summary{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;list-style:none}
+.scheduled-task-row summary::-webkit-details-marker{display:none}
+.scheduled-task-row summary:hover{color:var(--ink);background:var(--hover);border-radius:10px}
+.scheduled-task-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--muted)}
+.scheduled-task-running .scheduled-task-dot,.scheduled-task-queued .scheduled-task-dot{background:var(--accent);animation:scheduled-pulse 1.4s var(--ease-inout) infinite}
+.scheduled-task-done .scheduled-task-dot{background:var(--muted)}
+.scheduled-task-failed .scheduled-task-dot,.scheduled-task-cancelled .scheduled-task-dot,.scheduled-task-interrupted .scheduled-task-dot{background:var(--danger)}
+.scheduled-task-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scheduled-task-status{margin-left:auto;white-space:nowrap;color:var(--muted);font-size:11px}
+.scheduled-task-chevron{flex:none;transition:transform var(--m-base) var(--ease-out)}
+.scheduled-task-row details[open] .scheduled-task-chevron{transform:rotate(90deg)}
+.scheduled-task-details{margin:0 10px 8px;padding:8px 10px;border-top:1px solid var(--line);line-height:1.55}
+.scheduled-task-details p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+@keyframes scheduled-pulse{50%{opacity:.42}}
+.message-user .message-content a{color:inherit}
+.message-avatar .identity-card-anchor{user-select:none;-webkit-touch-callout:none}
+/* Keep live work attached to the composer instead of making it part of the
+   scrollback. The row should read as a small status rail directly above the
+   place where the user can respond. */
+/* Give the identity more room without making the whole header feel padded. */
+.message-scroll{padding-inline:clamp(12px,3vw,48px)}
+@keyframes bubble-arrive{0%{transform:scale(.87,.9)}70%{transform:scale(1.007,1.01)}100%{transform:scale(1)}}
+/* Composer uses one 48px vertical rhythm; textarea is block-level to avoid
+   the inline baseline gap that displaced the placeholder relative to buttons. */
+.composer-row{align-items:center;min-height:64px;padding:7px 8px;gap:6px;border-radius:28px}
+.composer-input-wrap{display:flex;align-items:center;padding:0 6px}
+.composer-row textarea{display:block;min-height:48px;line-height:24px;padding:12px 0;margin:0}
+.composer-row>.send-button{width:48px;height:48px;min-width:48px;flex:0 0 48px;margin:0;align-self:center;display:grid;place-items:center}
+.composer-row>.send-button:disabled{background:var(--hover);color:var(--muted)}
+.dictation-button{display:grid;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:var(--ink-soft)}
+.dictation-button:hover{background:var(--hover);color:var(--ink)}
+.dictation-button.is-listening{color:var(--danger-text);background:color-mix(in srgb,var(--danger) 12%,transparent);animation:dictation-pulse 1.4s var(--ease-inout) infinite}
+.dictation-button:disabled{color:var(--muted);background:transparent;cursor:not-allowed}
+.dictation-status{max-width:var(--chat-max);margin:0 auto 5px;color:var(--danger-text);font-size:12px}
+@keyframes dictation-pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--danger) 10%,transparent)}}
+@media (pointer:coarse) {
+  .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
+}
+.empty-group-composer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;color:var(--muted);font-size:13px}
+.empty-group-composer button{min-height:38px}
+/* Composer follows the v2 control reference without changing its message flow. */
+.workspace .composer .composer-row {
+  display:grid; grid-template-columns:36px minmax(0,1fr) 36px 40px;
+  grid-template-rows:minmax(48px,auto) 40px; column-gap:4px; row-gap:0;
+  min-height:64px; padding:10px 10px 10px 14px; border:var(--c-composer-border);
+  border-radius:20px; background:var(--glass-strong); box-shadow:var(--c-composer-shadow);
+}
+.workspace .composer .composer-input-wrap {
+  grid-column:1/-1; grid-row:1; width:100%; padding:0 4px;
+}
+.workspace .composer-row>.dictation-button { grid-column:3; grid-row:2; }
+.workspace .composer-row>.send-button { grid-column:4; grid-row:2; }
+.workspace .composer .composer-row:has(:focus-visible) {
+  border-color:var(--ink); box-shadow:var(--c-composer-shadow);
+}
+.workspace .composer-row textarea,.workspace .composer-row textarea:focus,
+.workspace .composer-row textarea:hover {
+  min-height:44px; padding:10px 4px; border:0; border-radius:0;
+  background:transparent; box-shadow:none; transform:none; font:15px/1.5 var(--font-body);
+}
+.workspace .composer-row>.dictation-button {
+  width:36px; height:36px; min-width:36px; flex-basis:36px;
+  padding:0; border:0; border-radius:12px; background:transparent;
+  box-shadow:none; color:var(--muted);
+}
+.workspace .composer-row>.dictation-button:hover {
+  background:var(--surface-2); box-shadow:none; color:var(--ink);
+}
+.workspace .composer-row>.send-button {
+  width:40px; height:40px; min-width:40px; flex-basis:40px; margin-left:4px;
+  padding:0; border:2px solid var(--line); border-radius:14px;
+  background:var(--tomato); color:var(--on-block); box-shadow:var(--shadow-sm);
+}
+.workspace .composer-row>.send-button:not(:disabled):hover {
+  background:color-mix(in srgb,var(--tomato) 88%,var(--surface)); color:var(--on-block);
+  transform:translate(-1px,-1px); box-shadow:3px 4px 0 var(--on-block);
+}
+.workspace .composer-row>.send-button:disabled {
+  border:1.5px dashed var(--line); background:transparent; color:var(--muted); box-shadow:none;
+}
+@media (prefers-reduced-transparency:reduce) {
+  .workspace .composer .composer-row {
+    background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none;
+  }
+}
+.view-only-message.is-user .view-only-message-bubble { color:var(--ink); }
+.workspace,.workspace .chat-pane {
+  background:var(--bg); color:var(--ink);
+}
+/* The chat body and its scroller are see-through: the pane's own dot ground (ds/Ground) shows behind the messages. */
+.workspace :is(.chat-body,.message-scroll) { color:var(--ink); }
+/* Room under the last message: composer + a 24px margin + a gap (--composer-height follows the composer, App.tsx). The one rule for both shells. */
+.workspace .message-scroll { padding:26px clamp(18px,4vw,64px) calc(var(--composer-height,110px) + 24px + 20px); }
+/* The floating composer is reserved once; its own padding provides the gap. */
+/* Keep the latest reply above the cat; older messages may scroll behind it. */
+.workspace .message-list { max-width:var(--v2-chat-width); margin:auto; }
+/* Sender-neutral spacing; grouping, metadata and reactions keep their own gaps. */
+.workspace .message { margin-bottom:10px; }
+.workspace .message.message-compact { margin-bottom:6px; }
+.workspace .run-attempt-family { margin:0 0 10px; color:var(--ink-soft); font:13px/1.5 var(--font-body); }
+.workspace .run-attempt-label { margin:0 0 6px; color:var(--muted); font-size:12px; }
+.workspace .run-terminal-notice { padding:8px 12px; border-left:2px solid var(--danger); border-radius:0 8px 8px 0; background:var(--surface-2); }
+.workspace .run-terminal-notice strong { font-size:12px; font-weight:600; }
+.workspace .run-terminal-notice p { margin:4px 0; }
+.workspace .run-attempt-family summary { padding:6px 0; color:var(--muted); }
+.workspace .run-attempt-family pre { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.5 var(--font-mono); }
+.workspace .run-attempt-history>section { margin:8px 0; padding:8px 12px; border-left:1px solid var(--line); }
+.workspace .run-attempt-history>section>p { margin:4px 0; }
+.workspace .message-avatar { align-self:flex-start; width:34px; height:34px; flex:0 0 34px; margin:0 10px 0 0; }
+.workspace .message-avatar .avatar { width:34px; height:34px; }
+.workspace .message-bot:has(>.message-avatar) { align-items:flex-start; }
+.workspace .message-user .message-meta.compact { display:none; }
+.workspace .message-block:focus { outline:none; }
+/* Clicking a message never frames it. Jumps flash the target bubble (message-bubble.css); keyboard focus rings it there. */
+/* One arrival vocabulary on web: a Bot message that appears whole fades in over 200 ms. Opacity only: a transform on the newest message
+   widens the scroll extent while it plays, and the pane that follows the bottom would move with it. A message that was streamed in
+   place (.was-streamed) was already read as a draft, so saving it must not blink or replay. History and switches never get .new-arrival. */
+.workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content {
+  animation:v2-bot-arrive var(--m-base) var(--ease-out) both;
+}
+@keyframes v2-bot-arrive { from { opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content { animation:none; }
+}
+.workspace .message-meta { color:var(--muted); font:11px/1.3 var(--font-mono); }
+.workspace .message-meta strong { color:var(--ink); font:600 13px/1.3 var(--font-display); }
+.workspace .message-content { font-size:15px; line-height:1.65; }
+.workspace .message-content :is(h1,h2,h3,h4) { color:var(--ink); font-family:var(--font-display); }
+.workspace .message-content a { color:var(--ink); text-decoration-color:var(--tomato); text-underline-offset:3px; }
+.workspace .message-content :not(pre)>code {
+  padding:2px 6px; border:1px solid var(--line); border-radius:6px;
+  background:var(--sunk); color:var(--ink);
+  box-decoration-break:clone; -webkit-box-decoration-break:clone;
+}
+.workspace .message-content pre{
+  color:var(--code-ink); background:var(--code-bg); border:1px solid var(--code-bg);
+  border-radius:12px; font:var(--type-code);
+}
+.workspace .message-content pre code{ color:inherit; background:transparent; border:0; font-size:inherit; }
+.workspace .message-mention { background:var(--grape); color:var(--on-block); border-radius:6px; }
+.workspace .related-message-link { background:var(--surface); border-color:var(--line); color:var(--ink-soft); }
+.workspace .related-message-link:hover { border-color:var(--line); color:var(--ink); }
+.workspace .tool-activity,.workspace .tool-activity-status { color:var(--muted); font:11px/1.45 var(--font-mono); }
+.workspace .tool-activity summary strong { color:var(--ink-soft); }
+.workspace .tool-activity-details { background:var(--sunk); border-left:1px solid var(--line); }
+:root[data-theme="dark"] .tool-activity-details { background:var(--surface-2); }
+:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+.workspace .tool-activity-details pre { color:var(--ink-soft); }
+.workspace .conversation-empty { background:var(--dot-grid) 0 0/var(--dot-step) var(--dot-step); border:1px solid var(--line); border-radius:16px; min-height:240px; }
+.workspace .conversation-empty h2 { color:var(--ink); font:600 20px/1.3 var(--font-display); }
+/* Composer remains a single semantic form, now the preview's two-level object. */
+.workspace .composer { padding:14px clamp(16px,4vw,32px) max(18px,env(safe-area-inset-bottom)); background:transparent; }
+/* No fade or blur above the composer (owner, 2026-10-26); the field has its own frosted glass. */
+.workspace .composer .composer-row {
+  position:relative; z-index:3; min-height:104px; grid-template-rows:minmax(52px,auto) 40px;
+  grid-template-columns:40px minmax(0,1fr) 40px 42px; column-gap:8px;
+  padding:11px 17px 13px; border:var(--c-composer-border);
+  border-radius:20px; background:var(--glass-strong); box-shadow:var(--c-composer-shadow);
+  -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+}
+.workspace .composer .composer-input-wrap { display:block; padding:0; border:0; border-radius:0; background:transparent; }
+.workspace .composer-row textarea,.workspace .composer-row textarea:hover,.workspace .composer-row textarea:focus {
+  min-height:50px; padding:4px 4px 8px; color:var(--ink); font:15px/1.55 var(--font-body);
+}
+/* Safari zooms focused inputs below 16px, including iPad; retain pinch zoom. */
+.workspace .composer-row textarea,
+.workspace .composer-row textarea:hover,
+.workspace .composer-row textarea:focus,
+.workspace .composer-rich-text { font-size:16px; }
+.workspace .composer-row textarea:focus-visible { outline:none; }
+.workspace .composer-add-wrap { position:relative; z-index:5; grid-column:1; grid-row:2; width:40px; height:40px; }
+.workspace .composer-add-wrap>.composer-add,.workspace .composer-row>.dictation-button {
+  box-sizing:border-box; width:40px; height:40px; min-width:40px; min-height:40px;
+  flex:none; align-self:center; margin:0; padding:0;
+  border:1.5px solid var(--line); border-radius:12px;
+  color:var(--ink-soft); background:var(--surface); box-shadow:none;
+}
+.workspace .composer-add-wrap>.composer-add:hover,.workspace .composer-row>.dictation-button:hover { transform:none; box-shadow:none; color:var(--ink); border-color:var(--line); background:var(--surface-2); }
+.workspace .composer-add-wrap>.composer-add:active,.workspace .composer-row>.dictation-button:active { transform:none; box-shadow:none; background:var(--surface-2); }
+.workspace .composer-add-wrap>.composer-add[aria-expanded="true"] { border:2px solid var(--tomato); color:var(--ink); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu { width:220px; padding:8px; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>button { gap:12px; min-height:40px; margin:0; padding:6px 8px; }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu .composer-add-icon { display:grid; place-items:center; flex:none; width:20px; font:18px/1 var(--font-body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu kbd { margin-left:auto; color:inherit; background:transparent; border:0; opacity:.7; font:11px/1 var(--font-mono); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu>p { margin:6px 4px 0; padding:9px 2px 3px; border-top:1px solid var(--line); color:var(--muted); font:11px/1.4 var(--font-body); }
+:is(.workspace,[id="tofi-layers"]) .composer-add-menu.composer-stop-menu { width:auto; min-width:200px; max-width:min(320px,calc(100vw - 32px)); }
+.workspace .composer-row>.send-button {
+  width:40px; height:40px; min-width:40px; margin-left:0; border:2px solid var(--line);
+  border-radius:12px; background:var(--tomato); color:var(--on-block); box-shadow:var(--shadow-sm);
+  transition:transform var(--m-press) var(--ease-out),box-shadow var(--m-press) var(--ease-out),background-color var(--m-press) var(--ease-out);
+}
+.workspace .composer.is-send-empty .composer-row>.dictation-button { grid-column:4; }
+.workspace .composer-row>.send-button:not(:disabled):active {
+  transform:translate(2px,3px); box-shadow:none;
+}
+.workspace .composer-row>.send-button:disabled { border:1px solid var(--line); background:var(--surface-2); color:var(--muted); box-shadow:none; }
+.workspace .composer-attachments { width:100%; margin:0 0 8px; padding:0 4px; }
+.workspace .composer-attachments .composer-attachment-pill {
+  display:inline-flex; align-items:center; gap:6px; max-width:min(240px,100%); height:40px;
+  padding:3px 8px 3px 4px; border:1px solid var(--line); border-radius:12px;
+  background:var(--surface-2); color:var(--ink-soft); white-space:nowrap;
+}
+.workspace .composer-attachment-type { display:grid; place-items:center; flex:none; min-width:32px; height:32px; }
+.workspace .composer-attachment-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .composer-attachments .composer-attachment-pill>button { display:grid; place-items:center; flex:none; width:22px; height:22px; min-height:22px; margin:0; padding:0; border:0; border-radius:50%; color:var(--muted); background:transparent; }
+.workspace .composer-attachments .composer-attachment-pill>button:hover { background:var(--line); color:var(--ink); }
+.workspace .composer .composer-row:has(.composer-stop) { grid-template-columns:40px minmax(0,1fr) 40px 76px; }
+.workspace .composer-row:has(.composer-stop)>.dictation-button,
+.workspace .composer.is-send-empty .composer-row:has(.composer-stop)>.dictation-button { grid-column:3; }
+.workspace .composer-row>.composer-stop { display:flex; align-items:center; justify-content:center; gap:6px; grid-column:4; grid-row:2; width:76px; height:40px; padding:0 10px; border:2px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); font:600 13px/1 var(--font-display); }
+.workspace .composer-row>.composer-stop:hover { transform:translate(-1px,-1px); box-shadow:var(--shadow); }
+.workspace .composer-row>.composer-stop:active { transform:translate(2px,3px); box-shadow:none; }
+.workspace .composer .composer-row:has(.dictation-controls) { grid-template-rows:minmax(52px,auto) 46px; }
+.workspace .composer-row>.dictation-controls { grid-column:1/-1; grid-row:2; display:flex; align-items:center; gap:10px; min-width:0; min-height:46px; padding:0 2px; }
+.workspace .dictation-cancel,.workspace .dictation-confirm { display:grid; place-items:center; flex:none; margin:0; padding:0; }
+.workspace .dictation-cancel { width:40px; height:40px; min-height:40px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink-soft); }
+.workspace .dictation-confirm { width:46px; height:46px; min-height:46px; margin-left:auto; border:2px solid var(--line); border-radius:14px; background:var(--teal); color:var(--on-block); box-shadow:var(--shadow-sm); }
+.workspace .dictation-confirm:disabled { opacity:.55; cursor:wait; }
+.workspace .dictation-record-dot { width:10px; height:10px; flex:none; border-radius:50%; background:var(--danger); animation:dictation-record-breath 1.4s var(--ease-inout) infinite; }
+.workspace .dictation-timer { flex:none; min-width:40px; color:var(--ink); font:600 13px/1 var(--font-mono); font-variant-numeric:tabular-nums; }
+.workspace .dictation-wave { display:flex; flex:1; align-items:center; justify-content:flex-end; gap:3px; min-width:0; height:40px; overflow:hidden; }
+.workspace .dictation-wave i { display:block; flex:none; width:4px; min-height:4px; border-radius:2px; background:var(--teal); transition:height var(--m-instant) var(--ease-out); }
+.workspace .dictation-wave i.is-old { opacity:.35; }
+.workspace .dictation-processing { flex:1; color:var(--muted); font:12px/1.3 var(--font-body); }
+@keyframes dictation-record-breath { 50% { opacity:.5; transform:scale(.84); } }
+@media (prefers-reduced-motion:reduce) { .workspace .dictation-record-dot { animation:none; }
+}
+@media (prefers-reduced-motion:reduce) { .workspace .dictation-wave i { transition:none; }
+}
+:is(.workspace,[id="tofi-layers"]) .mention-menu { position:relative; width:min(280px,calc(100vw - 48px)); max-height:240px; padding:7px; border-radius:16px; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu-heading { padding:5px 9px 8px; color:var(--muted); font:600 10px/1.3 var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu-hint { margin:5px 4px 0; padding:7px 5px 3px; border-top:1px solid var(--line); color:var(--muted); font:10px/1.3 var(--font-mono); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; min-height:42px; padding:6px 9px; border:0; border-radius:10px; background:transparent; text-align:left; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu .avatar { display:block; flex:none; width:30px; height:30px; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu mark { background:transparent; color:var(--ink); text-decoration:underline; text-decoration-color:var(--grape); text-decoration-thickness:2px; text-underline-offset:3px; }
+.workspace .composer-input-wrap.has-mentions { position:relative; }
+.workspace .composer-rich-text { position:absolute; inset:0; z-index:0; padding:4px 4px 8px; overflow:hidden; pointer-events:none; white-space:pre-wrap; overflow-wrap:break-word; color:var(--ink); font:15px/1.55 var(--font-body); }
+.workspace .composer-rich-text>div { position:relative; }
+.workspace .composer-at-chip { padding:0; border-radius:4px; background:var(--grape); color:var(--on-block); box-shadow:3px 0 0 var(--grape),-3px 0 0 var(--grape); font-weight:inherit; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+.workspace .composer-input-wrap.has-mentions textarea { position:relative; z-index:1; -webkit-text-fill-color:transparent; caret-color:var(--tomato); }
+:is(#_,.workspace .composer-input-wrap.has-mentions textarea){color:transparent}
+.workspace .composer > .working-members {
+  position:relative; z-index:2; display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 14px;
+  max-width:var(--chat-max); width:100%; margin:8px auto -12px; padding:0 0 0 18px;
+  color:var(--teal-text); font:11px/1.4 var(--font-mono);
+}
+.workspace .working-member .avatar { width:52px; height:52px; margin:0 0 -6px; }
+/* The no-model banner shows the Bot's own cat; the perched cat waits until it goes, instead of sitting above the banner on the messages. */
+.workspace .work-companion>.avatar { display:none; }
+.workspace .work-companion:not(:has(.working-label)) { display:none; }
+.workspace .composer > .working-members:not(.group-working-members) { display:block; min-height:18px; margin:0 auto 10px; padding:0 8px; font:var(--type-meta); }
+.workspace .composer > .working-members:not(.group-working-members):not(:has(.working-label)) { display:none; }
+.workspace .composer .working-member.work-companion .working-label { margin:0; color:var(--muted); font:var(--type-meta); line-height:18px; }
+.workspace .working-member { display:flex; align-items:flex-end; gap:8px; min-width:0; }
+.workspace .working-member.work-active .working-label { margin:0 3px 19px 0; color:var(--muted); font:var(--type-meta); }
+.workspace .group-working-members { display:flex; align-items:flex-end; gap:2px; min-height:48px; padding-left:18px; }
+.workspace .group-working-cat { position:relative; flex:0 0 52px; width:52px; height:52px; }
+.workspace .group-working-cat .avatar { width:52px; height:52px; margin:0 0 -6px; }
+.workspace .group-queue-index { position:absolute; right:0; bottom:0; display:grid; place-items:center; width:17px; height:17px; border:1px solid var(--line); border-radius:50%; background:var(--surface); color:var(--ink-soft); font:600 10px/1 var(--font-mono); }
+.workspace .working-member.work-uncertain .working-label { color:var(--muted); }
+.workspace .working-member.work-failed { display:grid; grid-template-columns:56px auto 7px minmax(0,1fr); align-items:center; gap:6px 8px; color:var(--ink-soft); }
+.workspace .working-member.work-failed .work-recovery { grid-column:2/-1; min-width:0; margin-left:0; }
+.workspace .working-member.work-failed .working-label { min-width:0; overflow-wrap:anywhere; }
+.workspace .scheduled-task-recovery { display:grid; justify-items:start; gap:6px; margin-top:10px; color:var(--ink-soft); }
+.workspace .scheduled-task-recovery p { margin:0; }
+.workspace .scheduled-task-recovery details { max-width:100%; }
+.workspace .scheduled-task-recovery summary { color:var(--ink-soft); }
+.workspace .scheduled-task-recovery .tb-note--error { max-height:160px; overflow:auto; font:11px/1.5 var(--font-mono); }
+.workspace .scheduled-task-recovery button { min-height:34px; margin-top:2px; padding:5px 9px; border:1px solid var(--line); border-radius:8px; }
+/* Decision, work, and computer surfaces retain their different visual weight. */
+.workspace .scheduled-task-row { margin:4px auto 10px; }
+.workspace .scheduled-task-row details { background:transparent; border:0; }
+.workspace .scheduled-task-row summary { min-height:40px; padding:6px 8px; color:var(--muted); font:12px/1.45 var(--font-body); }
+.workspace .scheduled-task-row summary:hover,
+.workspace .scheduled-task-row details[open]>summary { background:var(--surface-2); color:var(--ink); }
+.workspace .scheduled-task-clock { flex:none; color:var(--muted); }
+.workspace .scheduled-task-label { flex:1; }
+.workspace .scheduled-task-status { flex:none; margin-left:8px; font:11px/1.4 var(--font-mono); }
+.workspace .scheduled-task-failed .scheduled-task-status,
+.workspace .scheduled-task-interrupted .scheduled-task-status { color:var(--danger-text); }
+.workspace .work-details { max-width:var(--v2-chat-width); margin-left:0; padding-left:0; color:var(--muted); }
+.workspace .message-tools { margin:6px 0 2px; }
+.workspace .message-tools .work-details { width:100%; max-width:100%; margin:0; padding:0; }
+.workspace .message-tools .tool-sender { display:none; }
+.workspace .message-tools .tool-message { margin:0; }
+.workspace .message-tools .tool-message>.tool-activity:not(.v2-tool-run)>summary { padding:3px 0; border:0; background:transparent; }
+.workspace .tool-message { margin:4px 0 12px; }
+.workspace .tool-sender { color:var(--ink-soft); font:600 11px/1.4 var(--font-display); }
+:is(.workspace,[id="tofi-layers"]) .mention-menu>button { display:flex; align-items:center; gap:9px; width:100%; min-height:42px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:var(--ink); box-shadow:none; text-align:left; font:14px/1.3 var(--font-body); white-space:normal; overflow-wrap:anywhere; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu button:hover:not(:disabled) { background:var(--surface-2); color:var(--ink); transform:none; box-shadow:none; }
+:is(.workspace,[id="tofi-layers"]) .mention-menu>button.selected { background:color-mix(in srgb, var(--ink) 9%, transparent); }
+@media (max-width:767px) {
+  .workspace .message-scroll { padding-inline:16px; }
+}
+@media (max-width:767px) {
+  .workspace .composer { padding-inline:12px; }
+}
+@media (prefers-reduced-transparency:reduce) {
+  .workspace .composer .composer-row { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+}
+.workspace .conversation-empty{align-content:center}
+.workspace .web-memory-empty{align-content:center;min-height:214px;background:var(--dot-grid) 0 0/var(--dot-step) var(--dot-step)}
+/* Message actions (V3 3.4b): bare icons beside the bubble, vertically centred on its open side (right of a Bot's bubble, left of yours),
+   in muted ink that darken on hover, the relative time last. The kit's MessageBubble places the slot; the bar is mounted only for the
+   message the pointer or keyboard focus is on and appears in the same frame (only its opacity eases in). Nothing reserves room for it, so
+   it never moves a bubble. A pane too narrow to hold it beside the bubble gets the same bar as a small chip on the bubble's top edge, on the bubble's own side.
+   Touch has no bar: a long press opens the same actions as a menu (messageLongPress.ts). */
+.workspace .message-hover-host { position:relative; }
+.workspace .message-content { position:relative; }
+.workspace .message-hover-actions { --bar-btn:28px; display:flex; align-items:center; height:var(--bar-btn); white-space:nowrap; -webkit-user-select:none; user-select:none; animation:message-bar-in var(--m-instant) var(--ease-out) both; }
+.workspace .message-user .message-hover-actions { flex-direction:row-reverse; }
+@keyframes message-bar-in { from { opacity:0; } }
+.workspace .message-hover-actions time { margin:0 4px; padding:0 2px; color:var(--muted); font:12px/1 var(--font-body); white-space:nowrap; }
+.workspace .message-hover-actions button {
+  display:grid; place-items:center; width:var(--bar-btn); height:var(--bar-btn); padding:0; border:0; border-radius:8px;
+  background:transparent; color:var(--muted);
+}
+.workspace .message-hover-actions button:hover { color:var(--ink); }
+.workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:-2px; color:var(--ink); }
+@media (hover:none) {
+  .workspace .message-content { -webkit-touch-callout:none; }
+}
+.workspace .composer-reply {
+  display:flex; align-items:center; gap:8px; margin:0 0 6px; padding:6px 6px 6px 10px;
+  border-left:3px solid var(--teal); border-radius:8px; background:var(--surface-2); color:var(--muted);
+}
+.workspace .composer-reply-copy { display:flex; min-width:0; flex:1; gap:8px; align-items:baseline; font:13px/1.4 var(--font-body); }
+.workspace .composer-reply-copy strong { flex-shrink:0; color:var(--ink); font-weight:600; }
+.workspace .composer-reply-copy span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace .composer-reply button { display:grid; place-items:center; width:24px; height:24px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--muted); }
+.workspace .composer-reply button:hover { background:var(--surface); color:var(--ink); }
+/* Group chats: reactions and live status line up with the message text, not the avatar column. */
+/* Bot profile: one header (title + close), the cat and identity, then one list of equal rows —
+   plans, memory, name/role/model — each opening exactly one page. Sharing sits quietly at the end. */
+.workspace .message-list.is-positioning{visibility:hidden}
+.menu-default-tag { margin-left:8px; color:var(--muted); font:12px/1.3 var(--font-body); }
+/* The read-only chat is glass. */
+.view-only-chat, .view-only-chat-header, .view-only-chat-footer { background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); }
+@media (prefers-reduced-transparency:reduce) { .view-only-chat, .view-only-chat-header, .view-only-chat-footer { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; } }
+@media (forced-colors:active) {
+  .workspace ::selection { background:Highlight; color:HighlightText; }
+}
+.workspace .composer-input-wrap.has-mentions textarea::selection { background:color-mix(in srgb,var(--grape) 35%,transparent); }
+}

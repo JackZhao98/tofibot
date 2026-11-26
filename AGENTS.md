@@ -269,6 +269,11 @@ Rules:
   The note under a control and the error under it are the kit `Note` (`ds/Notice`, PR 9.1: `<Note>` and `<Note tone="error">`; classes
   `tb-note` and `tb-note--error`, the Field message type: 12px, muted or danger text). `.field-note`, `.error-text` and `ds/aliases.json` are gone.
   Its base look is in `@layer legacy` inside the kit sheet at single-class specificity, so a contextual rule in a product sheet still wins.
+- `v2-app.css`, `v2-foundations.css` and `interaction-system.css` are gone (PR 9.1). Their rules live with their owners: checkbox and radio
+  defaults, body and button defaults in `skin/base.css`; the sidebar in `workspace/sidebar.css`; the chat, composer and tool rows in
+  `conversation-workspace.css`; the detail drawer, computer panel and archive cards in `styles.css`; each V2 dialog's glass and scrim in its
+  own sheet. `skin/default.css` is imported by every entry (it used to arrive through `interaction-system.css`). The remaining differences of
+  the Mac app's chat are `html[data-desktop]` rules in `desktop-system.css`; the web rules are the base and are not fenced.
 - Overlays (PR 2.3). `ds/pop.css` is the popup material and motion (`.tb-pop`: opacity only, `--m-quick` in and `--m-press` out, on Radix
   `data-state`; z-index is a zero-specificity default in `@layer legacy`, `[data-layer="dialog"]` is unlayered). `ds/Menu` is the Menu
   (`.tb-menu`, `.tb-menu-item`: glass, the row under the pointer is solid ink, `is-danger` turns red then danger fill), `ds/Dialog` the

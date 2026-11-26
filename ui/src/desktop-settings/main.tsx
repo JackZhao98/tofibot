@@ -5,12 +5,10 @@ import { i18nReady, useLanguage } from "../i18n";
 import { MacSettingsPage } from "./MacSettingsPage";
 import "../skin/fonts.css";
 import "../styles.css";
-import "../interaction-system.css";
+import "../skin/default.css";
 import "../desktop-system.css";
 
 import "../conversation-workspace.css";
-import "../v2-foundations.css";
-import "../v2-app.css";
 import "../sender-groups.css";
 import "../layout/settings-page.css";
 import "../web-tool-steps.css";

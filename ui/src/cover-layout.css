@@ -29,4 +29,6 @@
 .cover-dirty-inner .tb-banner-action { display:flex; align-items:center; gap:8px; }
 @media (max-width:767px) { .cover-dirty-bar { left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); } }
 @media (prefers-reduced-motion:reduce) { .cover-dirty-bar, .cover-dirty-bar[data-open] { transition:none; } }
+/* The scrims dim and blur the workspace behind a cover and its leave dialog. */
+.cover-scrim, .cover-leave-scrim { background:var(--scrim); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); }
 }
