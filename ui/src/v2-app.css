@@ -222,7 +222,7 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 .workspace .scheduled-task-recovery p { margin:0; }
 .workspace .scheduled-task-recovery details { max-width:100%; }
 .workspace .scheduled-task-recovery summary { color:var(--ink-soft); }
-.workspace .scheduled-task-recovery .error-text { max-height:160px; overflow:auto; font:11px/1.5 var(--font-mono); }
+.workspace .scheduled-task-recovery .tb-note--error { max-height:160px; overflow:auto; font:11px/1.5 var(--font-mono); }
 .workspace .scheduled-task-recovery button { min-height:34px; margin-top:2px; padding:5px 9px; border:1px solid var(--line); border-radius:8px; }
 
 /* Decision, work, and computer surfaces retain their different visual weight. */

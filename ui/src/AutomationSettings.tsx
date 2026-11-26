@@ -12,6 +12,7 @@ import {FoldGroup} from "./settings/subpages";
 import {ChangedNote, SavedNote, SettingsCard, SettingsRow, SettingsSection, SettingsSwitch} from "./settings/components";
 import "./settings/automation.css";
 import { Select } from "./Select";
+import { Note } from "./ds/Notice/Notice";
 
 /** Every automatic behavior the server reports, in the order the page lists them. */
 export type AutomationKey =
@@ -150,7 +151,7 @@ const AutomationRow = memo(function AutomationRow({item, catalog, busy, saved, e
   </span>;
   return <div className="auto-row" data-key={item.key} data-source={item.source} aria-busy={busy || undefined}>
     <SettingsRow inline={item.kind === "bool"} labelFor={item.kind === "bool" || item.kind === "readonly" ? undefined : `auto-${item.key}`} label={name}
-      description={<>{i18n.exists(`settings:automation.item.${item.key}.what`) && t(`automation.item.${item.key}.what` as "automation.item.work_trace.what")}{meta}{error && <span className="error-text auto-error" role="alert">{error}</span>}</>}
+      description={<>{i18n.exists(`settings:automation.item.${item.key}.what`) && t(`automation.item.${item.key}.what` as "automation.item.work_trace.what")}{meta}{error && <Note tone="error" as="span" className="auto-error" role="alert">{error}</Note>}</>}
       control={<><SavedNote show={saved}/><Control item={item} catalog={catalog} busy={busy} label={name} onChange={value => onChange(item.key, value)} onOpenPermissions={onOpenPermissions}/></>}/>
   </div>;
 });
@@ -202,7 +203,7 @@ type Automation = ReturnType<typeof useAutomation>;
 
 function Loading({automation}: {automation: Automation}) {
   const {t} = useTranslation("settings");
-  return automation.loadError ? <p className="error-text" role="alert">{automation.loadError}<Button size="sm" variant="ghost" onClick={automation.retry}>{t("action.retry")}</Button></p> : <p className="muted">{t("action.loading_settings")}</p>;
+  return automation.loadError ? <Note tone="error" role="alert">{automation.loadError}<Button size="sm" variant="ghost" onClick={automation.retry}>{t("action.retry")}</Button></Note> : <p className="muted">{t("action.loading_settings")}</p>;
 }
 
 /** The rows of the given groups, as one card (a group that lives beside the setting it belongs with: Models > More, Permissions, ...). */

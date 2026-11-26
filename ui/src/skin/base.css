@@ -59,7 +59,7 @@
     .resource-restart-dialog, .env-config-body, .ag-pick, .fp-body, .fp-code, .fp-table,
     .run-context-items, .run-context-part-text pre, .task-issue-technical pre, .task-activity pre, .tool-activity-details pre, .approval-payload pre,
     .prompt-preview, .debug-tools pre, .usage-call-list, .context-card[data-card="usage"] .context-card-body, .sidebar-account-submenu,
-    .run-attempt-family pre, .scheduled-task-recovery .error-text, .desktop-page pre, .desktop-page .desktop-files, .catalog-nav
+    .run-attempt-family pre, .scheduled-task-recovery .tb-note--error, .desktop-page pre, .desktop-page .desktop-files, .catalog-nav
   ) { scrollbar-gutter: stable; }
   /* Wrappers that clip and never scroll themselves. */
   :is(.cover-body:has(> :is(.bot-settings, .group-settings)), .sidebar-layer.is-fill, .detail-pane.context-panel:has(.terminal-panel), .computer-detail:not(.is-expanded), .new-group-dialog) { scrollbar-gutter: auto; }

@@ -8,6 +8,7 @@ import { useTranslation } from "./i18n";
 import { ScheduleIconButton } from "./ScheduleActions";
 import { ScheduleTimingFields, timingDraftOf, timingEditPatch, type TimingDraft } from "./ScheduleTimingFields";
 import type { MemoryInput, Schedule } from "./types";
+import { Note } from "./ds/Notice/Notice";
 
 export function ScheduleEditor({ schedule, disabled, onSave, actions }: { schedule: Schedule; disabled: boolean; /** The other icon controls of the card, drawn after Edit in one row. */ actions?: ReactNode; onSave: (action: () => Promise<unknown>) => Promise<void> }) {
   const { t } = useTranslation("schedules");
@@ -44,9 +45,9 @@ export function ScheduleEditor({ schedule, disabled, onSave, actions }: { schedu
     <label>{t("editor.description")}<TextArea aria-label={t("editor.description_aria")} value={description} maxLength={280} disabled={disabled} rows={2} onChange={event => setDescription(event.target.value)} /></label>
     <label>{t("editor.instructions")}<TextArea aria-label={t("editor.instructions_aria")} value={content} maxLength={32768} required disabled={disabled} rows={6} onChange={event => setContent(event.target.value)} /></label>
     <fieldset className="schedule-edit-timing" style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-label={t("editor.timing")}>
-      {timingLocked ? <p className="field-note">{t("editor.timing_locked")}</p> : <ScheduleTimingFields draft={timing} timezone={timezone} disabled={disabled} onChange={change => setTiming(current => ({ ...current, ...change }))} />}
+      {timingLocked ? <Note >{t("editor.timing_locked")}</Note> : <ScheduleTimingFields draft={timing} timezone={timezone} disabled={disabled} onChange={change => setTiming(current => ({ ...current, ...change }))} />}
     </fieldset>
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
     <div className="work-create-actions"><Button variant="ghost" disabled={disabled} onClick={() => setEditing(false)}>{t("editor.cancel")}</Button><Button variant="primary" type="submit" disabled={disabled || !content.trim() || (timing.kind === "weekly" && !timing.weekdays.length)}>{t("editor.save")}</Button></div>
   </form>;
 }

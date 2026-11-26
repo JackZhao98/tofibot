@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import {request} from "./api";
 import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSwitch} from "./settings/components";
+import { Note } from "./ds/Notice/Notice";
 
 type Mode = "off" | "shadow" | "auto";
 
@@ -32,6 +33,6 @@ export function ObserveModeRow() {
     <SettingsCard>
       <SettingsRow inline label={t("auto_review.observe")} description={t("auto_review.observe_hint")} control={<SettingsSwitch label={t("auto_review.observe")} checked={mode === "shadow"} disabled={mode === null || mode === "auto"} onChange={change}/>}/>
     </SettingsCard>
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
   </>;
 }

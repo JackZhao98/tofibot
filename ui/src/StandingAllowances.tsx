@@ -6,6 +6,7 @@ import { intlLocale } from "./i18n/format";
 import { SettingsCard, SettingsSection } from "./settings/components";
 import { useUserTimezone } from "./UserTimezone";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 /** "Always allow": one Bot, one tool on one server. Server record; no arguments, URL or credential. */
 export interface StandingAllowance {
@@ -92,7 +93,7 @@ export function StandingAllowances({ rememberedExtra }: { rememberedExtra?: Reac
             <Button size="sm" className="standing-revoke" disabled={Boolean(busy)} onClick={() => void revoke(item.id, `/api/standing-allowances/${encodeURIComponent(item.id)}`)}>{busy === item.id ? t("permissionsPage.standing.revoking") : t("permissionsPage.standing.revoke")}</Button>
           </li>)}
         </ul>}
-        {error && <p role="alert" className="error-text standing-error">{error}</p>}
+        {error && <Note role="alert" tone="error" className="standing-error">{error}</Note>}
       </SettingsCard>
     </SettingsSection>
     <SettingsSection id="remembered" title={t("permissionsPage.standing.remembered.title")} description={t("permissionsPage.standing.remembered.description")}>

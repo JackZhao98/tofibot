@@ -9,6 +9,7 @@ import { useTranslation } from "./i18n";
 import { useHasComputer } from "./computerCapability";
 import { PrimarySuccessorSelect } from "./PrimaryAssistant";
 import type { Bot, TaskImpact } from "./types";
+import { Note } from "./ds/Notice/Notice";
 
 /** `isPrimary` marks the account's Primary Assistant: removing it needs a named successor. */
 export type DeleteTarget = { id: string; conversationId: string; name: string; kind: "bot" | "group"; isPrimary?: boolean };
@@ -58,7 +59,7 @@ export function DeleteConversationDialog({ target, bots = [], onDelete, onClose,
         {impact.open_waits > 0 && <p>{t("deleteDialog.impact_waits", { count: impact.open_waits })}</p>}
       </div>}
       {needsSuccessor && <><p className="delete-dialog-primary">{t("primary.delete_notice")}</p><PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} /></>}
-      {error && <p className="error-text" role="alert">{error}</p>}
+      {error && <Note tone="error" role="alert">{error}</Note>}
     </Dialog>
   </ModalDialog>;
 }

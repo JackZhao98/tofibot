@@ -33,6 +33,7 @@ export const actions: CatalogState[] = [
   { id: "icon-title", kind: "inline", label: "Icon · with a title (stands alone) and without (hidden from screen readers)",
     render: () => <Row><Specimen label="title"><Icon name="info" title="Information" /></Specimen><Specimen label="no title"><Icon name="info" /></Specimen></Row> },
   ...VARIANTS.flatMap(variant => [buttonRow(variant, "md"), buttonRow(variant, "sm")]),
+  buttonRow("link", "md"),
   { id: "button-icons", kind: "inline", label: "Button · icon before, icon after, busy",
     render: () => <Row>
       <Specimen label="icon"><Button variant="primary" icon="plus">Create key</Button></Specimen>

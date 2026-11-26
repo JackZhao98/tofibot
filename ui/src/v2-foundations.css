@@ -46,12 +46,6 @@ input[type="radio"]:checked::after { content:""; width:8px; height:8px; border-r
 :is(input[type="checkbox"]:not([role="switch"]),input[type="radio"]):disabled { opacity:.45; cursor:not-allowed; }
 }
 @layer legacy {
-/* A note under a control and an error under it: the type and colour of the kit Field message (PR 2.2; the icon of the kit's error
-   needs its markup, so it comes with the surface). These are the one base rule each class keeps; every other rule on them is a
-   contextual override and leaves with its sheet. The -7px top margin is the V2 spacing under a field, kept until the surface is rebuilt. */
-.field-note { margin:-7px 0 0; color:var(--muted); font:400 12px/1.45 var(--font-body); }
-.error-text,.settings-feedback.error { color:var(--danger-text); font:400 12px/1.45 var(--font-body); }
-/* A text button inside a sentence is a link: it keeps the sentence's type and line height. Coarse pointers keep the 44px target. */
 .search-box { min-height:42px; border:1.5px solid var(--line); background:var(--surface-2); }
 .search-box:has(:focus-visible) { border-color:var(--line); box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 32%,transparent); }
 

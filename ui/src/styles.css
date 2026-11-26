@@ -144,7 +144,7 @@
 .computer-info-main{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0}
 .computer-info-main strong{font-size:12px}
 .computer-info small{color:var(--muted);font-size:11px;overflow-wrap:anywhere}
-.computer-info .error-text{flex-basis:100%}
+.computer-info .tb-note--error{flex-basis:100%}
 .computer-info .tb-btn{margin-left:auto}
 .computer-key-row{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
 .computer-screen{display:block;width:100%;max-height:360px;object-fit:contain;cursor:crosshair;background:var(--desktop-controls-solid);border-radius:8px}
@@ -280,7 +280,7 @@
 .computer-aux-fields{min-width:0;border:0;padding:0;margin:0}
 .computer-detail.is-expanded{height:calc(var(--viewport-height,100dvh) - 32px);display:flex;flex-direction:column;gap:0}
 .computer-detail.is-expanded .detail-heading{min-height:48px;flex-shrink:0;padding:0}
-.computer-detail.is-expanded .computer-info:not(:has(.error-text)):not(:has(button)),.computer-detail.is-expanded .computer-aux-fields{display:none}
+.computer-detail.is-expanded .computer-info:not(:has(.tb-note--error)):not(:has(button)),.computer-detail.is-expanded .computer-aux-fields{display:none}
 .computer-detail.is-expanded .remote-desktop{flex:1;min-height:0;display:flex;flex-direction:column}
 .computer-detail.is-expanded .remote-desktop-surface{flex:1;min-height:0}
 .computer-detail.is-expanded .computer-screen{height:100%;max-height:100%;width:100%}

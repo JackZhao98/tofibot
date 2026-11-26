@@ -9,7 +9,6 @@
 //                kit anyway and are not counted. Sheets in src/skin/ are layered; src/catalog/ is page chrome and is counted.
 //   rootToken    a custom property set on :root or html in a sheet outside src/skin/
 //   webFork      html:not([data-desktop]) (the Mac app is not a fork of the web)
-//   aliasRule    a rule in src/ds/legacy-aliases.css (the V2 control aliases of PRs 2.1 and 2.2)
 //   bridgeUse    a use, outside src/skin/, of a V2 palette name that the V3 bridge maps (var(--clay) ...; PLAN 7.6)
 // Usage: node scripts/test-ds-boundary.mjs [--update | --init]
 //   --update lowers the baseline to today's counts (it refuses a rise); --init writes today's counts as they are.
@@ -93,7 +92,6 @@ for (const file of walk(src).filter(file => file.endsWith(".css")).sort()) {
   for (const rule of rules(css)) {
     if (/^@(keyframes|-webkit-keyframes|font-face|property|page)\b/.test(rule.at.at(-1) ?? "")) continue;
     const parts = splitList(rule.selector);
-    if (name === "ds/legacy-aliases.css") bump(name, "aliasRule", rule.selector.slice(0, 60));
     if (!inSkin && parts.some(part => /^(?::root|html)(?:\[[^\]]*\]|:where\([^)]*\))*$/.test(part)) && /(?:^|[;{\s])--[\w-]+\s*:/.test(rule.body)) bump(name, "rootToken", `${rule.selector.slice(0, 60)}`);
     if (inKit || inSkin || rule.at.some(prelude => prelude.startsWith("@layer"))) continue;
     if (!parts.some(namesKit)) continue;
@@ -116,7 +114,6 @@ const advice = {
   tbStyle: "A sheet outside src/ds/ may only place a .tb-* element (layout properties). Change the look in the kit or in a skin role.",
   rootToken: "A token belongs in src/skin/ (a role) or the generator, not on :root in a component sheet.",
   webFork: "The Mac app is not a fork of the web: use a platform token block in the skin, not html:not([data-desktop]).",
-  aliasRule: "The legacy aliases only retire; no new alias rule.",
   bridgeUse: "A V2 palette name is bridged to a V3 role; use the V3 role (var(--tomato), --ink, --line, ...) in new code.",
 };
 for (const [name, kinds] of Object.entries(counts)) for (const [kind, count] of Object.entries(kinds)) {
@@ -135,4 +132,4 @@ if (flag("--update")) {
 }
 if (lowered.length) { console.log(`ds-boundary: FAIL counts went down; lock the gain with --update:\n  ${lowered.join("\n  ")}`); process.exit(1); }
 const sum = kind => Object.values(counts).reduce((n, kinds) => n + (kinds[kind] ?? 0), 0);
-console.log(`ds-boundary: tbStyle ${sum("tbStyle")}, rootToken ${sum("rootToken")}, webFork ${sum("webFork")}, aliasRule ${sum("aliasRule")}, bridgeUse ${sum("bridgeUse")}; none above the baseline of ${total(baseline)} PASS`);
+console.log(`ds-boundary: tbStyle ${sum("tbStyle")}, rootToken ${sum("rootToken")}, webFork ${sum("webFork")}, bridgeUse ${sum("bridgeUse")}; none above the baseline of ${total(baseline)} PASS`);

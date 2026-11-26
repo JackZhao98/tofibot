@@ -11,6 +11,7 @@ import { TofiIcon } from "./icons";
 import { useOwnerSession } from "./OwnerSession";
 import { useUserTimezone } from "./UserTimezone";
 import { SettingsCard, SettingsRow, SettingsSwitch, StatusBadge } from "./settings/components";
+import { Note } from "./ds/Notice/Notice";
 
 const UpdateDialog = lazy(() => import("./UpdateDialog").then(module => ({ default: module.UpdateDialog })));
 
@@ -288,7 +289,7 @@ export function VersionCard() {
         : <span className="version-value">{offers.stable && <OfferButton offer={offers.stable} onOpen={offers.open} />}{offers.rc && <OfferButton offer={offers.rc} onOpen={offers.open} />}</span>} />}
     {fromPage && <SettingsRow label={t("update.rc.label")} labelFor="update-rc" description={rcError || t("update.rc.hint")}
       control={<SettingsSwitch id="update-rc" label={t("update.rc.label")} checked={info?.channel_rc_enabled === true} disabled={rcBusy} busy={rcBusy} onChange={setRc} />} />}
-    <SettingsRow label={t("update.card.checked")} description={checkNote ? <span className={checkNote.tone === "error" ? "error-text" : undefined} role={checkNote.tone === "error" ? "alert" : "status"}>{checkNote.text}</span> : undefined}
+    <SettingsRow label={t("update.card.checked")} description={checkNote ? checkNote.tone === "error" ? <Note as="span" tone="error" role="alert">{checkNote.text}</Note> : <span role="status">{checkNote.text}</span> : undefined}
       control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<Button size="sm" busy={checking} disabled={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</Button></span>} />
     <SettingsRow label={t("update.card.auto")} description={<Trans t={t} i18nKey="update.card.auto_hint" components={{ on: <code />, off: <code /> }} />}
       control={<span className="version-value" data-auto-update={info?.auto_update ?? "off"}>{info?.auto_update === "patch" ? t("update.card.auto_on") : t("update.card.auto_off")}</span>} />

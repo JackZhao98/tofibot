@@ -15,6 +15,7 @@ import { Button } from "../ds/Button/Button";
 import { TextInput } from "../ds/TextInput/TextInput";
 import { TextArea } from "../ds/TextArea/TextArea";
 import "../skill-library.css";
+import { Note } from "../ds/Notice/Notice";
 
 const post = (body: unknown) => ({ method: "POST", body: JSON.stringify(body) });
 
@@ -163,19 +164,19 @@ export function SkillLibraryView(props: SkillLibraryViewProps) {
     </div>
     {props.pending !== null && <section className="extension-form skill-pending" aria-label={t("skills.library.pending_title", { name: props.pending })}>
       <strong>{t("skills.library.pending_title", { name: props.pending })}</strong>
-      {props.error && <p className="error-text" role="alert">{props.error}</p>}
+      {props.error && <Note tone="error" role="alert">{props.error}</Note>}
       <EnableChoicePicker bots={props.bots} busy={props.busy} onChoose={props.onConfirmPending} onCancel={props.onCancelPending} />
     </section>}
     {props.form && <form className="extension-form" aria-busy={props.busy} onSubmit={event => event.preventDefault()}>
       <fieldset className="form-fields" disabled={props.busy}>
         <label>{t("skills.name")}<TextInput value={props.formState.name} onChange={event => props.onFormChange({ name: event.target.value })} placeholder="research-assistant" /></label>
         <label>SKILL.md<TextArea rows={9} value={props.formState.text} onChange={event => props.onFormChange({ text: event.target.value })} placeholder={"---\nname: research-assistant\ndescription: Research and verify sources\n---\nWorkflow instructions…"} /></label>
-        <p className="field-note">{t("skills.support_note")}</p>
-        {props.error && <p className="error-text" role="alert">{props.error}</p>}
+        <Note >{t("skills.support_note")}</Note>
+        {props.error && <Note tone="error" role="alert">{props.error}</Note>}
         <EnableChoicePicker bots={props.bots} busy={props.busy} onChoose={props.onSubmitForm} onCancel={props.onToggleForm} />
       </fieldset>
     </form>}
-    {props.loading && !props.loaded && <p className="field-note" role="status">{t("skills.loading")}</p>}
+    {props.loading && !props.loaded && <Note  role="status">{t("skills.loading")}</Note>}
     {!props.form && props.pending === null && props.loaded && templates.length > 0 && <section className="integration-section skill-templates">
       <h3>{t("skills.templates")}</h3>
       <div className="integration-grid">{templates.map(skill => <button className="integration-tile" disabled={props.busy} key={skill.name} onClick={() => props.onStarter(skill.name)}>

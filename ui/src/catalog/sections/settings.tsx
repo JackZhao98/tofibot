@@ -330,7 +330,7 @@ export const settings: CatalogSection = {
       drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".confirm-dialog .tb-btn--danger"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={never} /> },
     { id: "confirm-error", kind: "overlay", label: "Confirm dialog, failed", probe: ".confirm-dialog",
-      drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".confirm-dialog .tb-btn--danger"); await step.find(".confirm-dialog .error-text"); },
+      drive: async step => { await step.click(".confirm-action .danger-link"); await step.click(".confirm-dialog .tb-btn--danger"); await step.find(".confirm-dialog .tb-note--error"); },
       render: () => <ConfirmAction label="Delete" question="Delete everything?" onConfirm={() => Promise.reject(new Error("Synthetic: the server refused"))} /> },
     { id: "service-marks", kind: "inline", label: "Service marks (every directory service, light/dark)", note: "real vendor marks from the brand registry on a neutral tile; the last one is the generic fallback for a custom service",
       render: () => <ul data-service-marks style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 10, margin: 0, padding: 0, listStyle: "none" }}>

@@ -7,7 +7,7 @@ import { DriverSwitch } from "../../ds/DriverSwitch/DriverSwitch";
 import { ScreenPanel } from "../../ds/ScreenPanel/ScreenPanel";
 import { EmptyState } from "../../ds/EmptyState/EmptyState";
 import { Kbd } from "../../ds/Kbd/Kbd";
-import { Notice } from "../../ds/Notice/Notice";
+import { Note, Notice } from "../../ds/Notice/Notice";
 import { Progress } from "../../ds/Progress/Progress";
 import { Skeleton } from "../../ds/Skeleton/Skeleton";
 import { Tag } from "../../ds/Tag/Tag";
@@ -51,11 +51,13 @@ export const status: CatalogState[] = [
       <Banner tone="warning" title="Storage almost full" />
       <Banner tone="error">Add a provider key to start a chat.</Banner>
     </div> },
-  { id: "notice", kind: "inline", label: "Notice · plain, with icon, with one action",
+  { id: "notice", kind: "inline", label: "Notice · plain, with icon, with one action · Note under a control",
     render: () => <div className="catalog-stack">
       <Notice>The conversation moved to Mochi.</Notice>
       <Notice icon="info">Spend is at 80% of the limit.</Notice>
       <Notice icon="alert" action={<Button variant="ghost" size="sm">Review</Button>}>A command ended with an error.</Notice>
+      <Note>Applies to new chats only.</Note>
+      <Note tone="error">The key was refused. <Button variant="link">Try again</Button></Note>
     </div> },
   { id: "toast", kind: "inline", label: "Toast · neutral, done, error; with action and close",
     render: () => <Dots><div className="catalog-stack">

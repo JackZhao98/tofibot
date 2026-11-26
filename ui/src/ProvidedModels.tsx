@@ -6,6 +6,7 @@ import {Banner, SettingsCard, SettingsSection, StatusBadge} from "./settings/com
 import type {ModelProviderStatus} from "./types";
 import "./provider-settings.css";
 import "./policy-member.css";
+import { Note } from "./ds/Notice/Notice";
 
 /**
  * Settings > AI Models while the organization provides the models (user groups, design 5.2): which providers are available, read-only.
@@ -26,7 +27,7 @@ export function ProvidedModels({refreshToken, own, ownAllowed = false}: {refresh
   const available = providers.filter(item => item.configured);
   return <>
   <SettingsSection className="model-providers provided-models" title={t("providers.title")}>
-    {failed && <p className="error-text" role="alert">{t("providers.load_failed")}</p>}
+    {failed && <Note tone="error" role="alert">{t("providers.load_failed")}</Note>}
     <SettingsCard className="provider-list provided-card">
       <article className="detail-content provider-card" data-policy="provided">
         <div className="provider-card-head"><h3><TofiIcon name="lock" size={16} aria-hidden="true"/> {t("policy.member.models.title")}</h3><span className="provider-card-marks"><span className="settings-tag" data-tag="organization">{t("policy.member.managed")}</span></span></div>
@@ -39,6 +40,6 @@ export function ProvidedModels({refreshToken, own, ownAllowed = false}: {refresh
     </SettingsCard>
     {list && available.length === 0 && !ownAllowed && <Banner tone="warn" title={t("policy.member.models.waiting_title")}>{t("policy.member.models.waiting_body")}</Banner>}
   </SettingsSection>
-  {own ?? <p className="field-note provided-own-off" data-managed="ai_models-own" role="note">{t("policy.member.models.own_not_allowed")}</p>}
+  {own ?? <Note className="provided-own-off" data-managed="ai_models-own" role="note">{t("policy.member.models.own_not_allowed")}</Note>}
   </>;
 }

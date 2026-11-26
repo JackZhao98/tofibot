@@ -136,7 +136,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .settings-page-body :is(input,textarea,select)[aria-invalid="true"]{border-color:var(--danger)}
 .settings-page-body :is(input,select,textarea):disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed;opacity:.7}
 .settings-page-body select{appearance:none;-webkit-appearance:none;padding-right:34px;text-overflow:ellipsis;white-space:nowrap;background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.settings-page-body .field-note{margin:6px 0 0;color:var(--muted);font:12.5px/1.5 var(--font-body);overflow-wrap:anywhere}
+.settings-page-body .tb-note{margin:6px 0 0;color:var(--muted);font:12.5px/1.5 var(--font-body);overflow-wrap:anywhere}
 .settings-page-body small{font-size:12.5px}
 .settings-page-body code{font-size:12.5px}
 .settings-page-body .muted{font-size:13px;line-height:1.65}
@@ -151,7 +151,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 /* Danger zone: an ordinary section, last on the page. Names and descriptions are ordinary ink; only the button text is red. */
 .danger-zone .purge-section{display:grid;gap:8px;margin:0;padding:0}
 .danger-zone .purge-section :is(h3,p){margin:0;color:var(--ink);font:500 14px/1.4 var(--font-body)}
-.danger-zone .purge-section :is(.settings-description,.field-note){color:var(--muted);font:12.5px/1.5 var(--font-body)}
+.danger-zone .purge-section :is(.settings-description,.tb-note){color:var(--muted);font:12.5px/1.5 var(--font-body)}
 .danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
 .purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
 /* Subpage: back, title, optional actions. */
@@ -173,7 +173,7 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .file-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .settings-shell .primary-badge{min-height:0;padding:1px 8px;border:0;background:var(--surface);font:500 12px/1.4 var(--font-body);letter-spacing:0;text-transform:none}
 /* Help text never drops below 12px. */
-.settings-page-body :is(.error-text,.settings-feedback){font-size:12px;line-height:1.55}
+.settings-page-body :is(.tb-note--error,.settings-feedback){font-size:12px;line-height:1.55}
 .settings-page-body .settings-tag{font-size:12px;letter-spacing:0}
 .status-badge,.settings-count{font-family:var(--font-body)}
 .settings-page-body :is(input[type="checkbox"],input[type="radio"]):checked{box-shadow:none}

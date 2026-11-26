@@ -6,6 +6,7 @@ import { useTranslation } from "./i18n";
 import { useHasComputer } from "./computerCapability";
 import { SettingsRow } from "./settings/components";
 import { ComputerLossList } from "./ComputerLoss";
+import { Note } from "./ds/Notice/Notice";
 
 export function WorkspacePurgeSettings() {
   const { t } = useTranslation("settings");
@@ -28,10 +29,10 @@ export function WorkspacePurgeSettings() {
   return <section className="settings-section purge-section">
     <h3>{t("purge.title")}</h3>
     <p className="settings-description">{t(hasComputer ? "purge.description" : "purge.description_no_computer")}</p>
-    <p className="field-note">{t(hasComputer ? "purge.note" : "purge.note_no_computer")}</p>
+    <Note >{t(hasComputer ? "purge.note" : "purge.note_no_computer")}</Note>
     {hasComputer && <ComputerLossList />}
     <SettingsRow label={t("purge.confirm_label")} labelFor="purge-confirm" control={<TextInput id="purge-confirm" value={value} onChange={event => setValue(event.target.value)} spellCheck={false} autoCapitalize="characters" disabled={busy} />}/>
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
     <div className="purge-actions"><Button variant="danger" className="purge-button" busy={busy} disabled={busy || value.trim() !== "PURGE"} onClick={() => void purge()}>{busy ? t("purge.purging") : t("purge.submit")}</Button></div>
   </section>;
 }

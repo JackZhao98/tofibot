@@ -16,6 +16,7 @@ import { Select } from "./Select";
 import { Button } from "./ds/Button/Button";
 import { IconButton } from "./ds/IconButton/IconButton";
 import { TextInput } from "./ds/TextInput/TextInput";
+import { Note } from "./ds/Notice/Notice";
 
 type Chain = "search" | "fetch";
 type Outcome = {ok: boolean; code: string};
@@ -87,8 +88,8 @@ export function WebToolsSettings({initial, adapter = ownWebTools, bare = false, 
  const content = <>
   {view && !view.enabled && <Banner tone="warn" title={t("webtools.master_off_title")}>{t("webtools.master_off_body")}</Banner>}
   {view && view.enabled && !view.search_offered && chainMode("search") !== "off" && <Banner tone="warn" title={t("webtools.no_search_title")}>{t("webtools.no_search_body")}</Banner>}
-  {error && <p className="error-text" role="alert">{error}</p>}
-  {!view && !error && <p className="field-note" role="status">{t("providers.status_loading")}</p>}
+  {error && <Note tone="error" role="alert">{error}</Note>}
+  {!view && !error && <Note  role="status">{t("providers.status_loading")}</Note>}
   {view && (["search", "fetch"] as const).map(chain => chainMode(chain) === "off"
    ? <SettingsCard key={chain} className="web-chain web-chain-managed" ><div className="web-chain-head"><h5>{t(`webtools.${chain}_title`)}</h5><p data-managed="off">{t("webtools.managed.search_off")}</p></div></SettingsCard>
    : <ChainCard key={chain} chain={chain} entries={view[chain]} outcomes={outcomes} testing={testing} readOnly={chainMode(chain) !== "own"} organization={chainMode(chain) === "provided"} managedNote={chainMode(chain) === "builtin" ? t("webtools.managed.fetch_builtin") : chainMode(chain) === "provided" ? t(`webtools.managed.${chain}_provided`) : ""} onMove={(from, to) => void move(chain, from, to)}
@@ -189,6 +190,6 @@ function ProviderForm({entry, onSave, onRemove}: {entry: WebSourceEntry; onSave:
    {!wantsZone && <Button type="submit" size="sm" disabled={saving || !value.trim()}>{t("providers.save")}</Button>}
   </div>
   {wantsZone && <><label htmlFor={`${id}-zone`}>{t("webtools.zone_label")}</label><div className="web-row-form-field"><TextInput mono id={`${id}-zone`} name={`${entry.id}-zone`} type="text" autoComplete="off" spellCheck={false} placeholder="web_unlocker1" value={zone} disabled={saving} onChange={event => setZone(event.target.value)} /></div><div className="web-row-form-save"><Button type="submit" size="sm" disabled={saving || !value.trim() || !zone.trim()}>{t("providers.save")}</Button></div></>}
-  <div className="web-row-form-foot"><p className="field-note">{address ? t("webtools.address_note") : t("webtools.key_note")}</p>{configured && <ConfirmAction label={t("providers.remove")} question={t("providers.remove_question", {provider: entry.label})} onConfirm={async () => { if (!await onRemove()) throw new Error(t("webtools.remove_failed")); }} />}</div>
+  <div className="web-row-form-foot"><Note >{address ? t("webtools.address_note") : t("webtools.key_note")}</Note>{configured && <ConfirmAction label={t("providers.remove")} question={t("providers.remove_question", {provider: entry.label})} onConfirm={async () => { if (!await onRemove()) throw new Error(t("webtools.remove_failed")); }} />}</div>
  </form>;
 }

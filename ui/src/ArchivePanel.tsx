@@ -8,6 +8,7 @@ import type { Bot, Conversation } from "./types";
 import { i18n, useTranslation } from "./i18n";
 import { errorText } from "./i18n/errors";
 import { LazyGroupAvatar as GroupAvatar } from "./LazyGroupAvatar";
+import { Note } from "./ds/Notice/Notice";
 
 type Props = {
   onClose: () => void;
@@ -77,9 +78,9 @@ export function ArchivePanel({ onClose, onOpen, onLoaded, onChanged, onDelete }:
   return <div className="detail-content archive-panel">
     <div className="detail-heading"><div><h2>{t("archive.title")}</h2></div><button className="close-button" aria-label={t("archive.close_aria")} onClick={onClose}><TofiIcon name="close" size={20} /></button></div>
     {conversations.length > 0 && <label className="search-box archive-search"><TofiIcon name="search" size={16} /><input aria-label={t("archive.search_label")} value={search} onChange={event => setSearch(event.target.value)} placeholder={t("archive.search_placeholder")} /></label>}
-    {conversations.length > 0 && <p className="field-note">{t("archive.schedule_note")}</p>}
-    {error && <p className="error-text" role="alert">{error} <Button type="button" variant="link" disabled={loading || busyId !== null} onClick={() => void load()}>{t("archive.reload")}</Button></p>}
-    {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : shown.length === 0 ? <p className="field-note" role="status">{t("archive.no_match")}</p> : <div className="archive-list">{shown.map((conversation) => {
+    {conversations.length > 0 && <Note >{t("archive.schedule_note")}</Note>}
+    {error && <Note tone="error" role="alert">{error} <Button type="button" variant="link" disabled={loading || busyId !== null} onClick={() => void load()}>{t("archive.reload")}</Button></Note>}
+    {loading ? <div className="inline-state"><div className="spinner" />{t("archive.loading")}</div> : !conversations.length ? !error && <EmptyState name="archive-empty" className="panel-empty is-card" look={CATS.kiwi} pose="asleep"><p>{t("archive.empty")}</p></EmptyState> : shown.length === 0 ? <Note  role="status">{t("archive.no_match")}</Note> : <div className="archive-list">{shown.map((conversation) => {
       const bot = conversation.kind === "dm" ? bots.find((item) => item.id === conversation.bot_id || item.dm_conversation_id === conversation.id) : undefined;
       return <article className="archive-card" key={conversation.id}>
         {bot ? <BotAvatar id={bot.id} mini /> : <span className="archive-group-mark" aria-hidden="true"><GroupAvatar ids={conversation.bot_ids} iconSize={20} /></span>}

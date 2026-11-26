@@ -13,6 +13,7 @@ import type {CapabilityId} from "./types";
 import "./admin-accounts.css";
 import "./admin-org.css";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 const SELF_SERVE_ID = "self_serve";
 
@@ -87,7 +88,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
       <span className="ag-item-name"><strong>{group.name}</strong>{group.builtin && <span className="settings-tag" data-tag="builtin">{t("admin.groups.builtin")}</span>}</span>
       <span className="ag-item-count">{t("admin.groups.members_count", {count: group.member_count})}</span>
     </button>)}
-    {!groups && !loadError && <p className="field-note" role="status">{t("admin.groups.loading")}</p>}
+    {!groups && !loadError && <Note  role="status">{t("admin.groups.loading")}</Note>}
   </div>;
 
   return <section className="admin-groups" data-view={view} aria-busy={busy}>
@@ -112,7 +113,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
               </div>;
             })}
           </SettingsCard>
-          <p className="field-note ag-saved" role="status">{saved}</p>
+          <Note className="ag-saved" role="status">{saved}</Note>
         </SettingsSection>
 
         <SettingsSection id="members" title={t("admin.groups.members_title", {count: members.length})} description={selected.id === SELF_SERVE_ID ? t("admin.groups.members_self_serve") : undefined}>

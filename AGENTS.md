@@ -266,9 +266,9 @@ Rules:
   legacy sheet; everything that is look is unlayered and wins. `settings/components.tsx` `Segmented` and `AppearancePicker`
   (the theme picker) render the kit `Segmented`; the class `segmented` stays as the hook of the surfaces that place it.
   `CollapsibleContent` (`ds/Collapsible`) is the one drawer motion; `collapsible-content` stays as a hook with no rule.
-  `.field-note` and `.error-text` take the kit Field message type (12px, muted / danger-text) in place: each keeps one base
-  rule in `v2-foundations.css` (they are not in `ds/legacy-aliases.css`; the `aliasRule` baseline only falls) and they are in
-  `ds/aliases.json`. Rules that name them in another sheet are contextual and leave with that sheet.
+  The note under a control and the error under it are the kit `Note` (`ds/Notice`, PR 9.1: `<Note>` and `<Note tone="error">`; classes
+  `tb-note` and `tb-note--error`, the Field message type: 12px, muted or danger text). `.field-note`, `.error-text` and `ds/aliases.json` are gone.
+  Its base look is in `@layer legacy` inside the kit sheet at single-class specificity, so a contextual rule in a product sheet still wins.
 - Overlays (PR 2.3). `ds/pop.css` is the popup material and motion (`.tb-pop`: opacity only, `--m-quick` in and `--m-press` out, on Radix
   `data-state`; z-index is a zero-specificity default in `@layer legacy`, `[data-layer="dialog"]` is unlayered). `ds/Menu` is the Menu
   (`.tb-menu`, `.tb-menu-item`: glass, the row under the pointer is solid ink, `is-danger` turns red then danger fill), `ds/Dialog` the

@@ -10,6 +10,7 @@ import type { GoogleStatus, LocalState } from "./localPlugins";
 import { Button } from "../ds/Button/Button";
 import { TextInput } from "../ds/TextInput/TextInput";
 import { CallbackAddress } from "./RemoteForm";
+import { Note } from "../ds/Notice/Notice";
 
 type Scope = "readonly" | "read-send";
 
@@ -120,7 +121,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
             <Checkbox className="connect-check" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={checked => toggleService(service, checked)}>{GOOGLE_SERVICE_NAME[service]}</Checkbox>
             {project && services.includes(service) && <a className="connect-link" data-enable-api={service} href={googleEnableURL(GOOGLE_SERVICE_API[service], project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME[service] })}</a>}
           </div>)}
-          <p className="field-note">{t("local.google.services_note")}</p>
+          <Note >{t("local.google.services_note")}</Note>
         </fieldset>
         <label className="connect-field">{t("local.google.email")}<TextInput type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" /></label>
         {hasGmail && <fieldset className="connect-field connect-scope">
@@ -134,7 +135,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
         </fieldset>}
       </li>
     </ol>
-    {!oauthReady && <p className="field-note">{t("local.google.needs_https")}</p>}
+    {!oauthReady && <Note >{t("local.google.needs_https")}</Note>}
     {error && <Banner tone="error" title={error} />}
     <div className="sheet-actions"><Button onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" disabled={Boolean(busy) || !email || (!savedClient && !credentials) || !oauthReady} onClick={() => void authorize()}>{busy === "oauth" ? t("local.google.preparing") : t("local.google.connect")}</Button></div>
     {extra}
