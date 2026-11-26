@@ -1,6 +1,8 @@
 // Shared synthetic fixture for the computer-window browser tests: a Vite dev server
 // plus Playwright route stubs for every /api/* call the workspace makes. No live data.
-import { dirname } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const ui = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -53,7 +55,10 @@ export async function installStubs(page, state) {
 export async function startUi() {
   const { createServer } = await import("vite");
   const { default: react } = await import("@vitejs/plugin-react");
-  const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+  // Its own Vite cache: suites that run side by side share node_modules/.vite and invalidate each other's lazy modules (two copies of React, a second createRoot).
+  const cacheDir = mkdtempSync(join(tmpdir(), "tofi-ui-vite-"));
+  process.on("exit", () => rmSync(cacheDir, { recursive: true, force: true }));
+  const server = await createServer({ configFile: false, root: ui, cacheDir, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
   await server.listen();
   return { server, origin: `http://127.0.0.1:${server.httpServer.address().port}` };
 }

@@ -332,6 +332,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {
       const {page, close} = await open({gog: "authorised"});
       await page.locator('.mcp-service[aria-label="Gmail (personal account)"][data-kind="ready"]').waitFor({timeout: 10000});
+      await page.waitForFunction(() => /you@example\.test/.test(document.querySelector('.mcp-service[aria-label="Gmail (personal account)"] .mcp-service-status')?.innerText ?? ""), null, {timeout: 10000}).catch(() => {});
       assert.match(await row(page, "Gmail (personal account)").locator(".mcp-service-status").innerText(), /you@example\.test/);
       await close();
       console.log("PASS list: an authorised Google account reads Connected with the account");
@@ -342,6 +343,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const {page, close, posts} = await open({gog: "authorised", services: "gmail,calendar", gclient: "1"});
       const gog = row(page, "Gmail (personal account)");
       await page.locator('.mcp-service[aria-label="Gmail (personal account)"][data-kind="ready"]').waitFor({timeout: 10000});
+      // The account and its services arrive after the row is already ready: wait for the line instead of reading it once.
+      await page.waitForFunction(() => /you@example\.test · Gmail, Google Calendar/.test(document.querySelector('.mcp-service[aria-label="Gmail (personal account)"] .mcp-service-status')?.innerText ?? ""), null, {timeout: 10000}).catch(() => {});
       assert.match(await gog.locator(".mcp-service-status").innerText(), /you@example\.test · Gmail, Google Calendar/, "the status line names the authorised services");
       const detail = await openDetail(page, "Gmail (personal account)");
       await detail.locator(".mcp-menu-trigger").click();

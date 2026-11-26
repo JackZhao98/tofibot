@@ -64,10 +64,11 @@ for (const size of sizes) {
     await page.evaluate(({ WHOLE }) => window.__emit("message", { id: "m_w", conversation_id: "dm_a", seq: 41, role: "assistant", sender_bot_id: "bot_a", run_id: "run_w", content: WHOLE, created_at: new Date().toISOString() }), { WHOLE: fixture.WHOLE });
     await page.locator(".jump-latest").waitFor();
     await page.waitForTimeout(600);
-    // PLAN R2: at most 5 backdrop-filter layers on the chat screen, the jump button showing (the two bands, the composer field, nothing else).
+    // PLAN R2: at most 6 backdrop-filter layers on the chat screen, the jump button showing. V3 bands are two stacked blurs each (the kit ProgressiveBlur:
+    // 4 layers), plus the header cat's halo and the composer field; nothing else.
     const layers = await page.evaluate(() => { const has = cs => { const v = cs.backdropFilter || cs.webkitBackdropFilter || "none"; return v !== "none"; }; const found = []; for (const el of document.querySelectorAll(".chat-pane, .chat-pane *")) for (const pseudo of [null, "::before", "::after"]) if (has(getComputedStyle(el, pseudo))) found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]}${pseudo ?? ""}`); return found; });
     report[`blurLayers ${size.name}`] = layers;
-    assert.ok(layers.length <= 5, `${layers.length} backdrop-filter layers in the chat pane (limit 5): ${layers.join(", ")}`);
+    assert.ok(layers.length <= 6, `${layers.length} backdrop-filter layers in the chat pane (limit 6): ${layers.join(", ")}`);
     const hit = await page.evaluate(() => {
       const pill = document.querySelector(".jump-latest"); const r = pill.getBoundingClientRect();
       const at = (x, y) => { const el = document.elementFromPoint(x, y); return Boolean(el && pill.contains(el)); };
@@ -135,7 +136,7 @@ await check("the top band is see-through frosted glass: content runs under the h
   // Pixels: a field of wide bands under the header must be soft but still visible inside the glass, and sharp below its ramp.
   await page.evaluate(({ top }) => {
     const field = document.createElement("div");
-    field.id = "bands"; field.style.cssText = `position:fixed;z-index:2;left:560px;width:400px;top:${top}px;bottom:0;background:repeating-linear-gradient(to bottom,#000 0 32px,#fff 32px 64px);pointer-events:none`;
+    field.id = "bands"; field.style.cssText = `position:fixed;z-index:2;left:560px;width:400px;top:${top - 24}px;bottom:0;background:repeating-linear-gradient(to bottom,#000 0 32px,#fff 32px 64px);pointer-events:none`;
     document.querySelector(".chat-body").append(field);
   }, { top: info.hr.top });
   await page.waitForTimeout(200);
@@ -149,7 +150,9 @@ await check("the top band is see-through frosted glass: content runs under the h
       return best;
     }, png.toString("base64"));
   };
-  const glass = await maxStep(Math.round(info.hr.top) + 22, 24), ramp = await maxStep(Math.round(info.hr.bottom) - 8, 16), sharp = await maxStep(Math.round(info.hr.bottom) + 90, 40);
+  // The V3 band is the kit ProgressiveBlur's ramp (36 px under the header's top), not the old 72 px: the field starts 24 px above the header so a stripe edge falls 8 px into the band; sample the band's top (over that edge), its tail, and below the header.
+  const band = await page.evaluate(() => { const r = document.querySelector(".chat-pane > .tb-pblur--top").getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; });
+  const glass = await maxStep(Math.round(band.top) + 1, 14), ramp = await maxStep(Math.round(band.bottom) - 6, 20), sharp = await maxStep(Math.round(info.hr.bottom) + 90, 40);
   report.headerPixels = { glass, ramp, sharp };
   console.log("    header", JSON.stringify(report.headerPixels));
   assert.ok(sharp >= 200, `the band field is not rendering (${sharp})`);

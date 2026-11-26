@@ -2156,8 +2156,12 @@ export function Workspace() {
   // Entering a message raises its bar in the same event; leaving it (into the gap between messages, or out of the list) lets go after a short grace.
   const hoverExitTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(hoverExitTimer.current), []);
+  // A tap focuses the message block, and WebKit with a touch screen may report that focus as :focus-visible: a focus right after a touch is not the keyboard.
+  const lastTouchAt = useRef(0);
   const onMessageListPointerOver = (event: React.PointerEvent<HTMLElement>) => {
-    if (event.pointerType === "touch") return;
+    if (event.pointerType === "touch") { lastTouchAt.current = performance.now(); return; }
+    // A screen with nothing that hovers (a touch phone; WebKit's touch emulation reports a tap as a mouse) never raises the bar by hover.
+    if (!window.matchMedia("(any-hover: hover)").matches) return;
     const id = messageIdOf(event.target);
     window.clearTimeout(hoverExitTimer.current);
     if (id) setMessageActions("hover", id);
@@ -2170,7 +2174,7 @@ export function Workspace() {
   };
   // Only keyboard focus raises the bar: pressing on a message focuses it too, and a press must not open actions by itself.
   // Touch draws no bar, so a focus on a touch screen mounts none either.
-  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible") && window.matchMedia("(hover: hover)").matches) setMessageActions("focus", messageIdOf(event.target)); };
+  const onMessageListFocus = (event: React.FocusEvent<HTMLElement>) => { if (event.target.matches(":focus-visible") && window.matchMedia("(hover: hover)").matches && performance.now() - lastTouchAt.current > 600) setMessageActions("focus", messageIdOf(event.target)); };
   const onMessageListBlur = (event: React.FocusEvent<HTMLElement>) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMessageActions("focus", ""); };
   // The list is one tab stop (the newest message); arrows move between messages, Tab enters the focused message's bar, Escape comes back.
   const onMessageListKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {

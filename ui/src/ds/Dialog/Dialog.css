@@ -11,6 +11,8 @@
 @keyframes tb-scrim-out { to { opacity: 0; } }
 
 .tb-dialog { box-sizing: border-box; border-radius: var(--radius-lg); background: var(--glass-strong); box-shadow: var(--shadow-lg); color: var(--ink); }
+/* A full-screen sheet on a phone (is-sheet) is solid: the glass has no blur here, so what is behind it would read through. */
+@media (max-width: 640px) { .tb-dialog.is-sheet { background: var(--bg); } }
 .tb-dialog[data-state="open"] { animation: tb-dialog-in var(--m-panel-in) var(--ease-out) both; }
 .tb-dialog[data-state="closed"] { animation: tb-dialog-out var(--m-panel-out) var(--ease-in) both; pointer-events: none; }
 @keyframes tb-dialog-in { from { opacity: 0; transform: scale(.98); } }
