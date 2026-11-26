@@ -31,7 +31,15 @@ const live = async page => (await page.locator("#tofi-layers [role=status]").all
 const side = page => new URL(page.url()).searchParams.get("side");
 const row = (page, name) => page.locator(".conversation-row", { hasText: name });
 const sidebarOpen = page => page.locator(".sidebar-pane:not(.is-leaving)").count();
-const escape = async page => { await page.keyboard.press("Escape"); await settled(page); };
+const escape = page => page.keyboard.press("Escape");
+/** Re-runs the assertions until they hold (8 s), so a slow machine waits longer and a fast one does not wait at all; a plain sleep is a race. */
+const eventually = async (check, timeout = 8000) => {
+  const end = Date.now() + timeout;
+  for (;;) {
+    try { return await check(); } catch (error) { if (error?.code !== "ERR_ASSERTION" || Date.now() > end) throw error; }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+};
 
 try {
   // 1. Widgets are remembered per conversation.
@@ -52,39 +60,46 @@ try {
     await page.keyboard.press("Escape");
     await page.locator(".cover-window").waitFor({ state: "detached" });
     await page.getByRole("button", { name: /^Collapse Artifacts/ }).click();
-    await settled(page);
-    assert.equal(await page.getByRole("button", { name: /^Expand Artifacts/ }).evaluate(button => {
-      // Radix omits aria-controls while closed, even with forceMount.
-      const content = button.closest(".context-card").querySelector(".context-card-body");
-      return button.getAttribute("aria-expanded") === "false" && content?.dataset.state === "closed" && content.inert;
-    }), true, "Radix fold controls the retained inert content");
-    assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    await eventually(async () => {
+      assert.equal(await page.getByRole("button", { name: /^Expand Artifacts/ }).evaluate(button => {
+        // Radix omits aria-controls while closed, even with forceMount.
+        const content = button.closest(".context-card").querySelector(".context-card-body");
+        return button.getAttribute("aria-expanded") === "false" && content?.dataset.state === "closed" && content.inert;
+      }), true, "Radix fold controls the retained inert content");
+      assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    });
     await row(page, DM2.name).click();
-    await settled(page);
-    assert.deepEqual(await cards(page), [], "another conversation opens with no widgets");
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), [], "another conversation opens with no widgets");
+    });
     await page.getByRole("button", { name: "Open artifacts" }).click();
     await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'));
     await row(page, DM.name).click();
-    await settled(page);
-    assert.deepEqual(await cards(page), ["computer", "artifacts"], "back in the first one its widgets come back");
-    assert.equal(await page.locator('[data-card="artifacts"]').evaluate(node => node.classList.contains("is-collapsed")), true, "a fold is remembered too");
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), ["computer", "artifacts"], "back in the first one its widgets come back");
+      assert.equal(await page.locator('[data-card="artifacts"]').evaluate(node => node.classList.contains("is-collapsed")), true, "a fold is remembered too");
+    });
     await row(page, DM2.name).click();
-    await settled(page);
-    assert.deepEqual(await cards(page), ["artifacts"], "the second one kept its own");
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), ["artifacts"], "the second one kept its own");
+    });
     // A group has its own list; closing there does not touch the others.
     await row(page, GROUP.name).click();
-    await settled(page);
-    assert.deepEqual(await cards(page), []);
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), []);
+    });
     await page.getByRole("button", { name: "Open artifacts" }).click();
     await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'));
     await row(page, DM.name).click();
-    await settled(page);
-    assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    });
     // Back/forward restores them the same way and closes a cover.
     await page.goBack();
-    await settled(page);
-    assert.deepEqual(await cards(page), ["artifacts"], "back to the group: its Artifacts widget");
-    assert.deepEqual(errors, []);
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), ["artifacts"], "back to the group: its Artifacts widget");
+      assert.deepEqual(errors, []);
+    });
     results.push("widgets: each conversation remembers its own, folds included, across switches and back/forward");
     await context.close();
   }
@@ -99,11 +114,12 @@ try {
     assert.equal(side(page), "tasks", "opening the sidebar writes ?side=tasks (no history entry)");
     const entries = await page.evaluate(() => history.length);
     await row(page, DM2.name).click();
-    await settled(page);
-    assert.equal(await sidebarOpen(page), 1, "the sidebar stays when the conversation changes");
-    assert.equal(side(page), "tasks", "and so does the address");
-    assert.match(page.url(), /\/b\/bot-two/);
-    assert.equal(await page.evaluate(() => history.length), entries + 1, "only the switch is a history entry");
+    await eventually(async () => {
+      assert.equal(await sidebarOpen(page), 1, "the sidebar stays when the conversation changes");
+      assert.equal(side(page), "tasks", "and so does the address");
+      assert.match(page.url(), /\/b\/bot-two/);
+      assert.equal(await page.evaluate(() => history.length), entries + 1, "only the switch is a history entry");
+    });
     // Reload: the address opens the sidebar, widgets do not come back.
     await page.reload();
     await page.locator(".chat-header").waitFor();
@@ -112,19 +128,20 @@ try {
     assert.deepEqual(await cards(page), []);
     // Closing removes the parameter and keeps the path.
     await toggleTasks(page);
-    await settled(page);
-    assert.equal(side(page), null);
-    assert.match(page.url(), /\/b\/bot-two$/);
+    await eventually(async () => {
+      assert.equal(side(page), null);
+      assert.match(page.url(), /\/b\/bot-two$/);
+    });
     // The deep-link event, and a value that is not a sidebar.
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("tofi:open-sidebar", { detail: { id: "memory" } })));
     await poll(page, () => document.querySelector(".sidebar-pane") && new URL(location.href).searchParams.get("side") === "memory");
     assert.equal(side(page), "memory");
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("tofi:open-sidebar", { detail: { id: "nonsense" } })));
-    await settled(page);
+    await settled(page); // a negative has no event to wait for: give a wrong handler time to act
     assert.equal(side(page), "memory", "an unknown id is ignored");
     await page.goto(origin + "/b/bot-synthetic?side=nonsense");
     await page.locator(".chat-header").waitFor();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(600); // a negative has no event to wait for
     assert.equal(await sidebarOpen(page), 0, "an unknown ?side= opens nothing");
     await page.goto(origin + "/b/bot-synthetic?side=archive");
     await page.locator(".chat-header").waitFor();
@@ -132,11 +149,12 @@ try {
       await poll(page, () => document.querySelector(".sidebar-pane"));
       assert.equal(side(page), "archive");
       await row(page, DM2.name).click();
-      await settled(page);
-      assert.equal(side(page), "archive", "Archive stays with the account, whatever the conversation");
+      await eventually(async () => {
+        assert.equal(side(page), "archive", "Archive stays with the account, whatever the conversation");
+      });
     } else {
       // The archive view is switched off (featureFlags.ts): its deep link opens nothing.
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(600); // a negative has no event to wait for
       assert.equal(await sidebarOpen(page), 0, "?side=archive opens nothing while the archive view is off");
     }
     assert.deepEqual(errors, []);
@@ -161,37 +179,48 @@ try {
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menu").waitFor();
     await page.keyboard.press("Escape");
-    await settled(page);
-    assert.equal(await page.getByRole("menu").count(), 0, "the menu closes first");
-    assert.equal(await sidebarOpen(page), 1);
-    assert.deepEqual(await cards(page), ["computer", "artifacts"], "and nothing else moved");
+    await eventually(async () => {
+      assert.equal(await page.getByRole("menu").count(), 0, "the menu closes first");
+      assert.equal(await sidebarOpen(page), 1);
+      assert.deepEqual(await cards(page), ["computer", "artifacts"], "and nothing else moved");
+    });
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     // The big computer window steps back to compact before anything else.
     await page.locator("[data-desktop-frame]").hover();
     await page.locator(".tb-device-ctl").getByRole("button", { name: "Enlarge Bot computer", exact: true }).click();
     await page.locator(".desktop-floating-shell.is-expanded").waitFor();
-    await escape(page);
-    assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "big computer -> compact");
-    assert.equal(await sidebarOpen(page), 1, "the sidebar is still open");
-    assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    await page.keyboard.press("Escape");
+    await eventually(async () => {
+      assert.equal(await page.locator(".desktop-floating-shell.is-expanded").count(), 0, "big computer -> compact");
+      assert.equal(await sidebarOpen(page), 1, "the sidebar is still open");
+      assert.deepEqual(await cards(page), ["computer", "artifacts"]);
+    });
     // A cover is Radix: it takes its own Escape and widgets stay hidden behind it, mounted.
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Group settings" }).click();
     await page.locator(".cover-window").waitFor();
-    await escape(page);
-    assert.equal(await page.locator(".cover-window").count(), 0, "Escape closes the cover");
-    assert.equal(await sidebarOpen(page), 1, "the sidebar was not closed by the cover's Escape");
+    await page.keyboard.press("Escape");
+    await eventually(async () => {
+      assert.equal(await page.locator(".cover-window").count(), 0, "Escape closes the cover");
+      assert.equal(await sidebarOpen(page), 1, "the sidebar was not closed by the cover's Escape");
+    });
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     // Then the sidebar, then Artifacts, Computer.
-    await escape(page);
-    assert.equal(await sidebarOpen(page), 0, "sidebar next");
-    assert.equal(side(page), null);
-    assert.deepEqual(await cards(page), ["computer", "artifacts"], "no widget closed with the sidebar");
-    await escape(page);
-    assert.deepEqual(await cards(page), ["computer"], "Artifacts first");
-    await escape(page);
-    assert.deepEqual(await cards(page), [], "the Bot computer last");
-    await escape(page);
+    await page.keyboard.press("Escape");
+    await eventually(async () => {
+      assert.equal(await sidebarOpen(page), 0, "sidebar next");
+      assert.equal(side(page), null);
+      assert.deepEqual(await cards(page), ["computer", "artifacts"], "no widget closed with the sidebar");
+    });
+    await page.keyboard.press("Escape");
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), ["computer"], "Artifacts first");
+    });
+    await page.keyboard.press("Escape");
+    await eventually(async () => {
+      assert.deepEqual(await cards(page), [], "the Bot computer last");
+    });
+    await page.keyboard.press("Escape");
     assert.deepEqual(errors, []);
     results.push("escape: menu, big computer, cover, sidebar, Artifacts, Computer - one per press");
     await context.close();
@@ -206,17 +235,18 @@ try {
     await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'));
     await page.evaluate(() => { const dialog = document.createElement("dialog"); dialog.id = "synthetic-top-layer"; dialog.textContent = "preview"; document.body.append(dialog); dialog.showModal(); });
     await page.keyboard.press("Escape");
-    await settled(page);
+    await settled(page); // a negative has no event to wait for
     assert.deepEqual(await cards(page), ["artifacts"], "Escape with a native dialog open does not close a widget");
     await page.evaluate(() => document.getElementById("synthetic-top-layer")?.remove());
     // Settings (opened by the deep-link event the chat cards use) closes with Escape, and the widget behind it is untouched.
     await page.evaluate(() => window.dispatchEvent(new Event("tofi:open-tool-settings")));
     await page.locator(".settings-tabs").first().waitFor({ timeout: 8000 });
     await escape(page);
-    await page.waitForTimeout(400);
-    assert.equal(await page.locator(".settings-tabs").count(), 0, "Escape closes Settings");
-    assert.deepEqual(await cards(page), ["artifacts"], "and leaves the widget");
-    assert.deepEqual(errors, []);
+    await eventually(async () => {
+      assert.equal(await page.locator(".settings-tabs").count(), 0, "Escape closes Settings");
+      assert.deepEqual(await cards(page), ["artifacts"], "and leaves the widget");
+      assert.deepEqual(errors, []);
+    });
     results.push("escape: a native dialog keeps its Escape; Settings closes and the widgets stay");
     await context.close();
   }
@@ -237,20 +267,25 @@ try {
         if (computerConfig !== none) await page.locator("[data-computer-toggle]").click();
         await page.getByRole("button", { name: "Open artifacts" }).click();
         await poll(page, () => document.querySelector('.widget-column [data-card="artifacts"]'));
-        await page.waitForTimeout(600);
-        assert.deepEqual(await cards(page), computerConfig === none ? ["artifacts"] : ["computer", "artifacts"], `${name} ${width}: only the widgets this host can show`);
-        const open = await tracks(page);
-        assert.equal(open.columns.length, 3, `${name} ${width}: three grid tracks`);
-        assert.equal(open.columns[2], 0, `${name} ${width}: opening widgets reserves no right-hand track (got ${open.columns[2]}px)`);
-        assert.equal(open.chatRight, open.width, `${name} ${width}: the chat reaches the window edge`);
+        await eventually(async () => {
+          assert.deepEqual(await cards(page), computerConfig === none ? ["artifacts"] : ["computer", "artifacts"], `${name} ${width}: only the widgets this host can show`);
+        });
+        await eventually(async () => {
+          const open = await tracks(page);
+          assert.equal(open.columns.length, 3, `${name} ${width}: three grid tracks`);
+          assert.equal(open.columns[2], 0, `${name} ${width}: opening widgets reserves no right-hand track (got ${open.columns[2]}px)`);
+          assert.equal(open.chatRight, open.width, `${name} ${width}: the chat reaches the window edge`);
+        });
         // The sidebar still owns that track while it is open, and gives it back.
         await toggleTasks(page);
         await page.locator(".sidebar-pane:not(.is-leaving)").waitFor();
-        await page.waitForTimeout(700);
-        assert.ok((await tracks(page)).columns[2] >= 360, `${name} ${width}: an open sidebar takes its track`);
+        await eventually(async () => {
+          assert.ok((await tracks(page)).columns[2] >= 360, `${name} ${width}: an open sidebar takes its track`);
+        });
         await page.keyboard.press("Escape");
-        await page.waitForTimeout(700);
-        assert.equal((await tracks(page)).columns[2], 0, `${name} ${width}: the track is given back`);
+        await eventually(async () => {
+          assert.equal((await tracks(page)).columns[2], 0, `${name} ${width}: the track is given back`);
+        });
         if (computerConfig === none) assert.equal(state.requests.filter(path => path.startsWith("/api/computer")).length, 0, `${name} ${width}: no /api/computer request (${state.requests.filter(path => path.startsWith("/api/computer")).join(", ")})`);
         assert.deepEqual(errors, []);
         await context.close();
