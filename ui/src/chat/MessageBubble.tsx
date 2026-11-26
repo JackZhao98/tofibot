@@ -29,7 +29,7 @@ import type { TaskCardModel } from "../taskCards";
 import { useSmoothStreamText } from "../useSmoothStreamText";
 import type { Bot, Message, Run, StreamDraft, ToolActivity, ToolActivityRunSummary } from "../types";
 import { MOTION, EASE } from "../motion";
-import { Avatar, blockKey, jumpToMessage, messageId, previewText } from "./shared";
+import { Avatar, jumpToMessage, messageId, previewText } from "./shared";
 import { Notice } from "../ds/Notice/Notice";
 import { Button } from "../ds/Button/Button";
 import { Divider } from "../ds/Divider/Divider";
