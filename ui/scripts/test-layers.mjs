@@ -149,7 +149,6 @@ await check("a real hover hint portals into #tofi-layers and is topmost at its c
 // Synthetic overlays on one point, real CSS: each probe is the real class at its real DOM parent, moved over the point.
 const STACK = [
   // [name, parent selector, html, expected layer]
-  ["drop-ghost", "#tofi-layers", '<div class="web-drop-ghost">g</div>', "drag"],
   ["hint", "#tofi-layers", '<div class="tb-hint action-hint" role="tooltip">h</div>', "tooltip"],
   ["toast", ".workspace", '<div class="workspace-status workspace-toast" role="alert">t</div>', "toast"],
   ["sheet", "#tofi-layers", '<div class="sheet-overlay">s</div>', "dialog+1"],
@@ -189,7 +188,7 @@ await check("overlays stacked on one point paint in the order of the scale, the 
     if (debug) return [...seen, "|", ...[...document.querySelectorAll("[data-probe]")].map(el => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return `${el.dataset.probe}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}x${Math.round(r.height)} ${cs.display}/${cs.visibility}/${cs.pointerEvents}/z${cs.zIndex}/${cs.position}`; })];
     return seen;
   }, Boolean(process.env.LAYERS_DEBUG));
-  const expected = ["drop-ghost", "hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "sidebar", "floating-computer", "composer"];
+  const expected = ["hint", "toast", "sheet", ["delete", "settings", "onboarding", "leave", "restart"], "boot", "menu", "identity", "sidebar", "floating-computer", "composer"];
   const flat = expected.flat();
   for (const name of flat) truthy(order.includes(name), `"${name}" is not hit at the shared point; seen top to bottom: ${order.join(" > ")}`);
   const rank = name => expected.findIndex(entry => entry === name || (Array.isArray(entry) && entry.includes(name)));

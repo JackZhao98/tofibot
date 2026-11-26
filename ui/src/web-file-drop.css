@@ -1,37 +1,22 @@
-/* Files dragged over the window: the chat stays; a soft scrim dims the pane and the composer lifts to say "Drop to add".
+/* Files dragged over the window: the chat stays; the scrim dims the pane and the composer shows one "Drop to add" line.
    Entering takes --m-base, leaving the shorter --m-quick; reduced motion switches instantly. State: [data-file-drag] set by WebFileDropOverlay. */
 @layer legacy {
-html:not([data-desktop]) .workspace .chat-pane::after {
+.workspace .chat-pane::after {
   content:""; position:absolute; inset:0; z-index:calc(var(--z-chrome) - 1); pointer-events:none;
-  background:color-mix(in srgb,var(--bg) 34%,transparent); opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
+  background:var(--scrim); opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
 }
-html:not([data-desktop]) .workspace .chat-pane[data-file-drag]::after { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
-html:not([data-desktop]) .workspace .composer .composer-row { transition:transform var(--m-quick) var(--ease-in),box-shadow var(--m-quick) var(--ease-in),border-color var(--m-quick) var(--ease-in); }
-html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row {
-  transform:translateY(-6px); border-color:var(--teal);
-  box-shadow:0 0 0 0 transparent,0 0 0 3px color-mix(in srgb,var(--teal) 26%,transparent),0 14px 30px -12px color-mix(in srgb,var(--ink) 34%,transparent);
-  transition-duration:var(--m-base); transition-timing-function:var(--ease-out);
-}
-html:not([data-desktop]) .composer-drop {
+.workspace .chat-pane[data-file-drag]::after { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
+.workspace .composer-row { position:relative; }
+.composer-drop {
   position:absolute; inset:0; z-index:3; display:flex; align-items:center; justify-content:center; gap:10px; border-radius:inherit;
-  border:1.5px dashed color-mix(in srgb,var(--teal) 80%,transparent); background:color-mix(in srgb,var(--surface) 90%,var(--teal));
-  color:var(--teal-text); font:600 15px/1.3 var(--font-display); pointer-events:none;
+  background:var(--surface); color:var(--ink); font:600 15px/1.3 var(--font-display); pointer-events:none;
   opacity:0; visibility:hidden; transition:opacity var(--m-quick) var(--ease-in),visibility 0s var(--m-quick);
 }
-html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
-html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-row > :not(.composer-drop) { opacity:0; transition:opacity var(--m-quick) var(--ease-in); }
-html:not([data-desktop]) .composer-drop-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:10px; background:color-mix(in srgb,var(--teal) 24%,transparent); }
-html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:composer-drop-bob 900ms var(--ease-inout) infinite; }
-@keyframes composer-drop-bob { 50% { transform:translateY(-3px); } }
-.web-drop-ghost { position:fixed; z-index:var(--z-drag); pointer-events:none; display:inline-flex; align-items:center; gap:6px; height:40px; padding:3px 8px 3px 4px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); color:var(--ink-soft); font:11px/1.4 var(--font-body); box-shadow:var(--shadow-sm); white-space:nowrap; }
-.web-drop-ghost .composer-attachment-type { display:grid; place-items:center; min-width:32px; height:32px; }
-.web-drop-ghost .composer-attachment-name { overflow:hidden; text-overflow:ellipsis; }
-.web-drop-ghost > button { display:none; }
-html:not([data-desktop]) .workspace .composer-row { position:relative; }
+.workspace .composer[data-file-drag] .composer-drop { opacity:1; visibility:visible; transition:opacity var(--m-base) var(--ease-out); }
+.workspace .composer[data-file-drag] .composer-row > :not(.composer-drop) { opacity:0; transition:opacity var(--m-quick) var(--ease-in); }
+.composer-drop-icon { display:grid; place-items:center; width:32px; height:32px; }
 @media (prefers-reduced-motion:reduce) {
-  html:not([data-desktop]) .workspace .chat-pane::after,
-  html:not([data-desktop]) .workspace .composer .composer-row,
-  html:not([data-desktop]) .composer-drop { transition:none; }
-  html:not([data-desktop]) .workspace .composer[data-file-drag] .composer-drop-icon { animation:none; }
+  .workspace .chat-pane::after,
+  .composer-drop { transition:none; }
 }
 }

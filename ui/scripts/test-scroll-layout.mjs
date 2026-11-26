@@ -23,7 +23,7 @@ function open(reduce = false) {
   const modules = {
     react: { useRef: current => ({ current }), useState: value => [value, () => {}], useCallback: fn => fn, useLayoutEffect: fn => effects.push(fn) },
     "./desktop": { desktopState: () => ({}), updateDesktopState() {} },
-    "./arrivalCascade": { cascadeRoom: () => 0, fadeArrival() {}, holdArrivalCascade() {}, playArrivalCascade() {} },
+    "./motion/arrival": { cascadeRoom: () => 0, fadeArrival() {}, holdArrivalCascade() {}, playArrivalCascade() {} },
   };
   const context = {
     exports: {}, require: name => { assert.ok(modules[name], name); return modules[name]; },
@@ -37,7 +37,7 @@ function open(reduce = false) {
   const executable = stripTypeScriptTypes(source).replace(/^import .*;$/gm, "").replace(/export /g, "");
   vm.runInNewContext(`const { useRef, useState, useCallback, useLayoutEffect } = require("react");
     const { desktopState, updateDesktopState } = require("./desktop");
-    const { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } = require("./arrivalCascade");
+    const { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } = require("./motion/arrival");
     ${executable}
 exports.useConversationScroll = useConversationScroll;`, context);
   const follower = context.exports.useConversationScroll({

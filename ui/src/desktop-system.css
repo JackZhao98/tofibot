@@ -25,7 +25,6 @@ html[data-desktop="darwin"][data-fullscreen="true"] .native-titlebar{display:non
 html[data-desktop="darwin"] .view-only-chat-header{padding-top:56px;user-select:none}
 html[data-desktop="darwin"][data-fullscreen="true"] .view-only-chat-header{padding-top:12px}
 html[data-desktop] .view-only-chat-body{overscroll-behavior:contain}
-.composer.is-dragging .composer-row{border-color:var(--ink-soft);background:var(--hover)}
 .attachment-native-actions{display:flex;align-items:center;gap:6px}
 .attachment-native-actions button{border:0;background:transparent;color:var(--ink-soft);padding:6px;border-radius:7px;font-size:12px;white-space:nowrap}
 .attachment-native-actions button:hover{background:var(--hover);color:var(--ink)}

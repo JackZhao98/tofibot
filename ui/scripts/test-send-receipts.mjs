@@ -196,8 +196,8 @@ const timingCheck = mode => check(`${mode}: the bubble is on screen within 50 ms
     await page.waitForFunction(() => window.__probe.frame !== undefined);
     const probe = await page.evaluate(() => ({ key: window.__probe.key, seen: window.__probe.seen, frame: window.__probe.frame, composerEmpty: window.__probe.composerEmpty }));
     assert.ok(probe.composerEmpty, "composer cleared in the same frame as the bubble");
-    const shown = await page.evaluate(() => Boolean(document.querySelector(".v2-send-flight-ghost")) || getComputedStyle(window.__probe.node).visibility === "visible");
-    assert.ok(shown, "bubble (or its flight) visible");
+    const shown = await page.evaluate(() => getComputedStyle(window.__probe.node).visibility === "visible");
+    assert.ok(shown, "bubble visible at once");
     timings.push(probe.seen - probe.key); frames.push(probe.frame - probe.key);
     assert.equal(await stateOf(page, text), "sending", "still in flight");
     await waitState(page, text, "delivered", 4000);
@@ -283,28 +283,12 @@ await check("sending and failed stay visible without hover, and the failed line 
   await context.close();
 });
 
-await check("desktop web: the send flight carries the bubble's own look, and the bubble waits hidden", async () => {
+await check("web: a send has no flight; the bubble is visible and in place at once", async () => {
   const { page, context } = await open();
   mock.sendDelayMs = 400;
-  await page.evaluate(() => {
-    window.__flight = null;
-    const watch = new MutationObserver(() => {
-      const ghost = document.querySelector(".v2-send-flight-ghost");
-      if (!ghost || window.__flight) return;
-      const bubble = [...document.querySelectorAll(".message-user .tb-bubble")].find(node => node.textContent.includes("flight probe"));
-      const cs = getComputedStyle(bubble);
-      window.__flight = { ghostW: ghost.offsetWidth, ghostH: ghost.offsetHeight, bubbleW: bubble.offsetWidth, bubbleH: bubble.offsetHeight, ghostBg: ghost.style.backgroundColor, bubbleBg: cs.backgroundColor, ghostRadius: ghost.style.borderRadius, bubbleRadius: cs.borderRadius, hidden: cs.visibility === "hidden" };
-      watch.disconnect();
-    });
-    watch.observe(document.body, { subtree: true, childList: true });
-  });
-  await type(page, "flight probe");
-  await page.waitForFunction(() => window.__flight, null, { timeout: 5000 });
-  const f = await page.evaluate(() => window.__flight);
-  assert.ok(Math.abs(f.ghostW - f.bubbleW) < 1 && Math.abs(f.ghostH - f.bubbleH) < 1, `the ghost is the bubble's size (${JSON.stringify(f)})`);
-  assert.equal(f.ghostBg, f.bubbleBg, "the ghost wears the bubble's fill");
-  assert.equal(f.ghostRadius, f.bubbleRadius, "the ghost wears the bubble's corners");
-  assert.equal(f.hidden, true, "the real bubble waits hidden under the flight");
+  await type(page, "plain probe");
+  const visibility = await block(page, "plain probe").locator(".tb-bubble").evaluate(node => getComputedStyle(node).visibility);
+  assert.equal(visibility, "visible");
   await context.close();
 });
 
@@ -442,11 +426,10 @@ await check("history shows each message in its final state, drawn without animat
   await context.close();
 });
 
-await check("reduced motion: no flight, no opacity transition on the bubble", async () => {
+await check("reduced motion: no opacity transition on the bubble", async () => {
   const { page, context } = await open({ reduced: true });
   mock.sendDelayMs = 300;
   await type(page, "calm send");
-  assert.equal(await page.locator(".v2-send-flight-ghost").count(), 0);
   await waitState(page, "calm send", "sent");
   const bubble = await block(page, "calm send").locator(".tb-bubble").evaluate(node => getComputedStyle(node).transitionDuration);
   assert.match(bubble, /^0s/);

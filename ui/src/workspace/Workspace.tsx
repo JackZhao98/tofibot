@@ -76,8 +76,6 @@ import "../OnboardingChrome";
 import "../EmptyCat";
 import { useGreetingPlayback } from "../onboardingGreeting";
 import { onboardingMode, parseOnboardingState, resumeStep, type OnboardingState, type OnboardingStep } from "../onboardingFlow";
-import { flipList } from "../motion/legacy/flip";
-import { flySentMessage } from "../sendFlight";
 import "../FileTile";
 import { preloadSendFailure } from "../SendReceipt";
 import { applyInbox } from "../messageDelivery";
@@ -1909,7 +1907,7 @@ export function Workspace() {
    * promise settles as soon as the message is on screen: the person may type the next one while this one is in flight.
    * Files are on the bubble at once (local preview, progress) and upload in the background; the composer does not wait.
    */
-  async function send(content: string, clientMessageId: string, files: ComposerAttachment[] = [], draftSignature = "", flightOrigin?: DOMRect, plain = content, reply?: ComposerReply): Promise<boolean> {
+  async function send(content: string, clientMessageId: string, files: ComposerAttachment[] = [], draftSignature = "", plain = content, reply?: ComposerReply): Promise<boolean> {
     if (!active || (!content.trim() && !files.length)) return false;
     const conversationId = active.id;
     const text = content.trim();
@@ -1935,17 +1933,9 @@ export function Workspace() {
     };
     arrivalIDs.current.add(key);
     const apply = () => { clearDraft(); patchConversation(conversationId, addLocal); };
-    const animate = !isDesktop && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // Scrolled up in history: nothing visible moves, so there is nothing to FLIP. Return to the bottom in
-    // the same task as the commit and play the arrival there, once, with the bubble in view.
-    const away = viewport.awayFromBottom();
-    if (animate && !away) flipList(messageListRef.current, apply, { duration: MOTION.panelIn, easing: EASE.out, last: 16 });
-    else flushSync(apply);
+    // The bubble and the cleared composer land in one commit; the arrival glide (motion/arrival.ts) plays from the scroll that follows.
+    flushSync(apply);
     jumpLatest();
-    if (animate) {
-      const target = Array.from(messageListRef.current?.querySelectorAll<HTMLElement>(".message-block") ?? []).find(block => block.dataset.flip === key)?.querySelector<HTMLElement>(".message-user .tb-bubble");
-      if (flightOrigin && target) flySentMessage(flightOrigin, target);
-    }
     setError("");
     deliver(clientMessageId, conversationId);
     return true;

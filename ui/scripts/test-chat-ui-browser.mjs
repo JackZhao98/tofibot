@@ -12,7 +12,7 @@ try{
   const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,isMobile:mobile,hasTouch:mobile});const page=await context.newPage();
   for(const scenario of ['short','long-stream','long-resize','keyboard','consecutive','reduced','safearea','failure']){
    await page.goto(origin+'/tests/send-flight-audit.html'+(scenario==='safearea'?'?theme=light&safearea=1':''));
-   if(scenario==='failure'){await page.getByRole('button',{name:'Fail',exact:true}).click();assert.match(await page.locator('#flight-result').innerText(),/draft preserved/);assert.equal(await page.locator('.v2-send-flight-ghost').count(),0);results.push({name,scenario,pass:true});continue;}
+   if(scenario==='failure'){await page.getByRole('button',{name:'Fail',exact:true}).click();assert.match(await page.locator('#flight-result').innerText(),/draft preserved/);results.push({name,scenario,pass:true});continue;}
    if(scenario==='reduced')await page.emulateMedia({reducedMotion:'reduce'});
    if(scenario.startsWith('long')||scenario==='keyboard')await page.getByRole('button',{name:'Long draft',exact:true}).click();
    await page.getByRole('button',{name:scenario==='long-stream'?'Send + stream':scenario==='long-resize'?'Send + resize':'Send',exact:true}).click();
