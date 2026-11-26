@@ -17,12 +17,6 @@
 .rc-state.is-in_use{color:var(--teal-text)}
 .rc-state.is-in_use::before{border-color:var(--teal);background:var(--teal)}
 .rc-state.is-unavailable::before{background:transparent}
-.rc-action{padding:4px 2px;border:0;background:none;color:var(--ink-soft);font:500 13px/1.4 var(--font-body);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;cursor:pointer}
-.rc-action:hover:not(:disabled){color:var(--ink);text-decoration-color:currentColor}
-.rc-action:disabled{opacity:.5;cursor:not-allowed}
-.rc-action:focus-visible,.rc-more:focus-visible{outline:var(--focus-ring-width,2px) solid var(--focus);outline-offset:2px;border-radius:6px}
-.rc-more{display:inline-grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:9px;background:none;color:var(--ink-soft);cursor:pointer}
-.rc-more:hover{background:var(--sunk)}
 .rc-note{margin:0;padding:0 0 12px;color:var(--ink-soft);font:12.5px/1.5 var(--font-body);overflow-wrap:anywhere}
 .rc-note.is-error{color:var(--danger-text)}
 .rc-switch-row .rc-switch{flex:none;margin:0;padding:0}
@@ -36,5 +30,4 @@
   .rc-mac .rc-copy{flex-basis:calc(100% - 40px)}
   .rc-side{max-width:none;flex-basis:100%;justify-content:flex-start;padding-left:30px}
 }
-@media(max-width:700px){.rc-more{width:44px;height:44px}}
 }

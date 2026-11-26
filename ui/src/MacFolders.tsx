@@ -1,3 +1,5 @@
+import { Button } from "./ds/Button/Button";
+import { IconButton } from "./ds/IconButton/IconButton";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
 import {useCallback, useEffect, useRef, useState, type RefObject} from "react";
@@ -34,8 +36,8 @@ function FolderMenu({folder, disabled, onReveal, onRemove}: {folder: MacFolder; 
   const trigger = useRef<HTMLButtonElement>(null);
   const label = t("environments.more", {name: folder.name});
   return <>
-    <button ref={trigger} type="button" className="st-button env-more" disabled={disabled} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-hint={label}
-      {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
+    <IconButton ref={trigger} className="env-more" icon="more" label={label} filled={open} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
+      {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}/>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       <button type="button" data-action="reveal" onClick={() => { setOpen(false); onReveal(); }}>{t("environments.folders.reveal")}</button>
       {folder.bots.length > 1 && folder.bots.map(bot => <button key={bot.id} type="button" data-action="remove-bot" data-bot={bot.id} onClick={() => { setOpen(false); onRemove(bot.id); }}>{t("environments.folders.remove_bot", {name: bot.name})}</button>)}
@@ -49,7 +51,7 @@ function AddMenu({bots, disabled, onPick}: {bots: Bot[]; disabled: boolean; onPi
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   return <>
-    <button ref={trigger} type="button" className="st-button env-add" data-action="add" disabled={disabled || bots.length === 0} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="plus" size={16} aria-hidden="true"/>{t("environments.folders.add")}</button>
+    <Button ref={trigger} size="sm" icon="plus" className="env-add" data-action="add" disabled={disabled || bots.length === 0} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}>{t("environments.folders.add")}</Button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu env-add-menu mf-add-menu" label={t("environments.folders.add_for")} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       <p className="mf-menu-title">{t("environments.folders.add_for")}</p>
       {bots.map(bot => <button key={bot.id} type="button" data-add-bot={bot.id} onClick={() => { setOpen(false); onPick(bot); }}>{bot.name}</button>)}

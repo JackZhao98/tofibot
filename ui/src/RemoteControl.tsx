@@ -1,3 +1,5 @@
+import { Button } from "./ds/Button/Button";
+import { IconButton } from "./ds/IconButton/IconButton";
 import { SettingsSwitch } from "./settings/components";
 import {useRef, useState, type RefObject} from "react";
 import {useTranslation} from "./i18n";
@@ -27,7 +29,7 @@ function ThisMacMenu({name, denied, onOpenFiles, onOpenDenied}: {name: string; d
   const label = t("environments.more", {name});
   if (!onOpenFiles && !denied) return null;
   return <>
-    <button ref={trigger} type="button" className="rc-more" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-hint={label} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}><TofiIcon name="more" size={16} aria-hidden="true"/></button>
+    <IconButton ref={trigger} className="rc-more" icon="more" label={label} filled={open} aria-haspopup="menu" aria-expanded={open} {...pressToggle(() => setOpen(value => !value))} onKeyDown={arrowOpens(setOpen)}/>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu env-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {onOpenFiles && <button type="button" data-action="files" onClick={() => { setOpen(false); onOpenFiles(); }}>{t("environments.rc.menu.files")}</button>}
       {denied > 0 && <button type="button" data-action="denied" onClick={() => { setOpen(false); onOpenDenied(); }}>{t("environments.rc.menu.denied")}</button>}
@@ -58,7 +60,7 @@ export function ThisMacRow({rc, state, onOpenFiles, onOpenDenied, menu = true}: 
     </div>
     <div className="rc-side">
       <span className={`rc-state is-${state.word}`} role="status">{t(`environments.rc.state.${state.word}`)}</span>
-      {state.action && <button type="button" className="rc-action" data-action={state.action} disabled={working} onClick={act}>{t(`environments.rc.action.${state.action}`)}</button>}
+      {state.action && <Button size="sm" variant="ghost" className="rc-action" data-action={state.action} disabled={working} onClick={act}>{t(`environments.rc.action.${state.action}`)}</Button>}
       {menu && <ThisMacMenu name={name} denied={rc.denied.length} onOpenFiles={onOpenFiles} onOpenDenied={onOpenDenied}/>}
     </div>
   </div>;
