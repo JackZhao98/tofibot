@@ -37,7 +37,9 @@
      rounded --surface rectangle with a soft elevation and no outline (docs/design/widgets-and-sidebar.md section 2.2). */
   /* The shell keeps the track's final width and sits against the window edge, so while the track opens the panel slides in with its
      edge instead of squeezing its content. Expanding animates the width with the track (same duration). */
-  .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; border-radius:16px; box-shadow:var(--shadow); background:var(--surface); overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
+  .workspace .sidebar-pane > * { flex:none; width:calc(var(--sidebar-w) - 2 * var(--panel-gap)); max-width:100%; height:100%; overflow:hidden; transition:width var(--sidebar-dur) var(--ease-settle), opacity var(--m-panel-out) var(--ease-settle); animation:sidebar-shell-in var(--m-panel-in) var(--ease-out) backwards; }
+  /* The frame while the Widget chunk loads (the kit Widget draws the same surface once it is in). */
+  .workspace .sidebar-pane > :not(.tb-widget) { border-radius:16px; box-shadow:var(--shadow); background:var(--surface); }
   .workspace .sidebar-pane.is-leaving > * { opacity:0; }
 
   /* The column's box spans the whole chat area; the cards keep exactly the width and place they always had (the left padding takes up the rest, and
@@ -94,14 +96,6 @@
   .workspace .sidebar-pane > *, .workspace .sidebar-pane.is-leaving { animation:none; transition:none; }
 }
 
-/* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that
-   belong to this hand-off are marked with a soft lagoon tint instead of a focus-ring box. */
-.view-only-message { align-items:flex-start; }
-.view-only-message>.avatar { flex:none; margin-top:-3px; }
-.view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
-.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-bot)); }
-.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-user)); }
-
 /* Cold Memory and Usage chunks occupy their final surface on the first paint. */
 .surface-loading{padding:16px;min-height:160px}
 .surface-skeleton{display:grid;gap:12px;padding:14px;min-height:112px}
@@ -115,7 +109,6 @@
 }
 @media(prefers-reduced-motion:reduce){.workspace .detail-pane.context-panel:not(.widget-column){transition:none}}
 @media(prefers-reduced-transparency:reduce){.workspace .detail-pane.context-panel:not(.widget-column){background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none}}
-.surface-loading.context-card{background:var(--surface);border-radius:14px}
 .workspace .detail-pane.context-panel:not(.widget-column).visible:not(.surface-exiting){animation:context-panel-in var(--m-quick) var(--ease-out) both}
 .workspace .detail-pane.context-panel:not(.widget-column).surface-exiting{animation:none;opacity:0;transform:none}
 @keyframes context-panel-in{from{opacity:.4}}

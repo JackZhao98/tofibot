@@ -1,8 +1,6 @@
-import * as Collapsible from "@radix-ui/react-collapsible";
-import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
+import { Widget } from "./ds/Widget/Widget";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon } from "./icons";
 import { sortWidgets, WIDGET_ORDER, type WidgetId } from "./surfaces";
 import { useLeaving } from "./surfacePresence";
 import "./context-column.css";
@@ -36,15 +34,9 @@ export function ContextCard({ id, order, collapsed = false, leaving = false, foc
   // The computer is the bare monitor: no header row. Its title is the chin's status text (and a hidden heading for focus), it closes
   // with the chin's chevron and folds into its own strip (docs/design/widgets-and-sidebar.md section 6).
   const bare = id === "computer";
-  return <div className="widget-slot" data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}><Collapsible.Root open={bare || !collapsed} onOpenChange={() => onToggle(id)} asChild><section ref={ref} className={`context-card${collapsed && id !== "computer" ? " is-collapsed" : ""}${bare ? " is-bare" : ""}`} data-card={id} aria-label={title}>
-    {bare ? <h2 ref={heading} tabIndex={-1} className="sr-only">{title}</h2> : <header className="context-card-header">
-      {/* The title is the fold control: "Title ⌄", the chevron right after the words, turning as the card folds. */}
-      <h2 ref={heading} tabIndex={-1}><Collapsible.Trigger asChild><button type="button" className="context-card-fold" aria-label={foldLabel} data-hint={foldLabel}><span>{title}</span><Icon name="chevron-down" size={14} /></button></Collapsible.Trigger></h2>
-      <span className="context-card-actions">
-      <button type="button" className="context-card-button context-card-close" aria-label={closeLabel} data-hint={closeLabel} onClick={() => onClose(id)}><Icon name="close" size={16} /></button></span>
-    </header>}
-    <CollapsibleContent forceMount className="context-card-body" inert={!bare && collapsed || undefined} aria-hidden={!bare && collapsed || undefined}><div className="context-card-inner">{children}</div></CollapsibleContent>
-  </section></Collapsible.Root></div>;
+  return <div className="widget-slot" data-slot={id} data-leaving={leaving || undefined} inert={leaving || undefined} style={{ order }}>
+    <Widget ref={ref} headingRef={heading} title={title} bare={bare} folded={collapsed} onFold={() => onToggle(id)} foldLabel={foldLabel} onClose={() => onClose(id)} closeLabel={closeLabel} data-card={id}>{children}</Widget>
+  </div>;
 }
 
 /** The fixed order: the Bot card, the computer, the Terminal, the read-only chat, Artifacts. The DOM keeps that order (a live video must not move), CSS `order` places the cards. */

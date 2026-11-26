@@ -116,12 +116,12 @@ p > .text-button:where(:not(.approval-manage)):active:not(:disabled), div.error-
 }
 
 /* Surfaces — the normal card is flat or hairline, never a raised slab. */
-:root[data-theme] :is(.archive-card,.memory-card,.schedule-card,.extension-card,.verification-card,
+:root[data-theme] :is(.archive-card,.schedule-card,.extension-card,.verification-card,
     .member-option,.bot-avatar-picker) {
   background:var(--surface-2); border:1px solid var(--line);
   border-radius:16px; box-shadow:none; color:var(--ink-soft);
 }
-:root[data-theme] :is(.archive-card,.memory-card,.schedule-card,.extension-card,.verification-card) strong { color:var(--ink); }
+:root[data-theme] :is(.archive-card,.schedule-card,.extension-card,.verification-card) strong { color:var(--ink); }
 .terminal-confirm>div {
   border:3px solid var(--line); border-radius:20px;
   background:var(--surface); box-shadow:var(--shadow); color:var(--ink);

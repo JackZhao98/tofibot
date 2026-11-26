@@ -64,7 +64,7 @@ form[aria-busy=true]{cursor:progress}
  .sidebar-toggle-slot{display:none}.contact-pane{padding:16px 12px}
  .top-icon-button,.icon-button,.ghost-button{width:40px;height:40px;min-width:40px}
 }
-:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .memory-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+:root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
 :root[data-theme="dark"] .message-content code{background:var(--hover);color:var(--ink)}
 :root[data-theme="dark"] .composer-row,:root[data-theme="dark"] .tool-activity-details{background:var(--surface-2)}
 /* Group messages read top-down: avatar beside the sender name, then the message body. */
@@ -142,9 +142,6 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .extension-card>.disclosure .disclosure-inner>button{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-size:12px}
 .extension-card>strong{display:block;overflow-wrap:anywhere}
 .confirm-action{display:inline-flex;max-width:100%;align-items:center}
-.memory-footer{gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.memory-footer>span:first-child:not(:last-child){margin-right:auto}
-.memory-footer>span:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 @media(prefers-reduced-motion:reduce){.disclosure-region,.disclosure-chevron{transition:none}}
 
 /* Shared form geometry; fieldsets freeze pending inputs without another visual box. */

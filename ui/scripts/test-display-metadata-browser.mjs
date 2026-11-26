@@ -49,7 +49,7 @@ try {
     assert.equal(await page.locator(".memory-card").count(), 2);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "horizontal overflow");
     assert.deepEqual(errors, []);
-    await page.locator(".memory-details").first().evaluate(element => { element.open = false; });
+    await page.locator(".memory-card .disclosure-toggle").first().click();
     await page.screenshot({ path: `${output}/${name}-memories.png`, fullPage: true });
     results.push({ name, pass: true, checks: "compact labels, descriptions, tooltips, management-only prompt, preview, all schedule kinds, legacy fallback, multilingual memory search/details, viewport" });
     await context.close();
