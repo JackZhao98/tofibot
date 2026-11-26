@@ -1,0 +1,22 @@
+/* Pointer and click marks (S16): their own layer over the live picture, with no plate behind them. The device already wears the
+   driver's colour (--bot, or --you while the person drives); the marks take it as --mark, so the Bot's arrow, its name and its click
+   ring read in the Bot's hue and yours in blue. The layer sits above the screen content and under the overlay and the corner controls. */
+@layer legacy {
+.tb-device{--mark:var(--bot,var(--teal))}
+.tb-device.is-you{--mark:var(--you)}
+.tb-device-marks{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden;background:none}
+.desktop-pointer-confirmed{position:absolute;width:0;height:0;pointer-events:none}
+.web-desktop-pointer{left:0;top:0;opacity:0;transition:transform var(--m-panel-in) var(--ease-out),opacity var(--m-press) var(--ease-out)}
+.web-desktop-pointer.is-visible{opacity:1}
+.web-desktop-click{position:absolute;width:0;height:0}
+.desktop-click-ring{position:absolute;width:36px;height:36px;left:-18px;top:-18px;border:2px solid var(--mark);border-radius:50%;animation:web-desktop-click var(--m-panel-in) 420ms var(--ease-out) both}
+@keyframes web-desktop-click{from{transform:scale(.5);opacity:0}20%{opacity:.6}to{transform:scale(1.6);opacity:0}}
+.desktop-pointer-glyph{position:absolute;left:0;top:0;display:block}
+.desktop-pointer-arrow{position:absolute;left:-4px;top:-3px;display:block;width:24px;height:24px}
+.desktop-pointer-arrow path{fill:var(--mark);stroke:var(--code-bg);stroke-width:1.5;stroke-linejoin:round}
+.web-desktop-pointer-name{position:absolute;left:16px;top:17px;max-width:140px;padding:2px 7px;overflow:hidden;border-radius:6px;background:var(--mark);color:var(--on-block);font:600 10px/1.4 var(--font-mono);white-space:nowrap;text-overflow:ellipsis}
+@media(prefers-reduced-motion:reduce){
+  .web-desktop-pointer{transition:none}
+  .desktop-click-ring{animation:none;opacity:0}
+}
+}

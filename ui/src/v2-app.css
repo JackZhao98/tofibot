@@ -315,16 +315,16 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
+:root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
   background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
 }
-:root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
+:root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.settings-leave-overlay,.terminal-confirm) {
   background:var(--scrim); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
 }
 /* Popups (menus, popovers, selects, context menus, hover cards) are the kit's: ds/pop.css. The dialogs below still grow
    from their centre and the big panels (cover, sheet) only fade, until their surfaces are rebuilt. */
 @keyframes pop-in { from { opacity:0; transform:scale(.96); } }
-:root :is(.new-group-dialog,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
+:root :is(.new-group-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) {
   transform-origin:center; animation:pop-in var(--m-pop-in) var(--ease-pop) both;
 }
 :root :is(.cover-window,.sheet) { animation:menu-enter var(--m-pop-in) var(--ease-pop) both; }
@@ -334,9 +334,9 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 }
 :root[data-theme="dark"] .workspace .contact-pane { border-right-color:var(--line); }
 @media (prefers-reduced-motion:reduce) {
-  :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
+  :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 }

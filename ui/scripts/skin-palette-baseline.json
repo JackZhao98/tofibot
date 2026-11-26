@@ -11,19 +11,7 @@
   "catalog/world.ts": {
     "svgPaint": 4
   },
-  "desktop-presence.css": {
-    "blur": 2
-  },
-  "desktop-shell.css": {
-    "blur": 2
-  },
-  "extensions-system.css": {
-    "blur": 2
-  },
   "file-preview.css": {
-    "blur": 2
-  },
-  "handover.css": {
     "blur": 2
   },
   "interaction-system.css": {
@@ -36,9 +24,6 @@
     "font": 1
   },
   "new-group.css": {
-    "blur": 2
-  },
-  "onboarding.css": {
     "blur": 2
   },
   "styles.css": {

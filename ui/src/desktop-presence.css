@@ -1,6 +1,7 @@
-/* The Bot computer's window. The device itself (bezel, screen, corner controls, chin, strip) is the kit ScreenPanel; this sheet places it
-   in the window forms and styles what lives on its screen: the live picture, the pointer marks, the empty state. Loads with the lazy
-   desktop chunk; the window's own box is desktop-shell.css (eager). */
+/* The Bot computer's window: layout only. The device (bezel, screen, corner controls, chin, strip) is the kit ScreenPanel and the
+   switch in its chin is the kit DriverSwitch. This sheet places the device in the window forms (small, enlarged, folded, the mini
+   window's menu); the live picture is desktop-screen.css, the pointer marks DesktopPointerMarker.css and the empty screen
+   desktop-placeholder.css. The window's own box is desktop-shell.css (eager). */
 @layer legacy {
 .desktop-presence-content,.desktop-presence-canvas{display:contents}
 /* The window's content box: the small form is as wide as its slot; the big one is sized so the 16:10 screen, its bezel and the chin fit the viewport. */
@@ -20,14 +21,10 @@
 @media(prefers-reduced-motion:no-preference){.desktop-floating-shell.is-expanded{animation:desktop-scrim-in var(--m-base) var(--ease-out) both}}
 @keyframes desktop-scrim-in{from{opacity:0}to{opacity:1}}
 
-/* What lives on the screen: the picture fills the 16:10 frame (the strip letterboxes it). */
-.tb-device-screen>.remote-desktop{position:absolute;inset:0;display:flex;flex-direction:column}
-.tb-device-screen .remote-desktop-surface{flex:1;width:100%;height:100%;min-height:0;aspect-ratio:auto}
-.tb-device-screen .computer-screen{position:absolute;inset:0;display:block;width:100%;height:100%;max-height:none;object-fit:contain}
-/* Control notices and errors float over the top of the screen instead of pushing it. */
-.tb-device-screen .remote-desktop>:is(.field-note,.error-text){position:absolute;z-index:3;top:10px;left:50%;max-width:calc(100% - 24px);margin:0;padding:5px 12px;translate:-50% 0;overflow:hidden;border-radius:999px;background:color-mix(in srgb,var(--code-bg) 58%,transparent);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);color:var(--code-ink);font:var(--type-status);white-space:nowrap;text-overflow:ellipsis}
-.tb-device-screen .remote-desktop>.error-text{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 60%,transparent)}
-@media(prefers-reduced-transparency:reduce){.tb-device-screen .remote-desktop>:is(.field-note,.error-text){background:var(--code-bg);-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){
+  .desktop-live-screen .remote-desktop-surface{animation:none}
+  .desktop-floating-shell.is-settling{transition:none}
+}
 /* The real desktop content uses the Lab's CRT reveal; the bezel and controls stay put. */
 .desktop-live-screen .remote-desktop-surface{transform-origin:50% 50%;animation:web-desktop-boot 980ms linear both}
 /* The host moves between the widget column and the workspace (FloatingDesktop): a moved node would replay the boot. */
@@ -39,42 +36,6 @@
   84%{transform:scale(1,1.02);filter:brightness(1.4)}
   100%{transform:scale(1);filter:brightness(1)}
 }
-
-/* Pointer marks are drawn in the colour of whoever holds the mouse: the Bot's, or yours (the device's driver). */
-.tb-device{--mark:var(--bot,var(--teal))}
-.tb-device.is-you{--mark:var(--you)}
-.desktop-pointer-overlay{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
-.desktop-pointer-confirmed{position:absolute;width:0;height:0;pointer-events:none}
-.web-desktop-pointer{left:0;top:0;opacity:0;transition:transform var(--m-panel-in) var(--ease-out),opacity var(--m-press) var(--ease-out)}
-.web-desktop-pointer.is-visible{opacity:1}
-.web-desktop-click{position:absolute;width:0;height:0}
-.web-desktop-click .desktop-click-ring{width:36px;height:36px;left:-18px;top:-18px;border-color:var(--mark);box-shadow:none;background:transparent;animation:web-desktop-click var(--m-panel-in) 420ms var(--ease-out) both}
-@keyframes web-desktop-click{from{transform:scale(.5);opacity:0}20%{opacity:.6}to{transform:scale(1.6);opacity:0}}
-.desktop-pointer-glyph{position:absolute;left:0;top:0;display:block}
-.desktop-pointer-arrow{position:absolute;left:-4px;top:-3px;display:block;width:24px;height:24px}
-.desktop-pointer-arrow path{fill:var(--mark);stroke:var(--code-bg);stroke-width:1.5;stroke-linejoin:round}
-.web-desktop-pointer-name{position:absolute;left:16px;top:17px;max-width:140px;padding:2px 7px;overflow:hidden;border-radius:6px;background:var(--mark);color:var(--on-block);font:600 10px/1.4 var(--font-mono);white-space:nowrap;text-overflow:ellipsis}
-.desktop-click-ring{position:absolute;width:16px;height:16px;left:-8px;top:-8px;border:2px solid var(--on-block);border-radius:50%;box-shadow:0 0 0 2px var(--mark);background:color-mix(in srgb,var(--mark) 20%,transparent);animation:desktop-confirmed-click var(--m-flight) var(--ease-out) both}
-@keyframes desktop-confirmed-click{from{transform:scale(.65);opacity:.2}45%{transform:scale(1.5);opacity:1}to{transform:scale(1);opacity:1}}
-@media(prefers-reduced-motion:reduce){
-  .web-desktop-pointer{transition:none}
-  .web-desktop-click .desktop-click-ring{animation:none;opacity:0}
-  .desktop-live-screen .remote-desktop-surface{animation:none}
-  .desktop-click-ring{animation:none}
-  .desktop-pointer-confirmed{transition:none}
-  .desktop-floating-shell.is-settling{transition:none}
-}
-
-/* The empty screen (booting, off, failed, reconnecting): the panel draws the dot ground; this is the cat and one line, and the wake overlay's copy of it. */
-.desktop-placeholder{display:grid;justify-items:center;gap:clamp(6px,2cqw,14px);max-width:100%;color:var(--code-ink)}
-.desktop-placeholder-cat{display:grid;place-items:center}
-.desktop-placeholder .desktop-placeholder-cat .avatar{width:clamp(52px,15cqw,100px);height:clamp(52px,15cqw,100px)}
-.desktop-placeholder-line{display:block;max-width:100%;margin:0;font:600 clamp(12px,2.4cqw,15px)/1.4 var(--font-body);text-wrap:balance}
-.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{content:"";display:inline-block;margin-right:8px;vertical-align:middle;width:7px;height:7px;border-radius:50%;background:var(--bot,var(--teal));animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
-.desktop-placeholder.is-failed .desktop-placeholder-line::before{content:"";display:inline-block;margin-right:8px;vertical-align:middle;width:7px;height:7px;border-radius:50%;background:var(--danger)}
-.desktop-placeholder-retry{position:relative;z-index:3}
-@keyframes desktop-mini-breathe{50%{opacity:.35}}
-@media(prefers-reduced-motion:reduce){.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{animation:none}}
 
 /* Folded: the docked monitor as a 56px strip (the panel's strip size). The whole strip is one button that brings the monitor back. */
 .computer-detail.is-folded :is(.desktop-enlarge,.error-banner,.computer-info,.remote-control-bar,.desktop-expanded-scrim){display:none}
@@ -100,10 +61,6 @@
 .pip-menu-check{position:absolute;right:10px;width:9px;height:5px;border:solid currentColor;border-width:0 0 1.6px 1.6px;transform:translateY(-1px) rotate(-45deg)}
 @media(forced-colors:active){.pip-menu-item[data-highlighted]{outline:1px solid Highlight}}
 
-/* The Mac browser preview is observation only; the canvas never receives input. */
-.bot-browser-video{display:block;width:100%;height:100%;object-fit:contain;background:var(--code-bg);pointer-events:none}
-.bot-browser-state,.bot-browser-stream-error{position:absolute;inset:0;display:grid;place-content:center;margin:0;padding:24px;text-align:center;background:var(--code-bg);color:var(--code-ink)}
-.tb-device-screen>.bot-browser-video{position:absolute;inset:0}
 [data-external-pip] .desktop-floating-shell.is-small:not(.is-docked){position:fixed;inset:0;width:100%;max-width:none;transform:none}
 [data-external-pip] body{margin:0;background:transparent;overflow:hidden}
 [data-external-pip] .desktop-presence-canvas>.bot-browser-panel{margin:0}

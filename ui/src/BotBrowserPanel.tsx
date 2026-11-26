@@ -1,4 +1,5 @@
 import "./desktop-presence.css";
+import "./desktop-screen.css";
 import { useEffect, useState } from 'react';
 import { useTranslation } from './i18n';
 import { ScreenPanel } from './ds/ScreenPanel/ScreenPanel';

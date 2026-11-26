@@ -96,9 +96,10 @@ try {
     await page.waitForTimeout(5000);
     assert.equal(await page.locator(".computer-detail.is-folded").count(), 0, "not folded 5 s after the Bot let go");
     assert.deepEqual(await cards(page), ["computer"]);
-    // The small screen has no fold button, no capsule, no chin controls and no shadow; the fold is the 30 s one (the video element is the same node throughout).
-    for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-chin-hide", ".desktop-driver-switch", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
+    // The small screen has no fold button, no capsule, no hide button and no shadow; its chin holds the Bot / You switch; the fold is the 30 s one (the video element is the same node throughout).
+    for (const gone of [".desktop-control-fold", ".desktop-frame-status", ".desktop-chin-hide", ".desktop-drop"]) assert.equal(await page.locator(`[data-card="computer"] ${gone}`).count(), 0, `the small computer has no ${gone}`);
     assert.equal(await page.locator(".computer-detail").evaluate(node => getComputedStyle(node).boxShadow.replace(/rgba?\([^)]*\) 0px 0px 0px 1px/, "none")), "none", "no shadow under the small computer");
+    assert.equal(await page.locator('[data-card="computer"] .tb-device-chin .desktop-driver-switch').count(), 1, "the small computer's chin holds the Bot / You switch");
     await page.evaluate(() => { window.__screen = document.querySelector(".tb-device-screen"); });
     await poll(page, () => document.querySelector(".computer-detail.is-folded"), null, 40000);
     await page.waitForTimeout(500);
@@ -109,7 +110,7 @@ try {
     const thumb = await page.locator(".tb-device-screen").boundingBox();
     assert.ok(thumb.width <= 80 && thumb.height <= 44 && thumb.x < strip.x + strip.width / 3, "a small live thumbnail sits on the left");
     assert.ok(await page.locator(".desktop-chin-text").isVisible(), "the status text is visible in the strip");
-    assert.equal(await page.locator(".desktop-driver-switch").count(), 0, "the Bot / You switch lives in the big window only");
+    assert.equal(await page.locator(".desktop-driver-switch").count(), 0, "the folded strip has no switch");
     if (shots) await page.screenshot({ path: `${shots}/computer-folded-1440.png` });
     await page.locator(".desktop-strip-open").click();
     await page.waitForTimeout(500);

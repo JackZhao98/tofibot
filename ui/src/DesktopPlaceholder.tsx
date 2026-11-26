@@ -1,3 +1,4 @@
+import "./desktop-placeholder.css";
 import { BotAvatar } from "./BotAvatar";
 import { Button } from "./ds/Button/Button";
 import { useTranslation } from "./i18n";

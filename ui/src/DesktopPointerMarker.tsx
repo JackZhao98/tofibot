@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import "./DesktopPointerMarker.css";
 import { DesktopPointerGlyph } from "./DesktopPointerGlyph";
 import { desktopPointerPosition, visibleDesktopPointer, type DesktopPresenceState, type DesktopPointer } from "./desktopPresence";
 
@@ -33,7 +34,7 @@ export function DesktopPointerMarker({ presence, humanControlled, botLabel }: { 
   }, []);
   const pointer = visibleDesktopPointer(presence, humanControlled, Date.now(), Infinity);
   const owner = presence.ownership?.owner;
-  return <span className="desktop-pointer-overlay" ref={overlay} aria-hidden="true">
+  return <span className="tb-device-marks" ref={overlay} aria-hidden="true">
     <WebPointer key={`${owner?.bot_id}:${owner?.run_id}:${humanControlled}`} pointer={pointer} name={botLabel} {...bounds} />
   </span>;
 }
