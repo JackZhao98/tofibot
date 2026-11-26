@@ -263,7 +263,7 @@
 .workspace .message-content { font-size:15px; line-height:1.65; }
 .workspace .message-content :is(h1,h2,h3,h4) { color:var(--ink); font-family:var(--font-display); }
 .workspace .message-content a { color:var(--ink); text-decoration-color:var(--tomato); text-underline-offset:3px; }
-.workspace .message-content :not(pre)>code {
+.workspace .message-content :not(pre,.tb-code-line)>code {
   padding:2px 6px; border:1px solid var(--line); border-radius:6px;
   background:var(--sunk); color:var(--ink);
   box-decoration-break:clone; -webkit-box-decoration-break:clone;

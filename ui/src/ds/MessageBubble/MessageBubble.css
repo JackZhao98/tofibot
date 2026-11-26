@@ -18,7 +18,7 @@
 .tb-msg--user .tb-bubble { background: var(--bubble-user); border: var(--border-1) solid transparent; }
 .tb-bubble p { margin: 0 0 8px; }
 .tb-bubble p:last-child { margin: 0; }
-.tb-bubble code { font: 400 13px/1.5 var(--font-mono); background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; border-radius: 4px; }
+.tb-bubble :not(pre, .tb-code-line) > code { font: 400 13px/1.5 var(--font-mono); background: var(--code-bg); color: var(--code-ink); padding: 1px 5px; border-radius: 4px; }
 .tb-msg.is-sending .tb-bubble { opacity: .6; }
 /* A Bot's coat (bot-context.css sets --bot) tints its bubble and name. */
 .tb-msg--bot[class*="tb-bot--"] .tb-bubble { background: color-mix(in srgb, var(--bot) 16%, var(--surface)); border-color: color-mix(in srgb, var(--bot) 34%, var(--surface)); }
