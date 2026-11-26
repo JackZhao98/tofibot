@@ -1,13 +1,16 @@
 import { Button } from "./ds/Button/Button";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
-import { BotAvatar } from "./BotAvatar";
+import { Banner } from "./ds/Banner/Banner";
+import { SettingsSection } from "./ds/SettingsSection/SettingsSection";
+import { SettingsShell as Frame } from "./ds/SettingsShell/SettingsShell";
+import { TextInput } from "./ds/TextInput/TextInput";
+import { MemberPicker } from "./MemberPicker";
+import { SettingsCard, SettingsRow } from "./settings/components";
 import { DirtyBar, LeaveConfirm } from "./CoverForm";
 import { useCover, useCoverGuard } from "./coverGuard";
 import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
-import { TofiIcon as Icon } from "./icons";
-import { PrimaryBadge } from "./PrimaryAssistant";
 import { takeSettingsSection } from "./settings/pendingSection";
 import { jumpWhenReady } from "./settings/sectionJump";
 import type { Bot, Conversation, TaskImpact } from "./types";
@@ -29,11 +32,11 @@ function RemovalImpact({ groupId, removed }: { groupId: string; removed: { id: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, key]);
   if (!impacts.length) return null;
-  return <div className="gs-note" role="status">{impacts.map(({ id, name, impact }) => <p key={id}>
+  return <Banner tone="warning" className="gs-note">{impacts.map(({ id, name, impact }) => <span key={id} className="gs-note-line">
     {impact.given_tasks > 0 && <>{t("members.impact_given", { name, count: impact.given_tasks })} </>}
     {impact.held_tasks > 0 && <>{t("members.impact_held", { name, count: impact.held_tasks })} </>}
     {impact.open_waits > 0 && t("members.impact_waits", { name, count: impact.open_waits })}
-  </p>)}</div>;
+  </span>)}</Banner>;
 }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => [...a].sort().join("\u0000") === [...b].sort().join("\u0000");
@@ -158,36 +161,27 @@ export function GroupSettingsPanel({ conversation, bots, onSaved, onReload, onOp
   const busy = saving || reloading;
   const candidates = bots.filter(bot => !bot.archived || baselineIds.current.includes(bot.id) || selectedIds.includes(bot.id));
   return <div className="group-settings" aria-busy={busy}>
-    <div className="gs-scroll">
-      <div className="gs-column">
-        <label className="gs-field" data-section="general"><span>{t("members.name")}</span>
-          <input aria-label={t("members.name")} value={name} maxLength={200} disabled={busy} onChange={event => setName(event.target.value)} />
-        </label>
-        <section className="gs-block" data-section="members" aria-label={t("members.members")}>
-          <div className="gs-block-head"><h3>{t("members.members")}</h3><span className="gs-count">{selectedIds.length}/8</span></div>
-          <div className="gs-members" role="group" aria-label={t("members.pick")}>
-            {candidates.map(bot => <label key={bot.id} className="gs-member" data-selected={selectedIds.includes(bot.id) || undefined}>
-              <input type="checkbox" checked={selectedIds.includes(bot.id)} disabled={busy || (!selectedIds.includes(bot.id) && selectedIds.length >= 8)} onChange={() => toggleMember(bot.id)} />
-              <span className="gs-member-avatar tb-cat-only" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
-              <span className="gs-member-name">{bot.name}</span>
-              {bot.is_primary && <PrimaryBadge />}
-            </label>)}
-          </div>
-          <p className="gs-hint">{t("members.pick_hint")}</p>
+    <Frame flush groups={[]} active="" onNavigate={() => {}} navLabel={t("members.members")} title={name.trim() || conversation.name}
+      status={justSaved ? t("cover.saved") : undefined} hooks={{ root: "gs-frame", content: "gs-content" }}>
+      <div className="gs-scroll">
+        <div className="gs-column">
+          <SettingsCard>
+            <div data-section="general"><SettingsRow label={t("members.name")} labelFor="gs-name" control={
+              <TextInput id="gs-name" value={name} maxLength={200} disabled={busy} onChange={event => setName(event.target.value)} />} /></div>
+          </SettingsCard>
+          <SettingsSection title={t("members.members")} actions={<span className="gs-count">{selectedIds.length}/8</span>} description={t("members.pick_hint")}>
+            <div data-section="members">
+              <MemberPicker bots={candidates} selected={selectedIds} disabled={busy} label={t("members.pick")} onToggle={toggleMember} />
+            </div>
+          </SettingsSection>
           <RemovalImpact groupId={conversation.id} removed={bots.filter(bot => baselineIds.current.includes(bot.id) && !selectedIds.includes(bot.id)).map(bot => ({ id: bot.id, name: bot.name }))} />
-        </section>
-        <button type="button" className="gs-row" onClick={onOpenMemory}>
-          <span className="gs-row-icon" aria-hidden="true"><Icon name="memory" size={19} /></span>
-          <span className="gs-row-copy"><strong>{t("groupSettings.memory_title")}</strong><small>{t("groupSettings.memory_hint")}</small></span>
-          <Icon name="chevron-right" size={16} />
-        </button>
-        <div className="gs-row is-danger">
-          <span className="gs-row-copy"><strong>{t("header.delete_group")}</strong><small>{t("groupSettings.delete_hint")}</small></span>
-          <Button variant="danger" className="gs-button is-danger" onClick={onDelete}>{t("header.delete_group")}</Button>
+          <SettingsCard>
+            <SettingsRow label={t("groupSettings.memory_title")} description={t("groupSettings.memory_hint")} link={{ onOpen: onOpenMemory }} />
+            <SettingsRow label={t("header.delete_group")} description={t("groupSettings.delete_hint")} inline control={<Button variant="danger" size="sm" onClick={onDelete}>{t("header.delete_group")}</Button>} />
+          </SettingsCard>
         </div>
       </div>
-    </div>
-    <span className="sr-only" role="status">{justSaved ? t("cover.saved") : ""}</span>
+    </Frame>
     <DirtyBar open={changed} busy={busy} error={error} canSave={valid} onDiscard={discard} onSave={() => void save()}>
       {conflict && <Button variant="ghost" size="sm" className="cover-dirty-discard" disabled={reloading} onClick={() => void reload()}>{reloading ? t("members.reloading") : t("members.reload")}</Button>}
     </DirtyBar>

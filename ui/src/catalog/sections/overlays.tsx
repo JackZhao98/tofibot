@@ -169,7 +169,7 @@ export const popovers: CatalogSection = {
     { id: "cover-bot-settings-tools-no-connections", kind: "app", label: "Cover: Bot settings, Tools, no connections yet", note: "one line and a button to Settings; Skills is unchanged", app: { ...DM, connections: "none" }, probe: ".cover-window",
       drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-tab='tools']"); await step.find(".bs-section[data-section='tools'] .bt-empty"); await step.wait(700); } },
     { id: "cover-bot-settings-secrets", kind: "app", label: "Cover: Bot settings, Secrets", app: DM, probe: ".cover-window",
-      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-tab='secrets']"); await step.find(".bs-section[data-section='secrets'] .bot-secret-row"); await step.wait(700); } },
+      drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-tab='secrets']"); await step.find(".bs-section[data-section='secrets'] .bot-secret-item"); await step.wait(700); } },
     { id: "cover-bot-settings-export", kind: "app", label: "Cover: Bot settings, Export", note: "share file, data export and the system prompt preview, collapsed", app: DM, probe: ".cover-window",
       drive: async step => { await openBotSettings(step); await step.click(".bs-nav-item[data-tab='export']"); await step.find(".bs-section[data-section='export'] .bot-inspector"); await step.wait(700); } },
     { id: "cover-bot-settings-danger", kind: "app", label: "Cover: Bot settings, Danger zone", note: "Delete Bot, named and red", app: DM, probe: ".cover-window",

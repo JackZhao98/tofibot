@@ -6,7 +6,8 @@
 .new-group-dialog.is-leaving { animation:modal-leave var(--m-instant) var(--ease-settle) both; }
 .new-group-dialog form { display:grid; gap:16px; padding-bottom:14px; }
 .new-group-dialog .gs-members { max-height:min(300px,40dvh); }
-.new-group-error { margin:0; padding:10px 14px; border-radius:var(--radius-md); background:color-mix(in srgb,var(--danger) 10%,var(--surface-2)); color:var(--danger-text); font:13px/1.5 var(--font-body); }
+.new-group-dialog .gs-block { display:grid; gap:8px; }
+.new-group-dialog .gs-block-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 @keyframes new-group-scrim-out { to { opacity:0; } }
 @media (prefers-reduced-motion:reduce) { .new-group-scrim.is-leaving, .new-group-dialog.is-leaving { animation:none; transition:none; } }
 }

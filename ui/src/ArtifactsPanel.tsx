@@ -1,5 +1,7 @@
 import { Button } from "./ds/Button/Button";
 import { TextInput } from "./ds/TextInput/TextInput";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { Skeleton } from "./ds/Skeleton/Skeleton";
 import * as Tabs from "@radix-ui/react-tabs";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { CollapsibleContent } from "./ds/Collapsible/Collapsible";
@@ -153,11 +155,11 @@ function ArtifactCard({ item, showBot, showConversation, onOpenMessage }: { item
       from={<>{showBot && (item.bot_id ? <BotAvatar id={item.bot_id} mini /> : <TofiIcon name="user" size={14} />)}{showConversation && <span className="artifact-conversation">{item.conversation_name}{item.conversation_archived && <em>{t("artifacts.archived")}</em>}</span>}</>}
       gotoLabel={t("artifacts.go_to_message")} onGoto={() => onOpenMessage(item.conversation_id, item.message_id)} onOpen={() => openItem(item)} />
     {item.version_count > 1 && <Collapsible.Root open={open} onOpenChange={next => void toggleVersions(next)}>
-      <Collapsible.Trigger className="text-button artifact-versions-toggle">{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</Collapsible.Trigger>
+      <Collapsible.Trigger asChild><Button variant="ghost" size="sm" className="artifact-versions-toggle">{open ? t("artifacts.hide_versions") : t("artifacts.earlier_versions", { count: item.version_count - 1 })}</Button></Collapsible.Trigger>
       <CollapsibleContent><ul className="artifact-versions">
         {state === "loading" && <li className="artifact-versions-note" role="status">{t("artifacts.versions_loading")}</li>}
         {state === "error" && <li className="artifact-versions-note" role="alert">{t("artifacts.versions_error")}</li>}
-        {versions?.map(version => <li key={version.id}><button type="button" onClick={() => openItem(version)} aria-label={t("artifacts.open", { name: version.name })}><span>{formatRelativeTime(version.created_at)}</span><small>{fileSize(version.size)}</small></button><button type="button" className="ghost-button" aria-label={t("artifacts.go_aria", { name: version.name })} onClick={() => onOpenMessage(version.conversation_id, version.message_id)}><TofiIcon name="arrow-right" size={14} /></button></li>)}
+        {versions?.map(version => <li key={version.id}><Button variant="ghost" size="sm" className="artifact-version-open" onClick={() => openItem(version)} aria-label={t("artifacts.open", { name: version.name })}><span>{formatRelativeTime(version.created_at)}</span><small>{fileSize(version.size)}</small></Button><IconButton size="sm" icon="arrow-right" label={t("artifacts.go_aria", { name: version.name })} onClick={() => onOpenMessage(version.conversation_id, version.message_id)} /></li>)}
       </ul></CollapsibleContent>
     </Collapsible.Root>}
   </li>;
@@ -195,13 +197,13 @@ export function ArtifactsWidget({ conversationId, refreshToken, onAll }: { conve
     return () => window.clearTimeout(timer);
   }, [fresh]);
   return <div className="artifacts-widget">
-    {items === null ? (failed ? <p className="artifacts-widget-note" role="alert">{t("artifacts.error")}</p> : <div className="artifacts-widget-skeleton" aria-busy="true" aria-label={t("artifacts.loading")}><i /><i /></div>)
+    {items === null ? (failed ? <p className="artifacts-widget-note" role="alert">{t("artifacts.error")}</p> : <Skeleton className="artifacts-widget-skeleton" lines={2} label={t("artifacts.loading")} />)
       : !items.length ? <p className="artifacts-widget-note">{t("artifacts.widget_empty")}</p>
       : <ul className="artifacts-widget-list" aria-label={t("artifacts.list_label")}>{items.map(item => <li key={item.id} data-fresh={fresh.has(item.id) || undefined}>
         <FileRow name={item.name} kind={kitKind[fileKind(item.name, item.mime)]} ext={tileLabel(item.name, fileKind(item.name, item.mime))} thumb={isRaster(item) ? attachmentUrl(item.id) : undefined} meta={formatRelativeTime(item.created_at)}
           fresh={fresh.has(item.id)} aria-label={t("artifacts.open", { name: item.name })} onOpen={() => openItem(item)} />
       </li>)}</ul>}
     <span className="sr-only" role="status">{announce}</span>
-    <button type="button" className="artifacts-widget-all" onClick={onAll}>{t("artifacts.widget_all")}<TofiIcon name="arrow-right" size={14} /></button>
+    <Button variant="ghost" size="sm" className="artifacts-widget-all" iconAfter="arrow-right" onClick={onAll}>{t("artifacts.widget_all")}</Button>
   </div>;
 }

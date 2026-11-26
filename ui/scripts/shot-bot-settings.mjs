@@ -182,7 +182,7 @@ for (const theme of themes) {
     const shot = async (name, wait = 700) => { await page.waitForTimeout(wait); await page.screenshot({ path: `${out}/${theme}-1280-${name}.png` }); };
     await page.locator(".chat-identity").click(); await page.locator(".group-settings").waitFor();
     await shot("group-settings", 900);
-    await page.locator(".gs-field input").fill("Launch crew 2"); await page.waitForTimeout(400);
+    await page.locator("#gs-name").fill("Launch crew 2"); await page.waitForTimeout(400);
     await shot("group-settings-dirty", 200);
     await page.locator(".gs-member", { hasText: "Atlas" }).click(); await page.waitForTimeout(700);
     await shot("group-settings-removal-impact", 300);
@@ -191,13 +191,13 @@ for (const theme of themes) {
     await page.getByRole("button", { name: "Discard changes" }).click(); await page.waitForTimeout(700);
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Group settings" }).click(); await page.locator(".group-settings").waitFor();
-    check(await page.locator(".gs-field input").inputValue() === "Launch crew", `${theme}: More > Group settings opens the cover with the saved name`);
+    check(await page.locator("#gs-name").inputValue() === "Launch crew", `${theme}: More > Group settings opens the cover with the saved name`);
     await page.keyboard.press("Escape"); await page.waitForTimeout(600);
     // new group dialog from the sidebar +
     await page.getByRole("button", { name: "New Bot or group" }).click();
     await page.getByRole("menuitem", { name: "New group", exact: true }).click(); await page.locator(".new-group-dialog").waitFor();
     await shot("new-group-dialog", 900);
-    await page.locator(".new-group-dialog input").first().fill("Launch two");
+    await page.locator(".new-group-dialog input[type=text]").first().fill("Launch two");
     await page.locator(".new-group-dialog .gs-member", { hasText: "Mochi" }).click();
     await page.locator(".new-group-dialog .gs-member", { hasText: "Atlas" }).click();
     await shot("new-group-dialog-filled", 300);
@@ -220,10 +220,8 @@ for (const theme of themes) {
     {
       const { context, page } = await open(theme, 1280, { group: true });
       const log = (name, times) => console.log(`${theme} ${name}: ${times.join(",")} ms`);
-      log("widget-members-open", await strip(page, `${theme}-1280-widget-members-open`, () => page.locator(".chat-identity").click())); await page.waitForTimeout(800);
-      log("cover-group-settings-open", await strip(page, `${theme}-1280-cover-group-settings-open`, () => page.locator(".mw-gear").click())); await page.waitForTimeout(800);
+      log("cover-group-settings-open", await strip(page, `${theme}-1280-cover-group-settings-open`, () => page.locator(".chat-identity").click())); await page.waitForTimeout(800);
       log("cover-group-settings-close", await strip(page, `${theme}-1280-cover-group-settings-close`, () => page.keyboard.press("Escape"))); await page.waitForTimeout(600);
-      log("widget-members-close", await strip(page, `${theme}-1280-widget-members-close`, () => page.locator(".chat-identity").click())); await page.waitForTimeout(600);
       log("new-group-open", await strip(page, `${theme}-1280-new-group-open`, async () => { await page.getByRole("button", { name: "New Bot or group" }).click(); await page.getByRole("menuitem", { name: "New group", exact: true }).click(); })); await page.waitForTimeout(800);
       log("new-group-close", await strip(page, `${theme}-1280-new-group-close`, () => page.keyboard.press("Escape")));
       await context.close();

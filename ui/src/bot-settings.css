@@ -21,10 +21,6 @@
 .bs-field .tb-textarea { min-height:236px; }
 .bs-section .settings-row-control .tb-input, .bs-section .settings-row-control .tb-textinput { min-width:240px; }
 .bs-section .bot-secrets, .bs-section .bot-skills { margin-top:0; }
-.bs-section .bot-v2-subtitle { margin:0 0 14px; }
-.bs-section .bot-v2-subtitle h2 { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-.bs-section .bot-v2-subtitle p { margin:0; color:var(--muted); font:13px/1.5 var(--font-body); }
-.bs-section .prompt-preview { max-height:320px; overflow:auto; margin:10px 0 12px; padding:12px 14px; border:0; border-radius:10px; background:var(--surface); color:var(--ink-soft); font:12px/1.55 var(--font-mono); white-space:pre-wrap; }
 .bs-section .settings-feedback { margin:8px 0 0; color:var(--ink-soft); font:13px/1.5 var(--font-body); }
 
 /* The avatar picker opens on its own button, in the layer root (outside .workspace), so it carries its own rules here. */

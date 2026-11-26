@@ -3,11 +3,12 @@ import { useTranslation } from "./i18n";
 import type { Bot } from "./types";
 import "./primary-assistant.css";
 import { Select } from "./Select";
+import { Tag } from "./ds/Tag/Tag";
 
 /** Small "Primary" tag for the account's Primary Assistant (sidebar, Bot panel, pickers). */
 export function PrimaryBadge() {
   const { t } = useTranslation("chat");
-  return <span className="primary-badge" data-hint={t("primary.badge_hint")}>{t("primary.badge")}</span>;
+  return <span className="primary-badge" data-hint={t("primary.badge_hint")}><Tag>{t("primary.badge")}</Tag></span>;
 }
 
 /** Active Bots other than `exceptId`, in list order. */
