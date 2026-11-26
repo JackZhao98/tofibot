@@ -1,22 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { request } from "./api";
 import { BotAvatar } from "./BotAvatar";
-import { TofiIcon } from "./icons";
+import { Button } from "./ds/Button/Button";
+import { DraftCard } from "./ds/DraftCard/DraftCard";
+import { Letter } from "./ds/Letter/Letter";
+import { TextArea } from "./ds/TextArea/TextArea";
+import { TextInput } from "./ds/TextInput/TextInput";
 import type { Bot } from "./types";
 import { taskDraftLabel } from "./taskIssuePresentation";
 import { useTranslation } from "./i18n";
 import { formatClock } from "./i18n/format";
-import "./mail-draft-card.css";
+import "./layout/mail.css";
 import type { MailDraft, MailDraftAttachment } from "./mailDrafts";
 import { fileSize } from "./filePreviewModel";
-/** The flight is its own chunk: it pulls in Motion, which stays out of the entry. */
-const flyMailDraft = async (letter: HTMLElement) => (await import("./mailSendFlight")).flyMailDraft(letter);
 
 export type { MailDraft, MailDraftAttachment } from "./mailDrafts";
 
 function DraftAttachments({ items, label }: { items?: MailDraftAttachment[]; label: string }) {
   if (!items?.length) return null;
-  return <ul className="mail-draft-attachments" aria-label={label}>{items.map(item => <li key={item.id}><a href={`/api/attachments/${encodeURIComponent(item.id)}`} target="_blank" rel="noreferrer"><TofiIcon name="file" size={14} aria-hidden="true" /><span>{item.name}</span><small>{fileSize(item.size)}</small></a></li>)}</ul>;
+  return <span className="mail-draft-attachments" role="group" aria-label={label}>{items.map(item => <a key={item.id} href={`/api/attachments/${encodeURIComponent(item.id)}`} target="_blank" rel="noreferrer">{item.name} · {fileSize(item.size)}</a>)}</span>;
 }
 
 export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onChanged, issueOwned = false }: { issueOwned?: boolean; draft: MailDraft; bot?: Bot; group: boolean; archived?: boolean; onDemoAction?: (action: "save" | "send" | "decline", fields: { to: string; subject: string; body: string }) => Promise<void>; onChanged: () => Promise<void> }) {
@@ -27,8 +29,6 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
   const [busy, setBusy] = useState<"save" | "send" | "decline" | "">("");
-  const [animating, setAnimating] = useState(false);
-  const letterRef = useRef<HTMLElement | null>(null);
   // Only a send or cancel made in this view settles in; history renders still.
   const actedHere = useRef(false);
   const [error, setError] = useState("");
@@ -43,12 +43,8 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
     if (action !== "save") actedHere.current = true;
     try {
       if (onDemoAction) {
-        if (action === "send") setAnimating(true);
         await onDemoAction(action, { to, subject, body });
         if (action === "save") setEditing(false);
-        if (action === "send" && letterRef.current) {
-          try { await flyMailDraft(letterRef.current); } catch { /* The approved demo outcome stands even if motion fails. */ }
-        }
         return;
       }
       if (action === "save") {
@@ -57,44 +53,39 @@ export function MailDraftCard({ draft, bot, group, archived, onDemoAction, onCha
       } else {
         await request(`/api/mail-drafts/${encodeURIComponent(draft.draft_id)}/${action}`, { method: "POST", body: JSON.stringify({ revision: draft.revision }) });
       }
-      if (action === "send" && letterRef.current) {
-        setAnimating(true);
-        try { await flyMailDraft(letterRef.current); } catch { /* A confirmed send must still update the card. */ } finally { setAnimating(false); }
-      }
       await onChanged();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("draft.action_failed"));
       if (action !== "save") void onChanged();
-    } finally { setBusy(""); setAnimating(false); }
+    } finally { setBusy(""); }
   }
-  const pending = draft.status === "pending" || animating;
-  if (draft.status === "sent" || draft.status === "declined") return <article className={`task-mail-record mail-draft-done is-${draft.status}${actedHere.current ? " is-arriving" : ""}`} data-draft-id={draft.draft_id} tabIndex={-1}>
-    <p><span className="mail-draft-done-dot" aria-hidden="true" />{taskDraftLabel(draft)}: {draft.status === "declined" ? t("draft.declined") : draft.demo ? t("draft.demo_done") : t("draft.sent")}<time>{t(draft.status === "declined" ? "draft.declined_at" : "draft.sent_at", { time: formatClock(draft.updated_at) })}</time></p>
-    <details><summary>{t("draft.view_record")}</summary><dl><dt>TO</dt><dd>{draft.to}</dd>{draft.cc && <><dt>CC</dt><dd>{draft.cc}</dd></>}{draft.bcc && <><dt>BCC</dt><dd>{draft.bcc}</dd></>}<dt>{t("draft.subject")}</dt><dd>{draft.subject}</dd></dl><p>{draft.body}</p><DraftAttachments items={draft.attachments} label={t("draft.attachments")} /></details>
-  </article>;
+  const pending = draft.status === "pending";
+  const lock = Boolean(busy);
+  if (draft.status === "sent" || draft.status === "declined") return <div className={`mail-draft-done is-${draft.status}${actedHere.current ? " is-arriving" : ""}`} data-draft-id={draft.draft_id} tabIndex={-1}>
+    <DraftCard state={draft.status === "sent" ? "sent" : "canceled"} label={taskDraftLabel(draft)} sentLabel={draft.demo ? t("draft.demo_done") : t("draft.sent")} canceledLabel={t("draft.declined")}
+      receipt={`${taskDraftLabel(draft)} · ${t(draft.status === "declined" ? "draft.declined_at" : "draft.sent_at", { time: formatClock(draft.updated_at) })}`}
+      after={<DraftAttachments items={draft.attachments} label={t("draft.attachments")} />}>
+      <b>{draft.subject}</b> · {draft.to}
+    </DraftCard>
+  </div>;
   return <article className={`mail-draft-message${group ? " is-group" : " is-dm"}`} data-draft-id={draft.draft_id} tabIndex={-1}>
     {group && <div className="mail-draft-identity"><BotAvatar id={draft.bot_id} mini /><strong>{bot?.name ?? "Bot"}</strong></div>}
     {draft.status === "unknown" && <p className="task-record-meta">{taskDraftLabel(draft)}: {t("draft.sending_needs_checking")}</p>}
-    {(pending || draft.status === "sending" || draft.status === "unknown") && <section ref={letterRef} className={`mail-draft-letter${pending && !animating ? " is-pending" : ""}`} aria-label={t("draft.full_text")}>
-      <div className="mail-draft-stripe" aria-hidden="true" />
-      <div className="mail-draft-fields">
-        <label>{tc("ds.letter.to")} {editing ? <input type="text" value={to} placeholder={t("draft.add_recipient")} onChange={event => setTo(event.target.value)} disabled={Boolean(busy)} /> : <strong className={draft.to ? undefined : "mail-draft-missing"}>{draft.to || t("draft.add_recipient")}</strong>}</label>
-        {(editing || draft.cc) && <label>{tc("ds.letter.cc")} {editing ? <input type="text" value={cc} placeholder={t("draft.add_cc")} onChange={event => setCc(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.cc}</strong>}</label>}
-        {(editing || draft.bcc) && <label>BCC {editing ? <input type="text" value={bcc} placeholder={t("draft.add_bcc")} onChange={event => setBcc(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.bcc}</strong>}</label>}
-        <label>{t("draft.subject")} {editing ? <input type="text" value={subject} onChange={event => setSubject(event.target.value)} disabled={Boolean(busy)} /> : <strong>{draft.subject}</strong>}</label>
-        <span className="mail-draft-stamp" aria-hidden="true"><BotAvatar id={draft.bot_id} bare /></span>
-      </div>
-      <div className="mail-draft-paper">{editing ? <textarea aria-label={t("draft.body")} value={body} onChange={event => setBody(event.target.value)} disabled={Boolean(busy)} rows={8} /> : <p>{draft.body}</p>}</div>
-      <DraftAttachments items={draft.attachments} label={t("draft.attachments")} />
-      <footer>{editing ? <><button type="button" disabled={Boolean(busy)} onClick={() => { setTo(draft.to); setCc(draft.cc ?? ""); setBcc(draft.bcc ?? ""); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>{t("draft.discard")}</button><button type="button" className="mail-draft-save" disabled={Boolean(busy || !changed)} onClick={() => void act("save")}>{busy === "save" ? t("draft.saving") : t("draft.save")}</button></>
-        : draft.status === "pending" ? <>
-          <button type="button" className="mail-draft-text-action" disabled={Boolean(busy || archived)} onClick={() => setEditing(true)}><TofiIcon name="edit" size={15} aria-hidden="true" />{t("draft.edit")}</button>
-          {draft.demo && <span className="mail-draft-hint"><b>{t("draft.demo_badge")}</b>{t("draft.demo_hint")}</span>}
-          <button type="button" className="mail-draft-decline" disabled={Boolean(busy || archived)} onClick={() => void act("decline")}>{busy === "decline" ? t("draft.working") : t("draft.hold")}</button>
-          <button type="button" className="mail-draft-send" disabled={Boolean(busy || archived || changed || !draft.to.trim())} onClick={() => void act("send")}><TofiIcon name="arrow-up" size={16} aria-hidden="true" />{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</button>
-        </>
-        : <span>{draft.status === "unknown" ? t("draft.sending_needs_checking") : t("draft.sending_now")}</span>}</footer>
-      {(error || onDemoAction || archived) && <p className={error ? "mail-draft-error" : "mail-draft-note"} role={error ? "alert" : undefined}>{error || (onDemoAction ? t("draft.motion_lab_note") : t("draft.restore_to_act"))}</p>}
-    </section>}
+    {(pending || draft.status === "sending" || draft.status === "unknown") && <Letter direction="out" className="mail-draft-letter" label={t("draft.full_text")}
+      to={editing ? <TextInput aria-label={tc("ds.letter.to")} value={to} placeholder={t("draft.add_recipient")} onChange={event => setTo(event.target.value)} disabled={lock} /> : draft.to || <span className="mail-draft-missing">{t("draft.add_recipient")}</span>}
+      cc={editing ? <TextInput aria-label="CC" value={cc} placeholder={t("draft.add_cc")} onChange={event => setCc(event.target.value)} disabled={lock} /> : draft.cc || undefined}
+      bcc={editing ? <TextInput aria-label="BCC" value={bcc} placeholder={t("draft.add_bcc")} onChange={event => setBcc(event.target.value)} disabled={lock} /> : draft.bcc || undefined}
+      subject={editing ? <TextInput aria-label={t("draft.subject")} value={subject} onChange={event => setSubject(event.target.value)} disabled={lock} /> : draft.subject}
+      subjectLabel={t("draft.subject")}
+      stamp={<BotAvatar id={draft.bot_id} bare />}
+      attachment={draft.attachments?.length ? <DraftAttachments items={draft.attachments} label={t("draft.attachments")} /> : undefined}
+      actions={editing ? <Button variant="ghost" size="sm" disabled={lock} onClick={() => { setTo(draft.to); setCc(draft.cc ?? ""); setBcc(draft.bcc ?? ""); setSubject(draft.subject); setBody(draft.body); setEditing(false); setError(""); }}>{t("draft.discard")}</Button>
+        : pending ? <><Button variant="ghost" size="sm" icon="edit" disabled={lock || Boolean(archived)} onClick={() => setEditing(true)}>{t("draft.edit")}</Button><Button variant="ghost" size="sm" disabled={lock || Boolean(archived)} onClick={() => void act("decline")}>{busy === "decline" ? t("draft.working") : t("draft.hold")}</Button></> : undefined}
+      hint={editing ? undefined : pending ? (draft.demo ? <><b>{t("draft.demo_badge")}</b> {t("draft.demo_hint")}</> : undefined) : draft.status === "unknown" ? t("draft.sending_needs_checking") : t("draft.sending_now")}
+      primary={editing ? <Button variant="primary" size="sm" disabled={lock || !changed} busy={busy === "save"} onClick={() => void act("save")}>{busy === "save" ? t("draft.saving") : t("draft.save")}</Button>
+        : pending ? <Button variant="primary" size="sm" icon="arrow-up" disabled={lock || Boolean(archived) || changed || !draft.to.trim()} busy={busy === "send"} onClick={() => void act("send")}>{busy === "send" ? t("draft.sending") : draft.demo ? t("draft.demo_send") : t("draft.send")}</Button> : undefined}>
+      {editing ? <TextArea aria-label={t("draft.body")} value={body} onChange={event => setBody(event.target.value)} disabled={lock} rows={8} /> : <p className="mail-draft-body">{draft.body}</p>}
+    </Letter>}
+    {(error || onDemoAction || archived) && <p className={error ? "mail-draft-error" : "mail-draft-note"} role={error ? "alert" : undefined}>{error || (onDemoAction ? t("draft.motion_lab_note") : t("draft.restore_to_act"))}</p>}
   </article>;
 }

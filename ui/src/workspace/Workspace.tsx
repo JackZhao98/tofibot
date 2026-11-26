@@ -27,7 +27,6 @@ import "../MessageReactions";
 import { applyUserReaction } from "../reactionState";
 import { applyMessageTask } from "../messageLink";
 import { setMessageActions, tappedMessageActionsId } from "../messageActionsStore";
-import "../DisplayCard";
 import { useQuestions } from "../useQuestions";
 import { toolActivityKey } from "../toolTimeline";
 import { setToolResultLoader } from "../toolResultLoader";

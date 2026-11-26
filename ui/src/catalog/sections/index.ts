@@ -7,6 +7,7 @@ import type { CatalogSection } from "../types";
 import { actions, bubbles, composer, edges, receipts } from "./chat";
 import { dialogs, hints, listboxes, menus, popovers } from "./overlays";
 import { approvals, handover, questions, standing } from "./cards";
+import { mailCards } from "./mail";
 import { settings } from "./settings";
 import { boot, computer, notices, other, pins, push, rows } from "./workspace";
 import { v3 } from "./v3";
@@ -14,6 +15,6 @@ import { v3 } from "./v3";
 export const SECTIONS: CatalogSection[] = [
   foundations, primitives, surfaces,
   bubbles, actions, receipts, composer, rows, pins, dialogs, menus, hints, popovers, listboxes,
-  questions, approvals, handover, standing, settings, notices, boot, computer, push, edges, other,
+  questions, approvals, handover, mailCards, standing, settings, notices, boot, computer, push, edges, other,
   v3,
 ];
