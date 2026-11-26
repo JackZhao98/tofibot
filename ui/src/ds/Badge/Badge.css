@@ -3,7 +3,7 @@
   font: 600 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
   border-radius: var(--radius-xs); border: var(--border-1) solid transparent; color: var(--ink); background: var(--surface-2);
 }
-.tb-badge:empty, .tb-badge > span:empty { display: none; }
+.tb-badge:empty, .tb-badge > span:empty:not(.tb-breath) { display: none; }
 .tb-badge--working { background: color-mix(in srgb, var(--teal) 18%, var(--surface)); color: var(--teal-text); }
 .tb-badge--done { background: color-mix(in srgb, var(--lime) 22%, var(--surface)); color: var(--lime-text); }
 .tb-badge--unread { background: color-mix(in srgb, var(--mustard) 24%, var(--surface)); color: var(--mustard-text); }

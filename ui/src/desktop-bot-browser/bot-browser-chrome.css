@@ -1,26 +1,15 @@
+/* Mac Bot-browser side panel: layout only (V3 PR 8.2d). The buttons, tabs, address field, status stamp and empty state are kit parts. */
 @layer legacy {
-.bb-document { margin:0; height:100dvh; overflow:hidden; background:var(--bg); color:var(--ink); font:13px/1.4 var(--font-body); -webkit-font-smoothing:antialiased; user-select:none; }
+.bb-document { margin:0; height:100dvh; overflow:hidden; background:var(--bg); color:var(--ink); user-select:none; }
 .bb-root { height:100%; }
 .bb-chrome, .bb-chrome * { box-sizing:border-box; }
-.bb-chrome { display:flex; flex-direction:column; height:100%; border-left:1px solid var(--line); }
-.bb-toolbar { flex:none; position:relative; display:flex; align-items:center; gap:4px; height:52px; padding:0 10px; background:var(--surface); }
-.bb-toolbar::after { content:""; position:absolute; inset:auto 0 0; height:1px; background:var(--line); }
-.bb-icon-button { flex:none; }
-.bb-address { flex:1; min-width:120px; display:flex; align-items:center; gap:8px; height:32px; margin:0 4px; padding:0 12px; border-radius:var(--radius-sm); background:var(--surface-2); color:var(--muted); transition:background-color var(--m-press); }
-.bb-address:focus-within { background:var(--bg); }
-.bb-address-input { flex:1; min-width:0; width:100%; height:100%; padding:0; border:0; background:transparent; color:var(--ink); font:inherit; user-select:text; }
-.bb-address-input::placeholder { color:var(--muted); }
-.bb-address-input:focus-visible { outline-offset:1px; }
-.bb-status { flex:none; display:flex; align-items:center; gap:6px; height:28px; padding:0 8px; border-radius:var(--radius-pill); color:var(--muted); font-size:12px; white-space:nowrap; }
-.bb-status-dot { width:7px; height:7px; border-radius:var(--radius-pill); background:var(--teal); animation:bb-pulse calc(var(--m-flight) * 2.5) var(--ease-inout) infinite; }
-.bb-hand-back { flex:none; white-space:nowrap; }
+.bb-chrome { display:flex; flex-direction:column; height:100%; border-left:var(--border-1) solid var(--line); }
+.bb-toolbar { flex:none; position:relative; display:flex; align-items:center; gap:4px; height:52px; padding:0 10px; background:var(--surface); border-bottom:var(--border-1) solid var(--line); }
+.bb-form { flex:1; min-width:120px; margin:0 4px; }
+.bb-address { height:32px; }
+.bb-address input { padding:0; user-select:text; }
+.bb-status, .bb-hand-back { flex:none; white-space:nowrap; }
 .bb-progress { position:absolute; left:0; bottom:0; height:2px; width:70%; background:var(--teal); }
-.bb-tabs { flex:none; background:var(--surface); }
-.bb-empty { flex:1; display:grid; place-content:center; justify-items:center; gap:10px; padding:32px; text-align:center; }
-.bb-empty > svg { color:var(--muted); opacity:.7; }
-.bb-empty h1 { margin:6px 0 0; font-size:15px; font-weight:600; }
-.bb-empty p { max-width:300px; margin:0; color:var(--muted); line-height:1.55; }
+.bb-main { flex:1; display:grid; place-items:center; }
 @media (width < 520px) { .bb-status-text { display:none; } }
-@keyframes bb-pulse { 50% { opacity:.35; } }
-@media (prefers-reduced-motion:reduce) { .bb-chrome * { animation:none; transition:none; } }
 }

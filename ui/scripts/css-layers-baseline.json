@@ -85,7 +85,7 @@
   },
   "new-group.css": {
     "global": 0,
-    "rootBump": 1,
+    "rootBump": 0,
     "webFork": 0,
     "important": 1,
     "tokenDef": 0

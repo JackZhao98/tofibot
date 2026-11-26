@@ -1,18 +1,8 @@
-@layer reset { *{box-sizing:border-box} }
-@layer base {
- html,body,#root{min-width:320px;min-height:100%}
- body{margin:0}
- /* Cursor convention (Claude.ai): controls keep the arrow; only a plain text link keeps the native hand. No component declares a pointer cursor. */
- button,summary,select,label[for],[role="button"],[role="tab"],[role="menuitem"],[role="option"],[role="switch"],[role="checkbox"],[role="radio"],input[type="checkbox"],input[type="radio"],input[type="range"],input[type="file"],input[type="button"],input[type="submit"]{cursor:default}
- button:disabled{cursor:not-allowed}
-input,textarea,select{width:100%;margin-top:7px;resize:vertical}
-}
-
 @layer legacy {
 .spinner{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}
 }
-.eyebrow{margin:0 0 8px;color:var(--muted);font:700 11px/1.2 ui-monospace,monospace;letter-spacing:.15em}
+.eyebrow{margin:0 0 8px;color:var(--muted);font:700 11px/1.2 var(--font-mono);letter-spacing:.15em}
 .muted{color:var(--muted);line-height:1.65}
 
 :is(.settings-section)>form{display:grid;gap:10px}
@@ -52,7 +42,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .tool-activity[open]>summary::before{transform:rotate(90deg)}
 .tool-activity summary strong{color:var(--ink-soft);font-weight:650}
 .tool-activity-details{display:grid;gap:7px;margin:2px 0 6px 18px;padding:8px 10px}
-.tool-activity-details pre{max-height:160px;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink-soft);font:11px/1.45 ui-monospace,monospace}
+.tool-activity-details pre{max-height:160px;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink-soft);font:11px/1.45 var(--font-mono)}
 
 .message-scroll{position:relative;min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:34px clamp(16px,5vw,80px) 120px;scroll-behavior:auto}
 .inline-state,.conversation-empty{display:grid;place-items:center;min-height:250px;color:var(--muted);font-size:13px;gap:10px}
@@ -138,7 +128,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--lime)}
 .verification-card{display:grid;gap:10px;margin:17px 0;padding:15px}
 .verification-card p,.extension-card p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}
-.verification-card code{color:var(--lime-text);font:700 25px ui-monospace,monospace;letter-spacing:.14em}
+.verification-card code{color:var(--lime-text);font:700 25px var(--font-mono);letter-spacing:.14em}
 .verification-card a{color:var(--lime-text);font-size:12px;text-decoration:none}
 
 .extension-list{display:grid;gap:9px}
@@ -161,7 +151,7 @@ input,textarea,select{width:100%;margin-top:7px;resize:vertical}
 .computer-key-row{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
 .computer-key-row .secondary-button{font-size:12px;padding:8px 10px}
 .computer-screen{display:block;width:100%;max-height:360px;object-fit:contain;cursor:crosshair;background:var(--desktop-controls-solid);border-radius:8px}
-.computer-output{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink-soft);padding:10px;font:11px/1.45 ui-monospace,monospace}
+.computer-output{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink-soft);padding:10px;font:11px/1.45 var(--font-mono)}
 .computer-tools{margin-top:12px;border-top:1px solid var(--line)}
 .computer-tools>summary{padding:11px 0;color:var(--ink-soft);font-size:12px;font-weight:650;list-style:none}
 .computer-tools>summary::-webkit-details-marker{display:none}

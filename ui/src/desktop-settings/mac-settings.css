@@ -10,13 +10,11 @@ html[data-desktop="darwin"] .mac-settings.settings-shell{padding-top:44px}
 html[data-desktop="darwin"] .mac-settings-titlebar{display:block;position:fixed;inset:0 0 auto 0;height:28px;z-index:var(--z-panel)}
 .mac-settings .settings-row-control{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
 .mac-settings .settings-row-copy code{display:block;margin-top:2px;color:var(--ink-soft);font:12.5px/1.5 var(--font-mono);overflow-wrap:anywhere}
-.mac-settings .settings-row-control .primary-button{text-decoration:none}
-.mac-settings .settings-row-control .mac-input{width:300px;max-width:100%}
+.mac-settings .settings-row-control .tb-btn{text-decoration:none}
 .mac-settings .settings-card-note[role="status"]:empty{display:none}
 @media(max-width:700px){
   .mac-settings .settings-page-body{padding:16px 16px 32px}
     .mac-settings .settings-row-control,.mac-settings .settings-row-v2:not(.is-inline) .settings-row-control{justify-content:flex-start}
-  .mac-settings .settings-row-control .mac-input{width:100%}
-  .mac-settings .st-button,.mac-settings .primary-button,.mac-settings .settings-row-control .st-button,.mac-settings .settings-row-control .primary-button,.mac-settings .settings-row-v2 .primary-button{min-height:44px}
+  .mac-settings .tb-btn{min-height:44px}
 }
 }

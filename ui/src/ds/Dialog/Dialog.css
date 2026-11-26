@@ -36,7 +36,10 @@
 .tb-dialog-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 16px 18px 18px; }
 /* On a phone the actions share the width, so long labels that wrap still line up. */
 @media (max-width: 700px) { .tb-dialog-foot > * { flex: 1 1 auto; } }
+/* A sheet on a phone: the scrim leaves 8 px round the panel and the panel sits on the bottom edge, full width. */
+@media (max-width: 700px) { .tb-scrim--dock { align-items: end; padding: 8px; } }
 
 @layer legacy {
   :where(.tb-dialog) { width: min(440px, 100%); max-height: calc(100dvh - 48px); overflow-y: auto; }
+  @media (max-width: 700px) { :where(.tb-dialog--dock) { width: 100%; max-height: calc(100dvh - 16px); } }
 }

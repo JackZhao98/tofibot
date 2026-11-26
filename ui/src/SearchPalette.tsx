@@ -7,6 +7,7 @@ import { formatDateTime } from "./i18n/format";
 import { TofiIcon as Icon, type TofiIconName } from "./icons";
 import { IconButton } from "./ds/IconButton/IconButton";
 import { Kbd } from "./ds/Kbd/Kbd";
+import { SidebarRow } from "./ds/SidebarRow/SidebarRow";
 import { Tabs } from "./ds/Tabs/Tabs";
 import { ModalDialog } from "./overlays/ModalDialog";
 import "./ds/control.css";
@@ -150,24 +151,19 @@ export function SearchPalette({ conversations, onClose, onOpenConversation, onOp
         {sections.map(section => <Command.Group className="search-palette-group" key={section.id} heading={<div className="search-palette-label">{section.label}</div>}>
           {section.items.map(item => {
             const common = { value: item.key, onSelect: () => choose(item) };
-            if (item.type === "action") return <Command.Item key={item.key} className="search-palette-row is-action" {...common}><span className="search-palette-icon"><Icon name={item.icon} size={18} /></span><span className="search-palette-title">{item.label}</span></Command.Item>;
+            if (item.type === "action") return <Command.Item key={item.key} asChild {...common}><SidebarRow as="button" className="search-palette-row is-action" icon={item.icon} label={<span className="search-palette-title">{item.label}</span>} /></Command.Item>;
             if (item.type === "chat") {
               const c = item.conversation;
               const at = q ? sameQuery(c.name, q) : -1;
-              return <Command.Item key={item.key} className="search-palette-row is-chat" {...common}>
-                <span className="search-palette-icon">{c.kind === "dm" && c.bot_id ? <BotAvatar id={c.bot_id} mini still /> : <Icon name={c.kind === "group" ? "group" : "chat"} size={18} />}</span>
-                <span className="search-palette-title">{at >= 0 ? <Highlighted text={c.name} start={at} length={q.length} /> : c.name}</span>
-                <time className="search-palette-time" dateTime={c.updated_at}>{time(c.updated_at)}</time>
-              </Command.Item>;
+              const lead = c.kind === "dm" && c.bot_id ? { avatar: <BotAvatar id={c.bot_id} mini still /> } : { icon: (c.kind === "group" ? "group" : "chat") as TofiIconName };
+              return <Command.Item key={item.key} asChild {...common}><SidebarRow as="button" className="search-palette-row is-chat" {...lead}
+                label={<span className="search-palette-title">{at >= 0 ? <Highlighted text={c.name} start={at} length={q.length} /> : c.name}</span>}
+                meta={<time className="search-palette-time" dateTime={c.updated_at}>{time(c.updated_at)}</time>} /></Command.Item>;
             }
             const h = item.hit;
-            return <Command.Item key={item.key} className="search-palette-row is-message" {...common}>
-              <span className="search-palette-icon"><Icon name="chat" size={18} /></span>
-              <span className="search-palette-body">
-                <span className="search-palette-snippet"><Highlighted text={h.snippet} start={h.match_start} length={h.match_len} /></span>
-                <span className="search-palette-meta"><span className="search-palette-conversation">{h.conversation_name}</span><time dateTime={h.created_at}>{time(h.created_at)}</time></span>
-              </span>
-            </Command.Item>;
+            return <Command.Item key={item.key} asChild {...common}><SidebarRow as="button" className="search-palette-row is-message" icon="chat"
+              label={<span className="search-palette-snippet"><Highlighted text={h.snippet} start={h.match_start} length={h.match_len} /></span>}
+              meta={<span className="search-palette-meta"><span className="search-palette-conversation">{h.conversation_name}</span><time dateTime={h.created_at}>{time(h.created_at)}</time></span>} /></Command.Item>;
           })}
         </Command.Group>)}
         {status === "loading" && !flat.some(item => item.type === "message") && <div className="search-palette-note" role="status">{t("search.searching")}</div>}

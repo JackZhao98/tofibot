@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import * as Toolbar from "@radix-ui/react-toolbar";
 import { useTranslation } from "../i18n";
-import { TofiIcon } from "../icons";
 import type { IconName } from "../ds/Icon/Icon";
 import { Button } from "../ds/Button/Button";
 import { IconButton } from "../ds/IconButton/IconButton";
+import { Badge } from "../ds/Badge/Badge";
+import { EmptyState } from "../ds/EmptyState/EmptyState";
+import { TextInput } from "../ds/TextInput/TextInput";
 import { Tabs } from "../ds/Tabs/Tabs";
 import { addressURL, signal, useHostData } from "./hostBridge";
 
@@ -28,21 +30,18 @@ export function BotBrowserChrome() {
         {iconButton("chevron-left", text("back"), "back", !data.canGoBack)}
         {iconButton("chevron-right", text("forward"), "forward", !data.canGoForward)}
         {iconButton(data.loading ? "close" : "retry", text(data.loading ? "stop" : "reload"), data.loading ? "stop" : "reload", !data.active)}
-        <form className="bb-address" role="search" onSubmit={event => {
+        <form className="bb-form" role="search" onSubmit={event => {
           event.preventDefault();
           const url = addressURL(input.current?.value || "");
           if (url) { input.current?.blur(); location.href = url; }
         }}>
-          <TofiIcon name={/^https:/.test(data.url) ? "lock" : "globe"} size={14} />
-          <input ref={input} className="bb-address-input" type="text" aria-label={text("address")}
+          <TextInput ref={input} className="bb-address" icon={/^https:/.test(data.url) ? "lock" : "globe"} aria-label={text("address")}
             placeholder={text("address")} spellCheck={false} autoComplete="off" autoCapitalize="off"
             onFocus={event => event.currentTarget.select()} onKeyDown={event => {
               if (event.key === "Escape") { event.currentTarget.value = data.url || ""; event.currentTarget.blur(); }
             }} />
         </form>
-        {data.phase === "bot" && data.acting && <span className="bb-status" role="status" title={text("bot")} aria-label={text("bot")}>
-          <i className="bb-status-dot" /><span className="bb-status-text">{text("bot")}</span>
-        </span>}
+        {data.phase === "bot" && data.acting && <span className="bb-status" role="status" title={text("bot")} aria-label={text("bot")}><Badge tone="working"><span className="bb-status-text">{text("bot")}</span></Badge></span>}
         {(data.phase === "human" || data.phase === "stopped") && <Toolbar.Button asChild><Button className="bb-hand-back" variant="primary" size="sm"
           title={`${text("human")} · ${text("hand_back")}`} aria-label={text("hand_back")} onClick={() => signal("return")}>{text("hand_back_short")}</Button></Toolbar.Button>}
         {iconButton("close", text("close"), "close")}
@@ -50,9 +49,7 @@ export function BotBrowserChrome() {
       </Toolbar.Root>
       {data.targets.length >= 2 && <Tabs compact className="bb-tabs" label={text("empty_title")} value={data.active ?? ""} onChange={signal}
         tabs={data.targets.map(target => ({ value: target.target_id, label: <span title={target.url}>{target.title || target.url}</span> }))} />}
-      {data.active === null && <main className="bb-empty">
-        <TofiIcon name="globe" size={40} /><h1>{text("empty_title")}</h1><p>{text("empty_body")}</p>
-      </main>}
+      {data.active === null && <main className="bb-main"><EmptyState className="bb-empty" icon="globe" title={text("empty_title")}>{text("empty_body")}</EmptyState></main>}
     </div>
   );
 }
