@@ -43,7 +43,7 @@ import {buildAndServeFixture} from "./lib/fixture-build.mjs";
 
 // The single allowed set of design-system button classes (all defined in the shared CSS), plus containers whose
 // buttons are styled as a group (segmented control, tab strips, the settings rail).
-const ALLOWED_BUTTON_CLASSES = ["settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-link", "tb-switch", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "gen-expand-toggle", "tb-btn", "tb-iconbtn", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "tb-seg-opt", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
+const ALLOWED_BUTTON_CLASSES = ["settings-ghost-button", "admin-danger-button", "purge-button", "close-button", "settings-banner-more", "mcp-service-open", "mcp-detail-back", "mcp-tier-trigger", "mcp-empty-tile", "settings-mrow", "settings-back", "st-link", "tb-switch", "tb-driver", "st-subpage-back", "settings-row-v2", "settings-nav-more", "admin-row", "disclosure-toggle", "gen-expand-toggle", "tb-btn", "tb-iconbtn", "integration-tile", "integration-custom", "extension-back", "settings-dismiss", "danger-link", "onb-choice", "tb-seg-opt", "onb-quiet", "onb-skip", "onb-later", "onb-tile", "onb-service-main", "onb-primary", "update-banner-dismiss", "ui-select-trigger", "portability-group-trigger", "connect-scope-card"];
 const ALLOWED_BUTTON_CONTAINERS = [".segmented", ".settings-tabs", ".settings-segment", ".credential-tabs", ".onb-seg", ".usage-agents", ".usage-ranges"];
 
 const SIZES = {"1440": [1440, 900], "1180": [1180, 820], "1024": [1024, 768], "390": [390, 844]};
@@ -57,7 +57,7 @@ if (shots) await mkdir(shots, {recursive: true});
 function auditPage(opts) {
   const {mobile, allowedClasses, allowedContainers} = opts;
   const found = [];
-  const roots = [...document.querySelectorAll(".settings-shell, .sheet-overlay, dialog[open], [data-onboarding]")].filter(root => !root.parentElement?.closest(".settings-shell, .sheet-overlay, dialog[open], [data-onboarding]"));
+  const roots = [...document.querySelectorAll(".settings-shell, .tb-scrim--modal, dialog[open], [data-onboarding]")].filter(root => !root.parentElement?.closest(".settings-shell, .tb-scrim--modal, dialog[open], [data-onboarding]"));
   const inRoots = el => roots.some(root => root.contains(el));
   const name = el => {
     const part = node => node.tagName.toLowerCase() + (node.id ? "#" + node.id : "") + [...node.classList].slice(0, 2).map(c => "." + c).join("");
@@ -92,7 +92,7 @@ function auditPage(opts) {
     const r = el.getBoundingClientRect();
     return r.width >= 200 && r.height >= 56;
   };
-  const cardOf = el => { for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) { if (node.matches(".settings-card, .sheet, .settings-banner, .extension-card") || CARD_BORDERED(node)) return node; } return null; };
+  const cardOf = el => { for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) { if (node.matches(".settings-card, .tb-dialog, .settings-banner, .extension-card") || CARD_BORDERED(node)) return node; } return null; };
   const innerLeft = card => card.getBoundingClientRect().left + parseFloat(style(card).borderLeftWidth);
   const innerRight = card => card.getBoundingClientRect().right - parseFloat(style(card).borderRightWidth);
 
@@ -178,7 +178,7 @@ function auditPage(opts) {
 
   // ---- clipped inner scroll boxes: a scrollable element inside a card must show all of its content
   for (const el of document.querySelectorAll("*")) {
-    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .sheet, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
+    if (!inRoots(el) || el.matches("textarea, input, select, svg, pre, .settings-page-body, .settings-tabs, .tb-dialog, .onb-sheet, .onb-body, .onb-step") || !visible(el)) continue;
     if (!/auto|scroll/.test(style(el).overflowY) || !cardOf(el)) continue;
     if (el.scrollHeight > el.clientHeight + 2) add("clipped-scroll", el, `scrollHeight ${el.scrollHeight}px > clientHeight ${el.clientHeight}px`);
   }
@@ -218,7 +218,7 @@ function auditPage(opts) {
         const o = style(node).overflowX;
         if (o === "hidden" || o === "clip" || o === "auto" || o === "scroll") { clipper = node; limit = Math.min(limit, node.getBoundingClientRect().right); break; }
       }
-      if (clipper && /auto|scroll/.test(style(clipper).overflowX) && !clipper.matches(".settings-page-body, .sheet, .settings-content, .onb-sheet, [data-onboarding]")) continue; // an intentional horizontal scroller
+      if (clipper && /auto|scroll/.test(style(clipper).overflowX) && !clipper.matches(".settings-page-body, .tb-dialog, .settings-content, .onb-sheet, [data-onboarding]")) continue; // an intentional horizontal scroller
       if (r.right > limit + 1 && r.left < window.innerWidth) add("overflow", el, `right edge ${Math.round(r.right)}px > ${Math.round(limit)}px`);
     }
   }
@@ -462,7 +462,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       if (await page.locator(".web-oauth-link, .web-oauth-node, .web-oauth-provider").count()) throw new Error("the sign-in illustration is back");
     }},
     // Google (gogcli) OAuth client JSON, in the connect dialog: the picker is a styled button; the native file input must stay hidden before and after choosing.
-    {id: "connections-google-json", tab: "connections", container: ".sheet", run: async ({page}) => {
+    {id: "connections-google-json", tab: "connections", container: ".connect-dialog", run: async ({page}) => {
       await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection");
       await click(page.locator('.connect-dialog [data-integration-id="google"]'), "Connections: Google");
       const field = page.locator(".connect-dialog .connect-field", {has: page.locator('input[type="file"]')});
@@ -480,7 +480,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     {id: "connections-permission-menu", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-service-open'), "Connections: open the connection"); await click(page.locator(".mcp-tier-trigger").first(), "Connections: permission menu"); await page.getByRole("menu").waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: permission menu did not open")); await page.waitForTimeout(300); }},
     {id: "connections-advanced", tab: "connections", run: async ({page}) => { await click(page.locator('.mcp-service[aria-label="acme_tracker"] .mcp-service-open'), "Connections: open the connection"); await click(page.locator(".mcp-detail").getByRole("button", {name: "Advanced"}), "Connections: Advanced"); await page.waitForTimeout(500); }},
     // The connect dialog's directory, and the Workspace preview grouping opened inside it.
-    {id: "connections-directory", tab: "connections", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
+    {id: "connections-directory", tab: "connections", container: ".connect-dialog", run: async ({page}) => { await click(page.getByRole("button", {name: "Add connection"}), "Connections: Add connection"); await page.locator(".connect-dialog").waitFor({timeout: 4000}); await click(page.getByRole("button", {name: /Google Workspace servers/}), "Connections: Workspace preview"); await page.waitForTimeout(500); }},
     {id: "skills-paste", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Paste SKILL\.md/}), "Skills: paste"); await page.waitForTimeout(500); }},
     {id: "skills-bundle-open", tab: "skills", run: async ({page}) => { await click(page.getByRole("button", {name: /Show 2 Skills/}), "Skills: show bundle members"); await page.getByRole("button", {name: /Versions \(2\)/}).click().catch(() => warnings.push("step skipped: versions disclosure")); await page.waitForTimeout(400); }},
     {id: "permissions-modes", tab: "permissions", section: "advanced", run: async ({page}) => {
@@ -545,7 +545,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }},
     {id: "advanced-danger", tab: "advanced", run: async ({page}) => { await page.locator(".danger-zone input").first().fill("PURGE").catch(() => warnings.push("step skipped: purge input")); await page.waitForTimeout(300); }},
     {id: "admin-detail", tab: "admin", run: async ({page}) => { await click(page.locator('.admin-row[data-account="acct_two"]'), "Admin: row"); await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
-    {id: "admin-add-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add account"}), "Admin: Add account"); await page.locator(".sheet").waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
+    {id: "admin-add-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add account"}), "Admin: Add account"); await page.locator(".tb-dialog").waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
     {id: "admin-delete-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => {
       await click(page.locator('.admin-row[data-account="acct_three"]'), "Admin: deactivated row");
       await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {});
@@ -652,7 +652,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const handle = await page.locator(selector).first().elementHandle().catch(() => null);
     const extra = handle ? await handle.evaluate(el => Math.max(0, Math.min(8000, el.scrollHeight - el.clientHeight))) : 0;
     if (extra > 0) {
-      await page.addStyleTag({content: "@media(min-width:701px){.workspace .detail-pane:has(.settings-tabs){height:calc(100dvh - 48px)!important;max-height:none!important}}.sheet,.onb-sheet{max-height:none!important}"});
+      await page.addStyleTag({content: "@media(min-width:701px){.workspace .detail-pane:has(.settings-tabs){height:calc(100dvh - 48px)!important;max-height:none!important}}.tb-dialog,.onb-sheet{max-height:none!important}"});
       await page.setViewportSize({width: base.width, height: base.height + extra + 60});
       await page.waitForTimeout(300);
     }

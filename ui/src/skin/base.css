@@ -55,7 +55,7 @@
   :where(
     .tb-scroll, .message-scroll, .view-only-chat-body, .contact-section, .detail-pane, .computer-detail, .computer-output, .mention-menu,
     .cover-body, .sidebar-layer, textarea, .bs-scroll, .bs-nav, .bot-style-pop, .gs-scroll, .gs-members, .new-group-dialog, .settings-page-body, .settings-leave-dialog,
-    .tb-settings-rail, .tb-dialog, .tb-menu, .tb-table-wrap, .sheet, .search-palette-list, .onb-body, .permission-coach, .plan-steps,
+    .tb-settings-rail, .tb-dialog, .tb-menu, .tb-table-wrap, .search-palette-list, .onb-body, .permission-coach, .plan-steps,
     .resource-restart-dialog, .env-config-body, .ag-pick, .fp-body, .fp-code, .fp-table,
     .run-context-items, .run-context-part-text pre, .task-issue-technical pre, .task-activity pre, .tool-activity-details pre, .approval-payload pre,
     .prompt-preview, .debug-tools pre, .usage-call-list, .context-card[data-card="usage"] .context-card-body, .sidebar-account-submenu,

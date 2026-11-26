@@ -42,4 +42,7 @@
 @layer legacy {
   :where(.tb-dialog) { width: min(440px, 100%); max-height: calc(100dvh - 48px); overflow-y: auto; }
   @media (max-width: 700px) { :where(.tb-dialog--dock) { width: 100%; max-height: calc(100dvh - 16px); } }
+  /* The button row at the end of a form inside a dialog body (the footer slot is outside the body). */
+  .sheet-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+  @media (max-width: 767px) { .sheet-actions > button { flex: 1; } }
 }

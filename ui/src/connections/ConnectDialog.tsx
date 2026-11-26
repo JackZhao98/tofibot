@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IntegrationBrowser } from "../IntegrationBrowser";
 import { ModalDialog } from "../overlays/ModalDialog";
 import { ServiceMark } from "../ServiceMark";
@@ -15,6 +15,7 @@ import { message, type MCP } from "./shared";
 import { GoogleWorkspaceAdvanced } from "./GoogleWorkspace";
 import { isOneClick, openSignInTab, presetDefaults } from "./oneClick";
 import { Button } from "../ds/Button/Button";
+import { Dialog, DIALOG_SCRIM_DOCK } from "../ds/Dialog/Dialog";
 import { IconButton } from "../ds/IconButton/IconButton";
 import type { GoogleOverview } from "./google";
 
@@ -47,7 +48,6 @@ export function ConnectDialog({ request, servers, local, google, options, route,
   const [connectError, setConnectError] = useState("");
   // Reached through the Google step: Back returns there, not to the directory.
   const [viaGoogle, setViaGoogle] = useState(false);
-  const headingId = useId();
   const fromDirectory = request.view === "directory";
   const heading = view.view === "directory" ? t("connections.dialog.title")
     : view.view === "preset" ? view.preset.name
@@ -98,14 +98,13 @@ export function ConnectDialog({ request, servers, local, google, options, route,
     setSaving(true);
     try { await onSave(value, Boolean(editing)); } finally { setSaving(false); }
   }
-  return <ModalDialog onClose={onClose} closeOnOutside={!saving} locked={saving} overlayClassName="sheet-overlay">
-    <div className="sheet connect-dialog" role="dialog" aria-labelledby={headingId} tabIndex={-1}>
-      <header className="connect-head">
-        {view.view !== "directory" && canGoBack && <IconButton icon="arrow-left" label={t("mcp.back")} disabled={saving} onClick={back} />}
-        {mark && <ServiceMark name={mark} />}
-        <div className="connect-title"><h3 id={headingId}>{heading}</h3>{hint && <p>{hint}</p>}</div>
-        <IconButton icon="close" label={t("action.close")} disabled={saving} onClick={onClose} />
-      </header>
+  const showBack = view.view !== "directory" && canGoBack;
+  return <ModalDialog onClose={onClose} closeOnOutside={!saving} locked={saving} overlayClassName={DIALOG_SCRIM_DOCK}>
+    <Dialog flush dock className="connect-dialog" tabIndex={-1} title={<>{mark && <ServiceMark name={mark} />}{heading}</>} onClose={() => { if (!saving) onClose(); }} closeLabel={t("action.close")}>
+      {(showBack || hint) && <div className="connect-lede">
+        {showBack && <IconButton icon="arrow-left" label={t("mcp.back")} disabled={saving} onClick={back} />}
+        {hint && <p className="tb-dialog-note">{hint}</p>}
+      </div>}
       {view.view === "directory" && <IntegrationBrowser query={query} servers={servers} onQueryChange={setQuery} googleAdded={servers.some(server => server.name === "local_gog")} localAvailable={local.available}
         onSelect={choose} onGoogle={() => setView({ view: "google" })} onCustom={() => setView({ view: "custom" })} onPackage={local.available ? () => setView({ view: "package" }) : undefined} />}
       {(view.view === "preset" || view.view === "custom" || view.view === "edit") && <RemoteForm google={google} key={editing?.name ?? (view.view === "preset" ? view.preset.id : "custom")} initial={editing} preset={view.view === "preset" || view.view === "edit" ? view.preset : undefined} options={options} route={formRoute} busy={saving} onSave={save} onCancel={canGoBack && view.view !== "edit" ? back : onClose} />}
@@ -123,6 +122,6 @@ export function ConnectDialog({ request, servers, local, google, options, route,
         </div>
       </div>}
       {view.view === "package" && <PackageForm onInstalled={async () => { await onLocalChanged(); onClose(); }} onCancel={fromDirectory ? back : onClose} />}
-    </div>
+    </Dialog>
   </ModalDialog>;
 }

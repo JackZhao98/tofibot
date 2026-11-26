@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, request } from "../api";
 import { codeText } from "../i18n/codeText";
 import { useTranslation } from "../i18n";
 import { ModalDialog } from "../overlays/ModalDialog";
 import { Button } from "../ds/Button/Button";
+import { Dialog, DIALOG_SCRIM_DOCK } from "../ds/Dialog/Dialog";
 import { TextInput } from "../ds/TextInput/TextInput";
 import { endpoint, message, post } from "./shared";
 
@@ -64,7 +65,7 @@ export function PasteBackDialog({ serverName, title, popup = null, onFinish }: {
     finish.current("cancelled");
   }
 
-  return <ModalDialog onClose={() => void cancel()} closeOnOutside={false} locked={busy} overlayClassName="sheet-overlay">
+  return <ModalDialog onClose={() => void cancel()} closeOnOutside={false} locked={busy} overlayClassName={DIALOG_SCRIM_DOCK}>
     <PasteBackView title={title} session={session} pasted={pasted} busy={busy} error={error} onPasted={setPasted} onSubmit={() => void submit()} onCancel={() => void cancel()} />
   </ModalDialog>;
 }
@@ -75,9 +76,8 @@ export function PasteBackView({ title, session, pasted, busy, error, onPasted, o
   onPasted: (value: string) => void; onSubmit: () => void; onCancel: () => void;
 }) {
   const { t } = useTranslation("extensions");
-  const headingId = useId();
-  return <div className="sheet connect-dialog paste-back" role="dialog" aria-labelledby={headingId} tabIndex={-1}>
-    <header className="connect-head"><div className="connect-title"><h3 id={headingId}>{t("paste.title", { title })}</h3><p>{t("paste.lead", { title })}</p></div></header>
+  return <Dialog flush dock className="connect-dialog paste-back" tabIndex={-1} title={t("paste.title", { title })}>
+    <p className="tb-dialog-note connect-lede">{t("paste.lead", { title })}</p>
     {!session ? <p className="paste-back-note" role="status">{t("paste.starting")}</p> : <form className="connect-form" onSubmit={e => { e.preventDefault(); onSubmit(); }}>
       <ol className="paste-back-steps">
         <li><a className="tb-btn tb-btn--secondary tb-btn--sm" href={session.authorization_url} target="_blank" rel="noopener noreferrer">{t("paste.open", { title })}</a></li>
@@ -87,5 +87,5 @@ export function PasteBackView({ title, session, pasted, busy, error, onPasted, o
       {error && <p className="paste-back-error" role="alert">{error}</p>}
       <div className="sheet-actions"><Button disabled={busy} onClick={onCancel}>{t("action.cancel")}</Button><Button variant="primary" type="submit" disabled={busy || !pasted.trim()}>{busy ? t("paste.submitting") : t("paste.submit")}</Button></div>
     </form>}
-  </div>;
+  </Dialog>;
 }

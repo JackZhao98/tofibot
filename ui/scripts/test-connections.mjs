@@ -408,7 +408,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       assert.doesNotMatch(await dialog.innerText(), /Workspace Developer Preview Program/, "the enrolment line lives inside the Google step");
       await dialog.locator('[data-integration-id="google"]').click();
       await dialog.getByRole("button", {name: "Install gogcli"}).waitFor();
-      assert.match(await dialog.locator("h3").first().innerText(), /^Google$/, "the Google tile opens the Google step");
+      assert.match(await dialog.locator(".tb-dialog-title").innerText(), /^Google$/, "the Google tile opens the Google step");
       const workspace = dialog.locator(".connect-workspace");
       assert.equal(await workspace.locator(".disclosure-toggle").getAttribute("aria-expanded"), "false", "Advanced: Google Workspace MCP is folded");
       assert.equal(await workspace.locator(".disclosure-region").evaluate(node => node.inert && node.getAttribute("aria-hidden") === "true"), true, "folded Workspace content stays mounted and inert");
@@ -534,7 +534,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.locator('.mcp-empty-tile', {hasText: "Notion"}).click();
       const dialog = page.locator('[role="dialog"].connect-dialog');
       await dialog.waitFor();
-      assert.match(await dialog.locator("h3").first().innerText(), /Notion/, "a tile goes straight to that service's setup");
+      assert.match(await dialog.locator(".tb-dialog-title").innerText(), /Notion/, "a tile goes straight to that service's setup");
       await page.keyboard.press("Escape");
       await dialog.waitFor({state: "detached"});
       await page.getByRole("button", {name: "Browse all"}).click();
