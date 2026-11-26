@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { TofiIcon } from "./icons";
+import { Button } from "./ds/Button/Button";
 import { taskDiagnostics, type TaskIssueView } from "./taskIssuePresentation";
 import { useTranslation, type Language } from "./i18n";
 import type { DockStep } from "./planModel";
@@ -58,7 +58,7 @@ export function TaskIssueCard({ issue, locale, onAction, onRetry, onFeedback, on
       return <p className="task-issue-fact" key={index}>{link && onOpenStep && fact.startsWith(link.label) ? <><button type="button" className="task-fact-link" onClick={() => onOpenStep(link.runId, link.callId)}>{link.label}</button>{fact.slice(link.label.length)}</> : fact}</p>;
     })}
     {issue.secondary.map((cause, index) => <p className="task-issue-context" key={index}>{cause}</p>)}
-    <div className="task-issue-actions">{issue.retryable && onRetry && <button type="button" className="primary-button" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{retrying ? t("issue.retrying") : t("issue.action.retry")}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={() => void act()}>{issue.action === "copy_diagnostics" && <TofiIcon name="copy" size={16} aria-hidden="true" />}{busy && !retrying ? t("issue.working") : issue.actionLabel}</button></div>
+    <div className="task-issue-actions">{issue.retryable && onRetry && <Button variant="primary" disabled={busy} data-issue-retry="true" onClick={() => void act(true)}>{retrying ? t("issue.retrying") : t("issue.action.retry")}</Button>}<Button variant="secondary" disabled={busy} icon={issue.action === "copy_diagnostics" ? "copy" : undefined} onClick={() => void act()}>{busy && !retrying ? t("issue.working") : issue.actionLabel}</Button></div>
     <details className="task-issue-technical" ref={details}><summary>{t("step.technical_details")}</summary><pre ref={diagnostics} tabIndex={0} aria-label={t("issue.diagnostics")}>{taskDiagnostics(issue)}</pre></details>
     {feedback && <p className="task-issue-feedback">{feedback}</p>}
     </span></li>{after.map(step => <PlainStep key={step.id} step={step} />)}</ol>

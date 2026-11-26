@@ -14,7 +14,7 @@
 .task-fact-link:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px;border-radius:3px}
 .task-issue-context{color:var(--ink-soft)}
 .task-issue-actions{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-block-start:var(--space-3)}
-.task-issue-actions .secondary-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:44px;font:var(--type-button);white-space:normal;line-height:1.4;max-width:100%}
+.task-issue-actions .tb-btn{max-width:100%}
 .task-issue-technical{margin-block-start:var(--space-2);font:var(--type-meta)}
 .task-issue-technical>summary,.task-activity>.process-line,.task-tool-records :is(summary,.task-step-trigger),.task-progress-record>summary,.task-silent-note>summary{min-height:44px;align-content:center;color:var(--ink-soft);overflow-wrap:anywhere}
 .task-issue-technical pre,.task-activity pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;padding:var(--space-3);border-radius:var(--radius-sm);background:var(--sunk);color:var(--ink);font:var(--type-code)}
@@ -56,7 +56,7 @@
 .task-run-block ::selection{background:var(--ink);color:var(--bg)}
 .task-state-read-error{margin-block:var(--space-2);color:var(--ink-soft);font:var(--type-meta)}
 .task-state-read-error button{min-height:44px;margin-inline-start:var(--space-2)}
-@media(max-width:560px){.task-issue-card{padding:var(--space-3)}.task-issue-fact,.task-issue-context{font-size:max(16px,1em)}.task-issue-actions{display:block}.task-issue-actions .secondary-button{width:100%}}
+@media(max-width:560px){.task-issue-card{padding:var(--space-3)}.task-issue-fact,.task-issue-context{font-size:max(16px,1em)}.task-issue-actions{display:grid}.task-issue-actions .tb-btn{width:100%}}
 @media(prefers-reduced-motion:reduce){.task-run-block *{scroll-behavior:auto;transition:none;animation:none}}
 
 .task-mail-record{margin-block:var(--space-3);font:var(--type-body)}.task-mail-record p{margin:var(--space-2) 0}.task-mail-record>details>summary{min-height:44px;align-content:center;color:var(--ink-soft);font:var(--type-meta)}.task-mail-record dd{margin:0;overflow-wrap:anywhere}
