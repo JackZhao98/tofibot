@@ -5,7 +5,7 @@ import { ScheduledRun } from "./ScheduledRun";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { scheduledRunMetadata } from "./scheduledRunMetadata";
 import { useTranslation } from "./i18n";
-import "./scheduled-task-row.css";
+import "./layout/scheduled-run.css";
 
 const WorkTrace = lazy(() => import("./WorkTrace"));
 

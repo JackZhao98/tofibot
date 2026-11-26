@@ -69,13 +69,6 @@
     "important": 19,
     "tokenDef": 0
   },
-  "greeting-setup.css": {
-    "global": 0,
-    "rootBump": 1,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "interaction-system.css": {
     "global": 0,
     "rootBump": 9,
@@ -100,20 +93,6 @@
   "question-card.css": {
     "global": 0,
     "rootBump": 23,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
-  "scheduled-run.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 0,
-    "important": 1,
-    "tokenDef": 0
-  },
-  "scheduled-task-row.css": {
-    "global": 0,
-    "rootBump": 3,
     "webFork": 0,
     "important": 0,
     "tokenDef": 0

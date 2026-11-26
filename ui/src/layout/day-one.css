@@ -1,0 +1,23 @@
+/* Day-one templates and the first-run objects: where they sit. The look is the kit's: Card (block), Button, Field, TextInput,
+   Select, Banner and ScheduleCard (the offer), LiveLine (the greeting wait) and Button (the handover keys). */
+@layer legacy {
+.day-one{width:min(100%,640px);margin:16px auto;box-sizing:border-box}
+.day-one-lead,.day-one-note{margin:0 0 10px;font:var(--type-meta)}
+.day-one-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.day-one-choice{justify-content:flex-start;min-width:0;height:auto;min-height:40px;padding-block:8px;text-align:left}
+.day-one-choice[aria-pressed="true"]{border-color:var(--ink)}
+.day-one-form{margin-top:14px}
+.day-one-form form{display:grid;gap:12px}
+.day-one-needs{display:grid;gap:10px;justify-items:start}
+.day-one-needs p{margin:0}
+.day-one-actions{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px}
+@media(max-width:560px){.day-one-choices{grid-template-columns:1fr}.day-one{margin:12px 0}}
+
+.greeting-setup{display:grid;place-items:center;min-height:250px}
+
+.handover-chips{display:grid;gap:10px;width:100%;max-width:var(--chat-max);margin:18px auto 10px;box-sizing:border-box}
+.handover-chips h2{margin:0;color:var(--ink-soft);font:var(--type-meta);font-weight:500}
+.handover-chips-grid{display:flex;flex-wrap:wrap;gap:10px}
+.handover-chip{max-width:100%;height:auto;min-height:40px;padding-block:8px;text-align:left;overflow-wrap:anywhere}
+@media(max-width:560px){.handover-chips{margin:14px 0 8px}.handover-chip{flex:1 1 100%;min-height:44px}}
+}

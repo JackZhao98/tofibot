@@ -67,7 +67,7 @@ try {
   {
     const { page, context, errors, created } = await open();
     await offer(page).waitFor();
-    assert.deepEqual(await offer(page).locator(".day-one-choice strong").allTextContents(), ["Morning briefing", "Inbox digest", "Watch a web page"]);
+    assert.deepEqual(await offer(page).locator(".day-one-choice").allTextContents(), ["Morning briefing", "Inbox digest", "Watch a web page"]);
     await offer(page).locator("[data-template='briefing']").click();
     await page.getByLabel("Topics").fill("AI, climate");
     await page.getByLabel("Time of day").fill("07:30");
