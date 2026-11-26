@@ -206,6 +206,8 @@ await check("390 px: a full-width sheet; a tap opens the message", async () => {
   const { page, context } = await open({ viewport: { width: 390, height: 844 }, path: "/", waitFor: ".search-trigger" });
   await page.locator(".search-trigger").click();
   await page.locator(".search-palette").waitFor();
+  // The panel scales in (.98 to 1): measure the resting box, not a frame of the entry.
+  await page.evaluate(() => Promise.all(document.querySelector(".search-palette").getAnimations().map(animation => animation.finished)));
   const box = await page.locator(".search-palette").boundingBox();
   assert.equal(Math.round(box.width), 390);
   assert.ok(box.height >= 800, `sheet height ${box.height}`);

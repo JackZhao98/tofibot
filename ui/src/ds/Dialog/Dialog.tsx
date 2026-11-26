@@ -9,6 +9,8 @@ import "./Dialog.css";
 /** The scrim class for the product: the whole window, behind the dialog, above everything but toasts and hints. Pass it to
  *  ModalDialog as `overlayClassName`. */
 export const DIALOG_SCRIM = "tb-scrim tb-scrim--modal";
+/** The same scrim for a dialog that docks to the bottom edge on a phone (700 px and narrower); pair it with `dock` on the Dialog. */
+export const DIALOG_SCRIM_DOCK = `${DIALOG_SCRIM} tb-scrim--dock`;
 
 export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   /** A question or a plain statement of the action, naming the target. */
@@ -25,6 +27,8 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   busy?: boolean;
   /** A window: the body has no padding and fills the panel under the head (a cover's panels carry their own). */
   flush?: boolean;
+  /** On a phone (700 px and narrower) the panel docks to the bottom edge at full width; use it with `DIALOG_SCRIM_DOCK`. */
+  dock?: boolean;
   /** Without it the dialog is the bare panel; ModalDialog supplies the scrim in the product. */
   scrim?: boolean;
   ref?: Ref<HTMLDivElement>;
@@ -34,12 +38,12 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
 /** A modal dialog on frosted glass with the largest soft shadow. Name the target and what is lost in the body; do not use
  *  a dialog for information only (use a Banner or Toast). In the product it is the child of `ModalDialog`
  *  (src/overlays/ModalDialog.tsx), which adds the scrim, the focus rules and the `data-state` motion. */
-export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, busy, flush = false, scrim = false, className, children, ref, ...rest }: DialogProps) {
+export function Dialog({ title, tone = "neutral", actions, onClose, closeLabel, busy, flush = false, dock = false, scrim = false, className, children, ref, ...rest }: DialogProps) {
   const { t } = useTranslation();
   const titleId = useId(), bodyId = useId();
   // The Dialog names itself from its title and describes itself from its body. Radix Dialog.Content passes ids of a Title and a
   // Description we do not render, so what arrives in `rest` is replaced here.
-  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, flush && "tb-dialog--flush", className)} role={tone === "danger" ? "alertdialog" : rest.role ?? "dialog"}
+  const panel = <div {...rest} ref={ref} className={cx("tb-dialog", "tb-glass", `tb-dialog--${tone}`, flush && "tb-dialog--flush", dock && "tb-dialog--dock", className)} role={tone === "danger" ? "alertdialog" : rest.role ?? "dialog"}
     aria-labelledby={rest["aria-label"] === undefined ? titleId : undefined} aria-describedby={children ? bodyId : undefined} aria-busy={busy || undefined}>
     <header className="tb-dialog-head">
       {tone === "danger" ? <span className="tb-dialog-mark"><Icon name="alert" size={20} /></span> : null}

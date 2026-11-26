@@ -545,8 +545,8 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     }},
     {id: "advanced-danger", tab: "advanced", run: async ({page}) => { await page.locator(".danger-zone input").first().fill("PURGE").catch(() => warnings.push("step skipped: purge input")); await page.waitForTimeout(300); }},
     {id: "admin-detail", tab: "admin", run: async ({page}) => { await click(page.locator('.admin-row[data-account="acct_two"]'), "Admin: row"); await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
-    {id: "admin-add-sheet", tab: "admin", container: ".sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add account"}), "Admin: Add account"); await page.locator(".sheet").waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
-    {id: "admin-delete-sheet", tab: "admin", container: ".sheet", run: async ({page}) => {
+    {id: "admin-add-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => { await click(page.getByRole("button", {name: "Add account"}), "Admin: Add account"); await page.locator(".sheet").waitFor({timeout: 4000}).catch(() => {}); await page.waitForTimeout(500); }},
+    {id: "admin-delete-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => {
       await click(page.locator('.admin-row[data-account="acct_three"]'), "Admin: deactivated row");
       await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {});
       await click(page.getByRole("button", {name: "Delete account…"}), "Admin: Delete account");
@@ -554,7 +554,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await page.locator(".admin-delete-sheet").getByLabel(/^Type/).fill("Lee Example").catch(() => {});
       await page.waitForTimeout(400);
     }},
-    {id: "admin-delete-failed", tab: "admin", container: ".sheet", run: async ({page, admin}) => {
+    {id: "admin-delete-failed", tab: "admin", container: ".admin-sheet", run: async ({page, admin}) => {
       admin.adminState.failDelete = 1;
       await click(page.locator('.admin-row[data-account="acct_three"]'), "Admin: deactivated row");
       await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {});
@@ -565,7 +565,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       await sheet.getByText("Deletion stopped at", {exact: false}).waitFor({timeout: 4000}).catch(() => warnings.push("step skipped: deletion stopped message"));
       await page.waitForTimeout(400);
     }},
-    {id: "admin-result-sheet", tab: "admin", container: ".sheet", run: async ({page}) => {
+    {id: "admin-result-sheet", tab: "admin", container: ".admin-sheet", run: async ({page}) => {
       await click(page.locator('.admin-row[data-account="acct_three"]'), "Admin: deactivated row");
       await page.locator('[data-testid="admin-detail"]').waitFor({timeout: 4000}).catch(() => {});
       await click(page.getByRole("button", {name: "Delete account…"}), "Admin: Delete account");

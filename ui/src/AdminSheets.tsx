@@ -3,17 +3,14 @@ import {TofiIcon} from "./icons";
 import {useTranslation} from "./i18n";
 import {StatusBadge} from "./settings/components";
 import type {AdminAccount} from "./adminApi";
+import { Dialog, DIALOG_SCRIM_DOCK } from "./ds/Dialog/Dialog";
 import { ModalDialog } from "./overlays/ModalDialog";
 
 /** Modal sheet shared by the admin flows (Radix Dialog, ui/src/overlays/ModalDialog.tsx): Escape and a press on the scrim
  * close it unless `locked`; focus starts on the sheet itself. */
 export function AdminSheet({title, children, onClose, locked = false, className = ""}: {title: ReactNode; children: ReactNode; onClose: () => void; /** Blocks Escape and outside clicks (work in flight, or a secret that must be acknowledged). */ locked?: boolean; className?: string}) {
-  const headingId = useId();
-  return <ModalDialog onClose={onClose} locked={locked} overlayClassName="sheet-overlay">
-    <div className={`sheet admin-sheet ${className}`.trim()} role="dialog" aria-labelledby={headingId} tabIndex={-1}>
-      <h3 id={headingId}>{title}</h3>
-      {children}
-    </div>
+  return <ModalDialog onClose={onClose} locked={locked} overlayClassName={DIALOG_SCRIM_DOCK}>
+    <Dialog dock className={`admin-sheet ${className}`.trim()} title={title} tabIndex={-1}>{children}</Dialog>
   </ModalDialog>;
 }
 

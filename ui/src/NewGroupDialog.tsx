@@ -4,6 +4,7 @@ import { BotAvatar } from "./BotAvatar";
 import { useCover } from "./coverGuard";
 import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
+import { Dialog, DIALOG_SCRIM_DOCK } from "./ds/Dialog/Dialog";
 import { ModalDialog } from "./overlays/ModalDialog";
 import { PrimaryBadge } from "./PrimaryAssistant";
 import type { Bot } from "./types";
@@ -33,10 +34,13 @@ export function NewGroupDialog({ bots, onCreate }: { bots: Bot[]; onCreate: (nam
     catch (cause) { setError(errorText(cause)); }
     finally { setSaving(false); }
   }
-  return <ModalDialog onClose={close} locked={leaving || saving} initialFocus={nameInput} returnFocus={returnFocus} overlayClassName={`new-group-scrim${leaving ? " is-leaving" : ""}`} overlayProps={{ "data-cover": "new-group" }}>
-    <section className={`new-group-dialog${leaving ? " is-leaving" : ""}`} role="dialog" aria-label={t("create.new_group")} aria-busy={saving}>
-      <form onSubmit={event => void submit(event)}>
-        <h2>{t("create.new_group")}</h2>
+  return <ModalDialog onClose={close} locked={leaving || saving} initialFocus={nameInput} returnFocus={returnFocus} overlayClassName={`${DIALOG_SCRIM_DOCK} new-group-scrim${leaving ? " is-leaving" : ""}`} overlayProps={{ "data-cover": "new-group" }}>
+    <Dialog dock className={`new-group-dialog${leaving ? " is-leaving" : ""}`} title={t("create.new_group")} aria-busy={saving}
+      actions={<>
+        <Button className="new-group-cancel" disabled={saving} onClick={close}>{t("deleteDialog.cancel")}</Button>
+        <Button type="submit" form="new-group-form" variant="primary" className="new-group-create" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</Button>
+      </>}>
+      <form id="new-group-form" onSubmit={event => void submit(event)}>
         <label className="gs-field"><span>{t("members.name")}</span>
           <input ref={nameInput} value={name} maxLength={200} disabled={saving} placeholder={t("members.name")} onChange={event => setName(event.target.value)} />
         </label>
@@ -53,11 +57,7 @@ export function NewGroupDialog({ bots, onCreate }: { bots: Bot[]; onCreate: (nam
           <p className="gs-hint">{t("members.pick_hint")}</p>
         </div>
         {error && <p className="new-group-error" role="alert">{error}</p>}
-        <div className="new-group-actions">
-          <Button className="new-group-cancel" disabled={saving} onClick={close}>{t("deleteDialog.cancel")}</Button>
-          <Button type="submit" variant="primary" className="new-group-create" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</Button>
-        </div>
       </form>
-    </section>
+    </Dialog>
   </ModalDialog>;
 }

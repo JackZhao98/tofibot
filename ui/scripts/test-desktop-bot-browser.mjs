@@ -55,7 +55,7 @@ try {
   await render({ ...active, acting: true });
   await page.setViewportSize({ width: 360, height: 600 });
   assert.ok(!(await page.locator(".bb-status-text").isVisible()));
-  assert.ok(await page.locator(".bb-status-dot").isVisible());
+  assert.ok(await page.locator(".bb-status .tb-breath").isVisible());
   assert.ok((await page.locator(".bb-address").boundingBox()).width >= 120);
   await page.setViewportSize({ width: 760, height: 600 });
   const field = page.getByRole("textbox");
@@ -98,7 +98,7 @@ try {
   assert.notEqual(...colors);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await render({ ...active, acting: true });
-  assert.equal(await page.locator(".bb-status-dot").evaluate(el => getComputedStyle(el).animationName), "none");
+  assert.equal(await page.locator(".bb-status .tb-breath").evaluate(el => getComputedStyle(el).animationName), "none");
   assert.deepEqual(api, []);
   // Delay the catalogs so a real host call arrives before React mounts.
   const early = await context.newPage();
