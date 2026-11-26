@@ -5,6 +5,12 @@ import { RemoteDesktopControl, type RemoteControlHandle } from "./RemoteDesktopC
 import { i18n, useTranslation } from "./i18n";
 import { codeText } from "./i18n/codeText";
 import { ModalDialog } from "./overlays/ModalDialog";
+import "./desktop-screen.css";
+import { BotAvatar } from "./BotAvatar";
+import { Button } from "./ds/Button/Button";
+import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
+import { DriverSwitch } from "./ds/DriverSwitch/DriverSwitch";
+import { ScreenPanel } from "./ds/ScreenPanel/ScreenPanel";
 
 export type VMOAuthSession = { session_id: string; bot_id: string; status: string; error?: string; error_code?: string };
 const endKeys = { denied: "extensions:vm.end.denied", expired: "extensions:vm.end.expired", error: "extensions:vm.end.error" } as const;
@@ -16,6 +22,7 @@ type Props = { session: VMOAuthSession; serverName: string; title: string; onFin
 // tokens stay in the guest/control-plane OAuth flow.
 export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
   const { t } = useTranslation("extensions");
+  const { t: tc } = useTranslation("computer");
   const base = `/api/extensions/mcp/${encodeURIComponent(serverName)}/oauth/vm/${encodeURIComponent(session.session_id)}`;
   const control = useRef<RemoteControlHandle | null>(null);
   const finish = useRef(onFinish); finish.current = onFinish;
@@ -91,15 +98,18 @@ export function VMOAuthDialog({ session, serverName, title, onFinish }: Props) {
   // Escape belongs to the remote computer while the person controls it, and only Cancel ends the sign-in, so neither
   // Escape nor a press outside closes this. Tab stays inside (Radix), but the keyboard receiver stops its own keys
   // from bubbling, so Tab typed into the remote computer is not trapped.
-  return <ModalDialog onClose={noop} closeOnEscape={false} closeOnOutside={false} overlayClassName="mcp-oauth-overlay">
-    <div className="mcp-oauth-dialog mcp-settings" role="dialog" aria-label={t("vm.dialog_label", { title })} tabIndex={-1}>
-      <header><div><strong>{title}</strong><span>{t("vm.subtitle")}</span></div><button className="mcp-button" disabled={closing} onClick={() => void cancel()}>{closing ? t("vm.cancelling") : t("vm.cancel")}</button></header>
-      <RemoteDesktopControl botId={session.bot_id} enabled={!closing} expanded onControlChange={setOwned} controlRef={control}>
-        {videoState === "fallback" && poster && <img className="computer-screen" src={poster} alt={t("vm.screen_alt")} draggable={false}/>}
-        <DesktopVideo botId={session.bot_id} enabled cursor={owned ? "hidden" : "visible"} poster={poster} className={`computer-screen${videoState === "fallback" ? " mcp-oauth-video-hidden" : ""}`} onState={setVideoState}/>
-      </RemoteDesktopControl>
-      <footer role="status">{connectionError || t("vm.footer")}</footer>
-    </div>
+  return <ModalDialog onClose={noop} closeOnEscape={false} closeOnOutside={false} overlayClassName={DIALOG_SCRIM}>
+    <Dialog className="vm-signin-dialog" aria-label={t("vm.dialog_label", { title })} tabIndex={-1} title={title} busy={closing}
+      actions={<Button variant="secondary" disabled={closing} onClick={() => void cancel()}>{closing ? t("vm.cancelling") : t("vm.cancel")}</Button>}>
+      <ScreenPanel size="large" driver="you" title={t("vm.screen_alt")}
+        chin={<DriverSwitch driver="you" disabled label={tc("desktop.control.release")} youLabel={tc("desktop.control.you")} bot={<BotAvatar id={session.bot_id} mini />} />}>
+        <RemoteDesktopControl botId={session.bot_id} enabled={!closing} expanded onControlChange={setOwned} controlRef={control}>
+          {videoState === "fallback" && poster && <img className="computer-screen" src={poster} alt={t("vm.screen_alt")} draggable={false}/>}
+          <DesktopVideo botId={session.bot_id} enabled cursor={owned ? "hidden" : "visible"} poster={poster} className={`computer-screen${videoState === "fallback" ? " vm-signin-video-hidden" : ""}`} onState={setVideoState}/>
+        </RemoteDesktopControl>
+      </ScreenPanel>
+      <p className="vm-signin-note" role="status">{connectionError || t("vm.footer")}</p>
+    </Dialog>
   </ModalDialog>;
 }
 

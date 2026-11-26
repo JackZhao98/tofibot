@@ -1,0 +1,13 @@
+@layer legacy {
+/* The empty screen (booting, off, failed, reconnecting): the panel draws the dot ground; this is the cat and one line, and the wake overlay's copy of it. */
+.desktop-placeholder{display:grid;justify-items:center;gap:clamp(6px,2cqw,14px);max-width:100%;color:var(--code-ink)}
+.desktop-placeholder-cat{display:grid;place-items:center}
+.desktop-placeholder .desktop-placeholder-cat .avatar{width:clamp(52px,15cqw,100px);height:clamp(52px,15cqw,100px)}
+.desktop-placeholder-line{display:block;max-width:100%;margin:0;font:600 clamp(12px,2.4cqw,15px)/1.4 var(--font-body);text-wrap:balance}
+.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{content:"";display:inline-block;margin-right:8px;vertical-align:middle;width:7px;height:7px;border-radius:50%;background:var(--bot,var(--teal));animation:desktop-mini-breathe 1.8s var(--ease-inout) infinite}
+.desktop-placeholder.is-failed .desktop-placeholder-line::before{content:"";display:inline-block;margin-right:8px;vertical-align:middle;width:7px;height:7px;border-radius:50%;background:var(--danger)}
+.desktop-placeholder-retry{position:relative;z-index:3}
+@keyframes desktop-mini-breathe{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.desktop-placeholder:is(.is-waking,.is-connecting,.is-resuming) .desktop-placeholder-line::before{animation:none}}
+
+}

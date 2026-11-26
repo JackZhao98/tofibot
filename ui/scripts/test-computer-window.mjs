@@ -84,7 +84,7 @@ try {
     await page.waitForTimeout(2200);
     assert.doesNotMatch(await page.locator(".desktop-placeholder-line").innerText(), /\d+\s?(s|秒)\b|·/, "the status line has no seconds counter");
     assert.equal(await page.locator(".tb-device-empty").count(), 1, "the panel draws its dot ground");
-    assert.equal(await page.getByRole("switch").count(), 0, "the Bot / You switch belongs to the big window");
+    assert.equal(await page.getByRole("switch").count(), 1, "the small window's chin holds the Bot / You switch");
     await shot(page, "small-loading-light-1440");
     // Hibernation states are named, not shown as a generic boot.
     state.info = info("resuming");

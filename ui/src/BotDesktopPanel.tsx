@@ -7,6 +7,7 @@ import { BotAvatar } from "./BotAvatar";
 import { DesktopPointerMarker } from "./DesktopPointerMarker";
 import { useDesktopPresence, type DesktopPresenceState } from "./desktopPresence";
 import "./desktop-presence.css";
+import "./desktop-screen.css";
 import { DesktopPlaceholder, type DesktopPlaceholderTone } from "./DesktopPlaceholder";
 import { PowerGlyph } from "./PowerGlyph";
 import { DesktopVideo, type DesktopVideoState } from "./DesktopVideo";
@@ -845,16 +846,17 @@ export function BotDesktopPanel({ botId, botName, members = [], autoConnect = fa
     if (expanded) void controlRef.current?.acquire();
     else { setExpanded(true); setTakePending(true); }
   };
-  // The chin holds the cat / you switch. Only the big window shows it; the folded strip shows the status text in its place, and the
+  // The chin holds the cat / you switch, on the small and the big window; the folded strip shows the status text in its place, and the
   // small form keeps the status for the screen reader only.
   const stripped = folded && !expanded;
   const statusText = <span className={stripped ? "desktop-chin-text" : "sr-only desktop-chin-text"} role="status">{capsule.text}</span>;
+  const driverSwitch = <DriverSwitch className="desktop-driver-switch" driver={humanControlled ? "you" : "bot"} idle={!humanControlled && ["idle", "booting", "error"].includes(capsule.tone)} disabled={!switchEnabled}
+    label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} youLabel={t("desktop.control.you")} bot={<BotAvatar id={switchBot} mini />} onToggle={toggleDriver} />;
   const chin = passivePreview ? undefined : expanded ? <>
     <button type="button" className="tb-device-btn desktop-chin-hide" aria-label={onFold && !expanded ? t("desktop.close_aria") : t("desktop.hide_aria")} data-hint={t("desktop.power_hint")} onClick={hideScreen}><TofiIcon name="chevron-down" size={15} /></button>
     {statusText}
-    <DriverSwitch className="desktop-driver-switch" driver={humanControlled ? "you" : "bot"} idle={!humanControlled && ["idle", "booting", "error"].includes(capsule.tone)} disabled={!switchEnabled}
-      label={humanControlled ? t("desktop.control.release") : t("desktop.control.take")} youLabel={t("desktop.control.you")} bot={<BotAvatar id={switchBot} mini />} onToggle={toggleDriver} />
-  </> : stripped ? statusText : undefined;
+    {driverSwitch}
+  </> : stripped ? statusText : driverSwitch;
 
   return <div ref={screenRef} className={`detail-content computer-detail ${expanded ? "is-expanded" : ""}${folded && !expanded ? " is-folded" : ""}${driver ? ` is-driven-by-${driver}` : ""}`}>
     <DesktopStatusAnnouncement key={selectedBotId} ready={info !== null} text={viewerAnnouncement} />
