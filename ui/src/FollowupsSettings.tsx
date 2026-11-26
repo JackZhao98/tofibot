@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { useTranslation } from "./i18n";
@@ -113,7 +114,7 @@ export function FollowupsSettings() {
       {loop.quote && <blockquote className="followup-quote">{loop.quote}</blockquote>}
       {loop.suggested_next && <p className="followup-next">{t("followups.next", { step: loop.suggested_next })}</p>}
       {isLive(loop) && <div className="followup-actions" role="group" aria-label={t("followups.review_label", { topic: loop.topic })}>
-        {(["useful", "annoying", "handled"] as FollowupVerdict[]).map(verdict => <button key={verdict} type="button" className="st-button" aria-pressed={loop.verdict === verdict} disabled={Boolean(busy)} onClick={() => void act(`loop-${loop.id}`, () => api.followupFeedback(loop.id, verdict))}>{t(verdictKeys[verdict])}</button>)}
+        {(["useful", "annoying", "handled"] as FollowupVerdict[]).map(verdict => <Button key={verdict} size="sm" aria-pressed={loop.verdict === verdict} disabled={Boolean(busy)} onClick={() => void act(`loop-${loop.id}`, () => api.followupFeedback(loop.id, verdict))}>{t(verdictKeys[verdict])}</Button>)}
       </div>}
     </article>)}</SettingsCard>;
   }

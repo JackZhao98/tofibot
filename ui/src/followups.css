@@ -9,7 +9,5 @@
 .followups-page .followup-meta,.followups-page .followup-next{margin:0;color:var(--muted);font:12.5px/1.5 var(--font-body);overflow-wrap:anywhere}
 .followups-page .followup-quote{margin:0;padding:2px 0 2px 12px;border-left:2px solid var(--line);color:var(--ink-soft);font:13px/1.5 var(--font-body);overflow-wrap:anywhere}
 .followups-page .followup-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.followups-page .followup-actions button{min-height:34px;padding:5px 12px;font-size:13px}
-.followups-page .followup-actions button[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
 .followups-page .followup-item[data-state="handled_by_owner"],.followups-page .followup-item[data-state="dismissed"]{opacity:.7}
 }

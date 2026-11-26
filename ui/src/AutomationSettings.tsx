@@ -1,3 +1,5 @@
+import { TextArea } from "./ds/TextArea/TextArea";
+import { Button } from "./ds/Button/Button";
 import {memo, useCallback, useEffect, useRef, useState} from "react";
 import type {TFunction} from "i18next";
 import {request} from "./api";
@@ -90,7 +92,7 @@ function TextControl({id, value, disabled, label, onCommit}: {id: string; value:
   const {t} = useTranslation("settings");
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
-  return <textarea id={id} className="auto-text" rows={3} spellCheck={false} aria-label={label} placeholder={t("automation.origins_placeholder")} value={draft} disabled={disabled} onChange={event => setDraft(event.target.value)} onBlur={() => {if (draft !== value) onCommit(draft);}}/>;
+  return <TextArea id={id} className="auto-text" rows={3} spellCheck={false} aria-label={label} placeholder={t("automation.origins_placeholder")} value={draft} disabled={disabled} onChange={event => setDraft(event.target.value)} onBlur={() => {if (draft !== value) onCommit(draft);}}/>;
 }
 
 function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {item: AutomationItem; catalog: ModelCatalog | null; busy: boolean; label: string; onChange: (value: Value) => void; onOpenPermissions?: () => void}) {
@@ -110,7 +112,7 @@ function Control({item, catalog, busy, label, onChange, onOpenPermissions}: {ite
     return <Select id={id} value={String(item.value ?? item.default ?? "")} disabled={disabled} onValueChange={value => onChange(value)}>{(item.options ?? []).map(choice => <option key={choice} value={choice}>{formatValue(item, choice, {t, catalog})}</option>)}</Select>;
   }
   if (item.kind === "enum") {
-    return <span className="auto-static auto-linked">{formatValue(item, item.value, {t, catalog})}{onOpenPermissions && <button type="button" className="text-button" onClick={onOpenPermissions}>{t("automation.in_permissions")}</button>}</span>;
+    return <span className="auto-static auto-linked">{formatValue(item, item.value, {t, catalog})}{onOpenPermissions && <Button size="sm" variant="ghost" onClick={onOpenPermissions}>{t("automation.in_permissions")}</Button>}</span>;
   }
   if (item.kind === "int") {
     const current = typeof item.value === "number" ? item.value : 0;
@@ -200,7 +202,7 @@ type Automation = ReturnType<typeof useAutomation>;
 
 function Loading({automation}: {automation: Automation}) {
   const {t} = useTranslation("settings");
-  return automation.loadError ? <p className="error-text" role="alert">{automation.loadError}<button type="button" className="text-button" onClick={automation.retry}>{t("action.retry")}</button></p> : <p className="muted">{t("action.loading_settings")}</p>;
+  return automation.loadError ? <p className="error-text" role="alert">{automation.loadError}<Button size="sm" variant="ghost" onClick={automation.retry}>{t("action.retry")}</Button></p> : <p className="muted">{t("action.loading_settings")}</p>;
 }
 
 /** The rows of the given groups, as one card (a group that lives beside the setting it belongs with: Models > More, Permissions, ...). */

@@ -1,3 +1,4 @@
+import { Checkbox } from "./ds/Checkbox/Checkbox";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {AccountDetail} from "./AdminAccountDetail";
 import {GroupMenu, useGroups} from "./AdminGroupBits";
@@ -146,7 +147,7 @@ export function AdminAccounts() {
           const computer = disk ? `${t(`admin.computer.${disk.state === "ready" || disk.state === "disabled" ? disk.state : "reserved"}`)} · ${t("admin.detail.computer.option", {size: formatNumber(Math.round(disk.quota_bytes / GIB))})}` : t("admin.computer.none");
           const usage = storageOf(account.id);
           return <div key={account.id} className="admin-row-wrap" data-selected={picked.includes(account.id) || undefined}>
-          <label className="admin-row-check"><input type="checkbox" data-select={account.id} checked={picked.includes(account.id)} disabled={busy || Boolean(account.deleting)} aria-label={t("admin.accounts.select", {name: account.username})} onChange={event => setPicked(current => event.target.checked ? [...current, account.id] : current.filter(id => id !== account.id))}/></label>
+          <Checkbox className="admin-row-check" data-select={account.id} checked={picked.includes(account.id)} disabled={busy || Boolean(account.deleting)} aria-label={t("admin.accounts.select", {name: account.username})} onChange={checked => setPicked(current => checked ? [...current, account.id] : current.filter(id => id !== account.id))}/>
           <button type="button" className="admin-row" data-account={account.id} onClick={() => setSelected(account.id)} aria-label={t("admin.open", {name: account.username})}>
             <span className="admin-avatar" aria-hidden="true">{initialOf(account.username)}</span>
             <span className="admin-row-main">

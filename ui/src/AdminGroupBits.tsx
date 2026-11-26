@@ -1,3 +1,4 @@
+import { Button } from "./ds/Button/Button";
 import {useCallback, useEffect, useRef, useState, type RefObject} from "react";
 import {adminOrgApi, AI_CHOICES, aiChoiceOf, aiValueFor, modesFor, orgError, SELF_SERVE, valueFor, type AdminGroup, type AiChoice, type PolicyValue} from "./adminOrgApi";
 import type {AdminAccount} from "./adminApi";
@@ -40,10 +41,8 @@ export function GroupMenu({groups, value, onPick, disabled = false, label, text,
   const trigger = useRef<HTMLButtonElement>(null);
   const current = groups.find(group => group.id === value);
   return <>
-    <button ref={trigger} type="button" className={`st-button group-menu-trigger ${className}`.trim()} disabled={disabled || groups.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-group={value}
-      onClick={() => setOpen(next => !next)} onKeyDown={arrowOpens(setOpen)}>
-      <span>{text ?? (current ? current.name : t("admin.groups.unknown"))}</span><TofiIcon name="chevron-down" size={14} aria-hidden="true"/>
-    </button>
+    <Button ref={trigger} size="sm" iconAfter="chevron-down" className={`group-menu-trigger ${className}`.trim()} disabled={disabled || groups.length === 0} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-group={value}
+      onClick={() => setOpen(next => !next)} onKeyDown={arrowOpens(setOpen)}>{text ?? (current ? current.name : t("admin.groups.unknown"))}</Button>
     {open && <OverlayMenu open onOpenChange={setOpen} className="mcp-menu group-menu" label={label} trigger={trigger as RefObject<HTMLElement | null>} anchor={trigger as RefObject<HTMLElement | null>} align="end" sideOffset={6}>
       {groups.map(group => <button key={group.id} type="button" data-group-option={group.id} aria-current={group.id === value ? "true" : undefined} onClick={() => { setOpen(false); if (group.id !== value) onPick(group.id); }}>
         {group.id === value ? <TofiIcon name="check" size={16} aria-hidden="true"/> : <span className="group-menu-gap" aria-hidden="true"/>}{group.name}
