@@ -4,6 +4,7 @@
 //   Settings > Maintenance > Changes by Bots lists the changes with Revert, reloads after one, and says what cannot be reverted.
 // Mounts the real components in a Vite fixture with every /api/* call answered by a stub. Needs PLAYWRIGHT_MODULE.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -37,7 +38,7 @@ function Fixture(){
 }
 void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getElementById('root')!).render(<Fixture/>));
 `);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});

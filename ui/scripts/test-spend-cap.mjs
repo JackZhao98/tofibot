@@ -6,6 +6,7 @@
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:spend-cap
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -31,7 +32,7 @@ const query=new URLSearchParams(location.search);
 const entry={account_id:'a1',month:'2026-11',spend_usd:42.5,limit_usd:50,state:'near' as const,available:true};
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace"><div className="settings-page-body">{query.get('page')==='admin'?<AdminSpend entry={query.get('missing')?undefined:entry}/>:<SpendCap/>}</div></div>));
 `);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});

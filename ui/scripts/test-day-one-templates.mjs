@@ -3,6 +3,7 @@
 // answered in the browser with synthetic data.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:day-one-templates
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { createServer } from "vite";
@@ -11,7 +12,7 @@ import { pickSelect } from "./lib/select.mjs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

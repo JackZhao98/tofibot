@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import vm from "node:vm";
 import { createServer } from "vite";
-const server = await createServer({configFile:false, root:dirname(dirname(fileURLToPath(import.meta.url))),server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
+const server = await createServer({cacheDir: viteCacheDir(), configFile:false, root:dirname(dirname(fileURLToPath(import.meta.url))),server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 const helpers = await server.ssrLoadModule("/src/taskIssuePresentation.ts");
 const {buildRetryFamilies,isTerminalRun} = await server.ssrLoadModule("/src/runFamily.ts");
 // The expected live-region text below is Chinese.

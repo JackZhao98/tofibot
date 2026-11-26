@@ -16,6 +16,7 @@
 //     native <dialog>s inside it) keep its heading, button and font styles.
 // Run: PLAYWRIGHT_MODULE=/abs/path/playwright/index.mjs npm run test:dialogs   (no SKIP: fails without it)
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -315,7 +316,7 @@ function Harness(){
 }
 void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Harness/>));
 `);
-  server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+  server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await pw.chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

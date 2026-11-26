@@ -5,6 +5,7 @@
 // RECEIPTS_ENGINE=webkit runs the same checks in WebKit. RECEIPTS_UI_ROOT points at another checkout's ui/ (to prove failure on old code).
 // RECEIPTS_ONLY=<substring> runs matching checks only.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, createServer, preview } from "vite";
@@ -98,7 +99,7 @@ function install(middlewares) {
     });
 }
 
-const server = await createServer({ configFile: false, root: ui, plugins: [react(), mockPlugin], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react(), mockPlugin], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const engine = process.env.RECEIPTS_ENGINE === "webkit" ? pw.webkit : pw.chromium;

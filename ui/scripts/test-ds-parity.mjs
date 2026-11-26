@@ -5,6 +5,7 @@
 // tokens.css + bundle.css; the V3 skin + the kit's sheets), in light and dark. The two trees are walked in parallel; the tag
 // names and the computed layout and paint properties of every element must be equal, except the departures listed below.
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -188,7 +189,7 @@ console.log("departure S19: TaskCard: the checklist tick and cross are the A mar
 // ---- render both sides
 const { createServer } = await import("vite");
 const { default: react } = await import("@vitejs/plugin-react");
-const server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, appType: "custom", logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, appType: "custom", logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const { registry } = await server.ssrLoadModule("/scripts/ds-parity-registry.tsx");

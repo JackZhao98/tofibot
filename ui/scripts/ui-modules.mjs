@@ -1,4 +1,5 @@
 import { dirname } from "node:path";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
@@ -14,7 +15,7 @@ export const uiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
  * Call `close()` in a finally block.
  */
 export async function openUiModules({ language = "zh-CN" } = {}) {
-  const server = await createServer({ configFile: false, root: uiRoot, server: { middlewareMode: true, hmr: false, ws: false }, logLevel: "error" });
+  const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: uiRoot, server: { middlewareMode: true, hmr: false, ws: false }, logLevel: "error" });
   try {
     const i18n = await server.ssrLoadModule("/src/i18n/index.ts");
     await i18n.i18nReady;

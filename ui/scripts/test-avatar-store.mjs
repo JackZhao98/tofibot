@@ -6,6 +6,7 @@
 //   the theme is pulled from the server, handed up once when the server has none, and a choice made here is pushed.
 // The browser part mounts the real modules in a Vite fixture with /api answered by a stub. Needs PLAYWRIGHT_MODULE.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -150,7 +151,7 @@ import * as appearanceSync from '../src/appearanceSync';
 (window as any).__t = {request, avatarStore, avatarSync, appearanceSync};
 (window as any).__ready = true;
 `);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});

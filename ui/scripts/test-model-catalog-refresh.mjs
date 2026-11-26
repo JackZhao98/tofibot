@@ -8,6 +8,7 @@
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:model-catalog-refresh
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {selectLabels} from "./lib/select.mjs";
 import {mkdtemp, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
@@ -26,7 +27,7 @@ try {
   await writeFile(join(fixture, "main.tsx"), `import React from 'react';import {createRoot} from 'react-dom/client';import {i18nReady,setLanguage} from '../src/i18n';import {ModelFields} from '../src/ModelSettings';import {invalidateModelCatalog} from '../src/modelCatalogStore';import {api} from '../src/api';
 (window as any).__invalidate=invalidateModelCatalog;(window as any).__api=api;
 void i18nReady.then(()=>setLanguage('en')).then(()=>createRoot(document.getElementById('root')!).render(<div className="workspace"><section data-testid="a"><ModelFields model="" effort="" allowDefault={false} onChange={()=>{}}/></section><section data-testid="b"><ModelFields model="" effort="" allowDefault={false} onChange={()=>{}}/></section></div>));`);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME});

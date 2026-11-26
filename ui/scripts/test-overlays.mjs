@@ -20,6 +20,7 @@
 // OVERLAYS_ENGINE=webkit runs the browser checks in WebKit. OVERLAYS_DIST=/path/to/dist measures an existing build.
 // OVERLAYS_ONLY=<substring> runs matching checks only.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import zlib from "node:zlib";
 import { readdirSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -611,7 +612,7 @@ void i18nReady.then(() => createRoot(document.getElementById('root')!).render(<d
 `);
     const { createServer } = await import("vite");
     const { default: react } = await import("@vitejs/plugin-react");
-    server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+    server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
     await server.listen();
     const context = await fx.browser.newContext({ viewport: { width: 900, height: 600 }, locale: "en-US" });
     const page = await context.newPage();

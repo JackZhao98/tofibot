@@ -2,6 +2,7 @@
 // instead of one 60 fps rAF loop (full SVG path recompute) per cat. Measured in real Chromium.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:avatar-frame-budget
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
@@ -9,7 +10,7 @@ import react from "@vitejs/plugin-react";
 
 const pw = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const ui = dirname(dirname(fileURLToPath(import.meta.url)));
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await pw.chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

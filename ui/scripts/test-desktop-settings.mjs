@@ -6,6 +6,7 @@
 // the page with Playwright. The page must work from the stub alone: any /api request fails the test. Needs PLAYWRIGHT_MODULE.
 //   DESKTOP_SETTINGS_SHOTS=<dir>  also saves screenshots (1280 and 390 px, light and dark).
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -52,7 +53,7 @@ const STUB = `(() => {
   });
 })();`;
 
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ executablePath: process.env.TOFI_TEST_CHROME || undefined });

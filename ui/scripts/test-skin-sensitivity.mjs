@@ -13,6 +13,7 @@
 // "section state | element | property"); a new finding fails, a baseline entry that no longer fires must be removed (--update).
 // Usage: PLAYWRIGHT_MODULE=/abs/playwright/index.mjs node scripts/test-skin-sensitivity.mjs [--update | --init] [--verbose]
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -92,7 +93,7 @@ const SNAPSHOT = `(expected) => {
 }`;
 
 const baseline = existsSync(baselineFile) ? new Set(JSON.parse(readFileSync(baselineFile, "utf8"))) : new Set();
-const server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {dirname} from "node:path";
 import {fileURLToPath} from "node:url";
 import {createServer} from "vite";
@@ -9,7 +10,7 @@ import {run, request, tool, draft} from "./task-issue-fixtures.mjs";
 // Retry families with an earlier uncertain call or draft: the chat never shows an
 // uncertainty card. The step row and the draft record carry the status; the Bot explains.
 const ui=dirname(dirname(fileURLToPath(import.meta.url)));
-const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
+const server=await createServer({cacheDir: viteCacheDir(), configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 const originalDocument=globalThis.document;
 try {
   const i18n=await server.ssrLoadModule("/src/i18n/index.ts");

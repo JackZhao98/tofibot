@@ -2,6 +2,7 @@
 // nothing overflows at 390px. Synthetic data only; the app's /api is answered in the browser.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:empty-states
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -13,7 +14,7 @@ const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 const shots = join(ui, "..", "artifacts", "empty-states");
 mkdirSync(shots, { recursive: true });
 
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

@@ -1,5 +1,6 @@
 // Local synthetic fixture server: no backend proxy, account or provider calls.
 import {createServer} from "vite";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import react from "@vitejs/plugin-react";
 import {readFile, writeFile} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
@@ -36,4 +37,4 @@ const plugin={name:"synthetic-task-issue-fixture",enforce:"pre",configureServer(
  if(url.pathname.endsWith("/schedules"))return reply({schedules:[]});
  return reply({error:{code:"unexpected_fixture_read",message:"Unexpected synthetic request"}},404);
  });}};
-const server=await createServer({configFile:false,root:ui,plugins:[plugin,react()],server:{host:"127.0.0.1",port:4178,strictPort:true,hmr:false},logLevel:"error"});await server.listen();console.log("Synthetic task UX fixture: http://127.0.0.1:4178/b/synthetic-bot?case=incident");
+const server=await createServer({cacheDir: viteCacheDir(), configFile:false,root:ui,plugins:[plugin,react()],server:{host:"127.0.0.1",port:4178,strictPort:true,hmr:false},logLevel:"error"});await server.listen();console.log("Synthetic task UX fixture: http://127.0.0.1:4178/b/synthetic-bot?case=incident");
