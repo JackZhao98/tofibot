@@ -73,7 +73,8 @@ export function holdArrivalCascade(scroller: HTMLElement, hold: boolean) {
   for (const a of document.getAnimations()) {
     if (a.id !== TAG || !(a.effect instanceof KeyframeEffect) || !(a.effect.target instanceof Node) || !scroller.contains(a.effect.target)) continue;
     // Pause every glide that has not finished, including one still waiting on its stagger delay or not yet started.
-    if (hold && a.playState !== "finished" && a.playState !== "paused") a.pause();
+    // pause() settles on the next frame, so a busy frame would let the glide travel on under the pointer; setting the time at once completes it where it is.
+    if (hold && a.playState !== "finished" && a.playState !== "paused") { const at = a.currentTime; a.pause(); if (at !== null) a.currentTime = at; }
     else if (!hold && a.playState === "paused") a.play();
   }
 }

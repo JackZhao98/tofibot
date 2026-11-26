@@ -337,19 +337,24 @@ await check("streaming growth is followed within the glide window, never more th
 
 await check("growth that a glide in flight reads first still counts as a stream: the next hop glides the stream window", async () => {
   const { page, context, errors } = await open();
-  await page.waitForTimeout(500);
+  // The page's clock is the test's: timers, frames and performance.now advance only by runFor, so a busy host cannot move
+  // the growths relative to each other or stretch a frame.
+  await page.clock.install();
   await startTrace(page);
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  // The fake clock starts near zero, behind the real timestamps the page recorded while loading; run it past them so the
+  // pane is long settled and quiet, as it is before an arrival.
+  await page.clock.runFor(30000);
   // Plain 40 px blocks appended to the list; the pane's ResizeObserver sees them like any growth. The first starts a hop after
   // a long quiet (GLIDE_MS). The second lands 100 ms into that glide, whose own frame reads the new height before the observer
   // runs. The third comes 350 ms after the second and 450 ms after the first: a stream by the rule, so it glides GLIDE_STREAM_MS.
   // If the second growth were not counted, the third would look like a fresh arrival and glide GLIDE_MS.
-  const marks = await page.evaluate(() => new Promise(resolve => {
-    const list = document.querySelector(".message-list");
-    const add = () => { const block = document.createElement("div"); block.style.height = "40px"; list.append(block); return performance.now(); };
-    const at = [add()];
-    setTimeout(() => { at.push(add()); setTimeout(() => { at.push(add()); setTimeout(() => resolve(at), 600); }, 350); }, 100);
-  }));
+  const add = () => page.evaluate(() => { const block = document.createElement("div"); block.style.height = "40px"; document.querySelector(".message-list").append(block); return performance.now(); });
+  const marks = [await add()];
+  await page.clock.runFor(100);
+  marks.push(await add());
+  await page.clock.runFor(350);
+  marks.push(await add());
+  await page.clock.runFor(600);
   const { trace } = await stopTrace(page);
   const height = f => f.fb + f.top;
   const closeAfter = mark => {
