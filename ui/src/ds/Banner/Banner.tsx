@@ -11,15 +11,17 @@ export type BannerProps = {
   title?: ReactNode;
   /** One optional action node. */
   action?: ReactNode;
+  /** A block under the sentence (a disclosure with the raw detail). */
+  more?: ReactNode;
   className?: string;
   children?: ReactNode;
 };
 
 /** An inline notice inside a page or card: a mark tile, a title and one sentence. Keep to one banner per view. */
-export function Banner({ tone = "info", title, action, className, children }: BannerProps) {
+export function Banner({ tone = "info", title, action, more, className, children }: BannerProps) {
   return <div className={cx("tb-banner", `tb-banner--${tone}`, className)} role={tone === "error" ? "alert" : "note"}>
     <span className="tb-banner-mark" aria-hidden="true"><Icon name={TONE_ICON[tone]} size={16} /></span>
-    <div className="tb-banner-text">{title ? <strong>{title}</strong> : null}{children ? <span>{children}</span> : null}</div>
+    <div className="tb-banner-text">{title ? <strong>{title}</strong> : null}{children ? <span>{children}</span> : null}{more}</div>
     {action ? <div className="tb-banner-action">{action}</div> : null}
   </div>;
 }

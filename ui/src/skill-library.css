@@ -4,6 +4,9 @@
 .skill-library .extension-toolbar{flex-wrap:wrap}
 .extension-card .skill-tag{margin-left:8px;padding:2px 8px;border:0;background:var(--surface-2);border-radius:999px;font:600 12px/1.5 var(--font-body);color:var(--ink-soft);vertical-align:middle}
 .extension-card .skill-tag[data-tone=updated]{border-color:var(--lagoon-line,var(--line));color:var(--ink)}
+.extension-card .skill-tag[data-tone=off]{background:color-mix(in srgb,var(--mustard) 22%,var(--surface));color:var(--mustard-text)}
+.skill-library .skill-off{display:flex;align-items:center;gap:10px;margin:8px 0 0}
+.skill-library .skill-off .skill-tag{margin-left:0}
 .extension-card .skill-meta{margin:6px 0 0;color:var(--muted);font:var(--type-meta)}
 .skill-library .skill-group-title{margin:22px 0 6px;color:var(--muted);font:var(--type-meta);text-transform:none}
 .skill-library .skill-expand,.bot-skills .skill-expand{display:inline-flex;align-items:center;gap:6px;min-height:32px;color:var(--muted);font:var(--type-meta)}

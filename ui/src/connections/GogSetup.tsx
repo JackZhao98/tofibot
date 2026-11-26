@@ -1,3 +1,4 @@
+import { Checkbox } from "../ds/Checkbox/Checkbox";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { request } from "../api";
@@ -116,7 +117,7 @@ export function GogSetup({ local, google, callbackOrigin, onChanged, onDone, onC
         <fieldset className="connect-field connect-services">
           <legend>{t("local.google.services")}</legend>
           {GOG_SERVICES.map(service => <div key={service} className="connect-service" data-service={service}>
-            <label className="connect-check"><input type="checkbox" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={event => toggleService(service, event.target.checked)} /> {GOOGLE_SERVICE_NAME[service]}</label>
+            <Checkbox className="connect-check" checked={services.includes(service)} disabled={services.length === 1 && services.includes(service)} onChange={checked => toggleService(service, checked)}>{GOOGLE_SERVICE_NAME[service]}</Checkbox>
             {project && services.includes(service) && <a className="connect-link" data-enable-api={service} href={googleEnableURL(GOOGLE_SERVICE_API[service], project)} target="_blank" rel="noopener noreferrer">{t("connections.action.enable_api", { name: GOOGLE_SERVICE_NAME[service] })}</a>}
           </div>)}
           <p className="field-note">{t("local.google.services_note")}</p>

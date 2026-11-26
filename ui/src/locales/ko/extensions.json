@@ -424,6 +424,8 @@
       "intro": "워크스페이스 전체가 하나의 라이브러리를 함께 씁니다. 새 Skill은 선택한 Bot에서 켜지며, 나중에 각 Bot의 설정에서 바꿀 수 있습니다.",
       "official_note": "공식 · 각 Bot의 설정에서 끄지 않으면 모든 Bot에서 켜짐",
       "official_title": "공식 Skill",
+      "off_for_other": "Bot {{count}}개에서 꺼짐",
+      "turn_on": "모두 켜기",
       "on_for_other": "Bot {{total}}개 중 {{on}}개에서 켜짐",
       "remove_bundle_confirm": "이 번들과 안의 Skill을 모두 삭제할까요?",
       "roll_back": "이 버전으로 되돌리기",
