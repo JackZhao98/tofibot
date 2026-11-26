@@ -11,3 +11,9 @@
 @media (pointer: coarse) { .tb-notice-link { min-height: 44px; padding-inline: 4px; } }
 /* Touch targets: an action in a notice is at least 44px tall on a coarse pointer, as on V2. */
 @media (pointer: coarse) { .tb-notice-action .tb-btn { min-height: 44px; } }
+/* Note: the type of the kit Field message. The base look is in @layer legacy at single-class specificity, so a contextual rule in a product
+   sheet (a margin, a size) still wins, as it did on the V2 .field-note and .error-text. The -7px top margin is the V2 spacing under a field. */
+@layer legacy {
+  .tb-note { margin: -7px 0 0; color: var(--muted); font: 400 12px/1.45 var(--font-body); }
+  .tb-note--error { color: var(--danger-text); font: 400 12px/1.45 var(--font-body); }
+}

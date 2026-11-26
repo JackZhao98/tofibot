@@ -3,6 +3,7 @@ import { Button } from "./ds/Button/Button";
 import { Dialog, DIALOG_SCRIM } from "./ds/Dialog/Dialog";
 import { useTranslation } from "./i18n";
 import { ModalDialog } from "./overlays/ModalDialog";
+import { Note } from "./ds/Notice/Notice";
 
 /** The one question dialog behind every confirmation (V3 has no inline confirmation): the question is the title and names
  *  what is lost, Cancel takes the focus, and Escape, the scrim or Cancel leave nothing behind until a request is in
@@ -19,7 +20,7 @@ export function ConfirmQuestion({ question, confirmLabel, tone = "danger", pendi
         <Button ref={cancelButton} variant="secondary" disabled={pending} onClick={onCancel}>{t("action.cancel")}</Button>
         <Button variant={tone === "danger" ? "danger" : "primary"} busy={pending} disabled={disabled || pending} onClick={onConfirm}>{pending ? t("action.processing") : confirmLabel}</Button>
       </>}>
-      {error ? <p className="error-text" role="alert">{error}</p> : null}
+      {error ? <Note tone="error" role="alert">{error}</Note> : null}
     </Dialog>
   </ModalDialog>;
 }

@@ -1,7 +1,7 @@
 @layer legacy {
 .web-tools{min-width:0;margin:0 0 30px}
 .web-tools .banner,.web-tools .settings-banner{margin:0 0 12px}
-.web-tools>.error-text{margin:0 0 12px}
+.web-tools>.tb-note--error{margin:0 0 12px}
 .web-chain{margin:0 0 14px}
 .web-chain-head{padding:14px 16px 6px}
 .web-chain-head h5{margin:0;color:var(--ink);font:600 14px/1.4 var(--font-body)}
@@ -32,7 +32,7 @@
 .web-row-form>label:not(:first-child){margin-top:10px}
 .web-row-form-field{margin:0 0 10px}.web-row-form-save{margin:0 0 4px}
 .web-row-form-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:10px}
-.web-row-form-foot>.field-note{margin:0;color:var(--muted)}
+.web-row-form-foot>.tb-note{margin:0;color:var(--muted)}
 .web-row-form .provider-key-row .tb-input{flex:1;min-width:0}
 @media(max-width:700px){
  .web-row-main{flex-wrap:wrap}

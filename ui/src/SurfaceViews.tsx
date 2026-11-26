@@ -13,6 +13,7 @@ import type { SettingsTab } from "./SettingsShell";
 import type { Bot, Conversation, Memory } from "./types";
 import type { ViewOnlyChatTarget } from "./ViewOnlyChat";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 // Bot settings is the heavy cover (model list, Skills, Secrets, the avatar picker): its own chunk, declared here so the entry carries only the
 // loader line. Group settings, and the New group dialog are small and ride with this module (the entry budget has no room
@@ -67,7 +68,7 @@ export function SidebarView({ id, ctx }: { id: SidebarId; ctx: SurfaceCtx }) {
   }
   if (id === "memory") {
     if (!active) return <div className="detail-empty"><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18} /></button><EmptyState name="memory-pick" look={CATS.azuki} pose="curious" size={56}><p>{t("detail.memory_pick")}</p></EmptyState></div>;
-    if (ctx.memoriesReady === false) return <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div>{ctx.memoriesError ? <div className="error-text" role="alert">{ctx.memoriesError} <Button type="button" variant="link" onClick={ctx.retryMemories}>{t("common:action.retry")}</Button></div> : <SurfaceSkeleton/>}</div>;
+    if (ctx.memoriesReady === false) return <div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div>{ctx.memoriesError ? <Note tone="error" as="div" role="alert">{ctx.memoriesError} <Button type="button" variant="link" onClick={ctx.retryMemories}>{t("common:action.retry")}</Button></Note> : <SurfaceSkeleton/>}</div>;
     return <Suspense fallback={<div className="detail-content"><div className="detail-heading"><h2>{t("contextCard.title.memory")}</h2><button className="close-button" aria-label={t("detail.close_memory")} onClick={close}><Icon name="close" size={18}/></button></div><SurfaceSkeleton/></div>}><MemoryPanel key={active.id} memories={ctx.memories} conversationId={active.id} scope={active.kind === "group" ? "group" : "bot"} onClose={close}
       onCreate={async input => { const memory = await api.createMemory(active.id, input); ctx.setMemories(current => [...current.filter(item => item.id !== memory.id), memory]); }}
       onUpdate={async (memoryId, input) => { const memory = await api.updateMemory(memoryId, input); ctx.setMemories(current => current.map(item => item.id === memoryId ? memory : item)); }}

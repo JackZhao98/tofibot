@@ -7,6 +7,7 @@ import { setByLine, type BotSkill, type BotSkillListing, type LibraryBundle } fr
 import "./bot-secrets.css";
 import "./skill-library.css";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 const titleOf = (skill: { name: string }) => skillCatalog.find(item => item.name === skill.name)?.title ?? skill.name;
 const textOf = (skill: { name: string; description: string }) => skillCatalog.find(item => item.name === skill.name)?.description ?? skill.description;
@@ -59,15 +60,15 @@ export function BotSkillsView({ botId, listing, loading, busy, error, onToggle, 
   const libraryEmpty = !loading && !error && own.length === 0 && listing.bundles.length === 0;
   return <section className="bot-skills" aria-labelledby={bare ? undefined : `bot-skills-${botId}`} aria-label={bare ? t("skills.title") : undefined}>
     {!bare && <div className="bot-v2-subtitle"><h2 id={`bot-skills-${botId}`}>{t("skills.title")}</h2><p>{t("skills.hint")}</p></div>}
-    {loading ? <p className="field-note" role="status">{t("skills.loading")}</p> : <>
-      {libraryEmpty && <p className="field-note">{t("skills.empty")}</p>}
+    {loading ? <Note  role="status">{t("skills.loading")}</Note> : <>
+      {libraryEmpty && <Note >{t("skills.empty")}</Note>}
       {(own.length > 0 || listing.bundles.length > 0) && <ul className="bot-skill-list">
         {listing.bundles.map(bundle => <BundleCheckRow key={bundle.id} bundle={bundle} members={listing.skills.filter(skill => skill.bundle_id === bundle.id)} busy={busy} onToggle={onToggle} onToggleBundle={onToggleBundle} defaultOpen={openBundles?.includes(bundle.id)} />)}
         {own.map(skill => <SkillCheckRow key={skill.name} skill={skill} busy={busy} onToggle={onToggle} />)}
       </ul>}
       {official.length > 0 && <><h3 className="bot-skill-group">{t("skills.official_title")}</h3><ul className="bot-skill-list">{official.map(skill => <SkillCheckRow key={skill.name} skill={skill} busy={busy} onToggle={onToggle} />)}</ul></>}
     </>}
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
   </section>;
 }
 

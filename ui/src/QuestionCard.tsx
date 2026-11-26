@@ -24,6 +24,7 @@ import { sameData } from "./sameData";
 import { ConnectionCard, TakeoverCard } from "./HandoverCards";
 import { useQuestionDetail } from "./useQuestions";
 import { linkRuntime, openConnectionDeepLink, openPermissionsDeepLink } from "./settings/deepLinks";
+import { Note } from "./ds/Notice/Notice";
 
 function answerLabel(item: Question) {
   const t = i18n.getFixedT(null, "tasks");
@@ -118,7 +119,7 @@ function BinaryQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
   if (approval && !answerable && !archived) {
     const issue = presentTaskIssue({ run: { id:current.run_id, conversation_id:current.conversation_id, bot_id:current.bot_id, status:current.status === "pending" ? "running" : "done", created_at:current.created_at, updated_at:current.updated_at ?? current.created_at }, questions:[current] });
     return <article ref={record} className="binary-question-message" data-question-id={item.question_id} tabIndex={-1}>
-      {issue ? <TaskIssueCard issue={issue} onAction={() => { if (issue.action === "open_tools") window.dispatchEvent(new Event("tofi:open-tool-settings")); }} /> : <section className="task-question-record"><p>{reviewOnly || review?.status.startsWith("shadow") ? t("record.observation_only") : review?.status === "reviewing" ? t("phase.reviewing") : current.status === "answered" && current.answer === true ? t("record.approved_unconfirmed") : current.superseded ? t("status.superseded") : t("record.proposal_ended")}</p><details><summary>{t("record.view_decision")}</summary><p>{current.status} · {review?.status}</p>{review?.failure_category && <p className="field-note">{t("review.failure.title")}: {t(`review.failure.${review.failure_category}`)}</p>}<p>{current.question_id}</p></details></section>}
+      {issue ? <TaskIssueCard issue={issue} onAction={() => { if (issue.action === "open_tools") window.dispatchEvent(new Event("tofi:open-tool-settings")); }} /> : <section className="task-question-record"><p>{reviewOnly || review?.status.startsWith("shadow") ? t("record.observation_only") : review?.status === "reviewing" ? t("phase.reviewing") : current.status === "answered" && current.answer === true ? t("record.approved_unconfirmed") : current.superseded ? t("status.superseded") : t("record.proposal_ended")}</p><details><summary>{t("record.view_decision")}</summary><p>{current.status} · {review?.status}</p>{review?.failure_category && <Note >{t("review.failure.title")}: {t(`review.failure.${review.failure_category}`)}</Note>}<p>{current.question_id}</p></details></section>}
       {error && <p role="alert">{error}</p>}
     </article>;
   }
@@ -247,7 +248,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
           <div id={privacy} className="question-form-privacy">
             {isPrivateInputForm(item) ? <p>{t("form.privacy_secret")}</p> : <><p>{t("form.privacy_fields")}</p><p>{t("form.privacy_continue")}</p></>}
           </div>
-          {schemaError ? <p className="error-text" role="alert">{schemaError}</p> : <fieldset className="question-form-fields" disabled={Boolean(busy) || archived} aria-labelledby={title}>
+          {schemaError ? <Note tone="error" role="alert">{schemaError}</Note> : <fieldset className="question-form-fields" disabled={Boolean(busy) || archived} aria-labelledby={title}>
             {fields.map((field, index) => {
               const id = `${title}-field-${index}`;
               const fieldError = Object.hasOwn(fieldErrors, field.id) ? fieldErrors[field.id] : "";
@@ -260,7 +261,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
                 <label htmlFor={id}><span>{field.label}{field.type === "password" && <span className="question-form-private"> · {t("form.private_field")}</span>}</span><span className="question-form-optional">{field.required ? t("form.required") : t("form.optional")}</span></label>
                 {field.type === "textarea" ? <TextArea {...attributes} rows={3} />
                   : <TextInput {...attributes} type={field.type} autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
-                {fieldError && <p id={`${id}-error`} className="error-text">{fieldError}</p>}
+                {fieldError && <Note id={`${id}-error`} tone="error">{fieldError}</Note>}
               </div>;
             })}
           </fieldset>}
@@ -269,11 +270,11 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
             {saveForBot && <div className="question-form-field">
               <label htmlFor={`${title}-save-name`}><span>{t("form.save.name")}</span></label>
               <TextInput id={`${title}-save-name`} value={saveName} disabled={Boolean(busy)} onChange={event => setSaveName(normalizeSecretEnvInput(event.target.value))} placeholder="MY_API_KEY" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={saveProblem ? true : undefined} aria-describedby={`${title}-save-hint`} />
-              <p className="field-note" id={`${title}-save-hint`}>{tc("credentials.field.env_name_hint")}</p>
-              {saveProblem && <p className="error-text" role="alert">{saveProblemText}</p>}
+              <Note  id={`${title}-save-hint`}>{tc("credentials.field.env_name_hint")}</Note>
+              {saveProblem && <Note tone="error" role="alert">{saveProblemText}</Note>}
             </div>}
           </div>}
-          {archived ? <p className="field-note">{t("form.archived")}</p> : <div className="question-actions">
+          {archived ? <Note >{t("form.archived")}</Note> : <div className="question-actions">
             <Button variant="ghost" disabled={Boolean(busy)} onClick={() => void finish(true)}>{busy === "cancel" ? t("question.cancelling") : t("question.cancel")}</Button>
             <Button variant="primary" type="submit" disabled={Boolean(busy) || Boolean(schemaError) || Boolean(saveProblem)}>{busy === "submit" ? t("question.submitting") : t("form.submit")}</Button>
           </div>}
@@ -281,7 +282,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
           <span>{current.status === "answered" ? t("form.submitted") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>
           {current.status === "answered" && <dl className="question-form-summary">{userFormAnswerRows(fields, current.answer).map(row => <div key={row.id}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>}
         </div>}
-        {error && <p className="error-text" role="alert">{error}</p>}
+        {error && <Note tone="error" role="alert">{error}</Note>}
       </form>
     </div>
   </article>;
@@ -354,12 +355,12 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
           {allowOther && otherSelected && !foldAnswer && <div className="question-other-answer">
             <label htmlFor={`${title}-other`}>{t("question.your_answer")}</label>
             <TextArea id={`${title}-other`} value={otherText} onChange={event => setOtherText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.other_placeholder")} aria-describedby={`${title}-other-note`} />
-            <p id={`${title}-other-note`} className={[...otherText.trim()].length > 4000 ? "error-text" : "field-note"}>{t("question.other_note", { limit: formatNumber(4000) })}</p>
+            <Note id={`${title}-other-note`} tone={[...otherText.trim()].length > 4000 ? "error" : undefined}>{t("question.other_note", { limit: formatNumber(4000) })}</Note>
           </div>}
-          {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</p>}
-          {foldAnswer ? null : archived ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-actions"><Button variant="ghost" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</Button><Button variant="primary" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</Button></div>}
+          {item.question_type === "multi_choice" && <Note >{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</Note>}
+          {foldAnswer ? null : archived ? <Note >{t("question.note.archived")}</Note> : <div className="question-actions"><Button variant="ghost" disabled={busy} onClick={() => void finish(true)}>{t("question.cancel")}</Button><Button variant="primary" disabled={busy || !valid}>{busy ? t("question.submitting") : error ? t("question.retry_submit") : t("question.submit_answer")}</Button></div>}
         </> : <div className="question-result" role="status">{current.status === "answered" && <TofiIcon name="check" size={15} variant="filled" aria-hidden="true" />}<span>{current.status === "answered" ? t("status.answered") : current.status === "expired" ? t("status.expired") : current.status === "run_done" ? t("question.resolution.run_done") : t(current.superseded ? "status.superseded" : "status.cancelled")}</span>{current.status === "answered" && <p>{answerLabel(current)}</p>}</div>}
-        {error && <p className="error-text" role="alert">{error}</p>}
+        {error && <Note tone="error" role="alert">{error}</Note>}
       </form>
     </div>
   </article>;

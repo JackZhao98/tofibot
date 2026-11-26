@@ -4,6 +4,7 @@ import {useTranslation} from "./i18n";
 import {ConfirmAction} from "./ConfirmAction";
 import {formatBytes} from "./storageApi";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 const REPORT_COUNTS = ["rows", "missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans", "orphans_young"] as const;
 const REPORT_PROBLEMS = new Set<string>(["missing_in_store", "missing_on_disk", "size_mismatch", "sha_mismatch", "unreadable", "skipped_accounts", "orphans"]);
@@ -46,9 +47,9 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
   const report = view.report;
   return <div className="file-move" data-section="file-move">
     <h4>{t("admin.org.file_move.title")}</h4>
-    <p className="field-note">{t("admin.org.file_move.help")}</p>
-    <p className="field-note" data-field="counts">{t("admin.org.file_move.on_disk", {files: view.disk.files, size: formatBytes(view.disk.bytes)})} · {t("admin.org.file_move.in_bucket", {files: view.bucket.files, size: formatBytes(view.bucket.bytes)})}</p>
-    {view.disabled_accounts > 0 && <p className="field-note" data-field="disabled-accounts">{t("admin.org.file_move.disabled_note", {count: view.disabled_accounts})}</p>}
+    <Note >{t("admin.org.file_move.help")}</Note>
+    <Note  data-field="counts">{t("admin.org.file_move.on_disk", {files: view.disk.files, size: formatBytes(view.disk.bytes)})} · {t("admin.org.file_move.in_bucket", {files: view.bucket.files, size: formatBytes(view.bucket.bytes)})}</Note>
+    {view.disabled_accounts > 0 && <Note  data-field="disabled-accounts">{t("admin.org.file_move.disabled_note", {count: view.disabled_accounts})}</Note>}
     {!active && <div className="provider-actions">
       <Button type="button" size="sm" data-action="move-to-bucket" disabled={!canStart("to_bucket")} onClick={() => void act(() => fileMoveApi.start("to_bucket"))}>{t("admin.org.file_move.to_bucket")}</Button>
       <Button type="button" size="sm" data-action="move-to-disk" disabled={!canStart("to_disk")} onClick={() => void act(() => fileMoveApi.start("to_disk"))}>{t("admin.org.file_move.to_disk")}</Button>
@@ -57,23 +58,23 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
       <p className="file-move-subhead">{t("admin.org.file_move.previous_title")}</p>
       {view.previous.map(previous => <div key={previous.gen} className="file-move-previous-row" data-previous-bucket={previous.bucket}>
         <p>{t("admin.org.file_move.previous_line", {bucket: previous.bucket, date: new Date(previous.replaced_at).toLocaleDateString()})}</p>
-        <p className="field-note">{previous.files > 0 ? t("admin.org.file_move.previous_files", {files: previous.files, size: formatBytes(previous.bytes)}) : t("admin.org.file_move.previous_empty")}{previous.files === 0 && previous.pending > 0 ? ` · ${t("admin.org.file_move.cleanup_pending")}` : ""}</p>
+        <Note >{previous.files > 0 ? t("admin.org.file_move.previous_files", {files: previous.files, size: formatBytes(previous.bytes)}) : t("admin.org.file_move.previous_empty")}{previous.files === 0 && previous.pending > 0 ? ` · ${t("admin.org.file_move.cleanup_pending")}` : ""}</Note>
         {!active && <div className="provider-actions">
           {previous.files > 0 && <Button type="button" size="sm" data-action="move-to-current" disabled={!canStart("to_generation")} onClick={() => void act(() => fileMoveApi.start("to_generation"))}>{t("admin.org.file_move.to_current")}</Button>}
           {previous.files === 0 && <ConfirmAction label={t("admin.org.file_move.retire")} question={t("admin.org.file_move.retire_question")} disabled={busy || previous.pending > 0} onConfirm={async () => { await act(() => fileMoveApi.retire(previous.gen)); }}/>}
         </div>}
       </div>)}
-      {!active && view.kind === "disk" && view.to_current.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_current_destination")}</p>}
+      {!active && view.kind === "disk" && view.to_current.files > 0 && <Note >{t("admin.org.file_move.needs_current_destination")}</Note>}
     </div>}
-    {!active && view.kind === "disk" && view.disk.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_bucket_destination")}</p>}
-    {!active && view.kind === "s3" && view.bucket.files > 0 && <p className="field-note">{t("admin.org.file_move.needs_disk_destination", {setting: t("admin.org.file_store.destination")})}</p>}
+    {!active && view.kind === "disk" && view.disk.files > 0 && <Note >{t("admin.org.file_move.needs_bucket_destination")}</Note>}
+    {!active && view.kind === "s3" && view.bucket.files > 0 && <Note >{t("admin.org.file_move.needs_disk_destination", {setting: t("admin.org.file_store.destination")})}</Note>}
     {job && <div className="file-move-job" role="status" data-status={job.status}>
       <p>{t(`admin.org.file_move.direction_${job.direction}` as "admin.org.file_move.direction_to_bucket")} · {t(`admin.org.file_move.status.${job.status}` as "admin.org.file_move.status.running")}</p>
       {active && <>
         <span className="update-progress-bar" role="progressbar" aria-label={t("admin.org.file_move.title")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><i style={{width: `${percent}%`}}/></span>
-        <p className="field-note">{t("admin.org.file_move.progress", {done: job.files_done, total: job.files_total, size: formatBytes(job.bytes_done), totalSize: formatBytes(job.bytes_total)})}</p>
+        <Note >{t("admin.org.file_move.progress", {done: job.files_done, total: job.files_total, size: formatBytes(job.bytes_done), totalSize: formatBytes(job.bytes_total)})}</Note>
       </>}
-      {!active && <p className="field-note">{t("admin.org.file_move.progress", {done: job.files_done, total: job.files_total, size: formatBytes(job.bytes_done), totalSize: formatBytes(job.bytes_total)})}</p>}
+      {!active && <Note >{t("admin.org.file_move.progress", {done: job.files_done, total: job.files_total, size: formatBytes(job.bytes_done), totalSize: formatBytes(job.bytes_total)})}</Note>}
       {active && <div className="provider-actions">
         {!paused && <Button type="button" size="sm" data-action="move-pause" onClick={() => void act(() => fileMoveApi.pause())}>{t("admin.org.file_move.pause")}</Button>}
         {paused && <Button type="button" size="sm" data-action="move-resume" disabled={busy} onClick={() => void act(() => fileMoveApi.resume())}>{t("admin.org.file_move.resume")}</Button>}
@@ -86,7 +87,7 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
     </div>}
 
     <h4>{t("admin.org.file_move.reconcile_title")}</h4>
-    <p className="field-note">{t("admin.org.file_move.reconcile_help")}</p>
+    <Note >{t("admin.org.file_move.reconcile_help")}</Note>
     <label className="check-row"><input type="checkbox" name="file-reconcile-deep" checked={deep} disabled={busy} onChange={event => setDeep(event.target.checked)}/>{t("admin.org.file_move.deep")}</label>
     <div className="provider-actions">
       <Button type="button" size="sm" data-action="reconcile" disabled={busy || view.job?.status === "running"} onClick={() => void act(() => fileMoveApi.reconcile(deep))}>{t("admin.org.file_move.reconcile")}</Button>
@@ -98,7 +99,7 @@ export function FileMovePanel({resourceKey, onView}: {resourceKey?: string; onVi
 
 function ReportView({report, busy, onSweep}: {report: FileReport; busy: boolean; onSweep: (dryRun: boolean) => Promise<void>}) {
   const {t} = useTranslation("settings");
-  if (report.status === "running") return <p className="field-note" role="status">{t("admin.org.file_move.report_running")}</p>;
+  if (report.status === "running") return <Note  role="status">{t("admin.org.file_move.report_running")}</Note>;
   if (report.status === "failed") return <p className="is-failed" role="status" data-section="report">{t("admin.org.file_move.report_failed", {reason: t(`admin.org.file_move.report_code.${report.code}` as "admin.org.file_move.report_code.file_scan_failed", {defaultValue: t("admin.org.file_move.report_code.file_scan_failed")})})}</p>;
   const items = report.items ?? [];
   return <div className="file-move-report" role="status" data-section="report" data-kind={report.kind}>
@@ -109,12 +110,12 @@ function ReportView({report, busy, onSweep}: {report: FileReport; busy: boolean;
       {report.kind === "sweep" && !report.dry_run && <div data-count="deleted"><dt>{t("admin.org.file_move.count.deleted")}</dt><dd>{report.deleted}</dd></div>}
       {report.delete_failed > 0 && <div className="is-failed" data-count="delete_failed"><dt>{t("admin.org.file_move.count.delete_failed")}</dt><dd>{report.delete_failed}</dd></div>}
     </dl>
-    {REPORT_COUNTS.every(key => !REPORT_PROBLEMS.has(key) || report[key] === 0) && !report.delete_failed && <p className="field-note" data-field="no-issues">{t("admin.org.file_move.no_issues")}</p>}
+    {REPORT_COUNTS.every(key => !REPORT_PROBLEMS.has(key) || report[key] === 0) && !report.delete_failed && <Note  data-field="no-issues">{t("admin.org.file_move.no_issues")}</Note>}
     {items.length > 0 && <ul className="file-move-items" data-section="report-items">{items.map((item, index) => <li key={index}>{t(`admin.org.file_move.issue.${item.issue}` as "admin.org.file_move.issue.orphan", {defaultValue: item.issue})}{item.account ? ` · ${item.account}` : ""}{item.kind ? ` · ${item.kind}` : ""} · {formatBytes(item.size)}{item.age_days ? ` · ${t("admin.org.file_move.age_days", {count: item.age_days})}` : ""}</li>)}</ul>}
     {report.orphans > 0 && <div className="provider-actions">
       <Button type="button" size="sm" data-action="sweep-dry-run" disabled={busy} onClick={() => void onSweep(true)}>{t("admin.org.file_move.sweep_dry")}</Button>
       <ConfirmAction label={t("admin.org.file_move.sweep")} question={t("admin.org.file_move.sweep_question", {count: report.orphans})} disabled={busy} onConfirm={() => onSweep(false)}/>
     </div>}
-    <p className="field-note">{t("admin.org.file_move.orphan_note")}</p>
+    <Note >{t("admin.org.file_move.orphan_note")}</Note>
   </div>;
 }

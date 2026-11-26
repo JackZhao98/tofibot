@@ -9,6 +9,7 @@ import {SettingsCard, SettingsSection, type BadgeState} from "./settings/compone
 import {useUserTimezone} from "./UserTimezone";
 import {Select} from "./Select";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 /** The Recovery Key is typed as 8 groups of 4; the last two groups confirm it was written down. */
 const lastTwoGroups = (key: string) => key.split("-").slice(-2).join("").toUpperCase();
@@ -102,19 +103,19 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <label htmlFor={`${formId}-secret`}>{t("admin.org.file_store.secret_key")}</label>
         <input id={`${formId}-secret`} name="backup-secret-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={form.secret} disabled={saving} onChange={set("secret")}/>
         <div className="provider-key-row"><Button type="submit" disabled={saving || !ready}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</Button>{view?.configured && <Button type="button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</Button>}</div>
-        <p className="field-note">{t("admin.org.backup.separate_bucket")}</p>
+        <Note >{t("admin.org.backup.separate_bucket")}</Note>
       </form>}
 
       {view?.configured && <div className="backup-key" data-section="recovery-key">
         <h4>{t("admin.org.backup.key_title")}</h4>
         {freshKey ? <div role="group" aria-label={t("admin.org.backup.key_title")}>
           <code className="backup-recovery-key" data-testid="backup-recovery-key">{freshKey}</code>
-          <p className="field-note">{t("admin.org.backup.key_show_once")}</p>
+          <Note >{t("admin.org.backup.key_show_once")}</Note>
           <label htmlFor={`${formId}-confirm`}>{t("admin.org.backup.key_confirm_label")}</label>
           <input id={`${formId}-confirm`} name="backup-key-confirm" type="text" autoComplete="off" spellCheck={false} value={typed} onChange={event => setTyped(event.target.value)}/>
           <Button type="button" size="sm" disabled={!keyOk} onClick={() => void act(async () => { await backupApi.confirmKey(); setFreshKey(""); setTyped(""); }, t("admin.org.backup.key_confirmed_notice"))}>{t("admin.org.backup.key_confirm")}</Button>
         </div> : <>
-          <p className="field-note">{view.key.fingerprint ? (view.key.confirmed_at ? t("admin.org.backup.key_state", {fingerprint: view.key.fingerprint, time: when(view.key.confirmed_at)}) : t("admin.org.backup.key_unconfirmed", {fingerprint: view.key.fingerprint})) : t("admin.org.backup.key_none")}</p>
+          <Note >{view.key.fingerprint ? (view.key.confirmed_at ? t("admin.org.backup.key_state", {fingerprint: view.key.fingerprint, time: when(view.key.confirmed_at)}) : t("admin.org.backup.key_unconfirmed", {fingerprint: view.key.fingerprint})) : t("admin.org.backup.key_none")}</Note>
           <div className="provider-actions">
             {view.key.present ? <ConfirmAction label={t("admin.org.backup.key_rotate")} question={t("admin.org.backup.key_rotate_question")} onConfirm={async () => { try { const out = await backupApi.recoveryKey(); setFreshKey(out.recovery_key ?? ""); setTyped(""); await load(); } catch (cause) { throw new Error(backupError(cause)); } }}/>
               : <Button type="button" size="sm" onClick={() => void createKey()}>{t("admin.org.backup.key_create")}</Button>}
@@ -139,7 +140,7 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
         <p id={`${formId}-before-update-hint`} className="backup-hint">{t("admin.org.backup.before_update_hint")}</p>
         {(["keep_daily", "keep_weekly", "keep_monthly", "stale_after_hours"] as const).map(key => <div key={key} className="provider-key-row"><label htmlFor={`${formId}-${key}`}>{t(`admin.org.backup.${key}`)}</label><input id={`${formId}-${key}`} data-field={key} type="number" min={1} value={settings[key]} onChange={num(key)}/></div>)}
         <Button type="button" size="sm" data-action="save-settings" onClick={() => void act(async () => { setView(await backupApi.settings(settings)); setDraft(null); }, t("admin.org.backup.settings_saved"))}>{t("admin.org.backup.save_settings")}</Button>
-        <p className="field-note">{t("admin.org.backup.retention_note")}</p>
+        <Note >{t("admin.org.backup.retention_note")}</Note>
       </div>}
 
       {view?.configured && status && <div className="backup-status" role="status" data-section="status">
@@ -153,12 +154,12 @@ export function BackupsSection({resource, onResource}: {resource?: OrgResource; 
           <Button type="button" size="sm" data-action="verify" disabled={running || !keyReady || !hasSnapshot} onClick={() => void act(() => backupApi.verify(), t("admin.org.backup.started"))}>{t("admin.org.backup.verify_now")}</Button>
           <Button type="button" variant="ghost" size="sm" data-action="snapshots" disabled={!keyReady} onClick={() => void act(async () => setSnapshots((await backupApi.snapshots()).snapshots))}>{t("admin.org.backup.snapshots_show")}</Button>
         </div>
-        {!keyReady && <p className="field-note" data-hint="key-not-ready">{t("admin.org.backup.error.backup_not_ready")}</p>}
-        {snapshots && (snapshots.length === 0 ? <p className="field-note">{t("admin.org.backup.snapshots_none")}</p> : <ul className="backup-snapshots">{[...snapshots].reverse().map(item => <li key={item.name}>{when(item.at)} · {item.reason}</li>)}</ul>)}
+        {!keyReady && <Note  data-hint="key-not-ready">{t("admin.org.backup.error.backup_not_ready")}</Note>}
+        {snapshots && (snapshots.length === 0 ? <Note >{t("admin.org.backup.snapshots_none")}</Note> : <ul className="backup-snapshots">{[...snapshots].reverse().map(item => <li key={item.name}>{when(item.at)} · {item.reason}</li>)}</ul>)}
       </div>}
       {view?.configured && <AccountRestore onError={setError} onNotice={setNotice}/>}
       {error && <p role="alert" className="admin-error">{error}</p>}
-      {notice && <p role="status" className="field-note">{notice}</p>}
+      {notice && <Note role="status" >{notice}</Note>}
     </article></SettingsCard>
   </SettingsSection>;
 }
@@ -201,10 +202,10 @@ function AccountRestore({onError, onNotice}: {onError: (message: string) => void
   }
   return <div className="backup-restore" data-section="restore-account">
     <h4>{t("admin.org.backup.restore_title")}</h4>
-    <p className="field-note">{t("admin.org.backup.restore_help")}</p>
+    <Note >{t("admin.org.backup.restore_help")}</Note>
     <label htmlFor={`${formId}-account`}>{t("admin.org.backup.restore_account")}</label>
     <Select id={`${formId}-account`} value={account} onValueChange={next => void pick(next)}><option value="">—</option>{accounts.map(item => <option key={item.id} value={item.id}>{item.username}</option>)}</Select>
-    {account && points.length === 0 && <p className="field-note">{t("admin.org.backup.snapshots_none")}</p>}
+    {account && points.length === 0 && <Note >{t("admin.org.backup.snapshots_none")}</Note>}
     {points.length > 0 && <>
       <label htmlFor={`${formId}-point`}>{t("admin.org.backup.restore_point")}</label>
       <Select id={`${formId}-point`} value={snapshot} onValueChange={setSnapshot}>{points.map(item => <option key={item.name} value={item.name}>{formatVerified(item.at, timezone)} · {item.rows?.conversations ?? 0} / {item.rows?.messages ?? 0}</option>)}</Select>

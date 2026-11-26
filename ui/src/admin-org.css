@@ -65,8 +65,8 @@
 .admin-resources .org-card+.org-card,.admin-resources .org-card+.org-vm{margin-top:12px}
 .admin-resources .provider-key-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
 .admin-resources .org-template{display:grid;gap:4px;margin:6px 0 0;min-width:0}
-.admin-resources .org-template .field-note{margin:0;overflow-wrap:anywhere}
-.admin-resources .org-template .field-note.is-failed{color:var(--danger-text)}
+.admin-resources .org-template .tb-note{margin:0;overflow-wrap:anywhere}
+.admin-resources .org-template .tb-note.is-failed{color:var(--danger-text)}
 .admin-resources .org-template .org-build-actions{margin-top:4px}
 .admin-resources .web-tools{margin:0}
 

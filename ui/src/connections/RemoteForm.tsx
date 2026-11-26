@@ -13,6 +13,7 @@ import { Button } from "../ds/Button/Button";
 import { TextInput } from "../ds/TextInput/TextInput";
 import { TextArea } from "../ds/TextArea/TextArea";
 import { Select } from "../Select";
+import { Note } from "../ds/Notice/Notice";
 
 /** Google Cloud links for one Google connector. Shown while connecting, and after a failure; never on a healthy row. */
 export function GoogleSetupLinks({ preset, docs = false }: { preset: IntegrationPreset; docs?: boolean }) {
@@ -55,7 +56,7 @@ function LanAddress({ url, onChange }: { url: string; onChange: (value: string) 
   const { t } = useTranslation("extensions");
   return <>
     <label>{t("form.url")}<TextInput required type="url" inputMode="url" autoComplete="off" spellCheck={false} value={url} onChange={e => onChange(e.target.value)} placeholder="http://192.168.1.20:8123/api/mcp" /></label>
-    <p className="field-note">{t("lan.address_hint")}</p>
+    <Note >{t("lan.address_hint")}</Note>
   </>;
 }
 
@@ -97,7 +98,7 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
       {!preset && <label>{t("form.url")}<TextInput required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} placeholder="https://example.com/mcp" /></label>}
       {preset?.lan && <LanAddress url={url} onChange={value => { setURL(value); setToken(""); }} />}
       {preset?.auth === "token" && <label>{preset.lan ? t("lan.token_label") : t("form.token")}<TextInput type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={initial ? t("form.token_keep") : t("form.token_paste")} required={!initial} /></label>}
-      {preset?.lan && <p className="field-note">{t("lan.token_hint")} {profilePage(url) && <a href={profilePage(url)} target="_blank" rel="noopener noreferrer">{t("lan.token_link")}</a>}</p>}
+      {preset?.lan && <Note >{t("lan.token_hint")} {profilePage(url) && <a href={profilePage(url)} target="_blank" rel="noopener noreferrer">{t("lan.token_link")}</a>}</Note>}
       {!preset && <Checkbox className="extension-check" checked={oauth} onChange={setOAuth} disabled={Boolean(initial?.oauth)}>{t("auth.oauth")}</Checkbox>}
       {oauth && !preset?.dcr && savedClient && <p className="connect-lead">{t("connections.google.using_client", { project: google!.client.project_id || google!.client.project_number })} <Button size="sm" variant="ghost" onClick={() => setReplaceClient(true)}>{t("connections.google.replace_client")}</Button></p>}
       {oauth && !preset?.dcr && !savedClient && <>
@@ -105,13 +106,13 @@ export function RemoteForm({ initial, preset, options, route, busy, onSave, onCa
         <label>{t("form.client_secret")}<TextInput required={preset?.category === "google"} type="password" autoComplete="off" value={secret} onChange={e => setSecret(e.target.value)} placeholder={t("form.client_secret_hint")} /></label>
         {options?.web_callback_origin && <CallbackAddress label={t("callback.web")} value={`${options.web_callback_origin}${endpoint(name || t("form.name"))}/oauth/callback`} />}
         {options?.desktop_redirect_uri && <CallbackAddress label={t("callback.desktop")} value={options.desktop_redirect_uri} />}
-        {preset?.category === "google" && <p className="field-note">{t("google.redirect_hint")}</p>}
+        {preset?.category === "google" && <Note >{t("google.redirect_hint")}</Note>}
       </>}
       <Disclosure title={t("form.advanced")}>
         {preset && <label>{t("form.name")}<TextInput required maxLength={64} disabled={Boolean(initial)} value={name} onChange={e => setName(e.target.value)} placeholder="my-service" /></label>}
         {preset && !preset.lan && <label>{t("form.url")}<TextInput required type="url" value={url} onChange={e => { setURL(e.target.value); setToken(""); }} /></label>}
         <label>{t("form.transport")}<Select value={transport} disabled={busy} onValueChange={value => setTransport(value as MCPTransport)}><option value="streamable_http">{transportLabels.streamable_http}</option><option value="sse">{transportLabels.sse}</option></Select></label>
-        <label>{t("form.headers")}<TextArea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <p className="field-note">{t("form.headers_note")}</p>}
+        <label>{t("form.headers")}<TextArea rows={3} value={headers} onChange={e => setHeaders(e.target.value)} spellCheck={false} /></label>{initial && <Note >{t("form.headers_note")}</Note>}
         {oauth && <><label>{t("form.scopes")}<TextInput value={scopes} onChange={e => setScopes(e.target.value)} placeholder={t("form.comma_separated")} /></label><label>{t("form.metadata_url")}<TextInput type="url" value={metadata} onChange={e => setMetadata(e.target.value)} /></label></>}
         <label>{t("form.allowlist")}<TextInput value={allow} onChange={e => setAllow(e.target.value)} placeholder={t("form.allowlist_hint")} /></label><label>{t("form.denylist")}<TextInput value={deny} onChange={e => setDeny(e.target.value)} placeholder={t("form.comma_separated")} /></label>
       </Disclosure>

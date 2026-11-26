@@ -11,6 +11,7 @@ import type {Bot} from "./types";
 import {Select} from "./Select";
 import {Button} from "./ds/Button/Button";
 import "./approval-mode.css";
+import { Note } from "./ds/Notice/Notice";
 
 type Top = ApprovalChoice | "bot";
 const modeOf = (bot: Bot): ApprovalChoice => (bot.approval_mode === "auto" ? "auto" : "ask");
@@ -82,7 +83,7 @@ export function ApprovalModeSetting() {
     <SettingsCard>
       <SettingsRow label={t("approval.label")} control={bots === null ? <span className="muted">{t("action.loading_settings")}</span> : <><SavedNote show={savedTop}/><Segmented label={t("approval.label")} value={top} disabled={busy} options={topOptions} onChange={chooseTop}/></>}/>
     </SettingsCard>
-    {error && <p className="error-text" role="alert">{error}{bots === null && <Button variant="ghost" size="sm" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</Button>}</p>}
+    {error && <Note tone="error" role="alert">{error}{bots === null && <Button variant="ghost" size="sm" onClick={() => setVersion(current => current + 1)}>{t("action.retry")}</Button>}</Note>}
     {bots !== null && <SettingsSection title={t("approval.bots_title")} hint={<SavedNote show={savedBots}/>} description={locked ? t("approval.bots_locked") : t("approval.bots_description")}>
       <SettingsCard className="approval-bots">
         {list.length === 0 ? <p className="settings-card-note">{t("approval.no_bots")}</p> : list.map(bot => <div className="approval-bot-row" key={bot.id} data-bot-id={bot.id}>
@@ -136,6 +137,6 @@ export function ReviewerModel() {
         </Select>}/>
     </SettingsCard>
     {saved && <span role="status" className="settings-feedback">{t("automation.saved")}</span>}
-    {error && item !== null && <p className="error-text" role="alert">{error}</p>}
+    {error && item !== null && <Note tone="error" role="alert">{error}</Note>}
   </SettingsSection>;
 }

@@ -18,6 +18,7 @@ import {Select} from "./Select";
 import "./admin-accounts.css";
 import "./admin-org.css";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 /** Settings > Administration > Organization resources: the keys that belong to this server, for accounts whose group provides them. */
 export function AdminResources({openTab}: {openTab: (tab: SettingsTab) => void}) {
@@ -115,11 +116,11 @@ function BuildState({resource, onChange}: {resource: OrgResource; onChange: (res
     finally { setBusy(false); }
   }
   return <div className="org-template" data-build-phase={build.phase} data-custom={build.custom ? "true" : undefined}>
-    <p className={`field-note${build.phase === "failed" ? " is-failed" : ""}`} role="status">{text}</p>
-    {named && build.phase !== "ready" && <p className="field-note is-failed" role="status" data-error-code={code}>{named}</p>}
-    {build.min_guest_version && <p className="field-note" data-min-guest>{t("admin.org.build.min_version", {version: build.min_guest_version})}</p>}
+    <Note className={build.phase === "failed" ? "is-failed" : undefined} role="status">{text}</Note>
+    {named && build.phase !== "ready" && <Note className="is-failed" role="status" data-error-code={code}>{named}</Note>}
+    {build.min_guest_version && <Note  data-min-guest>{t("admin.org.build.min_version", {version: build.min_guest_version})}</Note>}
     {canBuild && <div className="org-build-actions"><Button type="button" size="sm" data-action="retry-build" disabled={busy} onClick={() => void retry()}>{busy ? t("admin.org.build.starting") : build.phase === "failed" ? t("admin.org.build.retry") : t("admin.org.build.start")}</Button></div>}
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
   </div>;
 }
 
@@ -217,14 +218,14 @@ function ModelKeyCard({id, title, resource, loading, onChange, onDropped}: CardP
         <input id={`${inputId}-workspace`} name="org-anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} disabled={saving} onChange={event => setWorkspace(event.target.value)}/>
         <div className="provider-key-row"><Button type="submit" disabled={saving || !key.trim() || !workspace.trim()}>{saving ? t("providers.verifying") : t("providers.save")}</Button>{resource && <Button type="button" disabled={saving} onClick={() => setReplacing(false)}>{t("action.cancel")}</Button>}</div>
       </>}
-      <p className="field-note">{t("admin.org.key_note")}</p>
+      <Note >{t("admin.org.key_note")}</Note>
     </form>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;
 }
 
 function Feedback({error, notice}: {error: string; notice: string}): ReactNode {
-  return <>{error && <p className="error-text" role="alert">{error}</p>}{notice && !error && <p className="field-note" role="status">{notice}</p>}</>;
+  return <>{error && <Note tone="error" role="alert">{error}</Note>}{notice && !error && <Note  role="status">{notice}</Note>}</>;
 }
 
 /** The OpenAI-compatible endpoint: address, an optional key and the model IDs. A blank key keeps the stored one for the same address. */
@@ -253,7 +254,7 @@ function CompatCard({resource, loading, onChange, onDropped}: CardProps) {
   return <article className="detail-content provider-card org-resource" data-resource="provider:compatible" aria-labelledby={titleId} aria-busy={saving}>
     <CardHead id={titleId} title={t("admin.org.compat_name")} state={resourceState(resource, loading)} status={badge(resource)} tag={t("admin.org.endpoint_tag")}/>
     {resource && <p className={`provider-key-line${resource.status === "rejected" ? " is-failed" : ""}`} role="status"><code className="provider-key-mask">{resource.config.base_url}</code>{resource.key_hint && <code className="provider-key-mask">{maskedKey(resource)}</code>}<StatusLine resource={resource}/></p>}
-    {resource && (resource.config.models ?? []).length > 0 && <p className="field-note">{t("admin.org.compat_models", {models: (resource.config.models ?? []).join(", ")})}</p>}
+    {resource && (resource.config.models ?? []).length > 0 && <Note >{t("admin.org.compat_models", {models: (resource.config.models ?? []).join(", ")})}</Note>}
     {resource && <ResourceActions resource={resource} label={t("admin.org.compat_name")} actions={actions} replacing={editing} onReplace={() => { setEditing(value => !value); actions.setNotice(""); }}/>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
       <label htmlFor={baseId}>{t("admin.org.compat_address")}</label>
@@ -263,7 +264,7 @@ function CompatCard({resource, loading, onChange, onDropped}: CardProps) {
       <label htmlFor={`${baseId}-models`}>{t("admin.org.compat_models_label")}</label>
       <input id={`${baseId}-models`} name="org-compat-models" type="text" autoComplete="off" spellCheck={false} placeholder="llama-3.3-70b, qwen3-32b" value={models} disabled={saving} onChange={event => setModels(event.target.value)}/>
       <div className="provider-key-row"><Button type="submit" disabled={saving || !base.trim()}>{saving ? t("providers.verifying") : t("providers.save")}</Button>{resource && <Button type="button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</Button>}</div>
-      <p className="field-note">{t("admin.org.compat_note")}</p>
+      <Note >{t("admin.org.compat_note")}</Note>
     </form>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;
@@ -301,7 +302,7 @@ function E2BCard({resource, loading, onChange, onDropped}: CardProps) {
       <label htmlFor={`${inputId}-template`}>{t("admin.org.e2b_template_label")}</label>
       <input id={`${inputId}-template`} name="org-e2b-template" type="text" autoComplete="off" spellCheck={false} value={template} disabled={saving} onChange={event => setTemplate(event.target.value)}/>
       <div className="provider-key-row"><Button type="submit" disabled={saving || !key.trim()}>{saving ? t("providers.verifying") : t("providers.save")}</Button>{resource && <Button type="button" disabled={saving} onClick={() => setReplacing(false)}>{t("action.cancel")}</Button>}</div>
-      <p className="field-note">{t("admin.org.key_note")}</p>
+      <Note >{t("admin.org.key_note")}</Note>
     </form>}
     <Feedback error={actions.error} notice={actions.notice}/>
   </article>;
@@ -379,17 +380,17 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
         <option value="disk">{t("admin.org.file_store.dest_disk")}</option>
       </Select>
     </div>}
-    {resource && <p className="field-note">{t("admin.org.file_store.dest_note", {days: config?.delete_grace_days ?? 14})}</p>}
+    {resource && <Note >{t("admin.org.file_store.dest_note", {days: config?.delete_grace_days ?? 14})}</Note>}
     {resource && <div className="provider-actions">
       <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => { setEditing(value => !value); actions.setNotice(""); }}>{t("admin.org.edit")}</Button>
       <Button type="button" variant="ghost" size="sm" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.file_store.test")}</Button>
       <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} disabled={Boolean(removeBlock)} onConfirm={actions.remove}/>
     </div>}
-    {resource && removeBlock && <p className="field-note" data-hint="remove-blocked">{removeBlock.code === "file_store_cleanup_pending"
+    {resource && removeBlock && <Note  data-hint="remove-blocked">{removeBlock.code === "file_store_cleanup_pending"
       ? removeBlock.clears_at && new Date(removeBlock.clears_at).getTime() > Date.now()
         ? t("admin.org.file_store.remove_after", {date: new Date(removeBlock.clears_at).toLocaleString(undefined, {dateStyle: "medium", timeStyle: "short"})})
         : t("admin.org.file_store.remove_soon")
-      : t(`admin.org.error.${removeBlock.code}`)}</p>}
+      : t(`admin.org.error.${removeBlock.code}`)}</Note>}
     {showForm && !loading && <form className="provider-key-form" onSubmit={event => void save(event)}>
       <label htmlFor={`${formId}-preset`}>{t("admin.org.file_store.preset")}</label>
       <Select id={`${formId}-preset`} data-field="preset" value={preset} disabled={saving} onValueChange={next => applyPreset(next as "" | FileStorePreset)}>
@@ -399,7 +400,7 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
         <option value="b2">{t("admin.org.file_store.preset_b2")}</option>
         <option value="minio">{t("admin.org.file_store.preset_minio")}</option>
       </Select>
-      {preset && <p className="field-note" data-field="preset-note">{t("admin.org.file_store.preset_note")}</p>}
+      {preset && <Note  data-field="preset-note">{t("admin.org.file_store.preset_note")}</Note>}
       <label htmlFor={`${formId}-endpoint`}>{t("admin.org.file_store.endpoint")}</label>
       <input id={`${formId}-endpoint`} name="org-file-store-endpoint" type="url" autoComplete="off" spellCheck={false} placeholder="https://<account>.r2.cloudflarestorage.com" value={form.endpoint} disabled={saving} onChange={set("endpoint")}/>
       <label htmlFor={`${formId}-region`}>{t("admin.org.file_store.region")}</label>
@@ -417,9 +418,9 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
       <input id={`${formId}-grace`} name="org-file-store-grace" type="number" min={1} max={365} value={form.grace} disabled={saving} onChange={set("grace")}/>
       {needsConfirm && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-public" checked={confirmPublic} onChange={event => setConfirmPublic(event.target.checked)}/>{t("admin.org.file_store.confirm_public")}</label>}
       {needsUnverified && <label className="check-row"><input type="checkbox" name="org-file-store-confirm-unverified" checked={confirmUnverified} onChange={event => setConfirmUnverified(event.target.checked)}/>{t("admin.org.file_store.confirm_unverified")}</label>}
-      {relocates && <p className="field-note" role="status" data-field="new-bucket-note">{t("admin.org.file_store.new_bucket_note")}</p>}
+      {relocates && <Note  role="status" data-field="new-bucket-note">{t("admin.org.file_store.new_bucket_note")}</Note>}
       <div className="provider-key-row"><Button type="submit" disabled={saving || !ready || (needsConfirm && !confirmPublic) || (needsUnverified && !confirmUnverified)}>{saving ? t("providers.verifying") : t("admin.org.file_store.save")}</Button>{resource && <Button type="button" disabled={saving} onClick={() => setEditing(false)}>{t("action.cancel")}</Button>}</div>
-      <p className="field-note">{t("admin.org.file_store.note")}</p>
+      <Note >{t("admin.org.file_store.note")}</Note>
     </form>}
     {resource && !editing && <FileMovePanel resourceKey={resource.updated_at} onView={view => setRemoveBlock(view.remove_block)}/>}
     <Feedback error={actions.error} notice={actions.notice}/>

@@ -5,7 +5,7 @@
 .settings-card>.detail-content.provider-card,.settings-card>.provider-card{margin:0;padding:14px 16px;border:0;border-radius:0;background:transparent}
 .settings-card>.provider-card+.provider-card{border-top:1px solid var(--line)}
 .model-fields-rows{margin:0;min-width:0}
-.model-fields-rows .field-note{margin:8px 0 0}
+.model-fields-rows .tb-note{margin:8px 0 0}
 .provider-key-form{display:grid}
 .provider-key-form>.tb-btn{justify-self:end}
 @media(max-width:700px){.provider-card-head .settings-tag{display:none}}
@@ -21,10 +21,10 @@
 .provider-key-row .tb-input{flex:1;min-width:0}
 /* Raw inputs in a key row: the Admin resource, backup and group cards (PR 6.9 moves them to the kit TextInput and deletes this line). */
 .provider-key-row>input{flex:1;min-width:0;font-family:var(--font-mono)}
-.provider-key-form .error-text,.provider-key-form .field-note{margin:8px 0 0}
+.provider-key-form .tb-note--error,.provider-key-form .tb-note{margin:8px 0 0}
 .provider-card>.verification-card{margin:0 0 14px}
 @media(max-width:560px){.provider-key-row{flex-direction:column}}
-.provider-card>.field-note{margin:0 0 12px}
+.provider-card>.tb-note{margin:0 0 12px}
 
 /* Compact provider cards: a heading row, one status line, small actions. The key input appears only on demand. */
 .provider-card .provider-card-head{align-items:center;margin:0 0 10px}
@@ -48,12 +48,12 @@
 .compat-form>label:first-child{margin-top:0}
 .compat-form .tb-input,.compat-form .tb-textarea{width:100%;min-width:0}
 .compat-form .tb-textarea{resize:vertical}
-.compat-form .field-note{margin:6px 0 0}
+.compat-form .tb-note{margin:6px 0 0}
 .compat-form .provider-key-row{margin-top:14px;flex-wrap:wrap}
 .compat-form .provider-key-row .tb-btn{flex:none}
 .provider-key-row .tb-btn{flex:none;white-space:nowrap}
 .compat-listed{margin-top:10px;padding:10px 12px;border:0;border-radius:14px;background:var(--surface-2)}
-.compat-listed .field-note{margin:0 0 6px}
+.compat-listed .tb-note{margin:0 0 6px}
 .compat-listed ul{display:grid;gap:4px;margin:0;padding:0;list-style:none;font-size:12.5px}
 .compat-listed li{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;overflow-wrap:anywhere}
 .compat-listed li span,.compat-more{color:var(--muted)}

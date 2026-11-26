@@ -17,6 +17,7 @@ import { openConnectionDeepLink } from "./settings/deepLinks";
 import { SettingsSwitch } from "./settings/components";
 import "./extensions-system.css";
 import "./bot-tools.css";
+import { Note } from "./ds/Notice/Notice";
 
 /**
  * Bot settings > Tools: what this Bot can use and how often it asks. Connections are open or closed for this Bot; each open one lists
@@ -65,9 +66,9 @@ function kindKey(kind: ConnectionKind) {
 
 function TierRows({ server, botName, state, onSetTier }: { server: string; botName: string; state: BotTierState; onSetTier: BotToolsViewProps["onSetTier"] }) {
   const { t } = useTranslation(["bots", "extensions"]);
-  if (state.error) return <p className="error-text" role="alert">{t("bots:tools.tier.error")}</p>;
-  if (state.tools === null) return <p className="field-note" role="status">{t("bots:tools.connections.loading")}</p>;
-  if (state.tools.length === 0) return <p className="field-note">{t("bots:tools.tier.empty")}</p>;
+  if (state.error) return <Note tone="error" role="alert">{t("bots:tools.tier.error")}</Note>;
+  if (state.tools === null) return <Note  role="status">{t("bots:tools.connections.loading")}</Note>;
+  if (state.tools.length === 0) return <Note >{t("bots:tools.tier.empty")}</Note>;
   return <ul className="bt-tools">
     {state.tools.map(tool => {
       const global = tool.global_tier ?? tool.tier;
@@ -86,8 +87,8 @@ export function BotToolsView(p: BotToolsViewProps) {
   const { t } = useTranslation(["bots", "extensions"]);
   return <div className="bot-tools">
     <SettingsSection id="connections" title={t("bots:tools.connections.title")} description={t("bots:tools.connections.hint")}>
-      {p.connections === null && <p className="field-note bt-pad" role="status">{t("bots:tools.connections.loading")}</p>}
-      {p.connectionsError && <p className="error-text bt-pad" role="alert">{p.connectionsError}</p>}
+      {p.connections === null && <Note className="bt-pad" role="status">{t("bots:tools.connections.loading")}</Note>}
+      {p.connectionsError && <Note tone="error" className="bt-pad" role="alert">{p.connectionsError}</Note>}
       {p.connections !== null && p.connections.length === 0 && <div className="bt-empty"><p>{t("bots:tools.connections.none")}</p><Button size="sm" onClick={p.onAddConnection}>{t("bots:tools.connections.add")}</Button></div>}
       {p.connections?.map(row => {
         const paused = row.kind === "paused";

@@ -8,6 +8,7 @@ import {useSettingsActive} from "../settingsActivity";
 import type {RunHealth} from "../types";
 import {SettingsCard, SettingsRow, SettingsSection} from "./components";
 import "./run-health.css";
+import { Note } from "../ds/Notice/Notice";
 
 const statusOrder = ["done", "failed", "cancelled", "interrupted", "running", "waiting", "queued"] as const;
 const reasonKeys = ["execution_failed", "no_final_answer", "tool_stuck", "resumed_repeatedly", "approval_expired", "model_unconfigured", "model_auth_invalid", "model_quota_exhausted", "connection_interrupted", "budget_exhausted", "spend_cap_reached", "model_content_flagged"] as const;
@@ -44,7 +45,7 @@ export function RunHealthCard() {
   const hint = t("usage.range.7d");
   if (!health) {
     return <SettingsSection title={title} hint={hint}>
-      {error ? <p className="error-text" role="alert">{error}<Button size="sm" variant="ghost" onClick={() => setVersion(n => n + 1)}>{t("action.retry")}</Button></p> : <p className="muted" role="status">{t("usage.health.loading")}</p>}
+      {error ? <Note tone="error" role="alert">{error}<Button size="sm" variant="ghost" onClick={() => setVersion(n => n + 1)}>{t("action.retry")}</Button></Note> : <p className="muted" role="status">{t("usage.health.loading")}</p>}
     </SettingsSection>;
   }
   const shown = statusOrder.filter(status => (health.by_status[status] ?? 0) > 0);
@@ -58,6 +59,6 @@ export function RunHealthCard() {
       </ul>} />
       <SettingsRow label={t("usage.health.timeouts")} description={t("usage.health.timeouts_note")} control={<strong className="run-health-count">{formatNumber(health.tool_timeouts)}</strong>} />
     </SettingsCard>
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
   </SettingsSection>;
 }

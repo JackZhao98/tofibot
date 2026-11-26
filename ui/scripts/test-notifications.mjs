@@ -307,7 +307,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
         const overflow = await t.page.evaluate(() => {
           const out = [];
           if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push("page");
-          for (const el of document.querySelectorAll(".settings-page-body .debug-toggle, .settings-page-body .field-note, .settings-page-body .gen-subhead, .settings-page-body .gen-note")) {
+          for (const el of document.querySelectorAll(".settings-page-body .debug-toggle, .settings-page-body .tb-note, .settings-page-body .gen-subhead, .settings-page-body .gen-note")) {
             const box = el.getBoundingClientRect();
             if (el.scrollWidth > el.clientWidth + 1 || box.right > window.innerWidth + 1 || box.left < -1) out.push(`${el.getAttribute("data-setting") || el.className}: scroll ${el.scrollWidth} client ${el.clientWidth} right ${Math.round(box.right)}`);
           }

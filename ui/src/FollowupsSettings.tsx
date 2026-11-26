@@ -10,6 +10,7 @@ import { useUserTimezone } from "./UserTimezone";
 import type { FollowupLoop, FollowupMode, FollowupOverview, FollowupVerdict } from "./types";
 import "./followups.css";
 import { Select } from "./Select";
+import { Note } from "./ds/Notice/Notice";
 
 const kindKeys = { awaiting_other: "followups.kind.waiting", owner_promise: "followups.kind.owner_promise", owner_reminder: "followups.kind.owner_reminder" } as const;
 const verdictKeys = { useful: "followups.verdict.useful", annoying: "followups.verdict.annoying", handled: "followups.verdict.handled" } as const;
@@ -58,7 +59,7 @@ export function FollowupsSettings() {
     {/* One banner at most, and only for something to fix: the preview explanation is the Beta tag and the section copy. */}
     {!data.model_configured ? <Banner tone="warn" title={t("followups.no_model_title")}>{t("followups.no_model_body")}</Banner>
       : data.budget_paused ? <Banner tone="warn" title={t("followups.paused_title")}>{t("followups.paused_body", { limit: money(data.account.daily_budget_usd) })}</Banner> : null}
-    {error && <p className="error-text" role="alert">{error}</p>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
 
     <SettingsSection id="bots" title={t("followups.bots_title")} description={t("followups.bots_description")}>
       <SettingsCard>

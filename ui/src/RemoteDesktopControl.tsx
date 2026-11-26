@@ -3,6 +3,7 @@ import { BotAvatar } from "./BotAvatar";
 import { ApiError, request } from "./api";
 import { useTranslation } from "./i18n";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 type InputEvent = { type: string; [key: string]: unknown };
 export type RemoteControlHandle = { release: () => Promise<void>; acquire: () => Promise<void> };
@@ -182,9 +183,9 @@ export function RemoteDesktopControl({ botId, enabled, blocked = false, takeover
   }
   return <div className={`remote-desktop ${owned ? "in-control" : ""}`}>
     {expanded && owned && (touchMode || touchInput.current) && <div className="remote-control-bar is-touch-keys"><Button aria-label={keyboardOpen ? t("remote.keyboard.hide_aria") : t("remote.keyboard.open_aria")} onPointerDown={event => event.preventDefault()} onClick={() => { if (keyboardOpen) input.current?.blur(); else input.current?.focus({ preventScroll: true }); setKeyboardOpen(!keyboardOpen); }}>{keyboardOpen ? t("remote.keyboard.hide") : t("remote.keyboard.open")}</Button></div>}
-    {owned && waiting && <p className="field-note" role="status">{t("remote.bot_waiting")}</p>}
-    {notice && <p className="field-note" role="status">{notice}</p>}
-    {error && <p className="error-text">{error}</p>}
+    {owned && waiting && <Note  role="status">{t("remote.bot_waiting")}</Note>}
+    {notice && <Note  role="status">{notice}</Note>}
+    {error && <Note tone="error">{error}</Note>}
     <div ref={surface} className="remote-desktop-surface" role="group" aria-label={expanded ? t("remote.surface_aria") : t("remote.surface_preview_aria")}
       onClick={() => { if (!expanded) onExpand?.(); }}
       onContextMenu={event => event.preventDefault()}

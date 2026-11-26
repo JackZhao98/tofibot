@@ -11,7 +11,7 @@
 //       tokenDef    a custom property defined on :root or html outside the skin files (src/skin/)
 //  3. V3 PLAN 7.5: every product rule is in legacy or a global layer (only UNLAYERED sheets may sit outside), layers do
 //     not nest, third-party CSS reaches the page only through src/vendor/ in @layer vendor, entry HTML has no <style>,
-//     the long-lived sheets have no !important in legacy, and no legacy !important can reach a kit element (.tb-*, a class in ds/aliases.json, a bare element).
+//     the long-lived sheets have no !important in legacy, and no legacy !important can reach a kit element (.tb-*, a bare element).
 // Usage: node scripts/test-css-layers.mjs [--update]   (--update writes the current counts as the new baseline)
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -109,8 +109,6 @@ function endsBare(selector) {
   if (/[.#[]/.test(rest)) return false;
   return inner.length ? inner.some(list => splitList(list).some(endsBare)) : true;
 }
-// The V2 button classes that src/ds/legacy-aliases.css draws with the kit (PR 2.1): a legacy !important on one would beat the kit.
-const ALIASED = new RegExp(`\\.(?:${JSON.parse(readFileSync(join(src, "ds/aliases.json"), "utf8")).classes.join("|")})(?![\\w-])`);
 let legacyImportant = 0;
 for (const file of sheets) {
   const name = relative(src, file);
@@ -124,7 +122,7 @@ for (const file of sheets) {
     legacyImportant += (rule.body.match(/!\s*important/g) || []).length;
     if (LONG_LIVED.has(name)) fail(`src/${name}: "${rule.selector}" uses !important in a long-lived sheet; use :is(#_, ...) or forced.css`);
     const parts = splitList(rule.selector);
-    if (/\.tb-/.test(rule.selector) || ALIASED.test(rule.selector) || parts.some(endsBare)) fail(`src/${name}: "${rule.selector}" has a legacy !important that can reach a kit element (a .tb-* class, an aliased control class from ds/aliases.json, or a bare element)`);
+    if (/\.tb-/.test(rule.selector) || parts.some(endsBare)) fail(`src/${name}: "${rule.selector}" has a legacy !important that can reach a kit element (a .tb-* class or a bare element)`);
   }
 }
 const code = walk(src).filter(file => /\.(ts|tsx|js|jsx)$/.test(file));

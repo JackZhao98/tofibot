@@ -6,6 +6,7 @@ import { ModalDialog } from "./overlays/ModalDialog";
 import { useTranslation } from "./i18n";
 import { otherActiveBots, PrimarySuccessorSelect } from "./PrimaryAssistant";
 import type { Bot } from "./types";
+import { Note } from "./ds/Notice/Notice";
 
 /**
  * Hiding (archiving) the Primary Assistant asks for a successor first, the same
@@ -34,7 +35,7 @@ export function ReassignPrimaryDialog({ bot, bots, onConfirm, onClose, returnFoc
       <div className="tb-dialog-target"><BotAvatar id={bot.id} mini /><span>{bot.name}</span></div>
       <p>{t("primary.hide_body")}</p>
       <PrimarySuccessorSelect bots={candidates} value={successor} onChange={setSuccessor} disabled={busy} />
-      {error && <p className="error-text" role="alert">{error}</p>}
+      {error && <Note tone="error" role="alert">{error}</Note>}
     </Dialog>
   </ModalDialog>;
 }

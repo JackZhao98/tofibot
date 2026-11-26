@@ -27,6 +27,7 @@ import "./policy-member.css";
 import { Button } from "./ds/Button/Button";
 import { EmptyState } from "./ds/EmptyState/EmptyState";
 import { Tag } from "./ds/Tag/Tag";
+import { Note } from "./ds/Notice/Notice";
 
 const kindIcon: Record<Environment["kind"], TofiIconName> = {vm: "server", e2b: "cloud", mac: "laptop"};
 const badgeFor: Record<EnvironmentState, BadgeState> = {ready: "ok", online: "ok", starting: "testing", resuming: "testing", preparing: "testing", asleep: "asleep", offline: "asleep", stopped: "asleep", standby: "asleep", unknown: "asleep", failed: "bad"};
@@ -249,7 +250,7 @@ export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsT
   };
   let body: ReactNode;
   if (failed && !data) body = <Banner tone="error" title={t("environments.unavailable")} action={{label: t("environments.retry"), onClick: retry}}/>;
-  else if (!data) body = <p className="field-note" role="status">{t("environments.loading")}</p>;
+  else if (!data) body = <Note  role="status">{t("environments.loading")}</Note>;
   else body = <>
     <EnvironmentList view={data} handlers={{busy, onAction}} organization={organization} thisMacID={rc.available ? rc.status?.deviceID : null} offers={offers} onOpenMac={setMacView} thisMacName={typeof window !== "undefined" && window.tofiDesktop ? rc.status?.name || t("devices.mac.this") : undefined}/>
     {failed && <Banner tone="warn" title={t("environments.stale")} action={{label: t("environments.retry"), onClick: retry}}/>}
@@ -269,7 +270,7 @@ export function EnvironmentsPage({openTab, bots = []}: {openTab: (tab: SettingsT
       <SettingsRow label={t("devices.cap.browser")} description={!window.tofiDesktop?.botBrowser ? t("browser.status.browser_client_unsupported") : thisMac ? <EnvironmentFeatures kind="mac" features={thisMac.features}/> : undefined} control={window.tofiDesktop?.botBrowser && window.tofiDesktop.openDesktopSettings ? <Button type="button" size="sm" onClick={() => { void window.tofiDesktop?.openDesktopSettings?.(); }}>{t("browser.settings")}</Button> : undefined}/>
     </> : <SettingsSection>
       <SettingsCard>{caps(macItem).map(({cap, on}) => <SettingsRow key={cap} label={t(`devices.cap.${cap}`)} control={<span className="env-cap" data-cap={cap} data-on={on}>{t(on ? "devices.cap.on" : "devices.cap.off")}</span>}/>)}</SettingsCard>
-      <p className="field-note">{t("devices.cap.managed_there")}</p>
+      <Note >{t("devices.cap.managed_there")}</Note>
     </SettingsSection>}
     {disconnect}
   </SettingsSubpage>;

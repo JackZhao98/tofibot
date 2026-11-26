@@ -5,6 +5,7 @@ import { BotAvatar, type AvatarMotion } from "./BotAvatar";
 import { randomBotAvatarConfig } from "./avatarStore";
 import { useTranslation } from "./i18n";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 export function BotAvatarPicker({ botId, config, onChange }: { botId: string; config: AvatarConfig; onChange: (config: AvatarConfig) => void }) {
   const { t } = useTranslation("bots");
@@ -21,6 +22,6 @@ export function BotAvatarPicker({ botId, config, onChange }: { botId: string; co
     <div className="bot-avatar-choice-heading"><h3>{t("avatar.shape")}</h3><Button type="button" variant="ghost" size="sm" onClick={() => onChange(randomBotAvatarConfig(botId))}>{t("avatar.random")}</Button></div>
     <RadioGroup.Root className="bot-avatar-shapes" value={config.shape} onValueChange={value => void changeShape({...config,shape:value as AvatarConfig["shape"]})} aria-label={t("avatar.shapes_aria")}>{catalog.shapes.map(shape => <RadioGroup.Item value={shape.id} type="button" key={shape.id} ><BotAvatar id={botId} config={{...config,shape:shape.id}} motion="sleeping"/><span>{shape.name}</span></RadioGroup.Item>)}</RadioGroup.Root>
     <h3>{t("avatar.pattern")}</h3><RadioGroup.Root className="bot-avatar-patterns" value={config.pattern} onValueChange={value => onChange({...config,pattern:value as AvatarConfig["pattern"],palette:paletteOptions(value as AvatarConfig["pattern"])[0].id})} aria-label={t("avatar.patterns_aria")}>{catalog.patterns.map(item => <RadioGroup.Item value={item.id} type="button" key={item.id} >{item.name}</RadioGroup.Item>)}</RadioGroup.Root>
-    {pattern?.note && <p className="field-note">{palettes.length === 1 ? `${pattern.note} · ${t("avatar.fixed_palette")}` : pattern.note}</p>}
+    {pattern?.note && <Note >{palettes.length === 1 ? `${pattern.note} · ${t("avatar.fixed_palette")}` : pattern.note}</Note>}
   </section>;
 }

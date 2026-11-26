@@ -1,6 +1,7 @@
 import {useTranslation} from "./i18n";
 import {linkRuntime} from "./settings/deepLinks";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 /**
  * One line about what a provider costs. A ChatGPT sign-in runs on the plan's limits; an API key is billed per token by the
@@ -9,8 +10,8 @@ import { Button } from "./ds/Button/Button";
  */
 export function ProviderCost({kind}: {kind: "plan" | "api" | "endpoint"}) {
  const {t} = useTranslation("settings");
- return <p className="field-note provider-cost" data-cost={kind}>
+ return <Note className="provider-cost" data-cost={kind}>
   {t(`providers.cost.${kind}`)}
   {kind !== "plan" && <> <Button type="button" variant="link" onClick={() => void linkRuntime().then(module => module.openHref("/settings/usage"))}>{t("providers.cost.open_usage")}</Button></>}
- </p>;
+ </Note>;
 }

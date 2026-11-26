@@ -8,6 +8,7 @@ import {KeyRow} from "./ds/KeyRow/KeyRow";
 import {SettingsSection} from "./ds/SettingsSection/SettingsSection";
 import {TextInput} from "./ds/TextInput/TextInput";
 import "./bot-secrets.css";
+import { Note } from "./ds/Notice/Notice";
 
 type BotSecret={name:string;created_at:string;last_used_at?:string};
 
@@ -39,7 +40,7 @@ export function BotSecrets({botId}:{botId:string}){
  const when=(iso:string)=>formatDateTime(iso);
  return <section className="bot-secrets" aria-labelledby={`bot-secrets-${botId}`}>
   <SettingsSection title={<span id={`bot-secrets-${botId}`}>{t("secrets.title")}</span>} description={t("secrets.hint")}>
-   {loading?<p className="field-note" role="status">{t("secrets.loading")}</p>:!items.length&&!error?<p className="field-note">{t("secrets.empty")}</p>:items.map(item=><div className="bot-secret-item" key={item.name}>
+   {loading?<Note  role="status">{t("secrets.loading")}</Note>:!items.length&&!error?<Note >{t("secrets.empty")}</Note>:items.map(item=><div className="bot-secret-item" key={item.name}>
     <KeyRow name={item.name} masked={`•••••••• · ${t("secrets.saved_at",{time:when(item.created_at)})} · ${item.last_used_at?t("secrets.last_used",{time:when(item.last_used_at)}):t("secrets.never_used")}`}
 
      actions={replacing===item.name?undefined:<><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setReplacing(item.name);setValue("");setStatus("")}}>{t("secrets.replace")}</Button><ConfirmAction label={t("secrets.delete")} question={t("secrets.delete_question",{name:item.name})} disabled={busy} onConfirm={()=>remove(item.name)}/></>}/>
@@ -51,6 +52,6 @@ export function BotSecrets({botId}:{botId:string}){
    </div>)}
   </SettingsSection>
   {status&&<p className="settings-feedback" role="status">{status}</p>}
-  {error&&<p className="error-text" role="alert">{error}</p>}
+  {error&&<Note tone="error" role="alert">{error}</Note>}
  </section>
 }

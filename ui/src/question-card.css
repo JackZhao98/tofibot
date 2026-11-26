@@ -79,7 +79,7 @@
 }
 .workspace .question-message .question-other-answer { margin-top:12px; }
 .workspace .question-message .question-other-answer > label { display:block; margin-bottom:6px; color:var(--ink-soft); font:600 13px/1.5 var(--font-body); }
-.workspace .question-message .field-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+.workspace .question-message .tb-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
 .workspace .question-message .question-actions {
   display: flex;
   align-items: center;
@@ -111,7 +111,7 @@
 @keyframes question-answered-fade { from { opacity:0; transform:translateX(-6px); } }
 .workspace .question-message .question-card.is-resolved .question-prompt { color: var(--ink-soft); font-size: 14px; font-weight: 600; }
 .workspace .question-message .question-card.is-resolved .question-result { margin-top: 7px; padding-top: 0; border-top: 0; }
-.workspace .question-message .question-card .error-text { margin-bottom: 0; font-size: 13px; }
+.workspace .question-message .question-card .tb-note--error { margin-bottom: 0; font-size: 13px; }
 
 .workspace .question-message .question-form-target {
   display: flex;
@@ -142,7 +142,7 @@
 .workspace .question-message .question-form-private,
 .workspace .question-message .question-form-optional { color: var(--muted); font-size: 12px; font-weight: 400; }
 .workspace .question-message .question-form-optional { flex: none; }
-.workspace .question-message .question-form-field .error-text { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.workspace .question-message .question-form-field .tb-note--error { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
 .workspace .question-message .question-form .question-actions { margin-top: 18px; }
 .workspace .question-message .question-form-summary { display: grid; gap: 8px; margin: 10px 0 0; font-size: 13px; line-height: 1.6; }
 .workspace .question-message .question-form-summary > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }

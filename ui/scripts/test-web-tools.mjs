@@ -240,7 +240,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     const t = await open();
     state.failNext = true;
     await row(t.page, "search", "brave").getByRole("button", {name: "Move Brave Search up"}).click();
-    await t.page.locator(".web-tools > .error-text").waitFor();
+    await t.page.locator(".web-tools > .tb-note--error").waitFor();
     await t.page.waitForFunction(() => document.querySelector('.web-row[data-chain="search"][data-id="tavily"]')?.previousElementSibling?.dataset.id === "native");
     assert.deepEqual(await ids(t.page, "search"), ["native", "tavily", "brave", "searxng"], "the old order is back");
     await t.close();

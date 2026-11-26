@@ -14,6 +14,7 @@ import { TakeoverDialog } from "./TakeoverDialog";
 import { VMOAuthDialog, type VMOAuthSession } from "./VMOAuthDialog";
 import type { Bot } from "./types";
 import "./handover.css";
+import { Note } from "./ds/Notice/Notice";
 
 type CardProps = { item: Question; bot?: Bot; group?: boolean; archived?: boolean; onChanged: (resolved?: Question) => Promise<void> };
 type Result = "done" | "cannot" | "connected" | "failed" | "declined";
@@ -86,8 +87,8 @@ export function TakeoverCard({ item, bot, group, archived, onChanged }: CardProp
       </div>
       {open && <TakeoverDialog botId={item.bot_id} questionId={item.question_id} site={item.source_url ?? ""} prompt={item.question} busy={busy} error={error}
         onResult={result => void send(result)} onClose={() => setOpen(false)} />}
-    </> : archived && current.status === "pending" ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-result" role="status"><span>{answered ?? ended}</span></div>}
-    {error && <p className="error-text" role="alert">{error}</p>}
+    </> : archived && current.status === "pending" ? <Note >{t("question.note.archived")}</Note> : <div className="question-result" role="status"><span>{answered ?? ended}</span></div>}
+    {error && <Note tone="error" role="alert">{error}</Note>}
   </Shell>;
 }
 
@@ -209,8 +210,8 @@ export function ConnectionCard({ item, bot, group, archived, onChanged }: CardPr
       </div>
       {connect.paste && <PasteBackDialog serverName={service} title={service} popup={connect.pastePopup} onFinish={connect.finishPaste} />}
       {connect.vm && <VMOAuthDialog session={connect.vm} serverName={service} title={service} onFinish={status => connect.finishVM(status)} />}
-    </> : archived && current.status === "pending" ? <p className="field-note">{t("question.note.archived")}</p> : <div className="question-result" role="status"><span>{answered ?? ended}</span></div>}
-    {(connect.error || sendError) && <p className="error-text" role="alert">{connect.error || sendError}</p>}
+    </> : archived && current.status === "pending" ? <Note >{t("question.note.archived")}</Note> : <div className="question-result" role="status"><span>{answered ?? ended}</span></div>}
+    {(connect.error || sendError) && <Note tone="error" role="alert">{connect.error || sendError}</Note>}
   </Shell>;
 }
 

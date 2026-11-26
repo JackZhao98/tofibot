@@ -8,6 +8,7 @@ import type { Attachment, Run } from "./types";
 import { traceCellAt, traceCells, traceThumbStyle } from "./workTraceLayout";
 import "./work-trace.css";
 import { Button } from "./ds/Button/Button";
+import { Note } from "./ds/Notice/Notice";
 
 
 
@@ -84,7 +85,7 @@ export default function WorkTrace({ run }: { run: Run }) {
         <Button type="button" variant="ghost" size="sm" onClick={() => setAsking(false)}>{t("trace.delete_no")}</Button>
       </span>
       : <Button type="button" variant="ghost" size="sm" className="work-trace-delete" onClick={() => setAsking(true)}>{t("trace.delete")}</Button>}
-    {error && <small className="error-text" role="alert">{error}</small>}
+    {error && <Note tone="error" as="small" role="alert">{error}</Note>}
     {index !== null && <Suspense fallback={null}><Lightbox images={images} index={index} onIndex={setIndex} onClose={() => setIndex(null)} origin={() => button.current} cellAt={cellAt} stepButtons={stepButtons} stepsLabel={t("trace.title")} /></Suspense>}
   </div>;
 }

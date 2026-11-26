@@ -47,7 +47,7 @@ export const dialogs: CatalogSection = {
       drive: step => step.click(confirmDelete).then(() => undefined),
       render: () => <DeleteConversationDialog target={deleteBot} bots={BOTS} onDelete={never} onClose={noop} /> },
     { id: "delete-error", kind: "overlay", label: "Delete, failed", probe: ".delete-dialog",
-      drive: async step => { await step.click(confirmDelete); await step.find(".delete-dialog .error-text"); },
+      drive: async step => { await step.click(confirmDelete); await step.find(".delete-dialog .tb-note--error"); },
       render: () => <DeleteConversationDialog target={deleteBot} bots={BOTS} onDelete={() => Promise.reject(new Error("Synthetic: the server refused"))} onClose={noop} /> },
     { id: "delete-primary", kind: "overlay", label: "Delete the Primary Assistant", note: "a successor must be named", probe: ".delete-dialog",
       render: () => <DeleteConversationDialog target={deletePrimary} bots={BOTS} onDelete={async () => {}} onClose={noop} /> },

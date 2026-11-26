@@ -8,6 +8,7 @@ import {useTranslation} from "./i18n";
 import {Button} from "./ds/Button/Button";
 import {TextInput} from "./ds/TextInput/TextInput";
 import {TextArea} from "./ds/TextArea/TextArea";
+import { Note } from "./ds/Notice/Notice";
 
 const SHOWN_MODELS = 12;
 /** The address that reaches an Ollama running on the computer that hosts the App container (Docker Desktop). */
@@ -104,15 +105,15 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
     </div>
     <label htmlFor={urlId}>{t("providers.compat.url_label")}</label>
     <TextInput mono id={urlId} name="compat-base-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="http://host:11434/v1" value={baseUrl} disabled={Boolean(working)} required autoFocus onChange={event => { setBaseUrl(event.target.value); setListed(null); setError(""); }}/>
-    <p className="field-note">{t("providers.compat.url_note")}</p>
-    {isOllama(baseUrl) && <p className="field-note compat-ollama" data-compat-note="ollama">{t("providers.compat.ollama_note")}</p>}
+    <Note >{t("providers.compat.url_note")}</Note>
+    {isOllama(baseUrl) && <Note className="compat-ollama" data-compat-note="ollama">{t("providers.compat.ollama_note")}</Note>}
     <label htmlFor={keyId}>{t("providers.compat.key_label")}</label>
     <TextInput mono id={keyId} name="compat-api-key" type="password" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder={configured && status?.key_hint ? t("providers.compat.key_keep") : "sk-…"} value={key} disabled={Boolean(working)} onChange={event => { setKey(event.target.value); setError(""); }}/>
     <label htmlFor={modelsId}>{t("providers.compat.models_label")}</label>
     <TextArea id={modelsId} name="compat-models" rows={2} autoComplete="off" spellCheck={false}  value={modelText} disabled={Boolean(working)} onChange={event => { setModelText(event.target.value); setError(""); }}/>
-    <p className="field-note">{t("providers.compat.models_note")}</p>
+    <Note >{t("providers.compat.models_note")}</Note>
     {listed && <div className="compat-listed" role="status">
-     <p className="field-note">{listed.length ? t("providers.compat.found", {count: listed.length}) : t("providers.compat.none_found")}</p>
+     <Note >{listed.length ? t("providers.compat.found", {count: listed.length}) : t("providers.compat.none_found")}</Note>
      {listed.length > 0 && <ul>{listed.slice(0, SHOWN_MODELS).map(model => <li key={model.id}><code>{model.id}</code>{model.context_window ? <span>{t("providers.compat.window", {tokens: formatNumber(model.context_window)})}</span> : null}</li>)}{listed.length > SHOWN_MODELS && <li className="compat-more">{t("providers.compat.more", {count: listed.length - SHOWN_MODELS})}</li>}</ul>}
     </div>}
     <div className="provider-key-row">
@@ -120,10 +121,10 @@ export function CompatCard({status, loading, onChange}: {status?: ModelProviderS
      <Button size="sm" type="button" disabled={Boolean(working) || !baseUrl.trim()} onClick={() => void fetchModels()}>{showWorking && working === "fetch" ? t("providers.compat.fetching") : t("providers.compat.fetch")}</Button>
      <Button size="sm" type="button" disabled={Boolean(working)} onClick={close}>{t("action.cancel")}</Button>
     </div>
-    {error && <p className="error-text" role="alert">{error}</p>}
-    <p className="field-note">{t("providers.compat.network_note")}</p>
+    {error && <Note tone="error" role="alert">{error}</Note>}
+    <Note >{t("providers.compat.network_note")}</Note>
    </form>}
   </>}
-  {notice && !error && <p className="field-note" role="status">{notice}</p>}
+  {notice && !error && <Note  role="status">{notice}</Note>}
  </article>;
 }

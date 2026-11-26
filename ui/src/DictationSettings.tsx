@@ -4,6 +4,7 @@ import {useSettingsDraft} from "./settingsDraft";
 import {useTranslation} from "./i18n";
 import {SettingsCard,SettingsRow,SettingsSection} from "./settings/components";
 import { Select } from "./Select";
+import { Note } from "./ds/Notice/Notice";
 
 type DictationModel={id:string;name:string};
 export type DictationSettingsValue={model:string;configured:boolean;auth_source:"api_key"|"codex"|"";models:DictationModel[]};
@@ -34,7 +35,7 @@ export function DictationSettings({value:loaded,error:loadError}:{value:Dictatio
  };
  const known=selected&&Object.hasOwn(copies,selected.id)?copies[selected.id]:undefined;
  const hint=known?.hint??"";const price=known&&value?.auth_source==="api_key"?known.price:"";
- if(loadError&&!loaded)return <SettingsSection id="dictation" title={t("dictation.title")}><p className="error-text" role="alert">{loadError}</p></SettingsSection>;
+ if(loadError&&!loaded)return <SettingsSection id="dictation" title={t("dictation.title")}><Note tone="error" role="alert">{loadError}</Note></SettingsSection>;
  if(!value||!value.configured)return null;
- return <SettingsSection id="dictation" title={t("dictation.title")} className="dictation-settings">{value?<form aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}><SettingsCard><SettingsRow labelFor="dictation-model" label={t("dictation.model_label")} description={t("dictation.description")} control={<Select id="dictation-model" value={choice} onValueChange={value =>{setChoice(value);setStatus("")}} disabled={busy}>{value.models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}</Select>}/>{(hint||price)&&<p className="settings-card-note">{hint}{hint&&price&&" · "}{price&&t("dictation.api_price",{cost:price})}</p>}{value.auth_source==="codex"&&<p className="settings-card-note">{t("dictation.codex_account")}</p>}</SettingsCard><div className="settings-form-footer"><span className="settings-feedback" role="status">{status}</span></div></form>:null}{error&&<p className="error-text" role="alert">{error}</p>}</SettingsSection>
+ return <SettingsSection id="dictation" title={t("dictation.title")} className="dictation-settings">{value?<form aria-busy={busy} onSubmit={event=>{event.preventDefault();void save()}}><SettingsCard><SettingsRow labelFor="dictation-model" label={t("dictation.model_label")} description={t("dictation.description")} control={<Select id="dictation-model" value={choice} onValueChange={value =>{setChoice(value);setStatus("")}} disabled={busy}>{value.models.map(model=><option key={model.id} value={model.id}>{model.name}</option>)}</Select>}/>{(hint||price)&&<p className="settings-card-note">{hint}{hint&&price&&" · "}{price&&t("dictation.api_price",{cost:price})}</p>}{value.auth_source==="codex"&&<p className="settings-card-note">{t("dictation.codex_account")}</p>}</SettingsCard><div className="settings-form-footer"><span className="settings-feedback" role="status">{status}</span></div></form>:null}{error&&<Note tone="error" role="alert">{error}</Note>}</SettingsSection>
 }

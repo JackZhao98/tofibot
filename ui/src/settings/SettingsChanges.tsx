@@ -6,6 +6,7 @@ import { useSettingLabel } from "../SettingsChangeNotice";
 import type { SettingsChangeRow } from "../types";
 import { SettingsCard, SettingsRow } from "./components";
 import { Button } from "../ds/Button/Button";
+import { Note } from "../ds/Notice/Notice";
 
 const clip = (value: string) => { const text = value.replace(/\s+/g, " ").trim(); return text.length > 80 ? `${text.slice(0, 79)}…` : text; };
 
@@ -18,7 +19,7 @@ function ChangeRow({ change, busy, error, onRevert }: { change: SettingsChangeRo
   const description = <>
     {`${clip(change.old_value) || empty} → ${clip(change.new_value) || empty}`}
     <br />{`${change.bot_name ?? ""} · ${formatRelativeTime(change.at)}${where}`}
-    {error && <><br /><span role="alert" className="error-text">{error}</span></>}
+    {error && <><br /><Note role="alert" tone="error" as="span">{error}</Note></>}
   </>;
   return <SettingsRow label={label} description={description}
     control={reverted ? <span className="muted">{t("changes.reverted")}</span>
@@ -50,7 +51,7 @@ export function SettingsChanges() {
   }
   return <SettingsCard>
     {rows === null && !failed && <p className="muted settings-card-note" aria-live="polite">{t("changes.loading")}</p>}
-    {failed && <p role="alert" className="error-text settings-card-note">{t("changes.load_failed")}</p>}
+    {failed && <Note role="alert" tone="error" className="settings-card-note">{t("changes.load_failed")}</Note>}
     {rows !== null && rows.length === 0 && <p className="muted settings-card-note">{t("changes.none")}</p>}
     {rows?.map(change => <ChangeRow key={change.id} change={change} busy={busy === change.id} error={errors[change.id] ?? ""} onRevert={id => void revert(id)} />)}
   </SettingsCard>;

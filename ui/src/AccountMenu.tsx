@@ -6,6 +6,7 @@ import { matchLanguage, useLanguage, useTranslation, type LanguagePreference } f
 import { languageChoices, selectedLanguageChoice } from "./languageChoices";
 import { chooseLanguage } from "./saveLanguage";
 import type { OwnerSession } from "./ownerAuthApi";
+import { Note } from "./ds/Notice/Notice";
 
 /** The sidebar account menu body; kept out of the entry chunk. */
 export function AccountMenu({ setOpen, name, trigger, session, logout, onSettings, onUsage, onArtifacts }: { setOpen: (open: boolean) => void; name: string; trigger: RefObject<HTMLButtonElement | null>; session: OwnerSession | null; logout: () => Promise<void>; onSettings: () => void; onUsage: () => void; onArtifacts: () => void; }) {
@@ -30,6 +31,6 @@ export function AccountMenu({ setOpen, name, trigger, session, logout, onSetting
         {session?.enabled && <button className="sidebar-account-logout is-danger" disabled={busy} onClick={() => { setBusy(true); setError(""); void logout().catch(cause => setError(cause instanceof Error ? cause.message : t("account.sign_out_failed"))).finally(() => setBusy(false)); }}><TofiIcon name="logout" size={16}/>{busy ? t("account.signing_out") : t("account.sign_out")}</button>}
         <button className="sidebar-account-theme" data-keep-open="" aria-label={t(`common:theme.${appearance.preference}`)} data-hint={t(`common:theme.${appearance.preference}`)} title={t(`common:theme.${appearance.preference}`)} onClick={() => appearance.choose(appearance.preference === "system" ? "light" : appearance.preference === "light" ? "dark" : "system")}><TofiIcon name={appearance.preference === "system" ? "monitor" : appearance.preference === "light" ? "sun" : "moon"} size={16}/></button>
       </div>
-      {error && <p className="error-text" role="alert">{error}</p>}
+      {error && <Note tone="error" role="alert">{error}</Note>}
   </OverlayMenu>;
 }

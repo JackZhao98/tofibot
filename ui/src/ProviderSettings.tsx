@@ -16,6 +16,7 @@ export {CardHead} from "./ProviderControls";
 import { CompatCard } from "./CompatProviderCard";
 import { usePolicy } from "./capabilityPolicy";
 import { ProvidedModels } from "./ProvidedModels";
+import { Note } from "./ds/Notice/Notice";
 
 type KeyProvider = "openai" | "anthropic";
 const labels: Record<KeyProvider, string> = {openai: "OpenAI", anthropic: "Claude"};
@@ -69,12 +70,12 @@ function ChatGPTCard({codex}: {codex: CodexConnection}) {
   </div>
  </>;
  else body = <>
-  {codex.connected === null && !codex.working && <p className="field-note"><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></p>}
+  {codex.connected === null && !codex.working && <Note ><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></Note>}
  </>;
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || codex.working} data-provider="codex">
   <CardHead id={titleId} provider="openai" title="ChatGPT" state={state} action={on ? <Button size="sm" type="button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</Button> : !waiting && !codex.session ? <Button size="sm" type="button" data-method="chatgpt" disabled={codex.working} onClick={() => void codex.connect()}>{t("providers.chatgpt_title")}</Button> : undefined}/>
   {(!on || managing) && body}
-  {codex.error && <p className="error-text" role="alert">{codex.error}</p>}
+  {codex.error && <Note tone="error" role="alert">{codex.error}</Note>}
  </article>;
 }
 
@@ -84,7 +85,7 @@ function OwnModelProviders({refreshToken, codexRefresh, onConfigured, onCodexCon
  const codex = useCodexConnection(codexRefresh, onCodexConfigured);
  const update = (next: ModelProviderStatus | null) => { if (next) setProviders.set(next); else setProviders.reload(); onConfigured(); };
  return <SettingsSection className="model-providers" title={t("providers.title")}>
-  {providers.error && <p className="error-text" role="alert">{providers.error} <Button size="sm" type="button" onClick={setProviders.reload}>{t("action.retry")}</Button></p>}
+  {providers.error && <Note tone="error" role="alert">{providers.error} <Button size="sm" type="button" onClick={setProviders.reload}>{t("action.retry")}</Button></Note>}
   {/* One card per service: its sign-in or key, status and removal never share a box with another service. */}
   <SettingsCard className="provider-list provider-openai"><OpenAICard status={providers.list?.find(item => item.id === "openai")} loading={!providers.list && !providers.error} codex={codex} onChange={update}/></SettingsCard>
   <SettingsCard className="provider-list provider-anthropic"><KeyCard id="anthropic" status={providers.list?.find(item => item.id === "anthropic")} loading={!providers.list && !providers.error} onChange={update}/></SettingsCard>
@@ -179,10 +180,10 @@ function KeyForm({id, entry, onCancel, autoFocus = false}: {id: KeyProvider; ent
   {id === "anthropic" && <>
    <label htmlFor={`${inputId}-workspace`}>{t("providers.workspace_label")}</label>
    <TextInput mono id={`${inputId}-workspace`} name="anthropic-workspace-id" type="text" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" placeholder="wrkspc_…" value={workspace} required disabled={verifying} onChange={event => { setWorkspace(event.target.value); setError(""); }}/>
-   <p className="field-note">{t("providers.workspace_note")}</p>
+   <Note >{t("providers.workspace_note")}</Note>
    <div className="provider-key-row">{saveButton}{onCancel && <Button size="sm" type="button" disabled={verifying} onClick={cancel}>{t("action.cancel")}</Button>}</div>
   </>}
-  {error && <p id={`${inputId}-error`} className="error-text" role="alert">{error}</p>}
+  {error && <Note id={`${inputId}-error`} tone="error" role="alert">{error}</Note>}
  </form>;
 }
 
@@ -210,7 +211,7 @@ function KeyCard({id, status, loading, onChange}: {id: KeyProvider; status?: Mod
   </> : <>
    {replacing && <KeyForm id={id} entry={entry} autoFocus onCancel={() => setReplacing(false)}/>}
   </>}
-  {notice && !entry.error && <p className="field-note" role="status">{notice}</p>}
+  {notice && !entry.error && <Note  role="status">{notice}</Note>}
  </article>;
 }
 
@@ -272,13 +273,13 @@ function OpenAICard({status, loading, codex, onChange}: {status?: ModelProviderS
  else body = <>
 
   {choosingKey && <KeyForm id="openai" entry={entry} autoFocus onCancel={() => { setChoosingKey(false); entry.setError(""); }}/>}
-  {codex.connected === null && !codex.working && <p className="field-note"><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></p>}
+  {codex.connected === null && !codex.working && <Note ><Button size="sm" type="button" onClick={codex.refresh}>{tc("codex.retry_status")}</Button></Note>}
  </>;
  return <article className="detail-content provider-card" aria-labelledby={titleId} aria-busy={waiting || entry.verifying || codex.working}>
   <CardHead id={titleId} provider="openai" title={labels.openai} state={state} action={(codexOn || keyOn) ? <Button size="sm" type="button" aria-expanded={managing} onClick={() => setManaging(value => !value)}>{t("providers.manage")}</Button> : !waiting && !codex.session ? choices : undefined}/>
   {(!(codexOn || keyOn) || managing || codex.session) && body}
-  {notice && !entry.error && <p className="field-note" role="status">{notice}</p>}
-  {codex.error && <p className="error-text" role="alert">{codex.error}</p>}
+  {notice && !entry.error && <Note  role="status">{notice}</Note>}
+  {codex.error && <Note tone="error" role="alert">{codex.error}</Note>}
  </article>;
 }
 
