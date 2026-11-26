@@ -17,6 +17,7 @@
 // Waits for the fonts and, in the catalog, for the catalog-ready flag. Fails (exit 1) on a page error, a catalog error or a
 // state that does not exist. Output: <name>-<theme>-<width>[-NN].png, and <name>-<theme>-<width>[-NN]-vs-ref.png.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -35,7 +36,7 @@ let server, origin = option("--origin");
 if (!origin) {
   const { createServer } = await import("vite");
   const { default: react } = await import("@vitejs/plugin-react");
-  server = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
+  server = await createServer({ cacheDir: viteCacheDir(), configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: "error" });
   await server.listen();
   origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 }

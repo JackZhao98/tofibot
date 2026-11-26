@@ -37,12 +37,15 @@ export type OverlayPopoverProps = Placement & Omit<HTMLAttributes<HTMLElement>, 
 
 type Radix = typeof import("./RadixOverlays");
 let radix: Radix | undefined;
-const load = () => import("./RadixOverlays").then(module => (radix = module));
+let loading: Promise<Radix> | undefined;
+const load = () => (loading ??= import("./RadixOverlays").then(module => (radix = module)));
 /** The Radix module once fetched. No Suspense: React holds a revealed boundary back for ~300 ms, which a menu cannot afford.
  * Warm (the usual case) the menu renders in the same commit as the click; cold it renders as soon as the chunk arrives. */
 function useRadix() {
   const [, loaded] = useState(0);
-  useEffect(() => { if (!radix) void load().then(() => loaded(1)); }, []);
+  // Decided by what this render saw, not by what the effect sees: the chunk can arrive between the two (the idle fetch), and then nothing would re-render the menu.
+  const seen = radix;
+  useEffect(() => { if (!seen) void load().then(() => loaded(1)); }, []);
   return radix;
 }
 

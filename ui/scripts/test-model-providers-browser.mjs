@@ -2,6 +2,7 @@
 // Needs PLAYWRIGHT_MODULE; set PROVIDER_SCREENSHOTS=<dir> to keep screenshots.
 import {selectItems, selectValue, pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdtemp, readFile, rm, writeFile, mkdir} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -21,7 +22,7 @@ try {
   await writeFile(join(fixture, "main.tsx"), `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {i18nReady,setLanguage} from '../src/i18n';import {TimezoneProvider} from '../src/UserTimezone';import {ModelProviders} from '../src/ProviderSettings';import {ModelFields} from '../src/ModelSettings';${styles}
 function Fixture(){const [model,setModel]=useState(new URLSearchParams(location.search).get('model')||'');const [effort,setEffort]=useState('');return <TimezoneProvider><div className="workspace"><div className="settings-page-body"><ModelProviders refreshToken={0} codexRefresh={0} onConfigured={()=>{}} onCodexConfigured={()=>{}}/><section className="settings-section" data-testid="picker"><ModelFields model={model} effort={effort} onChange={(m,e)=>{setModel(m);setEffort(e)}}/><output data-testid="value">{model}|{effort}</output></section></div></div></TimezoneProvider>}
 void i18nReady.then(()=>setLanguage('zh-CN')).then(()=>createRoot(document.getElementById('root')).render(<Fixture/>));`);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME});

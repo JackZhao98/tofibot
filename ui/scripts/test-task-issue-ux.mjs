@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {readFile} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 import {dirname, join} from "node:path";
@@ -7,7 +8,7 @@ import {createElement} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {at, run, request, tool, question, draft, summary, scenario} from "./task-issue-fixtures.mjs";
 const ui=dirname(dirname(fileURLToPath(import.meta.url)));
-const server=await createServer({configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
+const server=await createServer({cacheDir: viteCacheDir(), configFile:false,root:ui,server:{middlewareMode:true,hmr:false,ws:false},logLevel:"error"});
 try {
  // Assertions pin the shipped zh-CN copy unless a case passes locale "en".
  const i18n=await server.ssrLoadModule("/src/i18n/index.ts");await i18n.i18nReady;await i18n.loadLanguage("en");await i18n.setLanguage("zh-CN");

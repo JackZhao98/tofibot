@@ -5,6 +5,7 @@
 //
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:work-trace
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { deflateSync } from "node:zlib";
@@ -107,7 +108,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   return <div className="message-block"><div className="message-bubble" data-testid="reply">Done.</div>{under&&<div className="message-work-trace"><WorkTrace run={run as any}/></div>}{mode==='shown'&&<Collapsible.Root defaultOpen className="task-activity" data-testid="activity"><Collapsible.Trigger className="process-line">Activity</Collapsible.Trigger><Collapsible.Content className="collapsible-content"><WorkTrace run={run as any}/></Collapsible.Content></Collapsible.Root>}</div>;
 })()}</div>));
 `);
-  server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+  server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({ executablePath: process.env.TOFI_TEST_CHROME || undefined });

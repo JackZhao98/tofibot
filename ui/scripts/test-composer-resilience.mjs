@@ -5,6 +5,7 @@
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:composer-resilience
 // RESILIENCE_ENGINE=webkit runs the same checks in WebKit.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
@@ -79,7 +80,7 @@ function install(middlewares) {
     return json({});
   });
 }
-const server = await createServer({ configFile: false, root: ui, plugins: [react(), { name: "resilience-mock", configureServer(s) { install(s.middlewares); } }], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react(), { name: "resilience-mock", configureServer(s) { install(s.middlewares); } }], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await (process.env.RESILIENCE_ENGINE === "webkit" ? pw.webkit : pw.chromium).launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

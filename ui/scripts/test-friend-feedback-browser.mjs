@@ -2,6 +2,7 @@
 // Every request is restricted to this disposable loopback preview server.
 import {pickSelect} from "./lib/select.mjs";
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +16,7 @@ await mkdir(output, { recursive: true });
 // The focused removal regression transforms current source without rebuilding
 // or rerunning the already-passing production-build acceptance scenarios.
 const server = conversationRemoval
-  ? await createServer({ root, server: { host: "127.0.0.1", port: 0, strictPort: false, open: false } })
+  ? await createServer({ cacheDir: viteCacheDir(), root, server: { host: "127.0.0.1", port: 0, strictPort: false, open: false } })
   : await preview({ root, preview: { host: "127.0.0.1", port: 0, strictPort: false, open: false } });
 if (conversationRemoval) await server.listen();
 const origin = server.resolvedUrls.local[0].replace(/\/$/, "");

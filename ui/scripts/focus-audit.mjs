@@ -84,10 +84,17 @@ export async function auditFocus(page, {touch = false, limit = 14, scope = ""} =
   try {
     await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); window.scrollTo(0, 0); });
     let tabbed = 0;
+    // A busy machine delays focus: the page may not have the window's focus yet (WebKit with several pages open), or the Escape above is still
+    // closing a surface and handing focus back. So each Tab waits (up to a second) for focus to land before the press counts as unanswered.
+    await page.bringToFront();
     for (let i = 0; i < 6; i++) {
       await page.keyboard.press("Tab");
-      await page.waitForTimeout(60);
-      const probe = await page.evaluate(focusRingProbe);
+      let probe = null;
+      for (let wait = 0; wait < 20; wait++) {
+        await page.waitForTimeout(wait ? 50 : 60);
+        probe = await page.evaluate(focusRingProbe);
+        if (!probe.none) break;
+      }
       if (probe.none) continue;
       tabbed++;
       if (!probe.ring && !probe.field) found.push({kind: "focus-ring-missing", selector: probe.focused, detail: tag("Tab focused an element that draws no ring" + (process.env.FOCUS_DEBUG ? " " + probe.html : ""))});

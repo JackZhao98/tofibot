@@ -6,6 +6,7 @@
 import {pickSelect, selectItems} from "./lib/select.mjs";
 import { auditFocus, focusRingProbe } from "./focus-audit.mjs";
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
@@ -18,7 +19,7 @@ const ui = dirname(dirname(fileURLToPath(import.meta.url)));
 const shots = join(ui, "..", "artifacts", process.env.SHOTS_DIR || "onboarding");
 mkdirSync(shots, { recursive: true });
 
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

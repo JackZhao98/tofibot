@@ -7,6 +7,7 @@
 //   PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:automation-settings
 //   AUTOMATION_SHOTS=<dir>  also saves screenshots there
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -48,7 +49,7 @@ const page=query.get('page')||'behavior';
 const body=page==='permissions'?<PermissionsPage/>:page==='allowances'?<StandingAllowances/>:page==='rows'?<AutomationRows groups={['models','remembered','permissions','environment']}/>:<BehaviorPage onOpenFollowups={()=>{(window as any).__openTab='followups'}}/>;
 void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace"><div className="settings-page-body" data-page={page}>{body}</div></div></TimezoneProvider>));
 `);
-  server = await createServer({configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: {host: "127.0.0.1", port: 0, hmr: false}, logLevel: "error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath: process.env.TOFI_TEST_CHROME || undefined});

@@ -101,6 +101,8 @@ async function open({ reduced = false, viewport = { width: 1180, height: 820 }, 
   return { page, context, errors, puts, layout };
 }
 
+// WebKit can answer a reload with "Frame load interrupted" when the app's own startup navigation overlaps it: the page is still loading, so wait for it.
+const reload = page => page.reload().catch(async error => { if (!/Frame load interrupted/.test(String(error.message))) throw error; await page.waitForLoadState("load"); });
 const names = page => page.locator(".contact-section .conversation-row .contact-name").allInnerTexts();
 const pinnedNames = page => page.locator(".pin-tile .contact-name").allInnerTexts();
 const rowFor = (page, name) => page.locator(".conversation-row").filter({ has: page.locator(".contact-name", { hasText: name }) }).first();
@@ -143,6 +145,15 @@ const sampleStart = (page, id) => page.evaluate(sampleId => {
 const sampleStop = async page => { await page.evaluate(() => { window.__sampling = false; }); const { frames, upAt } = await page.evaluate(() => ({ frames: window.__samples, upAt: window.__upAt })); return Object.assign(frames, { upAt }); };
 /** Release the button a few frames after the sampler started, so the frames before the release are on record. */
 const releaseSampled = async (page, id) => { await sampleStart(page, id); await sleep(120); await page.mouse.up(); await sleep(900); return sampleStop(page); };
+/** Progress (0..1) of cubic-bezier(.2,.8,.2,1) at time fraction x, found by bisection on the curve's x(s). */
+function easeProgress(x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const at = (s, a, b) => 3 * a * (1 - s) ** 2 * s + 3 * b * (1 - s) * s ** 2 + s ** 3;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (at(mid, .2, .2) < x) lo = mid; else hi = mid; }
+  return at((lo + hi) / 2, .8, 1);
+}
 /** The settle must end where it ends: the last frame of the animation and the resting rect agree, and nothing steps afterwards. */
 function assertNoJump(samples, what, { continuity = true } = {}) {
   const up = samples.upAt;
@@ -152,11 +163,15 @@ function assertNoJump(samples, what, { continuity = true } = {}) {
   const afterUp = samples.slice(up).find(s => s.rect);
   const mid = r => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
   const leap = Math.hypot(mid(afterUp.rect).x - mid(beforeUp.rect).x, mid(afterUp.rect).y - mid(beforeUp.rect).y);
-  // The settle eases out of a standing start, so how far it may have travelled grows with the time between the two frames
-  // (about 2.6 px per ms at its steepest over these distances); a start from the old slot is 100+ px at once.
+  // The settle eases out of a standing start: cubic-bezier(.2,.8,.2,1) over 220 ms. How far it may have travelled by the first frame we see is
+  // that curve's share of the whole flight at the time between the two frames (a frame that lands late under load has travelled further: a
+  // 560 px flight is 59% done after 22 ms). The time since the last lifted frame is never less than the time since the release, so it is an upper bound.
   const elapsed = afterUp.t - beforeUp.t;
+  const rest = samples.filter(s => s.rect).at(-1).rect;
+  const flight = Math.hypot(mid(rest).x - mid(beforeUp.rect).x, mid(rest).y - mid(beforeUp.rect).y);
+  const allowed = 12 + flight * (easeProgress(elapsed / 220) + 0.02);
   // (A tile that lands above the scrolled viewport flies a long way off screen: its continuity is not visible, so not asserted.)
-  if (continuity) assert.ok(leap <= 12 + 2.6 * elapsed, `${what}: the element leaps ${leap.toFixed(1)} px in ${elapsed.toFixed(0)} ms between its last lifted frame and the first frame after the release`);
+  if (continuity) assert.ok(leap <= allowed, `${what}: the element leaps ${leap.toFixed(1)} px in ${elapsed.toFixed(0)} ms (a ${flight.toFixed(0)} px flight allows ${allowed.toFixed(0)}) between its last lifted frame and the first frame after the release`);
   const have = samples.filter(s => s.rect);
   if (process.env.DEBUG_JUMP) console.log(`  [${what}] release at frame ${up}; before: ${samples.slice(Math.max(0, up - 3), up).map(s => s.rect && s.rect.y.toFixed(1)).join(" ")}`);
   if (process.env.DEBUG_JUMP) console.log(`  [${what}]`, have.map(s => `${s.t.toFixed(0)}:${s.rect.x.toFixed(1)},${s.rect.y.toFixed(1)},${s.rect.w.toFixed(0)}x${s.rect.h.toFixed(0)}${s.running ? "*" : ""}@${s.scroll}`).join(" "));
@@ -208,7 +223,7 @@ await check("dragging a row lifts it, but the list stays in recency order: nothi
   assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "the row went back to its recency slot");
   await sleep(300);
   assert.equal(puts.length, 0, "a drop that changes nothing saves nothing");
-  await page.reload();
+  await reload(page);
   await page.locator(".conversation-row").first().waitFor();
   assert.deepEqual((await names(page)).slice(0, 4), ["Cat 00", "Cat 01", "Cat 02", "Cat 03"], "recency order after a reload");
   assert.deepEqual(errors, []);
@@ -274,7 +289,7 @@ await check("dropping on the zone pins: the row joins the pinned group with its 
   await tile.click();
   await page.waitForFunction(() => document.querySelector(".chat-name-pill h1")?.textContent === "Cat 02", null, { timeout: 5000 });
   assert.ok((await tile.getAttribute("class")).includes("active"), "clicking a tile opens it and marks it current");
-  await page.reload();
+  await reload(page);
   await page.locator(".pin-tile").first().waitFor();
   assert.deepEqual(await pinnedNames(page), ["Cat 02"], "pins survive a reload");
   await context.close();

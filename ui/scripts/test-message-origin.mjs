@@ -1,5 +1,6 @@
 // Exercise the real send API in a browser, with and without the Mac bridge.
 import assert from "node:assert/strict";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import {mkdtemp, rm, writeFile} from "node:fs/promises";
 import {basename, dirname, join} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
@@ -12,7 +13,7 @@ let server, browser;
 try {
   await writeFile(join(fixture, "index.html"), '<!doctype html><script type="module" src="./main.ts"></script>');
   await writeFile(join(fixture, "main.ts"), `import {api} from '../src/api'; window.send = () => api.sendMessage('synthetic-chat', {content:'synthetic message',client_message_id:crypto.randomUUID()});`);
-  server = await createServer({configFile:false, root:ui, server:{host:"127.0.0.1",port:0}, logLevel:"error"});
+  server = await createServer({cacheDir: viteCacheDir(), configFile:false, root:ui, server:{host:"127.0.0.1",port:0}, logLevel:"error"});
   await server.listen();
   const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
   browser = await chromium.launch({executablePath:process.env.TOFI_TEST_CHROME || undefined});

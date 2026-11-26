@@ -2,6 +2,7 @@
 // to artifacts/tool-outcome/<label>/ (gitignored). Run against any ui root that has
 // scripts/tool-outcome-fixture.*: TOOL_OUTCOME_LABEL=before UI_ROOT=/path node scripts/shot-tool-outcome.mjs
 import { mkdirSync } from "node:fs";
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { createServer } from "vite";
@@ -15,7 +16,7 @@ const label = process.env.TOOL_OUTCOME_LABEL ?? "after";
 const out = join(here, "..", "artifacts", "tool-outcome", label);
 mkdirSync(out, { recursive: true });
 const scenes = (process.env.SCENES ?? "incident,recovered,uncertain,live").split(",");
-const server = await createServer({ configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
+const server = await createServer({ cacheDir: viteCacheDir(), configFile: false, root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "error" });
 await server.listen();
 const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { viteCacheDir } from "./lib/vite-cache.mjs";
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -50,7 +51,7 @@ const runs=[{id:'r',conversation_id:'c',bot_id:'b',status:'done',trace:{attachme
 const message={id:'final',conversation_id:'c',role:'assistant',run_id:'r',seq:3,content:'Both checks passed.',created_at:'2026-11-12T10:00:01Z',attachments:[{id:'output',conversation_id:'c',mime:'image/png',name:'Synthetic output',size:100,created_at:'2026-11-12T10:00:01Z'},{id:'document',conversation_id:'c',mime:'text/plain',name:'Synthetic notes.txt',size:80,created_at:'2026-11-12T10:00:01Z'}]};
 document.documentElement.dataset.theme=query.get('theme')||'light';
 void i18nReady.then(()=>setLanguage(query.get('lang')||'en')).then(()=>createRoot(document.getElementById('root')!).render(<TimezoneProvider><div className="workspace" style={{padding:16}}><WorkTimeline tools={${JSON.stringify(tools)}} notes={${JSON.stringify(notes)}} runs={runs as any}/><MessageBubble message={message as any} showAvatar={false}/></div></TimezoneProvider>));`);
-  server = await createServer({configFile:false,root:uiRoot,plugins:[react()],server:{host:'127.0.0.1',port:0,hmr:false},logLevel:'error'});
+  server = await createServer({cacheDir: viteCacheDir(), configFile:false,root:uiRoot,plugins:[react()],server:{host:'127.0.0.1',port:0,hmr:false},logLevel:'error'});
   await server.listen();
   const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
   for (const engine of [chromium, webkit]) {
