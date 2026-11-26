@@ -22,12 +22,28 @@ export function looseEqual(a: unknown, b: unknown, depth = 2): boolean {
   return true;
 }
 
-/** Row models that carry rendered nodes (a task block anchored to the row) are never equal: those nodes are new every render. */
-export function rowModelEqual<T extends { ownerNodes?: unknown }>(a: T, b: T): boolean {
+/** Shallow identity comparison of two signatures. */
+function sameSig(a: readonly unknown[], b: readonly unknown[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+  return true;
+}
+
+/**
+ * A row model that carries rendered nodes (a task block anchored to the row) holds nodes that are new every render, so they are not
+ * compared. It carries `ownerSig` beside them: the identities of every record those nodes draw from (see taskBlockSig). The row is
+ * skipped only when the signatures match; a model with nodes and no signature is never equal.
+ */
+export function rowModelEqual<T extends { ownerNodes?: unknown; ownerSig?: readonly unknown[] }>(a: T, b: T): boolean {
   if (a === b) return true;
-  if (a.ownerNodes || b.ownerNodes) return false;
+  if (a.ownerNodes || b.ownerNodes) {
+    if (!a.ownerSig || !b.ownerSig || !sameSig(a.ownerSig, b.ownerSig)) return false;
+  }
   const keys = Object.keys(a) as (keyof T)[];
   if (keys.length !== Object.keys(b).length) return false;
-  for (const key of keys) if (!looseEqual(a[key], b[key])) return false;
+  for (const key of keys) {
+    if (key === "ownerNodes" || key === "ownerSig") continue;
+    if (!looseEqual(a[key], b[key])) return false;
+  }
   return true;
 }

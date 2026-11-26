@@ -195,6 +195,8 @@ export interface RowModel {
   hasBar: boolean; copyText?: string; activityRunId?: string; activityToggle: boolean; activityOpen: boolean; canReply: boolean;
   botNames: Map<string, string>; menuPosition: { messageId: string; x: number; y: number; h?: number } | null;
   ownerNodes?: React.ReactNode[];
+  /** Identities of everything `ownerNodes` draws from: the row is skipped while they hold (see rowModelEqual). */
+  ownerSig?: unknown[];
   /** A task block that draws something follows this message directly: its action bar floats instead of reserving a row, so the block sits at the normal item gap. */
   ownsNext?: boolean;
   /** Task cards under this message: plain models whose identity holds until the task changes. */
