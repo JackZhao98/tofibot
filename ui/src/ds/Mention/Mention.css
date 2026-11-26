@@ -1,4 +1,4 @@
-.tb-mention { --hl: var(--mustard); padding: 0 2px; margin: 0 1px; border-radius: 2px; font-weight: 600; -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 55%, color-mix(in oklab, var(--hl) var(--hl-mix), transparent) 55% 95%, transparent 95%) 0 0 / 100% 100% no-repeat; }
+.tb-mention { color: inherit; --hl: var(--mustard); padding: 0 2px; margin: 0 1px; border-radius: 2px; font-weight: 600; -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 55%, color-mix(in oklab, var(--hl) var(--hl-mix), transparent) 55% 95%, transparent 95%) 0 0 / 100% 100% no-repeat; }
 .tb-hl--tomato { --hl: var(--tomato); }
 .tb-hl--teal { --hl: var(--teal); }
 .tb-hl--grape { --hl: var(--grape); }

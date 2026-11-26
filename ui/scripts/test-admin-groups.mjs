@@ -73,7 +73,7 @@ try {
     assert.equal(await selectValue(aiTrigger(pane)), "provided", "a stored provided row without allow_own reads as provided, members may also use their own");
     assert.equal(await aiTrigger(pane).isDisabled(), false, "Provided is editable");
     assert.equal(await pane.locator('[data-capability="computer"] .ui-select-trigger').getAttribute("data-value"), "provided");
-    assert.deepEqual(await pane.locator('[data-capability="computer"] .policy-control [role="radio"]').allInnerTexts(), ["VM", "E2B"], "a KVM host offers the VM source");
+    assert.deepEqual(await pane.locator('[data-capability="computer"] .policy-control [role="radio"]').allInnerTexts().then(items => items.map(item => item.trim())), ["VM", "E2B"], "a KVM host offers the VM source");
     assert.equal(await radio(pane.locator('.ag-policy-row[data-capability=\"computer\"]'), "VM").getAttribute("aria-checked"), "true");
     assert.deepEqual((await selectItems(pane.locator('[data-capability="computer"] .ui-select-trigger'))).map(item => item.text), ["Server VM", "Own E2B key", "Organization", "None"]);
     assert.match(await text(pane.locator(".ag-members")), /Sam Example/);
@@ -92,7 +92,7 @@ try {
     const pane = body(page, "admin-groups");
     await pane.locator(".ag-item").first().waitFor();
     await pane.locator('.ag-item[data-group="provided"]').click();
-    assert.deepEqual(await pane.locator('[data-capability="computer"] .policy-control [role="radio"]').allInnerTexts(), ["E2B"], "no VM source without a KVM host");
+    assert.deepEqual(await pane.locator('[data-capability="computer"] .policy-control [role="radio"]').allInnerTexts().then(items => items.map(item => item.trim())), ["E2B"], "no VM source without a KVM host");
     stub.writes.length = 0;
     await radio(pane.locator('.ag-policy-row[data-capability=\"web_search\"]'), "Own keys").click();
     await pane.locator(".ag-saved").getByText("Saved").waitFor();

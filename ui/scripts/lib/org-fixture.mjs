@@ -41,7 +41,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
   // Pre-bundle every dependency (the scan follows the lazy imports) and transform the fixture's modules before the first page asks: a dependency found
   // late makes Vite re-optimize and reload mid-test (two copies of React, a failed dynamic import) when the machine is busy.
   // Its own cache directory too: suites that run side by side share node_modules/.vite and invalidate each other's lazy modules.
-  const server = await createServer({configFile: false, root: ui, plugins: [react()], cacheDir: join(fixture, ".vite"), optimizeDeps: {entries: [`${fixture}/index.html`]}, server: {host: "127.0.0.1", port: 0, hmr: false, warmup: {clientFiles: [`./${basename(fixture)}/main.tsx`]}}, logLevel: "error"});
+  const server = await createServer({configFile: false, root: ui, plugins: [react()], cacheDir: join(fixture, ".vite"), optimizeDeps: {entries: [`${fixture}/index.html`, "catalog.html"]}, server: {host: "127.0.0.1", port: 0, hmr: false, warmup: {clientFiles: [`./${basename(fixture)}/main.tsx`]}}, logLevel: "error"});
   await server.listen();
   await server.waitForRequestsIdle();
   return {server, fixture, origin: `http://127.0.0.1:${server.httpServer.address().port}`, path: `/${basename(fixture)}/index.html`};

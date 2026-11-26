@@ -133,7 +133,7 @@ export function SearchPalette({ conversations, onClose, onOpenConversation, onOp
   const time = (value: string) => formatDateTime(value, { dateStyle: "medium" });
 
   return <ModalDialog onClose={requestClose} overlayClassName="search-palette-scrim" overlayProps={{ "data-state": closing ? "closing" : "open" }} initialFocus={input}>
-    <Command shouldFilter={false} loop label={t("search.title")} className="search-palette tb-dialog" aria-label={t("search.title")} data-state={closing ? "closing" : "open"} onKeyDown={onKeyDown}
+    <Command shouldFilter={false} loop label={t("search.title")} className="search-palette tb-dialog is-sheet" aria-label={t("search.title")} data-state={closing ? "closing" : "open"} onKeyDown={onKeyDown}
       onAnimationEnd={event => { if (closing && event.target === event.currentTarget) onClose(); }}>
       <div className="search-palette-head">
         <div className="tb-input search-palette-field">

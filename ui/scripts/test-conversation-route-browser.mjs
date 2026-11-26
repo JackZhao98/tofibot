@@ -235,7 +235,7 @@ try {
     await page.getByRole("menuitem", { name: "新建群", exact: true }).click();
     const createdName = layout + " Created Group";
     await page.getByPlaceholder("群名称").fill(createdName);
-    for (const bot of bravo.bots.slice(0, 2)) await page.locator(".gs-member").filter({ hasText: bot.name }).getByRole("checkbox").check();
+    for (const bot of bravo.bots.slice(0, 2)) await page.locator(".gs-member").filter({ hasText: bot.name }).locator(".tb-check-box").click();
     await page.getByRole("button", { name: "创建群", exact: true }).click();
     await page.waitForURL(/\/g\/[^/]+$/);
     const createdPath = new URL(page.url()).pathname;

@@ -1,6 +1,6 @@
 /* The V3 DriverSwitch (spec bundle.css, ScreenPanel chin). The track and the labels use the dark device's ink; the thumb takes the
    side's colour: the Bot's (--bot, teal by default) or yours (--you). Look is unlayered. */
-.tb-driver { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; width: 100px; height: 32px; flex: none; padding: 3px; box-sizing: border-box; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--code-ink) 14%, transparent); cursor: pointer; }
+.tb-driver { position: relative; color: var(--code-ink); display: grid; grid-template-columns: 1fr 1fr; align-items: center; width: 100px; height: 32px; flex: none; padding: 3px; box-sizing: border-box; border: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--code-ink) 14%, transparent); cursor: pointer; }
 .tb-driver-thumb { position: absolute; top: 3px; left: 3px; width: calc(50% - 3px); height: calc(100% - 6px); border-radius: var(--radius-pill); background: var(--bot, var(--teal)); transition: transform var(--m-base) var(--ease-spring), background-color var(--m-base) var(--ease-out); }
 .tb-driver.is-you .tb-driver-thumb { transform: translateX(100%); background: var(--you); }
 .tb-driver.is-idle .tb-driver-thumb { background: color-mix(in srgb, var(--code-ink) 28%, transparent); }
