@@ -189,6 +189,24 @@ for (const spec of MENUS) {
   });
 }
 
+// A mouse click on a More-menu item that opens a cover or sheet (a modal Dialog) must leave it open: the menu is still mounted
+// when the modal opens, and neither the menu's focus return nor its outside-press handling may dismiss it. Pressed fast
+// (a click) and held, as a hand does (pointer down, a pause, pointer up).
+for (const [label, selector] of [["Bot settings", '[data-cover="bot-settings"]'], ["Approvals in this chat", ".remembered-sheet"]]) {
+  for (const held of [false, true]) await check(`More menu: a mouse click${held ? " held 120 ms" : ""} on "${label}" opens it and it stays open`, async () => {
+    const { page, context } = await fx.open({ reduced: true });
+    await page.locator(".header-more > button").click();
+    const item = page.locator(".more-menu[data-state=open] [role=menuitem]").filter({ hasText: label });
+    if (held) { const box = await item.boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await sleep(120); await page.mouse.up(); }
+    else await item.click();
+    await page.locator(selector).waitFor({ timeout: 5000 });
+    await sleep(800);
+    assert.equal(await page.locator(selector).count(), 1, `${label} closed after the click`);
+    assert.equal(await page.locator(".more-menu").count(), 0, "the menu is still open");
+    await context.close();
+  });
+}
+
 await check("reduced motion: menus open and close at once", async () => {
   const { page, context } = await fx.open({ reduced: true });
   for (const [trigger, menu] of [[".create-menu-anchor > button", ".create-menu"], [".header-more > button", ".more-menu"]]) {
