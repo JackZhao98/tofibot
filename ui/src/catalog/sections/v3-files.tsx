@@ -127,10 +127,11 @@ export const files: CatalogState[] = [
       <DraftCard state="sent" receipt="Posted at 14:20" after={<Button variant="ghost" size="sm">View</Button>}>Price table moves to Monday. Berlin and Paris switch to the new list; London stays on the old one until the 30th.</DraftCard>
       <DraftCard state="canceled" receipt="Canceled at 14:21" after={<Button variant="ghost" size="sm">Restore</Button>}>Price table moves to Monday. Berlin and Paris switch to the new list; London stays on the old one until the 30th.</DraftCard>
     </div> },
-  { id: "sched-states", kind: "inline", label: "ScheduleCard · done, running, failed with Retry",
+  { id: "sched-states", kind: "inline", label: "ScheduleCard · done, running, paused, failed with Retry",
     render: () => <div className="catalog-stack">
       <ScheduleCard time="09:00" day="Daily" title="Morning summary" meta="Daily 09:00 · run 12" statusLabel="12:31" />
       <ScheduleCard state="run" time="14:00" day="Mon" title="Weekly price check" meta="Mondays 14:00 · run 3" statusLabel="Running · 14s" />
+      <ScheduleCard state="paused" time="08:00" day="Daily" title="Inbox sweep" meta="Daily 08:00 · run 7" statusLabel="Paused" />
       <ScheduleCard state="error" time="07:30" day="Daily" title="Backup check" meta="Daily 07:30 · run 40" statusLabel="Failed" error="The server did not answer in time." onRetry={noop} />
     </div> },
   { id: "sched-open", kind: "inline", label: "ScheduleCard · task text open (click the row to fold it)",

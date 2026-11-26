@@ -14,7 +14,7 @@ const buttonRow = (variant: NonNullable<ButtonProps["variant"]>, size: "md" | "s
     <Button variant={variant} size={size} disabled={key === "disabled"} data-specimen={key}>Save and restart</Button></Specimen>)}</Row>,
   force: forced(),
 });
-const iconButtonRow = (variant: "ghost" | "solid", size: "md" | "sm"): CatalogState => ({
+const iconButtonRow = (variant: "ghost" | "solid" | "danger", size: "md" | "sm"): CatalogState => ({
   id: `iconbutton-${variant}-${size}`, kind: "inline", label: `IconButton · ${variant} · ${size}`,
   render: () => <Row>{INTERACTION.map(({ label, key }) => <Specimen key={key} label={label}>
     <IconButton icon="copy" label="Copy key" variant={variant} size={size} disabled={key === "disabled"} data-specimen={key} /></Specimen>)}</Row>,
@@ -41,7 +41,7 @@ export const actions: CatalogState[] = [
       <Specimen label="sm icon"><Button size="sm" icon="copy">Copy</Button></Specimen>
       <Specimen label="icon only content"><Button variant="ghost" icon="more" aria-label="More" /></Specimen>
     </Row> },
-  iconButtonRow("ghost", "md"), iconButtonRow("ghost", "sm"), iconButtonRow("solid", "md"), iconButtonRow("solid", "sm"),
+  iconButtonRow("ghost", "md"), iconButtonRow("ghost", "sm"), iconButtonRow("solid", "md"), iconButtonRow("solid", "sm"), iconButtonRow("danger", "sm"),
   { id: "iconbutton-filled", kind: "inline", label: "IconButton · filled icon",
     render: () => <Row><Specimen label="outline"><IconButton icon="star" label="Pin" /></Specimen><Specimen label="filled"><IconButton icon="star" label="Unpin" filled /></Specimen></Row> },
 ];

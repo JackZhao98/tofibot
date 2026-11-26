@@ -7,7 +7,8 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "ari
   icon: IconName;
   /** The accessible name and the hover hint. Required. */
   label: string;
-  variant?: "ghost" | "solid";
+  /** danger: a destructive icon (delete); danger text at rest, the danger fill on hover. */
+  variant?: "ghost" | "solid" | "danger";
   size?: "md" | "sm";
   /** Draw the filled icon. */
   filled?: boolean;
