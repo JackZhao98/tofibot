@@ -92,11 +92,16 @@ const origin = `http://127.0.0.1:${server.httpServer.address().port}`;
 // BotDesktopPanel and its own stylesheet desktop-presence.css. Only the dev graph has them as separate files; in the build
 // that sheet is part of the eager design-system.css, so the same race cannot be set up there.
 let dev;
+// Its own Vite cache directory: suites that run side by side share node_modules/.vite and invalidate each other's lazy modules.
+const devCache = mkdtempSync(join(tmpdir(), "tofi-catalog-vite-"));
+process.on("exit", () => rmSync(devCache, { recursive: true, force: true }));
 const devOrigin = () => dev ??= (async () => {
   const { createServer } = await import("vite");
   const { default: react } = await import("@vitejs/plugin-react");
-  const devServer = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], server: { host: "127.0.0.1", port: 0 }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
+  const devServer = await createServer({ configFile: false, mode: "development", root: ui, plugins: [react()], cacheDir: devCache, optimizeDeps: { entries: ["catalog.html"] }, server: { host: "127.0.0.1", port: 0, warmup: { clientFiles: ["./src/catalog/main.tsx", "./src/BotDesktopPanel.tsx"] } }, logLevel: process.env.CATALOG_VITE_LOG ?? "error" });
+  // Transform the catalog's modules before the first page asks for them: a cold dev server under load times out on dynamic imports.
   await devServer.listen();
+  await devServer.waitForRequestsIdle();
   return { server: devServer, origin: `http://127.0.0.1:${devServer.httpServer.address().port}` };
 })();
 const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_EXECUTABLE ? { executablePath: process.env.CHROME_EXECUTABLE } : {}) });
