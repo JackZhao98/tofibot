@@ -14,16 +14,6 @@
 .workspace .question-message.is-dm .question-body { max-width:100%; }
 .workspace .question-body > .message-meta { margin-bottom: 7px; }
 
-.workspace .question-message .question-card {
-  display: grid;
-  gap: 0;
-  padding: 14px;
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface) var(--dot-grid) 0 0/var(--dot-step) var(--dot-step);
-  box-shadow: var(--shadow-sm);
-  color: var(--ink);
-}
 :root .workspace .question-message .question-card { transition: padding var(--m-base) var(--ease-out), border-width var(--m-base) var(--ease-out), border-color var(--m-base) var(--ease-out), background-color var(--m-base) var(--ease-out), box-shadow var(--m-base) var(--ease-out); }
 :root .workspace .question-message .question-card.is-pending { transform-origin:50% 100%; animation:question-card-arrive var(--m-flight) var(--ease-spring) both; }
 @keyframes question-card-arrive { from { opacity: 0; transform: translateY(28px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -35,7 +25,6 @@
 :root .workspace .question-message .question-card.is-folding .question-options label { max-height:80px; overflow:hidden; }
 :root .workspace .question-message .question-card.is-folding .question-options label.selected { transform:translate(2px,2px); background:color-mix(in srgb,var(--grape) 24%,var(--surface)); color:var(--ink); opacity:1; }
 :root .workspace .question-message .question-card.is-folding .question-options label.is-fold-away { max-height:0; padding-block:0; border-width:0; opacity:0; transform:scaleY(0); }
-:root .workspace .question-message .question-options label.selected { background:color-mix(in srgb,var(--grape) 24%,var(--surface)); color:var(--ink); transform:translate(2px,2px); }
 
 
 .workspace .question-message .question-prompt {
@@ -48,27 +37,6 @@
 .workspace .question-prompt > div > :last-child,
 .workspace .question-prompt > :last-child { margin-bottom: 0; }
 
-.workspace .question-message .question-card > textarea {
-  display: block;
-  width: 100%;
-  min-height: 64px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  resize: vertical;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--sunk);
-  color: var(--ink);
-  font: 14px/1.6 var(--font-body);
-}
-.workspace .question-message .question-card > textarea:hover { border-color: var(--line); }
-.workspace .question-message .question-card > textarea:focus-visible {
-  border-color: var(--line);
-  outline: var(--focus-ring-width) solid var(--focus);
-  outline-offset: 3px;
-  box-shadow: var(--shadow-sm);
-}
-.workspace .question-message .question-card > textarea::placeholder { color: var(--muted); }
 
 .workspace .question-message .question-options {
   display: grid;
@@ -98,6 +66,9 @@
   color: var(--on-block);
 }
 .workspace .question-message .question-options label:has(input:disabled) { cursor: default; opacity: .68; }
+.workspace .question-message .question-options span { min-width: 0; overflow-wrap: anywhere; }
+:root .workspace .question-message .question-options label.selected { background:color-mix(in srgb,var(--grape) 24%,var(--surface)); color:var(--ink); transform:translate(2px,2px); }
+.workspace .question-message .question-form-save-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
 .workspace .question-message .question-options input {
   width: 16px;
   height: 16px;
@@ -106,11 +77,8 @@
   flex: none;
   accent-color: var(--tomato);
 }
-.workspace .question-message .question-options span { min-width: 0; overflow-wrap: anywhere; }
 .workspace .question-message .question-other-answer { margin-top:12px; }
 .workspace .question-message .question-other-answer > label { display:block; margin-bottom:6px; color:var(--ink-soft); font:600 13px/1.5 var(--font-body); }
-.workspace .question-message .question-other-answer textarea { box-sizing:border-box; display:block; width:100%; min-height:88px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:var(--sunk); color:var(--ink); font:15px/1.6 var(--font-body); resize:vertical; caret-color:var(--teal-text); }
-.workspace .question-message .question-other-answer textarea:focus-visible { border-color:var(--line); box-shadow:var(--shadow-sm); }
 .workspace .question-message .field-note { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
 .workspace .question-message .question-actions {
   display: flex;
@@ -119,20 +87,6 @@
   gap: 8px;
   margin-top: 12px;
 }
-.workspace .question-message .question-actions button { min-height: 36px; padding: 8px 12px; font-size: 13px; }
-.workspace .question-message .question-actions .primary-button {
-  border: 2px solid var(--line);
-  border-radius: 12px;
-  background: var(--tomato);
-  box-shadow: var(--shadow-sm);
-  color: var(--on-block);
-  font: 600 13px/1 var(--font-display);
-  transition: transform var(--m-press) var(--ease-out), box-shadow var(--m-press) var(--ease-out), background-color var(--m-press) var(--ease-out);
-}
-.workspace .question-message .question-actions .primary-button:not(:disabled):hover { transform: translate(-1px, -1px); }
-.workspace .question-message .question-actions .primary-button:not(:disabled):active { transform: translate(2px, 3px); box-shadow: none; }
-.workspace .question-message .question-actions .primary-button:disabled { cursor: not-allowed; opacity: .58; }
-.workspace .question-message .question-card :is(button, input, textarea):focus-visible { outline: var(--focus-ring-width) solid var(--focus); outline-offset: 3px; }
 
 .workspace .question-message .question-result {
   margin-top: 12px;
@@ -148,15 +102,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.workspace .question-message .question-card.is-resolved {
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-2);
-  box-shadow: none;
-}
-:root .workspace .question-message .question-card.is-expired { border-width:1px; border-color:var(--line); box-shadow:none; }
-:root .workspace .question-message .question-card.is-resolved.is-answered { padding:8px 12px; }
 :root .workspace .question-message .question-card.is-resolved.is-answered .question-prompt { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 :root .workspace .question-message .question-card.is-resolved.is-answered .question-result { display:flex; align-items:center; gap:8px; min-width:0; margin:0; }
 :root .workspace .question-message .question-card.is-resolved.is-answered .question-result > svg { flex:none; width:25px; height:25px; padding:5px; border-radius:8px; background:var(--grape); color:var(--on-block); animation:question-check-pop var(--m-panel-in) var(--ease-spring); }
@@ -197,29 +142,8 @@
 .workspace .question-message .question-form-private,
 .workspace .question-message .question-form-optional { color: var(--muted); font-size: 12px; font-weight: 400; }
 .workspace .question-message .question-form-optional { flex: none; }
-.workspace .question-message .question-form-field :is(input, textarea) {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--sunk);
-  color: var(--ink);
-  font: 14px/1.6 var(--font-body);
-  caret-color: var(--ink);
-}
-.workspace .question-message .question-form-field textarea { min-height: 96px; resize: vertical; }
-.workspace .question-message .question-form-field :is(input, textarea):not(:disabled):hover { border-color: var(--line); }
-.workspace .question-message .question-form-field :is(input, textarea):focus-visible { border-color: var(--line); box-shadow: var(--shadow-sm); }
-.workspace .question-message .question-form-field [aria-invalid="true"] { border-color: var(--danger); }
-.workspace .question-message .question-form-field :is(input, textarea):disabled { opacity: .65; cursor: not-allowed; }
 .workspace .question-message .question-form-field .error-text { margin: 6px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
 .workspace .question-message .question-form .question-actions { margin-top: 18px; }
-.workspace .question-message .question-form .question-actions button { min-height: 44px; }
 .workspace .question-message .question-form-summary { display: grid; gap: 8px; margin: 10px 0 0; font-size: 13px; line-height: 1.6; }
 .workspace .question-message .question-form-summary > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; }
 .workspace .question-message .question-form-summary dt { color: var(--muted); overflow-wrap: anywhere; }
@@ -229,19 +153,16 @@
   .workspace .question-body { max-width: calc(100% - 38px); }
   .workspace .question-message .question-card { padding: 13px; }
   .workspace .question-message .question-actions { flex-wrap: wrap; }
-  .workspace .question-message .question-form-field :is(input, textarea), .workspace .question-message .question-other-answer textarea { font-size: 16px; }
   .workspace .question-message .question-form-summary > div { grid-template-columns: minmax(0, 1fr); gap: 1px; }
 }
 @media (prefers-reduced-motion: reduce) {
   :root .workspace .question-message .question-card { animation: none; transition: none; }
   :root .workspace .question-message .question-card.is-folding :is(.question-prompt,.question-options) { transition:none; }
   .workspace .question-message .question-options label,
-  .workspace .question-message .question-actions .primary-button { transition: none; }
   :root .workspace .question-message .question-card.is-resolved.is-answered .question-result > :is(svg,span) { animation:none; }
 }
 
 .workspace .question-message .question-form-save { display: grid; gap: 12px; margin-top: 16px; min-width: 0; }
 .workspace .question-message .question-form-save-toggle { display: flex; align-items: flex-start; gap: 10px; font: 13px/1.5 var(--font-body); color: var(--ink); }
-.workspace .question-message .question-form-save-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--ink); }
 .workspace .question-message .question-form-save-toggle small { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
 }

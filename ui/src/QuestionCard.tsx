@@ -15,6 +15,8 @@ import { formatNumber } from "./i18n/format";
 import { allowedSecretEnv, normalizeSecretEnvInput, SECRET_ENV_RESERVED_NAMES, secretEnvProblem } from "./secretEnvName";
 import { TaskIssueCard } from "./TaskIssueCard";
 import { Button } from "./ds/Button/Button";
+import { TextArea } from "./ds/TextArea/TextArea";
+import { TextInput } from "./ds/TextInput/TextInput";
 import "./ds/ApprovalCard/ApprovalCard.css";
 import "./question-card.css";
 import { intlLocale } from "./i18n/format";
@@ -256,8 +258,8 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
               };
               return <div className="question-form-field" key={field.id}>
                 <label htmlFor={id}><span>{field.label}{field.type === "password" && <span className="question-form-private"> · {t("form.private_field")}</span>}</span><span className="question-form-optional">{field.required ? t("form.required") : t("form.optional")}</span></label>
-                {field.type === "textarea" ? <textarea {...attributes} rows={3} />
-                  : <input {...attributes} type={field.type} autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
+                {field.type === "textarea" ? <TextArea {...attributes} rows={3} />
+                  : <TextInput {...attributes} type={field.type} autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
                 {fieldError && <p id={`${id}-error`} className="error-text">{fieldError}</p>}
               </div>;
             })}
@@ -266,7 +268,7 @@ function UserFormCard({ item, bot, group, archived, onChanged }: QuestionCardPro
             <label className="question-form-save-toggle"><input type="checkbox" checked={saveForBot} disabled={Boolean(busy) || archived} onChange={event => setSaveForBot(event.target.checked)} /><span>{t("form.save.label")}<small>{t("form.save.hint")}</small></span></label>
             {saveForBot && <div className="question-form-field">
               <label htmlFor={`${title}-save-name`}><span>{t("form.save.name")}</span></label>
-              <input id={`${title}-save-name`} value={saveName} disabled={Boolean(busy)} onChange={event => setSaveName(normalizeSecretEnvInput(event.target.value))} placeholder="MY_API_KEY" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={saveProblem ? true : undefined} aria-describedby={`${title}-save-hint`} />
+              <TextInput id={`${title}-save-name`} value={saveName} disabled={Boolean(busy)} onChange={event => setSaveName(normalizeSecretEnvInput(event.target.value))} placeholder="MY_API_KEY" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} aria-invalid={saveProblem ? true : undefined} aria-describedby={`${title}-save-hint`} />
               <p className="field-note" id={`${title}-save-hint`}>{tc("credentials.field.env_name_hint")}</p>
               {saveProblem && <p className="error-text" role="alert">{saveProblemText}</p>}
             </div>}
@@ -341,7 +343,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
       <form className={`question-card tb-approval ${active ? "is-pending" : foldAnswer ? "is-folding" : "is-resolved"}${current.status === "expired" ? " is-expired" : ""}${current.status === "answered" ? " is-answered" : ""}`} aria-labelledby={title} onSubmit={event => { event.preventDefault(); void finish(); }}>
         <div id={title} className="question-prompt"><MessageMarkdown content={item.question} /></div>
         {active || foldAnswer ? <>
-          {item.question_type === "text" ? <textarea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.answer_placeholder")} /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>
+          {item.question_type === "text" ? <TextArea aria-labelledby={title} value={text} onChange={event => setText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.answer_placeholder")} /> : <fieldset className="question-options" disabled={busy || archived || !active} aria-labelledby={title}>
             {options.map(option => <label key={option.id} className={`${selection.includes(option.id) ? "selected" : ""}${foldAnswer && !selection.includes(option.id) ? " is-fold-away" : ""}`}>
               <input type={item.question_type === "multi_choice" ? "checkbox" : "radio"} name={item.question_id} value={option.id} checked={selection.includes(option.id)} disabled={item.question_type === "multi_choice" && !selection.includes(option.id) && selectedCount >= maximum} onChange={() => { if (item.question_type !== "multi_choice") setOtherSelected(false); setSelection(current => item.question_type === "multi_choice" ? current.includes(option.id) ? current.filter(id => id !== option.id) : [...current, option.id] : [option.id]); }} /><span>{option.label}</span>
             </label>)}
@@ -351,7 +353,7 @@ function LegacyQuestionCard({ item, bot, group, archived, onChanged }: QuestionC
           </fieldset>}
           {allowOther && otherSelected && !foldAnswer && <div className="question-other-answer">
             <label htmlFor={`${title}-other`}>{t("question.your_answer")}</label>
-            <textarea id={`${title}-other`} value={otherText} onChange={event => setOtherText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.other_placeholder")} aria-describedby={`${title}-other-note`} />
+            <TextArea id={`${title}-other`} value={otherText} onChange={event => setOtherText(event.target.value)} rows={3} disabled={busy || archived || !active} placeholder={t("question.other_placeholder")} aria-describedby={`${title}-other-note`} />
             <p id={`${title}-other-note`} className={[...otherText.trim()].length > 4000 ? "error-text" : "field-note"}>{t("question.other_note", { limit: formatNumber(4000) })}</p>
           </div>}
           {item.question_type === "multi_choice" && <p className="field-note">{minimum === maximum ? t("question.select_exact", { count: minimum }) : t("question.select_range", { min: minimum, max: maximum })}</p>}
