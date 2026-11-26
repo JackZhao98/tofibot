@@ -1,14 +1,9 @@
 import { useTranslation } from "./i18n";
-import { GREETING_SETUP_MS } from "./onboardingGreeting";
-import "./greeting-setup.css";
+import { LiveLine } from "./ds/LiveLine/LiveLine";
+import "./layout/day-one.css";
 
-/** The new Bot's DM before its greeting: a mock progress bar that fills over the setup time. Decorative; no real progress. */
+/** The new Bot's DM before its greeting: one live line for the setup time. */
 export function GreetingSetup() {
   const { t } = useTranslation("chat");
-  return (
-    <div className="greeting-setup" role="status" data-greeting-setup="true">
-      <p className="greeting-setup-text">{t("onboarding.greeting_setup")}</p>
-      <div className="greeting-setup-bar" aria-hidden="true"><i style={{ animationDuration: `${GREETING_SETUP_MS}ms` }} /></div>
-    </div>
-  );
+  return <div className="greeting-setup" data-greeting-setup="true"><LiveLine>{t("onboarding.greeting_setup")}</LiveLine></div>;
 }

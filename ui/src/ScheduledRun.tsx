@@ -1,10 +1,8 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { TofiIcon } from "./icons";
+import { useEffect, useState, type ReactNode } from "react";
 import type { RunStatus } from "./types";
 import { useTranslation } from "./i18n";
-import "./ds/ScheduleCard/ScheduleCard.css";
-import "./scheduled-run.css";
-import { MOTION, EASE } from "./motion";
+import { ScheduleCard } from "./ds/ScheduleCard/ScheduleCard";
+import "./layout/scheduled-run.css";
 import { MessageMarkdown } from "./MessageMarkdown";
 
 export interface ScheduledRunProps {
@@ -34,21 +32,13 @@ export interface ScheduledRunProps {
   defaultExpanded?: boolean;
 }
 
-const reduceMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-/** Shared ticket used by the conversation and the explicitly synthetic Lab. */
+/** A scheduled run in the conversation: the kit ScheduleCard, its rows placed by layout/scheduled-run.css. */
 export function ScheduledRun({ title, description, content, plannedTime, plannedAt, plannedTimeDescription, metadata, metadataDescription, state, statusLabel, statusAt, statusTime, statusTimeDescription, runningSince, resultPublished = false, quiet = false, resultText, resultSources, failureSummary, error, notes, onRetry, defaultExpanded = false }: ScheduledRunProps) {
   const { t, i18n } = useTranslation("schedules");
   const plannedDay = (() => { const d = plannedAt ? new Date(plannedAt) : null; return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(i18n.language, { weekday: "short" }) : ""; })();
-  const [expanded, setExpanded] = useState(defaultExpanded);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string>();
   const [now, setNow] = useState(Date.now);
-  const contentId = useId();
-  const titleId = useId();
-  const ticketRef = useRef<HTMLElement>(null);
-  const retryIconRef = useRef<HTMLSpanElement>(null);
-  const previousState = useRef(state);
   const failed = state === "failed" || state === "interrupted";
   // pending (queued, waiting) | running | done (posted) | quiet (done, nothing posted) | error (failed).
   const tone = failed ? "error" : state === "running" ? "running" : state === "done" && quiet ? "quiet" : state === "done" && resultPublished ? "done" : "neutral";
@@ -63,19 +53,12 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
     return () => window.clearInterval(timer);
   }, [state, runningSince]);
 
-  useEffect(() => {
-    if (failed && previousState.current !== state && !reduceMotion()) {
-      ticketRef.current?.animate?.({ transform: ["translateX(0)", "translateX(-4px)", "translateX(3px)", "translateX(0)"] }, { duration: MOTION.panelIn, easing: EASE.out });
-    }
-    previousState.current = state;
-    setRetryError(undefined);
-  }, [state, failed]);
+  useEffect(() => { setRetryError(undefined); }, [state, failed]);
 
   async function retry() {
     if (!onRetry || retrying) return;
     setRetrying(true);
     setRetryError(undefined);
-    if (!reduceMotion()) retryIconRef.current?.animate?.({ rotate: ["0deg", "-360deg"] }, { duration: MOTION.panelIn, easing: EASE.out });
     try {
       await onRetry();
     } catch (cause) {
@@ -85,55 +68,24 @@ export function ScheduledRun({ title, description, content, plannedTime, planned
     }
   }
 
-  return <article ref={ticketRef} className={`scheduled-run is-${tone}`} aria-labelledby={titleId}>
-    {/* V3 4.7: the kit calendar leaf (rings, the time, the day); its band follows the run's state. */}
-    <div className="scheduled-run-stub" title={plannedTimeDescription}>
-      <span className={`tb-sched-leaf is-${tone === "running" ? "run" : tone === "error" ? "error" : "done"}`}><span className="tb-sched-rings" aria-hidden="true" /><b><time dateTime={plannedAt} aria-label={plannedTimeDescription}>{plannedTime}</time></b>{plannedDay && <small aria-hidden="true">{plannedDay}</small>}</span>
-    </div>
-    <div className="scheduled-run-body">
-      <button type="button" className="scheduled-run-toggle" aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded(value => !value)}>
-        <span className="scheduled-run-heading">
-          <strong id={titleId} className="scheduled-run-title" title={title}>{title}</strong>
-          <span className="scheduled-run-status" title={statusTimeDescription ? `${statusLabel} · ${statusTimeDescription}` : statusLabel}>
-            <i className="scheduled-run-dot" aria-hidden="true">{failed ? "!" : tone === "done" ? "✓" : ""}</i>
-            {(tone === "done" || tone === "quiet") && statusTime
-              ? <><span className="scheduled-run-sr">{statusLabel} · </span><time dateTime={statusAt}>{statusTime}</time></>
-              : <span>{statusLabel}{seconds !== undefined && <span aria-hidden="true"> · {seconds}s</span>}</span>}
-          </span>
-          <TofiIcon className="scheduled-run-chevron" name="chevron-right" size={14} aria-hidden="true" />
-        </span>
-        {description && <span className="scheduled-run-description">{description}</span>}
-        <span className="scheduled-run-meta" title={metadataDescription}>{metadata}</span>
-      </button>
-      {failed && <div className="scheduled-run-failure">
-        <p>{failureSummary || t("row.failure.incomplete")}</p>
-        {onRetry && <button type="button" className="scheduled-run-retry" onClick={() => void retry()} disabled={retrying}>
-          <span ref={retryIconRef}><TofiIcon name="retry" size={14} aria-hidden="true" /></span>{retrying ? t("run.retrying") : t("run.retry")}
-        </button>}
+  const statusText = (tone === "done" || tone === "quiet") && statusTime ? `${statusLabel} · ${statusTime}` : `${statusLabel}${seconds !== undefined ? ` · ${seconds}s` : ""}`;
+  const cardState = failed ? "error" : state === "running" ? "run" : "done";
+  return <ScheduleCard className={`scheduled-run is-${tone}`} state={cardState} statusLabel={statusText} time={plannedTime} day={plannedDay || undefined} title={title} description={description || undefined} meta={metadata} open={defaultExpanded}
+    error={failed ? <>{failureSummary || t("row.failure.incomplete")}{retryError && <span role="alert"> {retryError}</span>}</> : undefined}
+    onRetry={failed && onRetry ? () => void retry() : undefined} retryBusy={retrying} retryLabel={retrying ? t("run.retrying") : t("run.retry")}>
+    {hasResult && <section className="scheduled-run-result" aria-label={t("row.result.heading")}>
+      <small>{t("row.result.heading")}</small>
+      <MessageMarkdown content={resultText} />
+      {resultSources && resultSources.length > 0 && <div className="scheduled-run-sources">
+        <small>{t("row.result.sources")}</small>
+        <ul>{resultSources.map(source => <li key={source}>{source}</li>)}</ul>
       </div>}
-      {retryError && <p className="scheduled-run-retry-error" role="alert">{retryError}</p>}
-      <div className="scheduled-run-disclosure" data-expanded={expanded} id={contentId} inert={!expanded} aria-hidden={!expanded}>
-        <div className="scheduled-run-disclosure-inner">
-          {hasResult && <section className="scheduled-run-result" aria-label={t("row.result.heading")}>
-            <header>
-              <strong>{t("row.result.heading")}</strong>
-              <span className={`scheduled-run-chip is-${tone}`}>{statusLabel}</span>
-              {statusTime && <time dateTime={statusAt} title={statusTimeDescription}>{statusTime}</time>}
-            </header>
-            <div className="scheduled-run-result-text"><MessageMarkdown content={resultText} /></div>
-            {resultSources && resultSources.length > 0 && <div className="scheduled-run-sources">
-              <strong>{t("row.result.sources")}</strong>
-              <ul>{resultSources.map(source => <li key={source}>{source}</li>)}</ul>
-            </div>}
-          </section>}
-          <details className="scheduled-run-details"><summary>{t("row.manage_instructions")}</summary><p>{content}</p></details>
-          {notes && <div className="scheduled-run-notes">{notes}</div>}
-          {failed && <div className="scheduled-run-recovery">
-            <p>{t("run.confirm_before_retry")}</p>
-            {error && <details><summary>{t("row.technical_reason")}</summary><p className="scheduled-run-error">{error}</p></details>}
-          </div>}
-        </div>
-      </div>
-    </div>
-  </article>;
+    </section>}
+    <details className="scheduled-run-details"><summary>{t("row.manage_instructions")}</summary><p>{content}</p></details>
+    {notes && <div className="scheduled-run-notes">{notes}</div>}
+    {failed && <div className="scheduled-run-recovery">
+      <p>{t("run.confirm_before_retry")}</p>
+      {error && <details><summary>{t("row.technical_reason")}</summary><p className="scheduled-run-error">{error}</p></details>}
+    </div>}
+  </ScheduleCard>;
 }

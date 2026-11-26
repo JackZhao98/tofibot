@@ -704,8 +704,8 @@ try {
     assert.deepEqual(frame, { edge: "0px", shadow: "none", image: "none" }, `no card around the keys: ${JSON.stringify(frame)}`);
     const heights = await page.locator(".handover-chip").evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().height)));
     assert.ok(heights.every(height => height === heights[0] && height >= 40), `keys share one height and clear 40 px: ${heights.join(",")}`);
-    const key = await page.locator(".handover-chip").first().evaluate(node => { const style = getComputedStyle(node); return { shadow: style.boxShadow, edge: style.borderTopWidth }; });
-    assert.ok(key.shadow !== "none" && key.edge === "2px", `a key carries the ink edge and the hard shadow: ${JSON.stringify(key)}`);
+    const key = await page.locator(".handover-chip").first().evaluate(node => node.classList.contains("tb-btn--secondary"));
+    assert.ok(key, "a key is the kit secondary Button");
     const sends = () => state.calls.filter(call => typeof call === "string" && /^POST .*\/messages$/.test(call)).length;
     const sentBefore = sends();
     await page.locator("[data-handover='reminder_in_minutes']").click();
@@ -715,14 +715,10 @@ try {
     assert.equal(await composer.evaluate(node => document.activeElement === node), true, "the composer has focus");
     await composer.pressSequentially(" Use my timezone.");
     assert.ok((await composer.inputValue()).endsWith("stretch. Use my timezone."), "the text stays editable");
-    // Keyboard: Space on a focused key holds the pressed pose (data-pressed) until release, which fills the composer the
-    // same way. (Enter activates on keydown, so its pose is one frame long: focus moves to the composer and releases it.)
+    // Keyboard: Space on a focused key fills the composer the same way.
     const unitKey = page.locator("[data-handover='unit_conversion_table']");
     await unitKey.focus();
-    await page.keyboard.down("Space");
-    assert.equal(await unitKey.evaluate(node => node.hasAttribute("data-pressed")), true, "Space held shows the pressed pose");
-    await page.keyboard.up("Space");
-    assert.equal(await unitKey.evaluate(node => node.hasAttribute("data-pressed")), false, "Space released lifts the key");
+    await page.keyboard.press("Space");
     await page.waitForFunction(() => document.querySelector("form.composer textarea")?.value === "Convert some cooking measurements into a small table. Ask me which ones.");
     assert.equal(sends(), sentBefore, "Space fills the composer and sends nothing");
     assert.ok((await overflow(page)) <= 0, "no horizontal scroll");
@@ -741,7 +737,7 @@ try {
     await page.locator("[data-handover-chips]").waitFor({ timeout: 20000 });
     const a = await page.locator(".handover-chip").nth(0).boundingBox(), b = await page.locator(".handover-chip").nth(1).boundingBox(), row = await page.locator(".handover-chips-grid").boundingBox();
     assert.ok(b.y > a.y + 10, "one column on a phone");
-    assert.ok(Math.abs(a.width - (row.width - 3)) < 2 && a.height >= 44, `full-width keys of at least 44 px on a phone: ${JSON.stringify({ a, row })}`);
+    assert.ok(Math.abs(a.width - row.width) < 2 && a.height >= 44, `full-width keys of at least 44 px on a phone: ${JSON.stringify({ a, row })}`);
     assert.ok((await overflow(page)) <= 0, "no horizontal scroll on a phone");
     await context.close();
     pass("first-run handovers: one column on a phone");

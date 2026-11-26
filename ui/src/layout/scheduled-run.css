@@ -1,0 +1,22 @@
+/* A scheduled run in the conversation: the kit ScheduleCard, placed in the chat column. What its body holds (the result, the
+   instructions, notes and recovery text) takes the card body's type; only the gaps are set here. */
+@layer legacy {
+.workspace .scheduled-run { width:100%; margin:6px auto 16px; }
+/* A task block directly under the ticket ("Waiting to start", an Activity stretch) sits at the normal item gap, not the ticket's own 16px. */
+.workspace .message-block[data-owns-next] .scheduled-run { margin-bottom:var(--space-3); }
+.scheduled-run-result > small:first-child { display:block; }
+.scheduled-run-result > :is(p,ul,ol):not(:last-child) { margin-bottom:6px; }
+.scheduled-run-sources { margin-top:8px; }
+.scheduled-run-sources ul { margin:3px 0 0; padding-left:18px; overflow-wrap:anywhere; }
+.scheduled-run-details { margin-top:8px; }
+.scheduled-run-details summary { cursor:pointer; color:var(--muted); font:var(--type-meta); }
+.scheduled-run-details > p { margin:6px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.scheduled-run-notes, .scheduled-run-recovery { margin-top:8px; font:var(--type-meta); color:var(--muted); overflow-wrap:anywhere; }
+.scheduled-run-notes p, .scheduled-run-recovery p { margin:0; }
+.scheduled-run-recovery > details { margin-top:6px; }
+.scheduled-run-recovery .scheduled-run-error { margin-top:6px; color:var(--danger-text); white-space:pre-wrap; }
+/* Blank ticket while the occurrence read is in flight: same box, no text, no icons, no hit targets. */
+.workspace .scheduled-run-pending { opacity:.55; pointer-events:none; }
+:is(#_,.scheduled-run-pending *){color:transparent}
+.scheduled-run-pending svg, .scheduled-run-pending .tb-sched-st i, .scheduled-run-pending .tb-sched-chev { visibility:hidden; }
+}

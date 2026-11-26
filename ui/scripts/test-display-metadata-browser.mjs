@@ -25,7 +25,7 @@ try {
     assert.match(await page.locator("#runs").innerText(), /说明 once/);
     await page.screenshot({ path: `${output}/${name}-runs-collapsed.png`, fullPage: true });
     assert.ok(!(await page.locator("#runs [title]").evaluateAll(nodes => nodes.map(node => node.title))).some(value => value.includes("SENTINEL")), "compact tooltip leaked prompt");
-    await rows.first().locator(native ? ":scope > details > summary" : ".scheduled-run-toggle").click();
+    await rows.first().locator(native ? ":scope > details > summary" : ".tb-sched-row").click();
     assert.doesNotMatch(await rows.first().innerText(), /EXECUTION_PROMPT_SENTINEL/, "expanding status details must still keep prompt in management");
     await rows.first().getByText("管理 · 完整执行指令", { exact: true }).click();
     assert.match(await rows.first().innerText(), /EXECUTION_PROMPT_SENTINEL/);
