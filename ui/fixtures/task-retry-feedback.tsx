@@ -3,8 +3,6 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { i18nReady } from "../src/i18n";
 import "../src/styles.css";
-import "../src/v2-foundations.css";
-import "../src/v2-app.css";
 import "../src/web-tool-steps.css";
 import { TaskRunBlock } from "../src/TaskRunBlock";
 import { buildTaskOwners } from "../src/taskIssuePresentation";

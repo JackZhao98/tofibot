@@ -19,6 +19,7 @@
 //   SKIN_SNAPSHOT_STATE=section/state  catalog states only (comma-separated; "section/inline" for a section's inline states)
 //   SKIN_SNAPSHOT_DETAIL=1             print the differing properties (slow; use with SKIN_SNAPSHOT_STATE)
 //   SKIN_SNAPSHOT_OUT=/abs/file.json   write every difference, not just the first ones printed
+//   SKIN_SNAPSHOT_DESKTOP=darwin       set html[data-desktop] before each capture: compares the Mac app's CSS (the CSS only; isDesktop code paths do not run)
 // Stateful widgets are not deterministic (where focus lands, a video that attaches late), so one capture proves nothing
 // either way. Each tree is captured, the base twice, and pages that differ are captured again on both sides, up to
 // SKIN_SNAPSHOT_RETRIES (default 3) rounds. An element differs only if no value seen in the head was ever seen in the base.
@@ -38,6 +39,7 @@ const BASE = process.env.SKIN_SNAPSHOT_BASE || "origin/main";
 const ONLY = (process.env.SKIN_SNAPSHOT_ONLY || "catalog,settings,entry,mac,oauth").split(",");
 const ONLY_STATES = process.env.SKIN_SNAPSHOT_STATE?.split(",");
 const DETAIL = process.env.SKIN_SNAPSHOT_DETAIL === "1";
+const DESKTOP = process.env.SKIN_SNAPSHOT_DESKTOP || "";
 const LOAD_MS = 120_000;
 const WIDTHS = [{ width: 1280, height: 800 }, { width: 390, height: 760 }];
 const THEMES = ["light", "dark"];
@@ -98,7 +100,7 @@ async function captureAll(page) {
     await page.setViewportSize(size);
     await settle(page);
     for (const theme of THEMES) {
-      await page.evaluate(value => { document.documentElement.dataset.theme = value; document.documentElement.style.colorScheme = value; }, theme);
+      await page.evaluate(([value, desktop]) => { document.documentElement.dataset.theme = value; document.documentElement.style.colorScheme = value; if (desktop) document.documentElement.dataset.desktop = desktop; }, [theme, DESKTOP]);
       for (const media of MEDIA) {
         await page.emulateMedia({ reducedMotion: media.reducedMotion, forcedColors: media.forcedColors });
         out[`${size.width} ${theme} ${media.id}`] = await page.evaluate(snapshot, DETAIL);

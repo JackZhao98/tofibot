@@ -7,11 +7,9 @@ import { mountFrame } from "./Frame";
 // lists equal), so the cascade in a frame is the cascade in the app.
 import "../skin/fonts.css";
 import "../styles.css";
-import "../interaction-system.css";
+import "../skin/default.css";
 import "../desktop-system.css";
 import "../conversation-workspace.css";
-import "../v2-foundations.css";
-import "../v2-app.css";
 import "../sender-groups.css";
 import "../layout/settings-page.css";
 import "../web-tool-steps.css";

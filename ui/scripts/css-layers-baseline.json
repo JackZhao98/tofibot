@@ -20,6 +20,13 @@
     "important": 0,
     "tokenDef": 0
   },
+  "conversation-workspace.css": {
+    "global": 0,
+    "rootBump": 6,
+    "webFork": 0,
+    "important": 0,
+    "tokenDef": 0
+  },
   "copy-feedback.css": {
     "global": 0,
     "rootBump": 6,
@@ -38,13 +45,6 @@
     "global": 2,
     "rootBump": 0,
     "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
-  "environments.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 1,
     "important": 0,
     "tokenDef": 0
   },
@@ -67,13 +67,6 @@
     "rootBump": 0,
     "webFork": 0,
     "important": 19,
-    "tokenDef": 0
-  },
-  "interaction-system.css": {
-    "global": 0,
-    "rootBump": 8,
-    "webFork": 0,
-    "important": 0,
     "tokenDef": 0
   },
   "message-attachment.css": {
@@ -107,7 +100,7 @@
   "sender-groups.css": {
     "global": 1,
     "rootBump": 0,
-    "webFork": 1,
+    "webFork": 0,
     "important": 0,
     "tokenDef": 1
   },
@@ -123,20 +116,6 @@
     "rootBump": 0,
     "webFork": 0,
     "important": 1,
-    "tokenDef": 0
-  },
-  "v2-app.css": {
-    "global": 0,
-    "rootBump": 11,
-    "webFork": 21,
-    "important": 0,
-    "tokenDef": 0
-  },
-  "v2-foundations.css": {
-    "global": 3,
-    "rootBump": 2,
-    "webFork": 0,
-    "important": 0,
     "tokenDef": 0
   },
   "web-tool-steps.css": {

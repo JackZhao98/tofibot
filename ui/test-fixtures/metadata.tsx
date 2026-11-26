@@ -10,9 +10,7 @@ import { TimezoneProvider } from "../src/UserTimezone";
 import type { Bot, Conversation, Memory, Message, Run, Schedule } from "../src/types";
 import type { ScheduleOccurrence } from "../src/scheduleOccurrences";
 import "../src/styles.css";
-import "../src/interaction-system.css";
-import "../src/v2-foundations.css";
-import "../src/v2-app.css";
+import "../src/skin/default.css";
 
 type Fixture = { bot: Bot; conversation: Conversation; memories: Memory[]; schedules: Schedule[]; messages: Message[]; runs: Run[]; occurrences: ScheduleOccurrence[] };
 declare global { interface Window { metadataFixture: Fixture } }

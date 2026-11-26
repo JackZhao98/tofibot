@@ -7,6 +7,7 @@
 .tb-iconbtn:hover { background: var(--hover); color: var(--ink); }
 .tb-iconbtn:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
 .tb-iconbtn--solid { background: var(--surface); border-color: var(--edge); color: var(--ink); }
+.tb-iconbtn--solid[aria-expanded="true"] { border-color: var(--tomato); }
 .tb-iconbtn--danger { color: var(--danger-text); }
 .tb-iconbtn--danger:hover { background: var(--danger); color: var(--on-danger); }
 .tb-iconbtn:disabled { opacity: .45; cursor: not-allowed; }

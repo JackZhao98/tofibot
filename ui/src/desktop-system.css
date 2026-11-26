@@ -109,3 +109,24 @@ html[data-desktop="darwin"] .detail-backdrop{top:48px;height:auto}
 /* Reduced transparency: the sidebar is the plain ground, not a share of it over the native material. */
 @media(prefers-reduced-transparency:reduce){html[data-desktop="darwin"] .workspace .workspace-grid .contact-pane{background:var(--surface-2)}}
 }
+/* Moved from the V2 sheets (V3 PR 9.1). */
+@layer legacy {
+/* Group messages read top-down: avatar beside the sender name, then the message body. */
+/* Where the Mac app's chat differs from the web's (the web rules are in conversation-workspace.css). */
+html[data-desktop] .workspace .message-avatar{width:38px;height:38px;flex:0 0 auto}
+html[data-desktop] .workspace .message-avatar .avatar{width:38px;height:38px}
+html[data-desktop] .workspace .message-bot:has(>.message-avatar){align-items:flex-end}
+html[data-desktop] .workspace .message-user .message-meta.compact{display:flex}
+html[data-desktop] .new-arrival .message-content{transform-origin:0 100%;animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
+html[data-desktop] .workspace .new-arrival:not(.was-streamed) .message-bot:not(.message-ui-card) .message-content{animation:bubble-arrive var(--m-panel-in) var(--ease-out) both}
+html[data-desktop] .new-arrival .message-user .message-content{transform-origin:100% 12px}
+html[data-desktop] .workspace .composer-row textarea,html[data-desktop] .workspace .composer-row textarea:hover,html[data-desktop] .workspace .composer-row textarea:focus,html[data-desktop] .workspace .composer-rich-text{font-size:15px}
+html[data-desktop] .workspace .conversation-empty{align-content:normal}
+html[data-desktop] .settings-section>.tb-note{margin:-7px 0 0}
+html[data-desktop] .workspace .web-memory-empty{align-content:normal;min-height:auto;background:none}
+html[data-desktop] .workspace .work-companion>.avatar{display:inline-grid}
+html[data-desktop] .workspace .work-companion:not(:has(.working-label)){display:flex}
+html[data-desktop] .workspace .composer>.working-members:not(.group-working-members){display:flex;min-height:auto;margin:8px auto -12px;padding:0 0 0 18px;font:11px/1.4 var(--font-mono)}
+html[data-desktop] .workspace .composer>.working-members:not(.group-working-members):not(:has(.working-label)){display:flex}
+html[data-desktop] .workspace .composer .working-member.work-companion .working-label{margin:0 3px 19px 0;font:var(--type-meta)}
+}

@@ -14,7 +14,7 @@ import { OverlaySubmenu, type OverlayMenuProps, type OverlayPopoverProps } from 
 
 // Menus keep 8 px from the viewport edge (the account menu sits 10 px above the bottom), popovers 12 px as they did.
 const MENU_PADDING = 8, POPOVER_PADDING = 12;
-/** A surface opened from inside a modal (Settings) stacks just above it: data-layer="dialog" (interaction-system.css). */
+/** A surface opened from inside a modal (Settings) stacks just above it: data-layer="dialog" (ds/pop.css). */
 const layerOf = (element: Element | null | undefined) => element?.closest('[aria-modal="true"]') ? "dialog" : undefined;
 const byKeyboard = () => document.documentElement.dataset.input === "keyboard";
 /** The cats' idle breathing waits out the frames a surface opens in, as it does for panel openings (App.tsx). */

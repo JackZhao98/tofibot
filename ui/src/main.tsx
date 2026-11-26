@@ -42,12 +42,10 @@ void i18nReady.finally(() => {
   if (import.meta.env.DEV) void import("./dev/TuningPanel").then(module => module.mountTuningPanel());
 });
 
-import "./interaction-system.css";
+import "./skin/default.css";
 import "./desktop-system.css";
 
 import "./conversation-workspace.css";
-import "./v2-foundations.css";
-import "./v2-app.css";
 import "./sender-groups.css";
 import "./layout/settings-page.css";
 import "./web-tool-steps.css";

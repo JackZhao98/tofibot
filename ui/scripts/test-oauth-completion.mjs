@@ -40,7 +40,7 @@ assert.equal(css, read("skin/structure.css") + "\n" + read("skin/v3.css") + "\n"
 // The only host name allowed is the SVG namespace inside an inline data URI (an xmlns is no request).
 assert.doesNotMatch(css, /@import/, "strict CSP assets have no external imports");
 assert.deepEqual([...css.matchAll(/https?:\/\/[^'")\s]+/g)].map(match => match[0]).filter(url => url !== "http://www.w3.org/2000/svg"), [], "strict CSP assets name no host");
-assert.match(read("interaction-system.css"), /^@import "\.\/skin\/default\.css";/);
+assert.match(read("main.tsx"), /^import "\.\/skin\/default\.css";$/m);
 assert.match(read("skin/default.css"), /@import "\.\/structure\.css";\n@import "\.\/v3\.css";\n@import "\.\/roles\.css";/);
 assert.match(css, /data-state="pending"[^}]+animation:/);
 assert.match(css, /prefers-reduced-motion: reduce/);
