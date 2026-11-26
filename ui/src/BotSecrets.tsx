@@ -4,6 +4,9 @@ import {request} from "./api";
 import {ConfirmAction} from "./ConfirmAction";
 import {useTranslation} from "./i18n";
 import {formatDateTime} from "./i18n/format";
+import {KeyRow} from "./ds/KeyRow/KeyRow";
+import {SettingsSection} from "./ds/SettingsSection/SettingsSection";
+import {TextInput} from "./ds/TextInput/TextInput";
 import "./bot-secrets.css";
 
 type BotSecret={name:string;created_at:string;last_used_at?:string};
@@ -35,15 +38,18 @@ export function BotSecrets({botId}:{botId:string}){
  }
  const when=(iso:string)=>formatDateTime(iso);
  return <section className="bot-secrets" aria-labelledby={`bot-secrets-${botId}`}>
-  <div className="bot-v2-subtitle"><h2 id={`bot-secrets-${botId}`}>{t("secrets.title")}</h2><p>{t("secrets.hint")}</p></div>
-  {loading?<p className="field-note" role="status">{t("secrets.loading")}</p>:!items.length&&!error?<p className="field-note">{t("secrets.empty")}</p>:<ul className="bot-secret-list">{items.map(item=><li className="bot-secret-row" key={item.name}>
-   <div className="bot-secret-copy"><strong>{item.name}</strong><span>{t("secrets.saved_at",{time:when(item.created_at)})} · {item.last_used_at?t("secrets.last_used",{time:when(item.last_used_at)}):t("secrets.never_used")}</span></div>
-   {replacing===item.name?<form className="bot-secret-replace" onSubmit={event=>{event.preventDefault();void replace(item.name)}}>
-    <label><input type="password" aria-label={t("secrets.new_value",{name:item.name})} value={value} autoComplete="new-password" disabled={busy} placeholder={t("secrets.new_value",{name:item.name})} onChange={event=>setValue(event.target.value)}/></label>
-    <Button type="submit" variant="primary" size="sm" disabled={busy||!value}>{busy?t("secrets.replacing"):t("secrets.replace_save")}</Button>
-    <Button variant="ghost" size="sm" disabled={busy} onClick={stopReplacing}>{t("secrets.cancel")}</Button>
-   </form>:<div className="bot-secret-actions"><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setReplacing(item.name);setValue("");setStatus("")}}>{t("secrets.replace")}</Button><ConfirmAction label={t("secrets.delete")} question={t("secrets.delete_question",{name:item.name})} disabled={busy} onConfirm={()=>remove(item.name)}/></div>}
-  </li>)}</ul>}
+  <SettingsSection title={<span id={`bot-secrets-${botId}`}>{t("secrets.title")}</span>} description={t("secrets.hint")}>
+   {loading?<p className="field-note" role="status">{t("secrets.loading")}</p>:!items.length&&!error?<p className="field-note">{t("secrets.empty")}</p>:items.map(item=><div className="bot-secret-item" key={item.name}>
+    <KeyRow name={item.name} masked={`•••••••• · ${t("secrets.saved_at",{time:when(item.created_at)})} · ${item.last_used_at?t("secrets.last_used",{time:when(item.last_used_at)}):t("secrets.never_used")}`}
+
+     actions={replacing===item.name?undefined:<><Button variant="ghost" size="sm" disabled={busy} onClick={()=>{setReplacing(item.name);setValue("");setStatus("")}}>{t("secrets.replace")}</Button><ConfirmAction label={t("secrets.delete")} question={t("secrets.delete_question",{name:item.name})} disabled={busy} onConfirm={()=>remove(item.name)}/></>}/>
+    {replacing===item.name&&<form className="bot-secret-replace" onSubmit={event=>{event.preventDefault();void replace(item.name)}}>
+     <TextInput type="password" aria-label={t("secrets.new_value",{name:item.name})} value={value} autoComplete="new-password" disabled={busy} placeholder={t("secrets.new_value",{name:item.name})} onChange={event=>setValue(event.target.value)}/>
+     <Button type="submit" variant="primary" size="sm" disabled={busy||!value}>{busy?t("secrets.replacing"):t("secrets.replace_save")}</Button>
+     <Button variant="ghost" size="sm" disabled={busy} onClick={stopReplacing}>{t("secrets.cancel")}</Button>
+    </form>}
+   </div>)}
+  </SettingsSection>
   {status&&<p className="settings-feedback" role="status">{status}</p>}
   {error&&<p className="error-text" role="alert">{error}</p>}
  </section>

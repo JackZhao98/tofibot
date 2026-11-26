@@ -1,14 +1,15 @@
 import { Button } from "./ds/Button/Button";
 import { useRef, useState } from "react";
-import { BotAvatar } from "./BotAvatar";
+import { Field } from "./ds/Field/Field";
+import { TextInput } from "./ds/TextInput/TextInput";
+import { Banner } from "./ds/Banner/Banner";
+import { MemberPicker } from "./MemberPicker";
 import { useCover } from "./coverGuard";
 import { errorText } from "./errorText";
 import { useTranslation } from "./i18n";
 import { Dialog, DIALOG_SCRIM_DOCK } from "./ds/Dialog/Dialog";
 import { ModalDialog } from "./overlays/ModalDialog";
-import { PrimaryBadge } from "./PrimaryAssistant";
 import type { Bot } from "./types";
-import "./group-settings.css";
 import "./new-group.css";
 
 /**
@@ -41,22 +42,15 @@ export function NewGroupDialog({ bots, onCreate }: { bots: Bot[]; onCreate: (nam
         <Button type="submit" form="new-group-form" variant="primary" className="new-group-create" disabled={!valid || saving}>{saving ? t("action.saving") : t("groupCreate.create")}</Button>
       </>}>
       <form id="new-group-form" onSubmit={event => void submit(event)}>
-        <label className="gs-field"><span>{t("members.name")}</span>
-          <input ref={nameInput} value={name} maxLength={200} disabled={saving} placeholder={t("members.name")} onChange={event => setName(event.target.value)} />
-        </label>
+        <Field label={t("members.name")}>
+          <TextInput ref={nameInput} className="gs-name" value={name} maxLength={200} disabled={saving} placeholder={t("members.name")} onChange={event => setName(event.target.value)} />
+        </Field>
         <div className="gs-block">
-          <div className="gs-block-head"><h3>{t("members.members")}</h3><span className="gs-count">{members.length}/8</span></div>
-          <div className="gs-members" role="group" aria-label={t("members.pick")}>
-            {bots.map(bot => <label key={bot.id} className="gs-member" data-selected={members.includes(bot.id) || undefined}>
-              <input type="checkbox" checked={members.includes(bot.id)} disabled={saving || (!members.includes(bot.id) && members.length >= 8)} onChange={() => toggle(bot.id)} />
-              <span className="gs-member-avatar tb-cat-only" aria-hidden="true"><BotAvatar id={bot.id} mini /></span>
-              <span className="gs-member-name">{bot.name}</span>
-              {bot.is_primary && <PrimaryBadge />}
-            </label>)}
-          </div>
+          <div className="gs-block-head"><span>{t("members.members")}</span><span className="gs-count">{members.length}/8</span></div>
+          <MemberPicker bots={bots} selected={members} disabled={saving} label={t("members.pick")} onToggle={toggle} />
           <p className="gs-hint">{t("members.pick_hint")}</p>
         </div>
-        {error && <p className="new-group-error" role="alert">{error}</p>}
+        {error && <Banner tone="error" className="new-group-error">{error}</Banner>}
       </form>
     </Dialog>
   </ModalDialog>;
