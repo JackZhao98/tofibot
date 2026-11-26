@@ -173,6 +173,10 @@ for (const nudge of [false, true]) await check(`the end of a streamed reply neve
     watch();
   });
   await page.evaluate(({ common, full }) => window.__emit("delta", { ...common, text: full, content: full, revision: 1 }), { common, full });
+  // The status line leaves when the render after the delta commits; how many sampled frames precede that depends on the engine and the host.
+  // So wait for it to be gone (an event, not a clock), then require that it stays gone.
+  await page.waitForFunction(() => document.querySelectorAll(".task-run-live-line").length === 0, null, { timeout: 5000 });
+  const steppedAside = await page.evaluate(() => performance.now());
   await page.waitForTimeout(1500);
   await page.evaluate(({ common, full, nudge }) => {
     window.__mark = performance.now();
@@ -190,8 +194,9 @@ for (const nudge of [false, true]) await check(`the end of a streamed reply neve
   for (let i = nudge ? 4 : 1; i < after.length; i++) worst = Math.max(worst, after[i].y - after[i - 1].y);
   if (worst > 1 && process.env.CHAT_MOTION_DEBUG) console.log(after.slice(0, 40).map(f => `${(f.t - ys.mark).toFixed(0)}:y${f.y.toFixed(0)}/st${f.st.toFixed(0)}/sh${f.sh}`).join(" "));
   assert.ok(worst <= 1, `the request bubble moved down by ${worst.toFixed(1)}px in one frame when the stream ended`);
-  const during = ys.ys.filter(f => f.t < ys.mark);
-  assert.ok(during.slice(2).every(f => f.live === 0), "the live status line steps aside once the reply has text");
+  const during = ys.ys.filter(f => f.t > steppedAside && f.t < ys.mark);
+  assert.ok(during.length > 10, "frames recorded while the reply streams");
+  assert.ok(during.every(f => f.live === 0), "the live status line stays aside once the reply has text");
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -485,6 +490,9 @@ await check("right click opens the actions as a menu: Bot messages with the reac
   await menu(page).waitFor();
   assert.ok(await menu(page).locator(".tb-reactpick-item").count() >= 8, "a Bot's message offers the eight");
   assert.deepEqual(await menuLabels(page), ["Reply", "Copy"]);
+  // One surface: the list inside the popover draws no glass, border or shadow of its own.
+  const inner = await menu(page).locator('[role="menu"]').evaluate(el => { const c = getComputedStyle(el); return { border: c.borderTopWidth, shadow: c.boxShadow, blur: c.backdropFilter || c.webkitBackdropFilter || "none", bg: c.backgroundColor }; });
+  assert.deepEqual(inner, { border: "0px", shadow: "none", blur: "none", bg: "rgba(0, 0, 0, 0)" }, "the menu inside the popover is a second glass surface");
   await page.keyboard.press("Escape");
   await menu(page).waitFor({ state: "detached" });
   await block(page, "m4").locator(".tb-bubble").click({ button: "right" });
@@ -494,16 +502,19 @@ await check("right click opens the actions as a menu: Bot messages with the reac
   await menu(page).getByRole("menuitem", { name: "Copy" }).click();
   assert.equal(await page.evaluate(() => window.__clip), LONG, "Copy in the menu copies the message");
   await menu(page).waitFor({ state: "detached" });
+  // Reply first, then More: Reply moves focus to the composer and the conversation follows its bottom, and the menu opened right after must stay open.
+  await block(page, "m4").locator(".tb-bubble").click({ button: "right" });
+  await menu(page).getByRole("menuitem", { name: "Reply" }).click();
+  await page.locator(".composer-reply").waitFor();
   const box = await block(page, "m3").locator(".tb-bubble").boundingBox();
   await page.mouse.move(box.x + 30, box.y + 10);
   await block(page, "m3").locator('[data-action="more"]').click();
   await menu(page).waitFor();
   assert.ok(await menu(page).locator(".tb-reactpick-item").count() >= 8, "More opens the same menu");
+  await page.waitForTimeout(900);
+  assert.equal(await menu(page).count(), 1, "the menu More opened after Reply stays open");
   await page.keyboard.press("Escape");
   await menu(page).waitFor({ state: "detached" });
-  await block(page, "m4").locator(".tb-bubble").click({ button: "right" });
-  await menu(page).getByRole("menuitem", { name: "Reply" }).click();
-  await page.locator(".composer-reply").waitFor();
   await context.close();
 });
 

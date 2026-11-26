@@ -15,6 +15,8 @@ export type MenuProps = {
   /** The accessible name of the menu. */
   label: string;
   className?: string;
+  /** No glass of its own: the menu sits inside a surface that already is one (a popover), so there is one border and one shadow. */
+  bare?: boolean;
 };
 
 /** The classes the product's Radix menus put on their surface (src/overlays/RadixOverlays.tsx): one look for the static kit
@@ -25,8 +27,8 @@ export const MENU_ITEM = "tb-menu-item";
 /** A glass menu: icon, label, a key hint or a tick. The row under the pointer turns solid ink. Put destructive items last,
  *  after a separator, and keep a menu to about eight items. The product's menus are Radix DropdownMenus wearing the same
  *  classes (OverlayMenu); this component draws the same thing for the catalog and for static use. */
-export function Menu({ items, label, className }: MenuProps): ReactNode {
-  return <div className={cx("tb-pop", "tb-glass", "tb-menu", "tb-menu--static", className)} role="menu" aria-label={label}>
+export function Menu({ items, label, className, bare }: MenuProps): ReactNode {
+  return <div className={cx(!bare && "tb-pop", !bare && "tb-glass", "tb-menu", "tb-menu--static", className)} role="menu" aria-label={label}>
     {items.map((item, index) => {
       if (item === "-") return <div key={index} className="tb-menu-sep" role="separator" />;
       if ("heading" in item) return <div key={index} className="tb-menu-heading">{item.heading}</div>;
