@@ -7,14 +7,12 @@
 .admin-row-wrap .admin-row{grid-template-columns:40px minmax(0,1.1fr) 200px minmax(0,1fr)}
 .admin-row-wrap .admin-row>svg{display:none}
 .admin-row-check{display:grid;place-items:center;align-self:stretch;cursor:pointer}
-.admin-row-check input{width:18px;height:18px;margin:0;accent-color:var(--grape);cursor:pointer}
-.admin-row-check input:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px}
 .admin-row-group{display:flex;justify-content:flex-start;padding-right:12px;min-width:0}
 .admin-list .admin-row-head{grid-template-columns:32px minmax(0,1fr) 168px;gap:0;padding:8px 0 8px 12px}
 .admin-list .admin-row-head-main{display:grid;grid-template-columns:40px minmax(0,1.1fr) 200px minmax(0,1fr);gap:14px;padding:0 16px}
 .admin-list .admin-row-head>span:last-child{padding-left:2px}
-.group-menu-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;max-width:100%;padding:6px 10px;font-size:13px}
-.group-menu-trigger>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.group-menu-trigger{max-width:100%;justify-content:space-between}
+.group-menu-trigger .tb-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .group-menu button{display:flex;align-items:center;gap:8px}
 .group-menu-gap{display:inline-block;width:16px;height:16px;flex:none}
 .admin-bulk{position:sticky;bottom:12px;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px;padding:10px 14px;border:0;box-shadow:var(--shadow-sm);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-2,0 6px 18px color-mix(in srgb,var(--ink) 14%,transparent))}

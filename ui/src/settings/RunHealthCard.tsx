@@ -1,3 +1,4 @@
+import {Button} from "../ds/Button/Button";
 import {useCallback, useEffect, useState} from "react";
 import {api} from "../api";
 import {errorText} from "../i18n/errors";
@@ -43,7 +44,7 @@ export function RunHealthCard() {
   const hint = t("usage.range.7d");
   if (!health) {
     return <SettingsSection title={title} hint={hint}>
-      {error ? <p className="error-text" role="alert">{error}<button type="button" className="text-button" onClick={() => setVersion(n => n + 1)}>{t("action.retry")}</button></p> : <p className="muted" role="status">{t("usage.health.loading")}</p>}
+      {error ? <p className="error-text" role="alert">{error}<Button size="sm" variant="ghost" onClick={() => setVersion(n => n + 1)}>{t("action.retry")}</Button></p> : <p className="muted" role="status">{t("usage.health.loading")}</p>}
     </SettingsSection>;
   }
   const shown = statusOrder.filter(status => (health.by_status[status] ?? 0) > 0);

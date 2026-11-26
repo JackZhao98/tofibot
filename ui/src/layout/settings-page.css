@@ -156,9 +156,6 @@ button.settings-row-v2.is-link:focus-visible{outline:var(--focus-ring-width) sol
 .danger-zone .purge-section :is(.settings-description,.field-note){color:var(--muted);font:12.5px/1.5 var(--font-body)}
 .danger-zone .purge-section .settings-row-v2{padding-left:0;padding-right:0}
 .purge-actions{display:flex;justify-content:flex-end;padding-top:4px}
-.purge-button{min-height:32px;padding:0 12px;border:0;border-radius:9px;background:var(--surface);box-shadow:var(--shadow-sm);color:var(--danger-text);font:600 13px/1 var(--font-body)}
-.purge-button:disabled{opacity:.5;cursor:not-allowed}
-.purge-button:focus-visible{outline:var(--focus-ring-width) solid var(--focus);outline-offset:2px}
 /* Subpage: back, title, optional actions. */
 .st-subpage{display:grid;gap:20px;min-width:0}
 .st-subpage-head{display:flex;align-items:center;gap:10px;min-width:0}

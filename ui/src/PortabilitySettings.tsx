@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { TextInput } from "./ds/TextInput/TextInput";
+import { Checkbox } from "./ds/Checkbox/Checkbox";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { TofiIcon } from "./icons";
 import { request } from "./api";
 import type { Bot } from "./types";
@@ -30,11 +32,9 @@ function message(error: unknown) { return error instanceof Error ? error.message
 function AccordionGroup({ id, title, count, summary, checked, mixed, onToggleAll, children }: { id: string; title: string; count?: string; summary?: string; checked?: boolean; mixed?: boolean; onToggleAll: () => void; children: ReactNode }) {
   const { t } = useTranslation("settings");
   const [open, setOpen] = useState(false);
-  const box = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (box.current) box.current.indeterminate = Boolean(mixed); }, [mixed, checked]);
   return <div className={`portability-group${open ? " is-open" : ""}`}>
     <div className="portability-group-head">
-      {checked !== undefined && <input ref={box} type="checkbox" className="portability-group-check" checked={checked} aria-label={t("portability.select_all", { group: title })} onChange={onToggleAll}/>}
+      {checked !== undefined && <Checkbox className="portability-group-check" checked={checked} mixed={mixed} aria-label={t("portability.select_all", { group: title })} onChange={onToggleAll}/>}
       <button type="button" className="portability-group-trigger" aria-expanded={open} aria-controls={`${id}-panel`} id={`${id}-trigger`} onClick={() => setOpen(value => !value)}>
         <span className="portability-group-title">{title}</span>
         {(count || summary) && <span className="portability-group-count">{count ?? summary}</span>}
@@ -163,7 +163,12 @@ export function PortabilitySettings({ bots, initialFile, initialBotID = "", onIn
     } catch (cause) { setError(message(cause)); } finally { setBusy(false); }
   }
   const encryptedFile = fileSource && isEncryptedPortable(fileSource);
-  const choice = (key: string, input: ReactNode, text: ReactNode) => <label className="check-row" key={key}>{input}<span>{text}</span></label>;
+  const choice = (key: string, input: ReactElement<{ type?: string; checked?: boolean; disabled?: boolean; onChange?: () => void; name?: string }>, text: ReactNode) => {
+    const { type, checked, disabled, onChange, name } = input.props;
+    return type === "radio"
+      ? <label className="check-row" key={key}><input type="radio" name={name} checked={checked} disabled={disabled} onChange={onChange} /><span>{text}</span></label>
+      : <Checkbox className="check-row" key={key} checked={Boolean(checked)} disabled={disabled} onChange={() => onChange?.()}>{text}</Checkbox>;
+  };
   const exportDisabled = (!botIDs.length && (exportBots.length > 0 || !included.includes(ENVIRONMENT_CATEGORY))) || (included.includes(ENVIRONMENT_CATEGORY) && !exportEnvironmentIDs.length) || exportPassword.length < 12 || exportPassword !== confirmPassword;
   const visibleCategories: string[] = categories.filter(c => kind === "account" || (c !== "settings" && c !== ENVIRONMENT_CATEGORY));
   const dataCategories: string[] = visibleCategories.filter(c => c !== "settings" && c !== ENVIRONMENT_CATEGORY);

@@ -1,3 +1,6 @@
+import { Progress } from "./ds/Progress/Progress";
+import { IconButton } from "./ds/IconButton/IconButton";
+import { Button } from "./ds/Button/Button";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import "./UpdateNotice.css";
 import "./settings/automation.css";
@@ -152,7 +155,7 @@ export function UpdateProgress({ view, onReload, onDismiss }: { view: Exclude<Up
   if (view.kind === "done") {
     return <span className="update-progress" role="status" data-update-state="done">
       <TofiIcon name="check-circle" size={16} aria-hidden="true" /><span>{t("update.progress.done", { version: view.version })}</span>
-      <button type="button" className="st-button update-btn" onClick={onReload}>{t("update.progress.reload")}</button>
+      <Button size="sm" className="update-btn" onClick={onReload}>{t("update.progress.reload")}</Button>
     </span>;
   }
   if (view.kind === "failed") {
@@ -167,7 +170,7 @@ export function UpdateProgress({ view, onReload, onDismiss }: { view: Exclude<Up
           {view.code && <code>{t("update.failed.code", { code: view.code })}</code>}
         </span>
       </span>
-      <button type="button" className="st-button update-btn" onClick={onDismiss}>{t("update.failed.dismiss")}</button>
+      <Button size="sm" className="update-btn" onClick={onDismiss}>{t("update.failed.dismiss")}</Button>
     </span>;
   }
   const label = view.restarting ? t("update.progress.restarting")
@@ -177,7 +180,7 @@ export function UpdateProgress({ view, onReload, onDismiss }: { view: Exclude<Up
   return <span className="update-progress" role="status" aria-live="polite" data-update-state={view.restarting ? "restarting" : view.state}>
     <TofiIcon name="loading" size={16} aria-hidden="true" />
     <span>{label}</span>
-    <span className="update-progress-bar" role="progressbar" aria-label={t("update.progress.label")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><i style={{ width: `${percent}%` }} /></span>
+    <Progress className="update-progress-bar" value={percent} ariaLabel={t("update.progress.label")} />
   </span>;
 }
 
@@ -200,9 +203,9 @@ function useUpdateOffers(flow: UpdateFlow) {
 
 function OfferButton({ offer, onOpen }: { offer: Offer; onOpen: (offer: Offer) => void }) {
   const { t } = useTranslation("settings");
-  return <button type="button" className="st-button update-btn" data-update-action={offer.channel} onClick={() => onOpen(offer)}>
+  return <Button size="sm" className="update-btn" data-update-action={offer.channel} onClick={() => onOpen(offer)}>
     {offer.channel === "rc" ? t("update.action.try_rc", { version: offer.version }) : t("update.action.update", { version: offer.version })}
-  </button>;
+  </Button>;
 }
 
 /** Dismissible strip above the workspace. Dismissal is remembered per version; a running update is never hidden. */
@@ -234,7 +237,7 @@ export function UpdateBanner() {
       : <Trans t={t} i18nKey="update.banner.available" values={{ version: info.latest }} components={{ code: <code /> }} />}</p>
     {offers.stable && <OfferButton offer={offers.stable} onOpen={offers.open} />}
     {notes && <a className="update-banner-link" href={notes} target="_blank" rel="noopener noreferrer">{t("update.banner.whats_new")}</a>}
-    <button type="button" className="update-banner-dismiss" aria-label={t("update.banner.dismiss")} onClick={() => dismiss(info.latest)}><TofiIcon name="close" size={16} /></button>
+    <IconButton size="sm" className="update-banner-dismiss" icon="close" label={t("update.banner.dismiss")} onClick={() => dismiss(info.latest)} />
     {offers.dialog}
   </div>;
 }
@@ -286,7 +289,7 @@ export function VersionCard() {
     {fromPage && <SettingsRow label={t("update.rc.label")} labelFor="update-rc" description={rcError || t("update.rc.hint")}
       control={<SettingsSwitch id="update-rc" label={t("update.rc.label")} checked={info?.channel_rc_enabled === true} disabled={rcBusy} busy={rcBusy} onChange={setRc} />} />}
     <SettingsRow label={t("update.card.checked")} description={checkNote ? <span className={checkNote.tone === "error" ? "error-text" : undefined} role={checkNote.tone === "error" ? "alert" : "status"}>{checkNote.text}</span> : undefined}
-      control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<button type="button" className="st-button" disabled={checking} aria-busy={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</button></span>} />
+      control={<span className="version-value">{info?.checked_at ? formatDateTime(info.checked_at, { dateStyle: "medium", timeStyle: "short", ...(timezone ? { timeZone: timezone } : {}) }) : <span className="version-muted">{t("update.card.never")}</span>}<Button size="sm" busy={checking} disabled={checking} onClick={() => void checkNow()}>{checking ? t("update.card.checking") : t("update.card.check")}</Button></span>} />
     <SettingsRow label={t("update.card.auto")} description={<Trans t={t} i18nKey="update.card.auto_hint" components={{ on: <code />, off: <code /> }} />}
       control={<span className="version-value" data-auto-update={info?.auto_update ?? "off"}>{info?.auto_update === "patch" ? t("update.card.auto_on") : t("update.card.auto_off")}</span>} />
     {offers.dialog}

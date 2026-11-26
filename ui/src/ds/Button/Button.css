@@ -19,6 +19,7 @@
 .tb-btn--danger { background: var(--danger); color: var(--on-danger); border-color: var(--danger); }
 .tb-btn--ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .tb-btn--ghost:hover:not(:disabled) { background-color: var(--hover); transform: none; box-shadow: none; }
+.tb-btn--secondary[aria-pressed="true"] { background: var(--sunk); border-color: var(--ink); }
 .tb-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
 .tb-btn.is-busy .tb-btn-label { opacity: .6; }
 /* pending: a ring that breathes (opacity and scale only) around the one button the person must press. */
