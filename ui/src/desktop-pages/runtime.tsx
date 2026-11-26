@@ -7,7 +7,6 @@ import "../interaction-system.css";
 import "../desktop-system.css";
 import "../v2-foundations.css";
 import "../layout/settings-page.css";
-import "../ds/legacy-aliases.css";
 import "../forced.css";
 import "./pages.css";
 import { applySkin } from "../skin/skin";

@@ -59,7 +59,7 @@ function ComputerSize({account, disabled, run, attachedTick}: {account: AdminAcc
     })();
     return () => { active = false; };
   }, [account.id, load]);
-  if (failed) return <div className="resource-read-error" role="alert"><span>{t("resources.error.read")}</span><button type="button" className="text-button" onClick={() => setLoad(current => ({n: current.n + 1, settle: false}))}>{t("resources.retry")}</button></div>;
+  if (failed) return <div className="resource-read-error" role="alert"><span>{t("resources.error.read")}</span><Button type="button" variant="ghost" size="sm" onClick={() => setLoad(current => ({n: current.n + 1, settle: false}))}>{t("resources.retry")}</Button></div>;
   if (!data || !desired) return <p className="settings-card-note" role="status">{t("resources.loading")}</p>;
   const dirty = desired.vcpus !== data.desired.vcpus || desired.memory_mib !== data.desired.memory_mib || desired.disk_gib !== data.desired.disk_gib;
   const reset = () => { setDesired(data.desired); setSaved(false); };

@@ -253,15 +253,10 @@ Rules:
   raise it with `:is(#_, .selector)`.
 - A sheet outside `ds/` may place a `.tb-*` element (layout properties) and nothing else. No `:root` token outside `skin/`,
   no `html:not([data-desktop])`.
-- V2 button classes keep their names until their surface is rebuilt, and look like the kit Button: `ds/legacy-aliases.css`
-  (in `@layer legacy`, single-class specificity, so every contextual override such as `.view-only-chat-footer .secondary-button`
-  still beats it) draws `.primary-button` (primary), `.secondary-button` (secondary), `.st-button`, `.mcp-button`, `.bs-button`
-  (secondary, 32px), `.text-button` (ghost, 32px) and `.ghost-button` (ghost), with hover, active, focus, disabled, busy
-  (`aria-busy` or `.is-busy`), pressed (`aria-pressed`, `aria-selected`) and danger (`.st-button.is-danger`,
-  `.bs-button.is-danger`, `.mcp-button.mcp-danger`). Do not write a base rule for these classes in a product sheet: change
-  the alias, or swap the call site to `<Button>`. The class list is `ds/aliases.json`; `test:css-layers` refuses a legacy
-  `!important` that names one, and `test:ds-boundary` counts the alias rules (they only fall). A call site that needs another
-  size or place adds a contextual rule in its own sheet, and that rule leaves with the sheet.
+- The V2 button classes (`.primary-button`, `.secondary-button`, `.st-button`, `.mcp-button`, `.bs-button`, `.text-button`, `.ghost-button`) and
+  `ds/legacy-aliases.css` are gone (PR 9.1). Use the kit `Button`: `variant` primary, secondary (default), ghost, danger, or `link` (an
+  action inside a sentence, drawn as an underlined word), and `size="sm"` for the 32px button (was `.st-button`, `.text-button`). An
+  anchor that must look like a button wears `tb-btn tb-btn--<variant> tb-btn--<size>`. An icon-only trigger is `IconButton`.
 - Form controls (PR 2.2). `Switch`, `Segmented` and `Tabs` are kit components (Radix `switch`, `radio-group`, `tabs`). The
   product Select stays `ui/src/Select.tsx` + `SelectRadix.tsx` (lazy Radix chunk; `test:select-guard`); it is drawn by
   `ds/control.css` (the closed field is `.tb-select`, the same pressed-in look as `TextInput`) and `ds/Select/Select.css` (the

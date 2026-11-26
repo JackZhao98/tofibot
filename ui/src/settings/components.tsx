@@ -139,7 +139,7 @@ export function FilePicker({accept, label, fileName, onFile, disabled = false, d
   });
   return <div {...getRootProps({ className: `file-picker${isDragActive ? " is-dragging" : ""}`, role: labelledBy ? "group" : undefined, "aria-labelledby": labelledBy })}>
     <input ref={input} type="file" hidden accept={accept} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) onFile(file); }}/>
-    <button type="button" className="st-button" disabled={disabled} onClick={() => input.current?.click()}><TofiIcon name="folder-open" size={16} aria-hidden="true"/>{label}</button>
+    <Button type="button" size="sm" disabled={disabled} onClick={() => input.current?.click()}><TofiIcon name="folder-open" size={16} aria-hidden="true"/>{label}</Button>
     {fileName ? <span className="file-chip" title={fileName}><TofiIcon name="file" size={14} aria-hidden="true"/><span>{fileName}</span></span> : dropHint && <span className="file-picker-hint">{dropHint}</span>}
   </div>;
 }

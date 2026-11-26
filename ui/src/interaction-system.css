@@ -62,7 +62,7 @@ form[aria-busy=true]{cursor:progress}
 @media(min-width:768px) and (max-width:1023px){.workspace-grid{--sidebar-width:232px}}
 @media(max-width:767px){
  .sidebar-toggle-slot{display:none}.contact-pane{padding:16px 12px}
- .top-icon-button,.icon-button,.ghost-button{width:40px;height:40px;min-width:40px}
+ .top-icon-button, .icon-button{width:40px;height:40px;min-width:40px}
 }
 :root[data-theme="dark"] .message-table,:root[data-theme="dark"] .computer-info,:root[data-theme="dark"] .verification-card,:root[data-theme="dark"] .extension-card,:root[data-theme="dark"] .connection-info{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
 :root[data-theme="dark"] .message-content code{background:var(--hover);color:var(--ink)}
@@ -148,7 +148,7 @@ html[data-desktop] .new-arrival .message-user .message-content{transform-origin:
 .form-fields{display:contents;border:0;padding:0;margin:0;min-width:0}
 
 @media(pointer:coarse){
-  .top-icon-button,.icon-button,.ghost-button,.close-button{width:44px;height:44px;min-width:44px}
+  .top-icon-button, .icon-button, .close-button{width:44px;height:44px;min-width:44px}
   .scheduled-task-row summary,.tool-activity summary,.work-item-details summary{min-height:44px}
 }
 @media(forced-colors:active){

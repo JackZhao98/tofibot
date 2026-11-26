@@ -7,6 +7,7 @@ import {useTranslation} from "./i18n";
 import {SettingsCard, SettingsRow, SettingsSection} from "./settings/components";
 import type {CapabilityId} from "./types";
 import "./admin-org.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * An account's Group and Overrides (design 5.1). Every capability follows the group until a value is set here; that value is an
@@ -52,7 +53,7 @@ export function AccountPolicySections({account, busy, run}: {account: AdminAccou
               description={override ? t("policy.overridden", {value: text(capability, override), group: text(capability, groupValue(capability))}) : t("policy.follows", {value: text(capability, effective)})}
               control={<div className="ag-override-control">
                 <PolicyControl capability={capability} value={effective} hostHasVm={hostHasVm} disabled={disabled} label={t(`policy.capability.${capability}.name`)} onChange={value => setOverride(capability, value)}/>
-                {override && <button type="button" className="text-button" data-action="reset" disabled={disabled} onClick={() => setOverride(capability, null)}>{t("policy.reset")}</button>}
+                {override && <Button type="button" variant="ghost" size="sm" data-action="reset" disabled={disabled} onClick={() => setOverride(capability, null)}>{t("policy.reset")}</Button>}
               </div>}/>
           </div>;
         })}

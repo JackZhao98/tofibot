@@ -26,7 +26,7 @@ try {
   assert.ok(offered.indexOf("approval-decline") < offered.indexOf("approval-always") && offered.indexOf("approval-accept") < offered.indexOf("approval-always"), "it sits next to Approve and Deny");
   assert.ok(offered.includes("tofi") && offered.includes("notion-update-page") && offered.includes("also when it works on its own") && offered.includes("on a schedule"), "the hint names the Bot and tool and says it also applies when the Bot works on its own, for example on a schedule");
 
-  assert.match(offered, /class="text-button approval-manage"[^>]*aria-label="Manage notion-update-page on notion in Settings"/, "the hint ends in a Manage link that names the tool and the connection");
+  assert.match(offered, /<button(?=[^>]*class="[^"]*\bapproval-manage\b)(?=[^>]*aria-label="Manage notion-update-page on notion in Settings")/, "the hint ends in a Manage link that names the tool and the connection");
   assert.ok(offered.indexOf("approval-always-hint") < offered.indexOf("approval-manage"), "the link sits in the hint, after the sentence it belongs to");
 
   const plain = render(card({}));

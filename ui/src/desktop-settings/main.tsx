@@ -18,7 +18,6 @@ import "../web-mention.css";
 import "../web-file-drop.css";
 import "../workspace/sidebar.css";
 import "../context-card.css";
-import "../ds/legacy-aliases.css";
 import "../forced.css";
 import "./mac-settings.css";
 import { applySkin } from "../skin/skin";

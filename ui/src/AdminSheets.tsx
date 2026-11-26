@@ -5,6 +5,7 @@ import {StatusBadge} from "./settings/components";
 import type {AdminAccount} from "./adminApi";
 import { Dialog, DIALOG_SCRIM_DOCK } from "./ds/Dialog/Dialog";
 import { ModalDialog } from "./overlays/ModalDialog";
+import { Button } from "./ds/Button/Button";
 
 /** Modal sheet shared by the admin flows (Radix Dialog, ui/src/overlays/ModalDialog.tsx): Escape and a press on the scrim
  * close it unless `locked`; focus starts on the sheet itself. */
@@ -26,10 +27,10 @@ export function CopyButton({value, label, onFail}: {value: string; label?: strin
   async function copy() {
     try { await navigator.clipboard.writeText(value); setCopied(true); } catch { onFail?.(); }
   }
-  return <button type="button" className="secondary-button admin-copy" onClick={() => void copy()}>
+  return <Button type="button" className="admin-copy" onClick={() => void copy()}>
     <TofiIcon name={copied ? "check" : "copy"} size={16} aria-hidden="true"/>
     <span aria-live="polite">{copied ? t("admin.copied") : label ?? t("admin.copy")}</span>
-  </button>;
+  </Button>;
 }
 
 /** A value the admin has to copy (link, passphrase, one-time password): monospace block plus Copy. */

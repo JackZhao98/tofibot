@@ -13,6 +13,7 @@ import { groupPictures, workEntries, workGroupKind, type WorkCapture } from "./w
 import type { Attachment, Message, Run, ToolActivity } from "./types";
 import "./work-trace.css";
 import "./message-attachment.css";
+import { Button } from "./ds/Button/Button";
 
 export function CaptureStack({ images }: { images: Attachment[] }) {
   const { t } = useTranslation("tasks");
@@ -60,6 +61,6 @@ export default function WorkTimeline({ tools, notes, runs, locale }: { tools: To
         </Collapsible.Root>
         <CaptureStack images={groupPictures(entry.tools, captures[entry.tools[0].run_id] ?? [])} />
       </div>)}
-    {error && <button type="button" className="text-button" onClick={() => setRevision(value => value + 1)}>{t("trace.load_failed")}</button>}
+    {error && <Button type="button" variant="ghost" size="sm" onClick={() => setRevision(value => value + 1)}>{t("trace.load_failed")}</Button>}
   </div>;
 }

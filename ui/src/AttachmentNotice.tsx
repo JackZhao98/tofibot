@@ -4,6 +4,7 @@ import { useTranslation } from "./i18n";
 import { OPEN_COMPUTER_SETTINGS_EVENT } from "./settings/deepLinks";
 import type { AttachmentProblem } from "./filePreviewModel";
 import "./attachment-notice.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * Why a stored file will not open: its bytes are only on a computer that is detached, or the computer no longer has
@@ -24,7 +25,7 @@ export function AttachmentNotice({ problem, onNavigate }: { problem: AttachmentP
       <div className="attachment-notice" role={open ? "alert" : undefined}>
         <TofiIcon name={shown === "file_on_detached_computer" ? "unplug" : "alert"} size={16} aria-hidden="true" />
         <p>{t(`attachment.problem.${shown}`)}</p>
-        {shown === "file_on_detached_computer" && <button type="button" className="text-button" onClick={() => { onNavigate?.(); window.dispatchEvent(new Event(OPEN_COMPUTER_SETTINGS_EVENT)); }}>{t("attachment.problem.open_computer")}</button>}
+        {shown === "file_on_detached_computer" && <Button type="button" variant={onNavigate ? "secondary" : "link"} size="sm" onClick={() => { onNavigate?.(); window.dispatchEvent(new Event(OPEN_COMPUTER_SETTINGS_EVENT)); }}>{t("attachment.problem.open_computer")}</Button>}
       </div>
     </div>
   </div>;

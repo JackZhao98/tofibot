@@ -169,7 +169,7 @@ export function AdminAccounts() {
       {picked.length > 0 && <div className="admin-bulk" role="region" aria-label={t("admin.accounts.bulk")} data-testid="admin-bulk">
         <span className="admin-bulk-count" role="status">{t("admin.accounts.selected", {count: picked.length})}</span>
         <GroupMenu groups={groups ?? []} disabled={busy} label={t("admin.accounts.move_n", {count: picked.length})} text={t("admin.accounts.move_n", {count: picked.length})} onPick={id => void moveTo(picked, id)}/>
-        <button type="button" className="text-button" onClick={() => setPicked([])}>{t("admin.accounts.clear")}</button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setPicked([])}>{t("admin.accounts.clear")}</Button>
       </div>}
     </SettingsSection>
 

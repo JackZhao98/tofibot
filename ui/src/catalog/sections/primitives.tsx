@@ -14,10 +14,9 @@ import "../../extensions-system.css";
 import "../../desktop-presence.css";
 
 const buttons = [
-  "primary-button", "secondary-button", "ghost-button", "text-button", "st-button", "st-button is-danger",
   "close-button", "icon-button", "top-icon-button",
-   "admin-danger-button", "purge-button", "mcp-button", "mcp-button mcp-danger",
-  "bs-button", "bs-button is-danger", "gs-button", "gs-button is-danger", "settings-ghost-button", "danger-link", "work-icon-button", "work-icon-button is-danger", "send-button",
+   "admin-danger-button", "purge-button",
+  "gs-button", "gs-button is-danger", "settings-ghost-button", "danger-link", "work-icon-button", "work-icon-button is-danger", "send-button",
 ];
 function Controls({ disabled = false }: { disabled?: boolean }) {
   const radioName = useId();

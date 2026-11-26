@@ -6,7 +6,6 @@ import "../src/styles.css";
 import "../src/v2-foundations.css";
 import "../src/v2-app.css";
 import "../src/web-tool-steps.css";
-import "../src/ds/legacy-aliases.css";
 import { TaskRunBlock } from "../src/TaskRunBlock";
 import { buildTaskOwners } from "../src/taskIssuePresentation";
 import type { Message, Run } from "../src/types";

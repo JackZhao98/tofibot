@@ -108,7 +108,7 @@ export function AdminGroups({openTab}: {openTab: (tab: SettingsTab) => void}) {
               return <div key={capability} className="ag-policy-row" data-capability={capability}>
                 <SettingsRow label={t(`policy.capability.${capability}.name`)} description={t(`policy.capability.${capability}.help`)} control={
                   <PolicyControl capability={capability} value={selected.policies[capability]} hostHasVm={hostHasVm} disabled={busy || readonly} label={t(`policy.capability.${capability}.name`)} onChange={value => savePolicy(capability, value)}/>}/>
-                {gap && <p className="ag-missing" role="status" data-missing={capability}><TofiIcon name="alert" size={14} aria-hidden="true"/>{t("admin.groups.resource_missing")} <button type="button" className="text-button" onClick={() => openTab("admin-resources")}>{t("admin.groups.open_resources")}</button></p>}
+                {gap && <p className="ag-missing" role="status" data-missing={capability}><TofiIcon name="alert" size={14} aria-hidden="true"/>{t("admin.groups.resource_missing")} <Button type="button" variant="link" onClick={() => openTab("admin-resources")}>{t("admin.groups.open_resources")}</Button></p>}
               </div>;
             })}
           </SettingsCard>

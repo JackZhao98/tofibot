@@ -5,6 +5,7 @@ import { formatNumber } from "./i18n/format";
 import { i18n, useTranslation } from "./i18n";
 import type { RunContextPart, RunContextSnapshot } from "./types";
 import "./run-context.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * "Context" inside a reply's View activity: what that run's first model call received, part by part, with sizes
@@ -54,7 +55,7 @@ export function RunContextBody({ state, timezone, onRetry }: { state: RunContext
   const { t } = useTranslation(["chat", "common"]);
   if (state.status === "loading") return <p className="run-context-note" role="status">{t("chat:runContext.loading")}</p>;
   if (state.status === "unavailable") return <p className="run-context-note" role="status">{t("chat:runContext.unavailable", { keep: 50 })}</p>;
-  if (state.status === "error") return <p className="run-context-note" role="alert">{t("chat:runContext.failed", { error: state.message })} {onRetry && <button type="button" className="secondary-button" onClick={onRetry}>{t("common:action.retry")}</button>}</p>;
+  if (state.status === "error") return <p className="run-context-note" role="alert">{t("chat:runContext.failed", { error: state.message })} {onRetry && <Button type="button" onClick={onRetry}>{t("common:action.retry")}</Button>}</p>;
   return <RunContextReady snapshot={state.snapshot} timezone={timezone} />;
 }
 

@@ -9,7 +9,7 @@
 @media (prefers-reduced-motion:reduce){.workspace .workspace-grid, .workspace .detail-pane.widget-column{transition:none!important}}
 @media (prefers-reduced-motion:reduce){.workspace .workspace-grid :is(.message-scroll,.composer,.jump-latest){transition:none!important}}
 @media (prefers-reduced-motion:reduce){.approval-card,.approval-fold,.approval-actions > button,.approval-result{animation:none!important;transition:none!important}}
-@media (prefers-reduced-motion:reduce){.bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bs-button, .bot-style-pop, .bot-style-pop button, .bs-section{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){.bs-nav, .bs-page, .bs-nav-item, .bs-saved, .bot-style-pop, .bot-style-pop button, .bs-section{transition:none!important;animation:none!important}}
 @media (prefers-reduced-motion:reduce){.desktop-floating-shell,.desktop-floating-shell *,.desktop-floating-shell *::before,.desktop-floating-shell *::after{transition:none!important}}
 @media (prefers-reduced-motion:reduce){.mcp-service-status i{animation:none!important}}
 @media (prefers-reduced-motion:reduce){.onb-sheet, .onb-progress i::after{animation:none!important;transition:none!important}}

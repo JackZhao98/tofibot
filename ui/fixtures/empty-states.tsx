@@ -13,7 +13,6 @@ import "../src/web-mention.css";
 import "../src/web-file-drop.css";
 import "../src/workspace/sidebar.css";
 import "../src/context-card.css";
-import "../src/ds/legacy-aliases.css";
 import { FirstRunHero } from "../src/FirstRunHero";
 import { MemoryPanel } from "../src/MemoryPanel";
 import { ArchivePanel } from "../src/ArchivePanel";

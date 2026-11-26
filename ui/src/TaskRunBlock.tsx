@@ -15,6 +15,7 @@ import { isTerminalRun } from "./runFamily";
 import { planHistory } from "./planModel";
 import { WorkTimeline, SilentNoteBody, TaskActivityBody, PlanHistoryRow, panelLoaded, usePanelLoaded, whenPanelLoaded } from "./lazyPanels";
 import "./task-issue-card.css";
+import { Button } from "./ds/Button/Button";
 
 /**
  * One stretch of a run's calls in the conversation (see splitActivitySegments). A run cut by other items is drawn as several
@@ -225,7 +226,7 @@ export function TaskRunBlock({ owner, segment, tools, questions, drafts, message
       const detail = details[attempt.id];
       // "Load more" only after the first page has arrived: before it, hasMore is a guess and the button would flash in and out.
       if (!detail || (!detail.error && !(detail.hasMore && detail.loaded > 0 && !detail.loading))) return null;
-      return <button key={attempt.id} type="button" className="text-button" disabled={detail.loading} onClick={() => void onLoadDetails?.(attempt.id, detail.loaded)}>{t(detail.error ? "activity.records_unavailable" : "activity.load")}</button>;
+      return <Button key={attempt.id} type="button" variant="ghost" size="sm" disabled={detail.loading} onClick={() => void onLoadDetails?.(attempt.id, detail.loaded)}>{t(detail.error ? "activity.records_unavailable" : "activity.load")}</Button>;
     })}
     {/* A separate valid proposal survives another call's failure/unknown effect. */}
     {!showActivity && liveLine && <p className="task-run-live-line"><button type="button" className="process-line" aria-expanded="false" onClick={viewActivity}><LiveMark />{namedLive && <span className="task-activity-name">{botName}</span>}<span className="process-line-text task-activity-live" role="status">{liveLine.label}</span><TofiIcon className="process-line-chevron" name="chevron-right" size={14} aria-hidden="true" /></button>{(running => running && <ComputerLookButton activity={running} />)(currentTools.find(tool => tool.status === "running" && (isComputerAction(tool) || tool.name === "computer_browser")))}</p>}

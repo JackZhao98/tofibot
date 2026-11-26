@@ -12,6 +12,7 @@ import { BotAvatar } from "../../BotAvatar";
 import { BOTS, bot } from "../world";
 import type { CatalogSection } from "../types";
 import type { AppOptions } from "../world";
+import { Button } from "../../ds/Button/Button";
 
 const DM: AppOptions = { path: "/b/bot_mochi" };
 const GROUP: AppOptions = { path: "/g/grp_launch" };
@@ -26,7 +27,7 @@ const ROW = (id: string) => `[data-sidebar-flip="${id}"]`;
 /** Keeps a closed dialog closed, with one way back: the catalog's own reopen button (the keyboard check uses it). */
 function Reopen({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(true);
-  return open ? <>{children(() => setOpen(false))}</> : <button type="button" className="secondary-button catalog-reopen" onClick={() => setOpen(true)}>{label}</button>;
+  return open ? <>{children(() => setOpen(false))}</> : <Button type="button" className="catalog-reopen" onClick={() => setOpen(true)}>{label}</Button>;
 }
 const REOPEN = { focus: ".catalog-reopen", key: "Enter" };
 
@@ -55,7 +56,7 @@ export const dialogs: CatalogSection = {
     { id: "admin-sheet", kind: "overlay", label: "Admin sheet", probe: ".admin-sheet", keyboard: { close: "Escape", reopen: REOPEN },
       render: () => <Reopen label="Open the sheet">{close => <AdminSheet title="Reset password for synthetic-user" onClose={close}>
         <SecretField label="Temporary password" value="synthetic-temporary-password" note="Shown once. Copy it now." />
-        <div className="sheet-actions"><CopyButton value="synthetic-temporary-password" /><button type="button" className="primary-button" onClick={close}>Done</button></div>
+        <div className="sheet-actions"><CopyButton value="synthetic-temporary-password" /><Button type="button" variant="primary" onClick={close}>Done</Button></div>
       </AdminSheet>}</Reopen> },
     { id: "admin-sheet-locked", kind: "overlay", label: "Admin sheet, locked", note: "work in flight: Escape and outside clicks do nothing", probe: ".admin-sheet",
       render: () => <AdminSheet title="Creating synthetic-user…" locked onClose={noop}><p>Working…</p></AdminSheet> },

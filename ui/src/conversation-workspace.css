@@ -109,7 +109,6 @@
 .view-only-message.is-user .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--radius-bubble) 5px var(--radius-bubble) var(--radius-bubble);background:var(--bubble-user);color:var(--ink);}
 .view-only-chat-footer{min-height:64px;padding-bottom:max(10px,env(safe-area-inset-bottom));border-color:var(--line);background:var(--glass-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
 .view-only-chat-footer>span{display:inline-flex;align-items:center;gap:6px}
-.view-only-chat-footer .secondary-button{min-height:44px}
 @media(max-width:540px){
   .view-only-chat-header{padding:12px 16px;gap:8px}
   .view-only-chat-identity{gap:6px}

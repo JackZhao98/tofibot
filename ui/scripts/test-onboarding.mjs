@@ -275,7 +275,7 @@ async function walkthrough({ width, height, theme, locale = "en-US", shotsOn = t
     await page.locator(".onb-count", { hasText: /GitHub/ }).waitFor();
     assert.match(await page.locator(".onb-count").innerText(), /GitHub \(1 (of|von) 2\)/);
     assert.equal(await page.locator(".onb-foot .onb-primary").count(), 1, "one primary action");
-    assert.equal(await page.locator(".onb-service-form button.primary-button").count(), 0, "no second Add button in the form");
+    assert.equal(await page.locator(".onb-service-form button.tb-btn--primary").count(), 0, "no second Add button in the form");
     assert.equal(await page.locator(".onb-service-form a.onb-link[href='https://github.com/settings/personal-access-tokens/new']").count(), 1, "token page link");
     assert.equal(await page.locator(".onb-service-form").innerText().then(text => /\bPAT\b|Bearer|toolset/.test(text)), false, "no jargon in the main view");
     assert.equal(await page.locator(".onb-foot .onb-primary").isDisabled(), true, "Connect waits for the token");

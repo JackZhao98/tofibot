@@ -52,7 +52,7 @@ export function AdminResources({openTab}: {openTab: (tab: SettingsTab) => void})
   const loading = !resources && !error;
   return <section className="admin-resources" data-testid="admin-resources">
     <p className="admin-intro">{t("admin.org.intro")}</p>
-    {error && <p role="alert" className="admin-error">{error} <button type="button" className="text-button" onClick={() => setVersion(value => value + 1)}>{t("action.retry")}</button></p>}
+    {error && <p role="alert" className="admin-error">{error} <Button type="button" variant="link" onClick={() => setVersion(value => value + 1)}>{t("action.retry")}</Button></p>}
     {missing.length > 0 && <MissingBanner missing={missing} groupName={id => groups?.find(group => group.id === id)?.name ?? id} openGroups={() => openTab("admin-groups")}/>}
 
     <SettingsSection id="models" title={t("admin.org.models.title")} description={t("admin.org.models.help")}>
@@ -172,8 +172,8 @@ function useResourceActions(id: OrgResourceId, onChange: CardProps["onChange"], 
 function ResourceActions({resource, label, actions, replacing, onReplace}: {resource: OrgResource; label: string; actions: ReturnType<typeof useResourceActions>; replacing: boolean; onReplace: () => void}) {
   const {t} = useTranslation("settings");
   return <div className="provider-actions">
-    <button type="button" className="text-button" aria-expanded={replacing} onClick={onReplace}>{t(resource.id === "provider:compatible" ? "admin.org.edit" : "providers.replace_key")}</button>
-    <button type="button" className="text-button" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.test")}</button>
+    <Button type="button" variant="ghost" size="sm" aria-expanded={replacing} onClick={onReplace}>{t(resource.id === "provider:compatible" ? "admin.org.edit" : "providers.replace_key")}</Button>
+    <Button type="button" variant="ghost" size="sm" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.test")}</Button>
     <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: label})} onConfirm={actions.remove}/>
   </div>;
 }
@@ -381,8 +381,8 @@ function FileStoreCard({resource, loading, onChange, onDropped}: CardProps) {
     </div>}
     {resource && <p className="field-note">{t("admin.org.file_store.dest_note", {days: config?.delete_grace_days ?? 14})}</p>}
     {resource && <div className="provider-actions">
-      <button type="button" className="text-button" aria-expanded={editing} onClick={() => { setEditing(value => !value); actions.setNotice(""); }}>{t("admin.org.edit")}</button>
-      <button type="button" className="text-button" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.file_store.test")}</button>
+      <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => { setEditing(value => !value); actions.setNotice(""); }}>{t("admin.org.edit")}</Button>
+      <Button type="button" variant="ghost" size="sm" data-action="test" disabled={actions.testing} onClick={() => void actions.test()}>{actions.testing ? t("webtools.testing") : t("admin.org.file_store.test")}</Button>
       <ConfirmAction label={t("providers.remove")} question={t("admin.org.remove_question", {name: t("admin.org.file_store.name")})} disabled={Boolean(removeBlock)} onConfirm={actions.remove}/>
     </div>}
     {resource && removeBlock && <p className="field-note" data-hint="remove-blocked">{removeBlock.code === "file_store_cleanup_pending"

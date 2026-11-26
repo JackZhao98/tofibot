@@ -280,6 +280,7 @@ import {installFocusModality} from '../src/focusModality';
 import {ActionHints} from '../src/InteractionSystem';
 import {WorkspaceToast} from '../src/WorkspaceToast';
 import {AdminSheet} from '../src/AdminSheets';
+import {Button} from '../src/ds/Button/Button';
 import {ModalDialog,ConfirmDialog} from '../src/overlays/ModalDialog';
 
 installFocusModality();
@@ -297,7 +298,7 @@ function Harness(){
  return <div className="workspace"><ActionHints/><aside className="pane" role="dialog" aria-modal="true" aria-label="Pane">
   <button id="open-sheet" onClick={()=>setSheet(true)}>Sheet</button><button id="open-confirm" onClick={()=>setConfirm(true)}>Confirm</button><button id="open-remote" onClick={()=>setRemote(true)}>Remote</button><button id="open-native" onClick={()=>setNative(true)}>Native</button><button id="open-restart" onClick={()=>setRestart(true)}>Restart</button><button id="show-toast" onClick={()=>setToast(true)}>Toast</button>
   {/* Where the two confirmations used to render as native <dialog>s: inside a settings page, in the settings shell. */}
-  <div className="settings-shell"><div className="settings-page-body"><div className="settings-section"><h3 id="ref-h3">Reference heading</h3><button className="primary-button" id="ref-primary">Reference</button><button id="ref-plain">Reference</button></div></div></div>
+  <div className="settings-shell"><div className="settings-page-body"><div className="settings-section"><h3 id="ref-h3">Reference heading</h3><Button variant="primary" id="ref-primary">Reference</Button><button id="ref-plain">Reference</button></div></div></div>
  </aside>
  {sheet&&<AdminSheet title="Synthetic sheet" onClose={()=>{w.__closed.push('sheet');setSheet(false)}} locked={locked}><input id="field" aria-label="Field"/><button id="open-inner" onClick={()=>setInner(true)}>Inner</button><button id="lock" onClick={()=>setLocked(value=>!value)}>{locked?'Unlock':'Lock'}</button>
   {inner&&<ModalDialog onClose={()=>{w.__closed.push('inner');setInner(false)}} overlayClassName="sheet-overlay"><div className="sheet" role="dialog" aria-label="Inner" tabIndex={-1}><button id="inner-a">A</button><button id="inner-b">B</button></div></ModalDialog>}
@@ -305,7 +306,7 @@ function Harness(){
  {confirm&&<ConfirmDialog onClose={()=>setConfirm(false)} initialFocus={keep} overlayClassName="settings-leave-overlay"><div className="settings-leave-dialog" aria-labelledby="c-title"><h3 id="c-title">Synthetic confirmation</h3><div className="settings-leave-actions"><button ref={keep} id="c-keep" onClick={()=>setConfirm(false)}>Keep</button><button id="c-go">Go</button></div></div></ConfirmDialog>}
  {remote&&<ModalDialog onClose={()=>setRemote(false)} closeOnEscape={false} closeOnOutside={false} overlayClassName="mcp-oauth-overlay"><div className="mcp-oauth-dialog" role="dialog" aria-label="Remote" tabIndex={-1}><button id="r-cancel" onClick={()=>setRemote(false)}>Cancel</button>
   <textarea id="r-keys" aria-label="Remote keyboard" onKeyDown={event=>{event.stopPropagation();if(event.key==='Tab'||event.key==='Escape'){event.preventDefault();w.__remote.push(event.key)}}}/></div></ModalDialog>}
- {restart&&<ConfirmDialog onClose={()=>setRestart(false)} overlayClassName="resource-restart-overlay"><div className="resource-restart-dialog" aria-labelledby="rr-title"><h3 id="rr-title">Synthetic restart</h3><p>Synthetic impact.</p><div className="resource-restart-actions"><button className="secondary-button" onClick={()=>setRestart(false)}>Cancel</button><button className="primary-button" id="rr-primary">Restart</button></div></div></ConfirmDialog>}
+ {restart&&<ConfirmDialog onClose={()=>setRestart(false)} overlayClassName="resource-restart-overlay"><div className="resource-restart-dialog" aria-labelledby="rr-title"><h3 id="rr-title">Synthetic restart</h3><p>Synthetic impact.</p><div className="resource-restart-actions"><Button onClick={()=>setRestart(false)}>Cancel</Button><Button variant="primary" id="rr-primary">Restart</Button></div></div></ConfirmDialog>}
  {native&&<Native onClose={()=>setNative(false)} onToast={()=>setToast(true)}/>}
  {/* The app's own workspace toast (WorkspaceToast), rendered like App.tsx does: in the workspace, outside any dialog. */}
  {toast&&<WorkspaceToast onRetry={()=>{w.__retries=(w.__retries||0)+1}}/>}
@@ -414,7 +415,7 @@ void i18nReady.then(()=>createRoot(document.getElementById('root')!).render(<Har
   await check("portaled out of the settings page, the two confirmations keep the look they had in it (fonts, button metrics)", async () => {
     const { page, context, errors } = await openHarness();
     const look = (selector, props) => page.evaluate(([selector, props]) => { const cs = getComputedStyle(document.querySelector(selector)); return Object.fromEntries(props.map(p => [p, cs.getPropertyValue(p)])); }, [selector, props]);
-    const FONT = ["font-family", "font-size", "font-weight", "line-height"], BUTTON = ["font-size", "min-height", "padding", "border-radius"];
+    const FONT = ["font-family", "font-size", "font-weight", "line-height"], BUTTON = ["font-size", "height", "padding", "border-radius"];
     const ref = { h3: await look("#ref-h3", FONT), primary: await look("#ref-primary", BUTTON), plain: await look("#ref-plain", ["font-family"]) };
     await page.locator("#open-restart").click();
     await page.locator(".resource-restart-dialog").waitFor();

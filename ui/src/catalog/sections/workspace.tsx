@@ -191,7 +191,7 @@ const failedRun: Run = { id: "run_failed", conversation_id: "dm_mochi", bot_id: 
 
 function NoticeToggle() {
   const [problem, setProblem] = useState<"file_on_detached_computer" | null>("file_on_detached_computer");
-  return <div className="delivered-attachment is-file"><div className="attachment-file-row"><button type="button" className="secondary-button" onClick={() => setProblem(current => current ? null : "file_on_detached_computer")}>{problem ? "Hide notice" : "Show notice"}</button></div><AttachmentNotice problem={problem} /></div>;
+  return <div className="delivered-attachment is-file"><div className="attachment-file-row"><Button type="button" onClick={() => setProblem(current => current ? null : "file_on_detached_computer")}>{problem ? "Hide notice" : "Show notice"}</Button></div><AttachmentNotice problem={problem} /></div>;
 }
 
 export const other: CatalogSection = {
