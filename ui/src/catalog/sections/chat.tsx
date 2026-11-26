@@ -55,14 +55,14 @@ export const bubbles: CatalogSection = {
 export const actions: CatalogSection = {
   id: "actions", number: "2", title: "Message actions row (MessageHoverActions)",
   states: [
-    { id: "hover", kind: "app", label: "Shown on hover", note: "copy, react, reply, time; no frame, fill or shadow", app: DM, drive: step => hoverMessage(step, ANSWER) },
+    { id: "hover", kind: "app", label: "Shown on hover", note: "react, reply, copy, more, time beside the bubble; no frame, fill or shadow", app: DM, drive: step => hoverMessage(step, ANSWER) },
     { id: "hover-button", kind: "app", label: "Hover on a button", app: DM, drive: step => hoverMessage(step, ANSWER), force: [{ selector: `${ANSWER} .message-hover-actions [data-action="react"]`, state: "hover" }] },
     { id: "keyboard", kind: "app", label: "Keyboard focus", note: "the list is one tab stop; Tab enters the bar", app: DM,
       drive: async step => { await step.focus(LAST_USER); await step.focus(await step.find(`${LAST_USER} .message-hover-actions button`)); } },
     { id: "copied", kind: "app", label: "Copied", note: "the icon turns into a tick for 1.2 s", app: DM,
       drive: async step => { await hoverMessage(step, ANSWER); await step.click(`${ANSWER} [data-action="copy"]`); await step.find(`${ANSWER} [data-action="copy"][aria-label$="ied"], ${ANSWER} [data-action="copy"]`); } },
   ],
-  gaps: ["Tap to open on a touch screen (the row pushes the next message down): needs DevTools device mode, where (hover: none) applies."],
+  gaps: ["Long press on a touch screen opens the same actions as a menu: needs DevTools device mode, where (hover: none) applies."],
 };
 
 export const receipts: CatalogSection = {

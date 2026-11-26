@@ -3,11 +3,11 @@ import type { Message, Reaction } from "./types";
 import { useTranslation } from "./i18n";
 import "./message-reactions.css";
 import { OverlayPopover } from "./overlays/OverlayHost";
-import { Button } from "./ds/Button/Button";
+import { Menu, type MenuItem } from "./ds/Menu/Menu";
 import { ReactionPicker } from "./ds/ReactionPicker/ReactionPicker";
 type MenuPosition = { x: number; y: number; h?: number } | null;
 
-export function MessageReactions({ message, botNames, onSet, menuPosition, onCloseMenu, onActivity, activityOpen = false }: { /** V3 4.3: 工作过程 in the menu (desktop has no hover bar). */ onActivity?: () => void; activityOpen?: boolean; message: Message; botNames: Map<string, string>; onSet: (emoji: string, present: boolean) => Promise<void>; menuPosition: MenuPosition; onCloseMenu: () => void }) {
+export function MessageReactions({ message, botNames, onSet, menuPosition, onCloseMenu, onActivity, activityOpen = false, onReply, onCopy }: { /** The menu carries every action of the bar beside the bubble: Reply, Copy and 工作过程. */ onReply?: () => void; onCopy?: () => void; onActivity?: () => void; activityOpen?: boolean; message: Message; botNames: Map<string, string>; onSet: (emoji: string, present: boolean) => Promise<void>; menuPosition: MenuPosition; onCloseMenu: () => void }) {
   const { t } = useTranslation("chat");
   // Only repeated toggles of the same emoji wait for each other; the menu and every other emoji stay live.
   const [pendingEmoji, setPendingEmoji] = useState<ReadonlySet<string>>(new Set());
@@ -20,6 +20,10 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
   if (menuPosition) anchor.current = { getBoundingClientRect: () => new DOMRect(menuPosition.x, menuPosition.y, 0, menuPosition.h ?? 0) };
   useEffect(() => { if (menuPosition) { setError(""); } }, [menuPosition]);
 
+  const items: MenuItem[] = [];
+  if (onReply) items.push({ label: t("hover.reply"), icon: "reply", onSelect: () => { closeRef.current(); onReply(); } });
+  if (onCopy) items.push({ label: t("hover.copy"), icon: "copy", onSelect: () => { closeRef.current(); onCopy(); } });
+  if (onActivity) items.push({ label: t(activityOpen ? "hover.hide_activity" : "hover.view_activity"), icon: "activity", onSelect: () => { closeRef.current(); onActivity(); } });
   const grouped = new Map<string, Reaction[]>();
   for (const reaction of message.reactions ?? []) grouped.set(reaction.emoji, [...(grouped.get(reaction.emoji) ?? []), reaction]);
   const mine = (emoji: string) => (grouped.get(emoji) ?? []).some(actor => actor.actor_type === "user");
@@ -43,8 +47,8 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
     </div>}
     {!menuPosition && error && <span className="reaction-error" role="alert">{error}</span>}
     {menuPosition && <OverlayPopover open onOpenChange={open => { if (!open) closeRef.current(); }} anchor={anchor} closeOnScroll className="reaction-context-menu" aria-label={t("reactions.menu")} aria-busy={pendingEmoji.size > 0}>
-      <ReactionPicker bare label={t("reactions.common")} selected={[...grouped.keys()].filter(mine)} disabled={[...pendingEmoji]} onPick={emoji => void toggle(emoji, !mine(emoji))} />
-      {onActivity && <Button variant="ghost" size="sm" className="reaction-menu-activity" onClick={() => { closeRef.current(); onActivity(); }}>{t(activityOpen ? "hover.hide_activity" : "hover.view_activity")}</Button>}
+      {message.role !== "user" && <ReactionPicker bare label={t("reactions.common")} selected={[...grouped.keys()].filter(mine)} disabled={[...pendingEmoji]} onPick={emoji => void toggle(emoji, !mine(emoji))} />}
+      {items.length > 0 && <Menu items={items} label={t("hover.toolbar")} />}
       {error && <p role="alert">{error}</p>}
     </OverlayPopover>}
   </>;

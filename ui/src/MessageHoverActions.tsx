@@ -1,12 +1,10 @@
 import { memo, useEffect, useRef, useState } from "react";
 import * as Toolbar from "@radix-ui/react-toolbar";
-import { DismissableLayer } from "@radix-ui/react-dismissable-layer";
 import { TofiIcon as Icon } from "./icons";
 import { CopyFeedbackIcon } from "./CopyFeedbackIcon";
 import { dateInTimezone, dateTimeFormat, formatExactTime } from "./timezone";
 import { useTranslation } from "./i18n";
 import { intlLocale, formatRelativeTime } from "./i18n/format";
-import { tappedMessageActionsId, setMessageActions } from "./messageActionsStore";
 import type { Message } from "./types";
 function formatHoverTime(value: string, timeZone: string) {
   const sameDay = dateInTimezone(value, timeZone) === dateInTimezone(new Date().toISOString(), timeZone);
@@ -21,7 +19,7 @@ function formatBarTime(value: string, timeZone: string, justNow: string) {
   return age < 7 * 24 * 3600_000 ? formatRelativeTime(value) : formatHoverTime(value, timeZone);
 }
 
-async function writeClipboard(text: string) {
+export async function writeClipboard(text: string) {
   try { await navigator.clipboard.writeText(text); return true; } catch { /* LAN HTTP and blocked permissions have no async clipboard */ }
   const field = document.createElement("textarea");
   field.value = text; field.setAttribute("readonly", ""); field.style.cssText = "position:fixed;top:0;left:0;opacity:0";
@@ -32,9 +30,9 @@ async function writeClipboard(text: string) {
   return ok;
 }
 
-/** Browser-mode message actions, mounted only for the message the pointer, focus or a tap is on. In the entry: the first hover
- * must not wait for a download. Radix Toolbar gives one tab stop and arrow keys; DismissableLayer closes the touch bar. */
-export const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onReply, onActivity, activityOpen, copyText }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string }) {
+/** Message actions beside the bubble, mounted only for the message the pointer or keyboard focus is on. In the entry: the first hover
+ * must not wait for a download. Radix Toolbar gives one tab stop and arrow keys. More opens the same menu as a right click. */
+export const MessageHoverActions = memo(function MessageHoverActions({ message, timezone, onReact, onMore, onReply, onActivity, activityOpen, copyText }: { message: Message; timezone: string; onReact: (anchor: DOMRect) => void; onMore: (anchor: DOMRect) => void; onReply?: () => void; onActivity?: () => void; activityOpen?: boolean; copyText?: string }) {
   const { t } = useTranslation("chat");
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<number | undefined>(undefined);
@@ -45,18 +43,14 @@ export const MessageHoverActions = memo(function MessageHoverActions({ message, 
     window.clearTimeout(copiedTimer.current);
     copiedTimer.current = window.setTimeout(() => setCopied(false), 1200);
   }
-  return <DismissableLayer asChild onPointerDownOutside={event => {
-    const host = (event.detail.originalEvent.target as HTMLElement).closest?.("[data-host-id]");
-    if (host?.getAttribute("data-host-id") === message.id) event.preventDefault();
-    else if (tappedMessageActionsId() === message.id) setMessageActions("tap", "");
-  }} onEscapeKeyDown={() => { if (tappedMessageActionsId() === message.id) setMessageActions("tap", ""); }}>
-  <Toolbar.Root className="message-hover-actions" aria-label={t("hover.toolbar")} loop>
-    {copyText && <Toolbar.Button type="button" aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} size={15} /></Toolbar.Button>}
+  return <Toolbar.Root className="message-hover-actions" aria-label={t("hover.toolbar")} loop>
     {message.role !== "user" && <Toolbar.Button type="button" aria-label={t("hover.react")} data-hint={t("hover.react")} data-action="react" onClick={event => onReact(event.currentTarget.getBoundingClientRect())}><Icon name="emoji" size={15} /></Toolbar.Button>}
     {onReply && <Toolbar.Button type="button" aria-label={t("hover.reply")} data-hint={t("hover.reply")} data-action="reply" onClick={onReply}><Icon name="reply" size={15} /></Toolbar.Button>}
     {onActivity && <Toolbar.Button type="button" className="message-activity-action" aria-label={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} aria-pressed={activityOpen} data-hint={activityOpen ? t("hover.hide_activity") : t("hover.view_activity")} data-action="activity" onClick={onActivity}><Icon name="activity" size={15} /></Toolbar.Button>}
+    {copyText && <Toolbar.Button type="button" aria-label={copied ? t("hover.copied") : t("hover.copy")} data-hint={copied ? t("hover.copied") : t("hover.copy")} data-action="copy" onClick={() => void copy()}><CopyFeedbackIcon copied={copied} size={15} /></Toolbar.Button>}
+    <Toolbar.Button type="button" aria-label={t("hover.more")} data-hint={t("hover.more")} data-action="more" onClick={event => onMore(event.currentTarget.getBoundingClientRect())}><Icon name="more" size={15} /></Toolbar.Button>
     <time dateTime={message.created_at} title={`${formatExactTime(message.created_at, timezone)} · ${timezone}`}>{formatBarTime(message.created_at, timezone, t("hover.just_now"))}</time>
-  </Toolbar.Root></DismissableLayer>;
+  </Toolbar.Root>;
 }, (previous, next) => previous.message === next.message && previous.timezone === next.timezone && previous.activityOpen === next.activityOpen && previous.copyText === next.copyText
   // The handlers are rebuilt every render; they act on the same message, so only their presence matters here.
   && Boolean(previous.onReply) === Boolean(next.onReply) && Boolean(previous.onActivity) === Boolean(next.onActivity));

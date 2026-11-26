@@ -44,8 +44,8 @@
 /* The line holds the bubble, the reactions on its lower edge and the hover actions on its open side. */
 .tb-msg-line { position: relative; display: flex; justify-self: start; max-width: 100%; }
 .tb-msg--user .tb-msg-line { justify-self: end; }
-.tb-msg-side { position: absolute; top: 50%; left: calc(100% + 6px); transform: translateY(-50%); opacity: 0; pointer-events: none; transition: opacity var(--m-quick) var(--ease-out); z-index: var(--z-raised); }
-.tb-msg--user .tb-msg-side { left: auto; right: calc(100% + 6px); }
+.tb-msg-side { position: absolute; top: var(--tb-side-top, 50%); left: var(--tb-side-left, calc(100% + 6px)); right: var(--tb-side-right, auto); transform: var(--tb-side-shift, translateY(-50%)); opacity: 0; pointer-events: none; transition: opacity var(--m-quick) var(--ease-out); z-index: var(--z-raised); }
+.tb-msg--user .tb-msg-side { left: var(--tb-side-left-user, auto); right: var(--tb-side-right-user, calc(100% + 6px)); }
 .tb-msg:hover .tb-msg-side, .tb-msg:focus-within .tb-msg-side, .tb-msg.is-hover .tb-msg-side { opacity: 1; pointer-events: auto; }
 @media (hover: none) { .tb-msg-side { display: none; } }
 .tb-msg.has-react { margin-bottom: 14px; }

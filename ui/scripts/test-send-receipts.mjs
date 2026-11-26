@@ -256,13 +256,20 @@ await check("desktop: no delivery tick or read mark, with or without hover, and 
   await context.close();
 });
 
-await check("phone: a tap on the bubble brings the row, and no mark with it", async () => {
+await check("phone: a hold on the bubble brings the menu, and no mark with it", async () => {
   const { page, context } = await open({ view: "phone" });
-  assert.equal(await page.locator(".send-receipt-mark, .send-receipt").count(), 0, "a receipt is on show without a tap");
+  assert.equal(await page.locator(".send-receipt-mark, .send-receipt").count(), 0, "a receipt is on show without a hold");
   await block(page, "old question").locator(".tb-bubble").first().tap();
-  await page.locator(".message-hover-actions").first().waitFor({ timeout: 2000 });
-  assert.equal(await page.locator(".send-receipt-mark").count(), 0, "the action row carries no mark");
-  await shot(page, "receipt-tap");
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator(".message-hover-actions").count(), 0, "a tap brings no bar on touch");
+  await block(page, "old question").locator(".tb-bubble").first().evaluate(async target => {
+    const r = target.getBoundingClientRect();
+    const fire = type => target.dispatchEvent(new PointerEvent(type, { pointerType: "touch", isPrimary: true, pointerId: 3, bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 8 }));
+    fire("pointerdown"); await new Promise(resolve => setTimeout(resolve, 520)); fire("pointerup");
+  });
+  await page.locator(".reaction-context-menu").waitFor({ timeout: 2000 });
+  assert.equal(await page.locator(".send-receipt-mark").count(), 0, "the menu carries no mark");
+  await shot(page, "receipt-hold");
   await context.close();
 });
 
