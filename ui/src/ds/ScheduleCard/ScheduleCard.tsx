@@ -8,7 +8,7 @@ import "../shared.css";
 import "./ScheduleCard.css";
 
 export type ScheduleCardProps = {
-  state?: "done" | "run" | "error";
+  state?: "done" | "run" | "error" | "paused";
   /** The state in words and time: "12:31", "Running · 14s", "Failed". */
   statusLabel: string;
   /** The time, large: "09:00". */

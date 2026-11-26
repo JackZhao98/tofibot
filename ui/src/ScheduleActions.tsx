@@ -5,7 +5,7 @@ import { useTranslation } from "./i18n";
 
 /** One icon control of a schedule card: a tooltip and an accessible name carry the label. */
 export function ScheduleIconButton({ icon, label, disabled, onClick, danger }: { icon: IconName; label: string; disabled?: boolean; onClick: () => void; danger?: boolean }) {
-  return <IconButton size="sm" className={`work-icon-button${danger ? " is-danger" : ""}`} icon={icon} label={label} disabled={disabled} onClick={onClick} />;
+  return <IconButton size="sm" variant={danger ? "danger" : "ghost"} className="work-icon-button" icon={icon} label={label} disabled={disabled} onClick={onClick} />;
 }
 
 /** Delete as an icon; a click opens the same confirmation dialog the text action offers. */
