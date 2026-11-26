@@ -291,10 +291,6 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 }
 .workspace .message-hover-actions button:hover { color:var(--ink); }
 .workspace .message-hover-actions button:focus-visible { outline:var(--focus-ring-width) solid var(--focus); outline-offset:-2px; color:var(--ink); }
-@container (max-width:999px) {
-  .workspace .message-body > .tb-msg { --tb-side-top:-14px; --tb-side-shift:none; --tb-side-left:8px; --tb-side-right:auto; --tb-side-left-user:auto; --tb-side-right-user:8px; }
-  .workspace .message-hover-actions { --bar-btn:24px; padding:0 4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
-}
 @media (hover:none) {
   .workspace .message-content { -webkit-touch-callout:none; }
 }

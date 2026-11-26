@@ -48,7 +48,7 @@ export function MessageReactions({ message, botNames, onSet, menuPosition, onClo
     {!menuPosition && error && <span className="reaction-error" role="alert">{error}</span>}
     {menuPosition && <OverlayPopover open onOpenChange={open => { if (!open) closeRef.current(); }} anchor={anchor} closeOnScroll className="reaction-context-menu" aria-label={t("reactions.menu")} aria-busy={pendingEmoji.size > 0}>
       {message.role !== "user" && <ReactionPicker bare label={t("reactions.common")} selected={[...grouped.keys()].filter(mine)} disabled={[...pendingEmoji]} onPick={emoji => void toggle(emoji, !mine(emoji))} />}
-      {items.length > 0 && <Menu items={items} label={t("hover.toolbar")} />}
+      {items.length > 0 && <Menu bare items={items} label={t("hover.toolbar")} />}
       {error && <p role="alert">{error}</p>}
     </OverlayPopover>}
   </>;

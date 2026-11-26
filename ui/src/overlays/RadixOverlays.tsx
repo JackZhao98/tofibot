@@ -137,6 +137,10 @@ export function Menu({ open, onOpenChange, className, id, label, trigger, anchor
 
 /** Scroll, in CSS pixels, that a close-on-scroll popover ignores in the scrollers under its anchor. */
 const SCROLL_SLACK_PX = 4;
+/** How long after the reader's wheel, touch, scroll key or scrollbar press a scroll still counts as theirs (touch momentum carries on after the finger lifts). */
+const READER_SCROLL_MS = 1200;
+const READER_INPUTS = ["wheel", "touchstart", "touchmove", "keydown", "pointerdown"] as const;
+const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
 
 export function Popover({ open, onOpenChange, className, anchor, container, takeFocus = true, closeOnScroll = false, side = "bottom", align = "start", sideOffset = 0, alignOffset = 0, children, ...rest }: OverlayPopoverProps) {
   const opener = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -156,7 +160,21 @@ export function Popover({ open, onOpenChange, className, anchor, container, take
     const under = box ? document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) : null;
     const start = new Map<Element, [number, number]>();
     for (let node = under; node; node = node.parentElement) start.set(node, [node.scrollTop, node.scrollLeft]);
+    // Only the reader's own scrolling closes it. The page also scrolls itself (the conversation follows its bottom when the composer
+    // grows, as it does right after Reply): that glide ran into a menu opened a moment later and closed it within 400 ms.
+    let reader = -Infinity;
+    const input = (event: Event) => {
+      if (event.type === "keydown" && !SCROLL_KEYS.has((event as KeyboardEvent).key)) return;
+      if (event.type === "pointerdown") {
+        // A press on a scroller's own bar (past its content box) is a scroll; any other press is not.
+        const node = event.target instanceof HTMLElement ? event.target : null;
+        if (!node || node.scrollHeight <= node.clientHeight || (event as PointerEvent).clientX < node.getBoundingClientRect().left + node.clientWidth) return;
+      }
+      reader = performance.now();
+    };
+    for (const type of READER_INPUTS) window.addEventListener(type, input, { capture: true, passive: true });
     const close = (event: Event) => {
+      if (event.type === "scroll" && performance.now() - reader > READER_SCROLL_MS) return;
       if (event.target instanceof Node && content.current?.contains(event.target)) return;
       const target = event.target instanceof Element ? event.target : null;
       const was = target ? start.get(target) : undefined;
@@ -164,7 +182,7 @@ export function Popover({ open, onOpenChange, className, anchor, container, take
       change.current(false);
     };
     window.addEventListener("scroll", close, true); window.addEventListener("resize", close);
-    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); for (const type of READER_INPUTS) window.removeEventListener(type, input, true); };
   }, [open, closeOnScroll, anchor]);
   return <RadixPopover.Root open={open} onOpenChange={onOpenChange}>
     <RadixPopover.Anchor virtualRef={anchor} />

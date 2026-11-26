@@ -525,7 +525,12 @@ await check("reaction menu: a pixel of list settling keeps it open, a real scrol
   assert.ok(await scroller.evaluate(el => { const before = el.scrollTop; el.scrollTop -= 1; return el.scrollTop !== before; }), "the list can move one pixel");
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   assert.equal(await page.locator(".reaction-context-menu").count(), 1, "a one-pixel settle keeps the menu open");
+  // The reader's own scroll closes it; the list scrolling itself (the follow after the composer grows) does not.
   await scroller.evaluate(el => { el.scrollTop -= 120; });
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator(".reaction-context-menu").count(), 1, "the page scrolling itself keeps the menu open");
+  await page.mouse.move(b.x + 30, b.y + 10);
+  await page.mouse.wheel(0, -120);
   await closed(page, ".reaction-context-menu");
   assert.deepEqual(errors, []);
   await context.close();
