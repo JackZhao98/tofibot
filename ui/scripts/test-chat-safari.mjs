@@ -260,17 +260,14 @@ const SEND_RECORDER = () => {
     const block = document.querySelector('.message-block[data-message-id*="_sent"]');
     const content = block?.querySelector(".message-content");
     const r = content?.getBoundingClientRect();
-    const ghost = document.querySelector(".v2-send-flight-ghost");
-    const ghostBox = ghost?.getBoundingClientRect();
-    // Every animation that belongs to the arrival: on the new bubble, or on its flight ghost (not the run's status shimmer).
+    // Every animation that belongs to the new bubble itself (the glide rides the block; the bubble has none; not the run's status shimmer).
     for (const animation of document.getAnimations()) {
       const target = animation.effect?.target;
       if (!target || animation.transitionProperty) continue;
-      if (target === ghost || (block && target.closest?.(".message-block") === block && target.closest(".message-content") && !target.closest(".task-activity-live, .live-run-status"))) window.__animations.add(animation);
+      if ((block && target.closest?.(".message-block") === block && target.closest(".message-content") && !target.closest(".task-activity-live, .live-run-status"))) window.__animations.add(animation);
     }
     frames.push({ t: Math.round(now - t0), dt: Math.round(now - last), scrollTop: Math.round(scroller.scrollTop), fromBottom: Math.round(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop),
-      bubble: r ? { top: Math.round(r.top - box.top), inView: r.bottom > box.top && r.top < box.bottom, opacity: Number(getComputedStyle(content).opacity), hidden: getComputedStyle(content).visibility === "hidden" } : null,
-      ghost: ghostBox ? { top: Math.round(ghostBox.top - box.top), inView: ghostBox.bottom > box.top && ghostBox.top < box.bottom } : null });
+      bubble: r ? { top: Math.round(r.top - box.top), inView: r.bottom > box.top && r.top < box.bottom, opacity: Number(getComputedStyle(content).opacity), hidden: getComputedStyle(content).visibility === "hidden" } : null });
     last = now;
     if (on) requestAnimationFrame(tick);
   };
@@ -321,16 +318,9 @@ const sendScenario = (reduced, scrollUp) => async () => {
   assert.ok(Math.max(...tops) - Math.min(...tops) <= 1, `bubble moved ${Math.max(...tops) - Math.min(...tops)}px after it appeared`);
   const scrolls = settled.map(frame => frame.scrollTop);
   assert.ok(Math.max(...scrolls) - Math.min(...scrolls) <= 1, `list scrolled ${Math.max(...scrolls) - Math.min(...scrolls)}px after the bubble appeared`);
-  // One arrival animation, played in view: the flight ghost covers the hidden bubble and hands over once.
-  assert.equal(animations, reduced ? 0 : 1, `${animations} arrival animations ran`);
-  if (!reduced) {
-    const flight = shown.filter(frame => frame.ghost);
-    assert.ok(flight.length > 5, "the flight ghost played");
-    assert.ok(flight.every(frame => frame.ghost.inView), "the flight stayed inside the scroller");
-    const handedOver = shown.findIndex(frame => !frame.bubble.hidden);
-    assert.ok(handedOver > 0, "the bubble was revealed after the flight");
-    assert.equal(shown.slice(handedOver).filter(frame => frame.ghost).length, 0, "the ghost does not return after the hand-over");
-  }
+  // No flight: the bubble is never hidden and nothing is animated on it; the arrival is the block glide alone.
+  assert.equal(animations, 0, `${animations} animations ran on the bubble`);
+  assert.ok(shown.every(frame => !frame.bubble.hidden), "the bubble is never hidden");
   // Frame continuity: nothing blocks the main thread for long while the message goes out (150 mounted messages).
   const worst = Math.max(0, ...stalls.map(stall => stall.ms));
   assert.ok(worst <= LONG_TASK_MS, `main thread blocked for ${worst} ms during the send (limit ${LONG_TASK_MS} ms): ${JSON.stringify(stalls)}`);

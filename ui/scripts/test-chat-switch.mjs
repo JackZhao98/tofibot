@@ -133,13 +133,10 @@ const RECORDER = () => {
         return { id: block.dataset.messageId, seq: Number(block.dataset.messageSeq), opacity: Math.min(Number(getComputedStyle(block).opacity), Number(getComputedStyle(content).opacity)), top: r.top - box.top, inside: r.bottom > box.top && r.top < box.bottom };
       });
       const card = scroller.querySelector(".scheduled-run");
-      const ghost = document.querySelector(".v2-send-flight-ghost");
-      const ghostBox = ghost?.getBoundingClientRect();
       frames.push({
         after: performance.now() >= (window.__mark ?? Infinity),
         t: performance.now() - t0, blocks: blocks.length, scrollTop: scroller.scrollTop, scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight,
         fromBottom: scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop, firstSeq: seen[0]?.seq ?? 0, lastSeq: seen.at(-1)?.seq ?? 0, seen,
-        ghost: ghostBox ? { top: ghostBox.top - box.top, left: ghostBox.left } : null,
         pb: getComputedStyle(scroller).paddingBottom, pt: getComputedStyle(scroller).paddingTop, listH: Math.round(scroller.querySelector(".message-list").getBoundingClientRect().height),
         sc: scroller.querySelectorAll('[data-speaker-change="true"]').length, art: scroller.querySelectorAll("article.message").length, dm: scroller.querySelectorAll(".message-block .message-content").length,
         an: (() => { const el = scroller.querySelector('[data-speaker-change="true"]'); return el ? getComputedStyle(el).transition + "#" + el.getAnimations().map(a => `${a.constructor.name}:${a.transitionProperty ?? a.animationName}:${a.playState}:${Math.round(a.currentTime)}`).join(",") : ""; })(),
@@ -421,7 +418,7 @@ for (const reduced of [true, false]) {
     if (process.env.CHAT_SWITCH_DEBUG) {
       console.log("anims", JSON.stringify(anims.slice(0, 12)), anims.length);
       let prev = null;
-      for (const f of frames) { if (!prev || Math.abs(f.scrollTop - prev.scrollTop) > 2 || f.ghost) console.log("frame", Math.round(f.t), "top", Math.round(f.scrollTop), "h", f.scrollHeight, "fromBottom", Math.round(f.fromBottom), "sent", JSON.stringify(f.seen.filter(i => i.id.includes("_sent"))), "ghost", JSON.stringify(f.ghost)); prev = f; }
+      for (const f of frames) { if (!prev || Math.abs(f.scrollTop - prev.scrollTop) > 2) console.log("frame", Math.round(f.t), "top", Math.round(f.scrollTop), "h", f.scrollHeight, "fromBottom", Math.round(f.fromBottom), "sent", JSON.stringify(f.seen.filter(i => i.id.includes("_sent")))); prev = f; }
     }
     assert.ok(last.fromBottom <= 2, `viewport ends ${last.fromBottom}px from the bottom`);
     assert.ok(last.seen.some(item => item.id.includes("_sent")), "sent bubble is in the viewport at the end");

@@ -139,13 +139,6 @@
     "important": 0,
     "tokenDef": 0
   },
-  "web-file-drop.css": {
-    "global": 0,
-    "rootBump": 0,
-    "webFork": 14,
-    "important": 0,
-    "tokenDef": 0
-  },
   "web-tool-steps.css": {
     "global": 0,
     "rootBump": 77,

@@ -159,7 +159,7 @@ export interface ChatPaneProps {
   setError: Dispatch<SetStateAction<string>>;
   avatarMention: { name: string; conversationId: string; nonce: number; } | null;
   composerDrafts: ComposerDrafts;
-  send: (content: string, clientMessageId: string, files?: ComposerAttachment[], draftSignature?: string, flightOrigin?: DOMRect | undefined, plain?: string, reply?: ComposerReply | undefined) => Promise<boolean>;
+  send: (content: string, clientMessageId: string, files?: ComposerAttachment[], draftSignature?: string, plain?: string, reply?: ComposerReply | undefined) => Promise<boolean>;
   config: Config | null;
   connectModel: () => void;
   composerDraftReady: boolean;

@@ -1,4 +1,4 @@
-import { CASCADE, MOTION, EASE } from "./motion";
+import { CASCADE, MOTION, EASE } from "../motion";
 
 /*
  * Arrival glide (V3, PLAN 8.2). When a whole message arrives under a reader who is following the bottom, the scroll

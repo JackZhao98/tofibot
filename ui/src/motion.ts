@@ -24,7 +24,7 @@ export const SPRING = {
   pipFollow: { stiffness: 320, damping: 30, mass: 1 },
 } as const;
 
-// Arrival cascade (useConversationScroll + arrivalCascade.ts): a whole message arriving under a reader who follows the
+// Arrival cascade (useConversationScroll + motion/arrival.ts): a whole message arriving under a reader who follows the
 // bottom. The scroll lands exactly at once; the messages in view ride a visual `translate` offset that settles to 0 as a
 // spring chain: the new message first, each message further up starting STAGGER later, each overshooting its true place by
 // a few px and settling back. Tunable live: assign window.__TOFI_CASCADE = { staggerMs: 25 } in the console (merged over

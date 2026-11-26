@@ -1,7 +1,7 @@
 import { desktopState, updateDesktopState } from "./desktop";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { Conversation, Message } from "./types";
-import { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } from "./arrivalCascade";
+import { cascadeRoom, fadeArrival, holdArrivalCascade, playArrivalCascade } from "./motion/arrival";
 
 /** Reading positions on the web: kept per tab in sessionStorage, so a refresh returns to where the person was (the Mac app keeps them in its own state). */
 const WEB_POSITIONS_KEY = "tofi.readingPositions";

@@ -3,14 +3,14 @@ import { TofiIcon } from "./icons";
 import { useTranslation } from "./i18n";
 
 /**
- * A window-level drop target; files are only added to the current draft. While files are dragged over the
- * window the chat stays where it is: a soft scrim dims the pane and the composer lifts and shows "Drop to add"
+ * A window-level drop target (web and the desktop app alike); files are only added to the current draft. While files
+ * are dragged over the window the chat stays where it is: the scrim dims the pane and the composer shows one "Drop to add" line
  * (state: `data-file-drag` on the composer form and its chat pane, styled in web-file-drop.css). A drop anywhere adds.
  */
 export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
   inputRef: RefObject<HTMLTextAreaElement | null>;
   enabled: boolean;
-  onDrop: (files: FileList, origin: { x: number; y: number }) => void;
+  onDrop: (files: FileList) => void;
 }) {
   const { t } = useTranslation("chat");
   const [dragging, setDragging] = useState(false);
@@ -50,7 +50,7 @@ export function WebFileDropOverlay({ inputRef, enabled, onDrop }: {
       clear();
       if (!event.dataTransfer?.files.length || !available() || event.defaultPrevented) return;
       event.preventDefault();
-      receiveFiles(event.dataTransfer.files, { x: event.clientX, y: event.clientY });
+      receiveFiles(event.dataTransfer.files);
       inputRef.current?.focus();
     };
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") clear(); };
