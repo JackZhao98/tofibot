@@ -1,0 +1,30 @@
+/* Mail in the conversation: where the kit Letter, DraftCard and quiet Card sit in the chat column. Their look is the kit's. */
+@layer legacy {
+.display-card-wrap { margin:8px 0 12px; max-width:min(520px,100%); }
+.workspace .message-ui-card.is-dm .display-card-wrap { max-width:100%; }
+.display-card-wrap > .display-card { width:100%; box-sizing:border-box; }
+.display-card-wrap > .tb-card { max-width:520px; }
+.display-card-copy { overflow-wrap:anywhere; }
+.display-card-copy > :first-child { margin-top:0; }
+.display-card-copy > :last-child { margin-bottom:0; }
+.display-card-copy.is-folded { max-height:170px; overflow:hidden; -webkit-mask:linear-gradient(var(--ink) 70%,transparent); mask-image:linear-gradient(var(--ink) 70%,transparent); }
+.display-card-source { color:var(--muted); font:var(--type-meta); }
+.display-card-action-error { margin:6px 2px 0; color:var(--danger-text); font:var(--type-meta); }
+.tb-letter-body > :is(p,ul,ol,blockquote,pre) { margin:0; }
+.tb-letter-body > :is(p,ul,ol,blockquote,pre) + :is(p,ul,ol,blockquote,pre) { margin-top:26px; }
+
+.mail-draft-message { box-sizing:border-box; width:100%; margin:8px 0 24px; }
+.mail-draft-message.is-group { max-width:min(620px,100%); }
+.mail-draft-identity { display:flex; align-items:center; gap:9px; margin-bottom:9px; font:var(--type-row-title); }
+.mail-draft-letter { margin-top:12px; }
+.mail-draft-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+.mail-draft-missing { color:var(--letter-mute); font-weight:400; font-style:italic; }
+.mail-draft-attachments { display:inline-flex; flex-wrap:wrap; gap:4px 10px; }
+.mail-draft-attachments a { color:inherit; text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.mail-draft-note, .mail-draft-error { margin:8px 2px 0; color:var(--muted); font:var(--type-meta); }
+.mail-draft-error { color:var(--danger-text); }
+.mail-draft-done { margin:8px 0 18px; max-width:540px; }
+.mail-draft-done.is-arriving { animation:mail-done-settle var(--m-panel-in) var(--ease-out) both; }
+@keyframes mail-done-settle { from { opacity:0; transform:translateY(8px); } }
+@media(prefers-reduced-motion:reduce) { .mail-draft-done.is-arriving { animation:none; } }
+}

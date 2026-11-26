@@ -16,6 +16,8 @@ export type LetterProps = {
   monogram?: string;
   to?: ReactNode;
   cc?: ReactNode;
+  /** Out: a blind copy, drawn after Cc. */
+  bcc?: ReactNode;
   subject?: ReactNode;
   /** Overrides the default "SUBJECT" label. */
   subjectLabel?: string;
@@ -48,13 +50,13 @@ const lines = (value: ReactNode | ReactNode[]) => Array.isArray(value) ? value.m
 
 /** An email as a real letter: airmail edge, FROM/TO head, postmark or stamp, the Bot's note, a ruled body and the actions.
  *  The paper stays light in both themes (skin scope letter). */
-export function Letter({ direction = "in", from, monogram, to, cc, subject, subjectLabel, postmark, stamp, sign, attachment, note, folded, more, onMore, actions, hint, primary, label, className, children }: LetterProps) {
+export function Letter({ direction = "in", from, monogram, to, cc, bcc, subject, subjectLabel, postmark, stamp, sign, attachment, note, folded, more, onMore, actions, hint, primary, label, className, children }: LetterProps) {
   const { t } = useTranslation();
   const inbound = direction !== "out";
   const subjectKey = subjectLabel ?? t("ds.letter.subject");
   const head: [string, ReactNode][] = inbound
     ? [[t("ds.letter.from"), <Fragment key="f"><span className="tb-letter-mono" aria-hidden="true">{monogram || String(from || "?").charAt(0)}</span>{from}</Fragment>], [t("ds.letter.to"), to], [subjectKey, subject]]
-    : [[t("ds.letter.to"), to], ...(cc ? [[t("ds.letter.cc"), cc] as [string, ReactNode]] : []), [subjectKey, subject]];
+    : [[t("ds.letter.to"), to], ...(cc ? [[t("ds.letter.cc"), cc] as [string, ReactNode]] : []), ...(bcc ? [["BCC", bcc] as [string, ReactNode]] : []), [subjectKey, subject]];
 
   // When `folded` flips, the body grows or shrinks from its old height to its new one (Motion, base token).
   const body = useRef<HTMLDivElement>(null);

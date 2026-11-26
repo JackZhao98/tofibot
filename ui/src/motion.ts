@@ -22,9 +22,6 @@ export const SPRING = {
   // At rest within a pixel: the release writes the exact corner afterwards, so the sub-pixel tail is not worth frames.
   pipSnap: { stiffness: 420, damping: 34, mass: 1, restDelta: 1, restSpeed: 10 },
   pipFollow: { stiffness: 320, damping: 30, mass: 1 },
-  // The mail flight (mailSendFlight.ts), baked into linear() easings. toy: the envelope rise and the stamp, one visible wobble. morph: the flap, one small overshoot.
-  mailToy: { stiffness: 240, damping: 13, mass: 1 },
-  mailMorph: { stiffness: 320, damping: 22, mass: 1 },
 } as const;
 
 // Arrival cascade (useConversationScroll + arrivalCascade.ts): a whole message arriving under a reader who follows the

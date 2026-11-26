@@ -1,24 +1,5 @@
-// One postmark for outgoing and incoming mail (Motion Lab letterParts.Postmark):
-// two rings with text set along the band, the date in the centre, and for
-// outgoing mail the cancellation waves beside it. Drawn as an SVG string so the
-// imperative send flight and the React mail card share a single source.
-import "./postmark.css";
+// Received-time parsing for the mail card's postmark (the kit Letter draws the postmark itself).
 import { intlLocale } from "./i18n/format";
-
-export type PostmarkParts = { ring: string; date: string; time?: string; waves?: boolean };
-
-let instance = 0;
-const escape = (value: string) => value.replace(/[&<>"']/g, character => `&#${character.charCodeAt(0)};`);
-
-export function postmarkSVG({ ring, date, time, waves = false }: PostmarkParts): string {
-  const id = `tofi-postmark-ring-${++instance}`;
-  const width = waves ? 150 : 80;
-  const centre = time
-    ? `<text class="pm-date" x="40" y="40" text-anchor="middle" font-size="9.5" font-weight="700" fill="currentColor">${escape(date)}</text><text class="pm-time" x="40" y="49.5" text-anchor="middle" font-size="6.6" font-weight="600" fill="currentColor">${escape(time)}</text>`
-    : `<text class="pm-date" x="40" y="43.5" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">${escape(date)}</text>`;
-  const cancellation = waves ? [26, 36, 46, 56].map(y => `<path d="M76 ${y}q9 -6 18 0t18 0t18 0t18 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`).join("") : "";
-  return `<svg class="postmark" viewBox="0 0 ${width} 80" aria-hidden="true"><defs><path id="${id}" d="M40 16a24 24 0 1 1 0 48a24 24 0 1 1 0-48"/></defs><circle cx="40" cy="40" r="31" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="40" cy="40" r="17" fill="none" stroke="currentColor" stroke-width="1.4"/><text class="pm-ring" font-size="7.4" font-weight="600" letter-spacing="1.4" fill="currentColor"><textPath href="#${id}">${escape(ring)}</textPath></text>${centre}${cancellation}</svg>`;
-}
 
 /** Month.day as postmarks print it, e.g. 9.28. */
 export const postmarkDate = (date: Date) => `${date.getMonth() + 1}.${date.getDate()}`;
