@@ -503,10 +503,10 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
       const block = page.locator(".usage-review");
       await block.waitFor();
       const text = (await block.innerText()).replace(/\s+/g, " ");
-      if (!/Safety review/.test(text) || !/Model requests\s*9/.test(text)) throw new Error(`Usage: safety review line missing or wrong: ${text}`);
+      if (!/Safety review/.test(text) || !/Model requests\s*9/i.test(text)) throw new Error(`Usage: safety review line missing or wrong: ${text}`);
       await click(page.locator(".usage-ranges button").nth(0), "Usage: 24h range");
       await page.waitForTimeout(400);
-      if (!/Model requests\s*3/.test((await block.innerText()).replace(/\s+/g, " "))) throw new Error("Usage: review line did not follow the period selector");
+      if (!/Model requests\s*3/i.test((await block.innerText()).replace(/\s+/g, " "))) throw new Error("Usage: review line did not follow the period selector");
       await click(page.locator(".usage-ranges button").nth(1), "Usage: back to 7 days");
       await page.waitForTimeout(600);
     }},

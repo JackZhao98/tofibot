@@ -127,4 +127,9 @@ export const settingsKit: CatalogState[] = [
       <Stat label="Failed" value="7" unit="runs" delta="+3" deltaTone="down" />
       <Stat label="Storage" value="3.2" unit="GB" />
     </div></Dots> },
+  { id: "stat-reel", kind: "inline", label: "Stat · reel, digits rolled to their value",
+    render: () => <Dots><div style={{ ...WIDE, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
+      <Stat variant="reel" label="Input tokens" value="1,284,090" />
+      <Stat variant="reel" label="Requests" value="3,402" />
+    </div></Dots> },
 ];

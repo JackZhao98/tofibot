@@ -92,7 +92,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     await pickSelect(t.page, "50");
     await t.page.locator(".spend-meter").waitFor();
     assert.deepEqual(requests, ['PUT /api/automation-settings {"values":{"monthly_spend_limit_usd":50}}'], "one write, one value");
-    assert.equal(await t.page.locator(".spend-meter").getAttribute("aria-valuemax"), "50");
+    assert.equal(await t.page.locator(".spend-meter-track").getAttribute("aria-valuemax"), "50");
     assert.match(await t.page.locator(".settings-page-body").innerText(), /25% of the limit used/);
     assert.match(await t.page.locator(".settings-page-body").innerText(), /Resets Dec 1, 2026/, "the reset date is the first of next month in the account's zone");
     assert.deepEqual(t.errors, []);
@@ -105,7 +105,7 @@ void i18nReady.then(()=>setLanguage((query.get('lang') as any)||'en')).then(()=>
     state.limit = 50; state.spend = 42; requests.length = 0;
     let t = await open();
     assert.match(await t.page.locator(".settings-page-body").innerText(), /At 84% of the limit/);
-    assert.equal(await t.page.locator(".spend-meter").getAttribute("data-state"), "near");
+    assert.equal(await t.page.locator(".spend-meter-track").getAttribute("data-state"), "near");
     await t.close();
     state.spend = 50.3; state.limit = 7;
     t = await open();

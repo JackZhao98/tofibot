@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import {useTranslation} from "./i18n";
 import {formatDateTime} from "./i18n/format";
 import {Banner, SettingsCard, SettingsSection} from "./settings/components";
+import {Progress} from "./ds/Progress/Progress";
 import {formatBytes, storageApi, type StorageClass, type StorageItem, type StorageView} from "./storageApi";
 import "./storage-usage.css";
 
@@ -28,9 +29,8 @@ export function StorageUsage() {
     <SettingsCard className="storage-card">
       <div className="storage-main">
         <div className="storage-line"><strong>{t("bar")}</strong><span>{label}{limit === null && <small>{t("no_limit")}</small>}</span></div>
-        <div className={`storage-bar${view.over_limit ? " is-full" : ""}`} role="progressbar" aria-label={t("bar")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={limit === null ? undefined : percent} aria-valuetext={label}>
-          {parts.map(part => <i key={part.class} className={`storage-seg is-${part.class}`} style={{width: `${Math.max(0.5, (part.bytes / Math.max(scale, 1)) * 100)}%`}}/>)}
-        </div>
+        <Progress className="storage-meter" trackClassName={`storage-bar${view.over_limit ? " is-full" : ""}`} value={percent} unscaled={limit === null} ariaLabel={t("bar")} valueText={label} tone={view.over_limit ? "danger" : "default"}
+          segments={parts.map(part => ({key: part.class, className: `storage-seg is-${part.class}`, value: Math.max(0.5, (part.bytes / Math.max(scale, 1)) * 100)}))}/>
         {view.over_limit && <p className="storage-full" role="status">{t("full")}</p>}
         <ul className="storage-legend">
           {[...FILE_CLASSES.map(name => view.classes.find(item => item.class === name)), view.classes.find(item => item.class === "db")].filter((item): item is StorageClass => Boolean(item && item.bytes > 0)).map(item =>

@@ -6,3 +6,10 @@
 .tb-stat-delta.is-down { color: var(--danger-text); }
 .tb-stat-spark { display: flex; align-items: flex-end; gap: 3px; height: 34px; }
 .tb-stat-spark span { flex: 1; background: var(--teal); border: var(--border-1) solid var(--line); border-radius: 2px 2px 0 0; }
+/* reel: the digits are columns one line high; each strip slides to its face on --ease-settle, later columns first-to-land last (the Usage numbers). */
+.tb-reel { display: inline-flex; }
+.tb-reel-col { display: block; height: 1.1em; overflow: hidden; }
+.tb-reel-strip { display: flex; flex-direction: column; transform: translateY(calc(var(--d) * -1.1em)); }
+.tb-reel.is-rolled .tb-reel-strip { transition: transform 1400ms var(--ease-settle) var(--delay); }
+.tb-reel-strip > span { display: block; height: 1.1em; line-height: 1.1em; }
+@media (prefers-reduced-motion: reduce) { .tb-reel.is-rolled .tb-reel-strip { transition: none; } }

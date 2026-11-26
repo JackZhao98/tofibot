@@ -146,13 +146,6 @@
     "important": 1,
     "tokenDef": 0
   },
-  "usage-panel.css": {
-    "global": 0,
-    "rootBump": 15,
-    "webFork": 0,
-    "important": 0,
-    "tokenDef": 0
-  },
   "v2-app.css": {
     "global": 0,
     "rootBump": 11,
