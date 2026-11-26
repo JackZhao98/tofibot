@@ -6,17 +6,18 @@
 //   loaded M-series Mac, 11-26; the structure check below is what proves the row-only redraw. Unthrottled the cost is the
 //   main thread's CPU time (ThreadTime), which waiting for a core does not inflate; throttled it is task time. Frame gaps
 //   are wall-clock and are not asserted (the per-chunk cost bounds the work a frame does); STREAM_COST_DEBUG=1 logs them.
-// A whole message arriving in a 360-exchange (720 block) history, every answer from a finished run, costs at most 150 ms
-// of main-thread CPU time to the second frame. Rows that carry a task block are redrawn on every arrival, so the cost
-// grows with the history (about 15 ms at 30 exchanges); it was ~55 ms until 11-23 and ~100 ms since a chat with no saved
-// position opens at its newest message (#136) and so mounts every row.
+// A whole message arriving in a 360-exchange (720 block) history, every answer from a finished run, costs at most 60 ms
+// of main-thread CPU time to the second frame. History: ~55 ms until 11-23; ~100 ms once a chat with no saved position
+// opened at its newest message (#136) and so mounted every row, because rows that carry a task block were never skipped
+// (loosened to 150 ms in #225); a row with a task block is skipped again while the records its block draws from are
+// unchanged (ownerSig, see taskBlockSig), which brings an arrival back to ~55 ms.
 // Structure: once the reply has started, nothing in the message list outside the streaming row is touched.
 // Production build (development React measures the wrong thing). Synthetic data; /api is answered in the browser.
 // Run: PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs npm run test:stream-cost
 // STREAM_COST_ENGINE=webkit runs the structure check in WebKit (it has no CPU metrics or throttle).
 import assert from "node:assert/strict";
 
-const ARRIVAL_MAX_MS = 150;
+const ARRIVAL_MAX_MS = 60;
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtemp } from "node:fs/promises";
@@ -211,7 +212,7 @@ if (webkit) {
     console.log(`  ${CHUNKS} chunks: ${outside} changes outside the streaming row`);
     assert.equal(outside, 0, `${outside} DOM changes outside the streaming row`);
   });
-  await check("a message arriving in a 360-exchange history costs at most 150 ms of CPU", async () => {
+  await check("a message arriving in a 360-exchange history costs at most 60 ms of CPU", async () => {
     const large = await arrivalCost(360);
     console.log(`  ${Math.round(large)} ms at 360 exchanges`);
     assert.ok(large <= ARRIVAL_MAX_MS, `${Math.round(large)} ms exceeds ${ARRIVAL_MAX_MS}`);

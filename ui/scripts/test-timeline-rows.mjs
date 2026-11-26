@@ -16,7 +16,13 @@ try {
   assert.equal(rowModelEqual({ ...model(), errors: { r1: "y" } }, model()), false, "a changed entry is a change");
   assert.equal(rowModelEqual({ ...model(), receipt: { state: "read", readBy: ["a", "b"] } }, model()), false, "a changed receipt is a change");
   assert.equal(rowModelEqual({ ...model(), extra: 1 }, model()), false, "an added field is a change");
-  assert.equal(rowModelEqual({ ...model(), ownerNodes: [] }, { ...model(), ownerNodes: [] }), false, "rendered nodes are new every render: never equal");
+  assert.equal(rowModelEqual({ ...model(), ownerNodes: [] }, { ...model(), ownerNodes: [] }), false, "rendered nodes without a signature are never equal");
+  const run = { id: "r1" };
+  const owned = (sig, nodes = []) => ({ ...model(), ownerNodes: nodes, ownerSig: sig });
+  assert.equal(rowModelEqual(owned(["k", run, 1]), owned(["k", run, 1], [{}])), true, "new nodes over an unchanged signature are skipped");
+  assert.equal(rowModelEqual(owned(["k", run, 1]), owned(["k", { ...run }, 1])), false, "a replaced record in the signature is a change");
+  assert.equal(rowModelEqual(owned(["k", run]), owned(["k", run, 1])), false, "a longer signature is a change");
+  assert.equal(rowModelEqual(owned(["k", run, 1]), { ...owned(["k", run, 1]), timezone: "Asia/Tokyo" }), false, "the rest of the model still counts");
   const records = new Map([["a", 1]]);
   assert.equal(looseEqual(records, new Map([["a", 1]])), false, "maps and sets compare by identity only");
   assert.equal(looseEqual(records, records), true);
