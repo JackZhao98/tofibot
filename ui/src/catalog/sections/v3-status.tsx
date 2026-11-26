@@ -12,6 +12,8 @@ import { Progress } from "../../ds/Progress/Progress";
 import { Skeleton } from "../../ds/Skeleton/Skeleton";
 import { Tag } from "../../ds/Tag/Tag";
 import { Toast } from "../../ds/Toast/Toast";
+import { Widget } from "../../ds/Widget/Widget";
+import { FileRow } from "../../ds/FileRow/FileRow";
 import type { CatalogState } from "../types";
 import { Dots, Row, Specimen } from "./v3-parts";
 
@@ -84,6 +86,12 @@ export const status: CatalogState[] = [
       <ScreenPanel size="small" title="Bot computer" placeholder="The computer is off" expandLabel="Enlarge" closeLabel="Close" chin={<Button variant="secondary" size="sm">Turn on</Button>} />
       <ScreenPanel size="small" title="Bot computer" driver="bot" placeholder="Mochi is working" expandLabel="Enlarge" closeLabel="Close" chin={<DriverSwitch driver="bot" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Take control" />} />
       <ScreenPanel size="large" title="Bot computer" driver="you" source="Your Mac" placeholder="You are driving" expandLabel="Shrink" expanded closeLabel="Close" chin={<DriverSwitch driver="you" bot={<BotAvatar name="Mochi" coat="paper" size={22} />} youLabel="You" label="Hand back" />} />
+    </div></Dots> },
+  { id: "widget", kind: "inline", label: "Widget · column open, folded, sidebar",
+    render: () => <Dots><div className="catalog-stack" style={{ maxWidth: 340 }}>
+      <Widget title="Artifacts" foldLabel="Fold" closeLabel="Close" onFold={() => {}} onClose={() => {}}><FileRow kind="pdf" name="weekly-report.pdf" meta="3 pages" /></Widget>
+      <Widget title="Terminal" folded foldLabel="Unfold" closeLabel="Close" onFold={() => {}} onClose={() => {}}><span /></Widget>
+      <div style={{ height: 160 }}><Widget form="sidebar" title="Memory" closeLabel="Close" onClose={() => {}}><span /></Widget></div>
     </div></Dots> },
   { id: "driver-switch", kind: "inline", label: "DriverSwitch · Bot, you, idle, disabled",
     render: () => <Dots><Row>

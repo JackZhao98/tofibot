@@ -98,6 +98,13 @@
 .view-only-chat-body{padding:24px clamp(16px,4vw,48px) 110px}
 .view-only-message-list{max-width:var(--v2-chat-width,760px)}
 .view-only-message-copy small{color:var(--muted);font:11px/1.4 var(--font-mono)}
+/* Read-only chat reads top-down (avatar beside the name, then the message), and the messages that
+   belong to this hand-off are marked with a soft lagoon tint instead of a focus-ring box. */
+.view-only-message { align-items:flex-start; }
+.view-only-message>.avatar { flex:none; margin-top:-3px; }
+.view-only-message[data-focused="true"] .view-only-message-bubble { box-shadow:none; }
+.view-only-message.is-bot[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-bot)); }
+.view-only-message.is-user[data-focused="true"] .view-only-message-bubble { background:color-mix(in srgb,var(--teal) 22%,var(--bubble-user)); }
 .view-only-message:not(.is-user) .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--radius-bubble);background:var(--bubble-bot);color:var(--ink);}
 .view-only-message.is-user .view-only-message-bubble{padding:10px 14px;border:0;border-radius:var(--radius-bubble) 5px var(--radius-bubble) var(--radius-bubble);background:var(--bubble-user);color:var(--ink);}
 .view-only-chat-footer{min-height:64px;padding-bottom:max(10px,env(safe-area-inset-bottom));border-color:var(--line);background:var(--glass-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}

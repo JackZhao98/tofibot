@@ -248,14 +248,9 @@ html:not([data-desktop]) .workspace .composer .working-member.work-companion .wo
 
 /* Authentication, inspector, and secondary views belong to the same world. */
 .workspace .detail-pane { color:var(--ink); }
-.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.schedule-card) { border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
-.workspace :is(.memory-card,.archive-card,.extension-card,.verification-card,.schedule-card) strong { color:var(--ink); }
+.workspace :is(.archive-card,.extension-card,.verification-card,.schedule-card) { border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
+.workspace :is(.archive-card,.extension-card,.verification-card,.schedule-card) strong { color:var(--ink); }
 .workspace form>.primary-button,.workspace form>.secondary-button { align-self:start; height:auto; }
-.workspace .memory-create>.secondary-button { justify-self:end; width:auto; min-height:40px; padding:9px 16px; }
-.workspace .memory-footer>span:last-child { gap:8px; }
-.workspace .memory-footer button { width:auto; min-height:32px; margin:0; padding:5px 9px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink-soft); font:600 12px/1.2 var(--font-body); }
-.workspace .memory-footer button:hover:not(:disabled) { border-color:var(--line); color:var(--ink); }
-.workspace .memory-footer .danger-link { border-color:var(--danger); color:var(--danger-text); }
 .workspace .bot-v2-subtitle { margin:18px 0 16px; }
 .workspace .bot-v2-subtitle h2 { margin:0 0 4px; color:var(--ink); font:600 20px/1.3 var(--font-display); }
 .workspace .bot-v2-subtitle p { margin:0; color:var(--muted); font-size:12px; }
@@ -334,7 +329,7 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
 
 /* Shared overlay material. Specificity keeps lazy component sheets from weakening the glass.
    Scrims dim the surrounding workspace; surface fills obscure the content directly below them. */
-:root :is(.context-card,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
+:root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) {
   background:var(--glass-strong); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
 }
 :root :is(.detail-backdrop,.cover-scrim,.cover-leave-scrim,.new-group-scrim,.sheet-overlay,.mcp-oauth-overlay,.handover-overlay,.settings-leave-overlay,.terminal-confirm) {
@@ -356,6 +351,6 @@ html:not([data-desktop]) .workspace .web-memory-empty p{margin:0;color:var(--mut
   :root:root :is(.cover-window,.cover-scrim,.cover-leave-scrim,.cover-leave-dialog,.new-group-dialog,.new-group-scrim,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.permission-coach) { animation:none; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  :root :is(.context-card,.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  :root :is(.cover-window,.cover-leave-dialog,.new-group-dialog,.sheet,.mcp-oauth-dialog,.handover-dialog,.resource-restart-dialog,.mac-confirm-dialog,.settings-leave-dialog,.search-palette,.permission-coach,.view-only-chat,.view-only-chat-header,.view-only-chat-footer,.desktop-presence-actor) { background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none; }
 }
 }

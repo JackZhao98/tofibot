@@ -1,11 +1,6 @@
-/* The sidebar's frame (docs/design/widgets-and-sidebar.md section 2.2). Loads with SidebarShell; the grid track itself is eager in
-   context-card.css. Header: 15px/600 title, expand, close; a floating rounded rectangle: filled --surface, soft elevation from the pane (context-card.css), no outline. */
+/* The sidebar's layers and the panels inside them (docs/design/widgets-and-sidebar.md section 2.2): layout and motion only. The
+   frame, header and title are the kit Widget (ds/Widget, form sidebar); the grid track is eager in context-card.css. */
 @layer legacy {
-.sidebar-shell { display:flex; flex-direction:column; height:100%; min-width:0; min-height:0; background:var(--surface); color:var(--ink); border-radius:16px; overflow:hidden; }
-.sidebar-shell-header { display:flex; align-items:center; gap:2px; flex:none; min-height:48px; padding:6px 10px 6px 20px; }
-.sidebar-shell-header h2 { flex:1; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 15px/1.3 var(--font-display); outline:none; animation:sidebar-layer-in var(--m-quick) var(--ease-out) backwards; }
-.sidebar-shell-expand svg { transition:rotate var(--m-base) var(--ease-out); }
-.sidebar-shell-body { position:relative; flex:1 1 auto; min-height:0; overflow:hidden; }
 /* One layer per panel. The arriving one fades in; the leaving one fades out on top and stops taking input. */
 .sidebar-layer { position:absolute; inset:0; overflow:hidden auto; overscroll-behavior:contain; animation:sidebar-layer-in var(--m-quick) var(--ease-out) backwards; }
 .sidebar-layer[data-leaving] { opacity:0; pointer-events:none; transition:opacity var(--m-quick) var(--ease-out); }
@@ -18,7 +13,7 @@
 .sidebar-shell .detail-content > .detail-heading { min-height:0; margin:0 0 12px; padding:0; border:0; }
 .sidebar-shell .terminal-panel { width:100%; height:100%; min-height:0; border:0; border-radius:0; box-shadow:none; }
 @media (prefers-reduced-motion:reduce) {
-  .sidebar-shell-header h2, .sidebar-layer { animation:none; }
-  .sidebar-layer[data-leaving], .sidebar-shell-expand svg { transition:none; }
+  .sidebar-layer { animation:none; }
+  .sidebar-layer[data-leaving] { transition:none; }
 }
 }

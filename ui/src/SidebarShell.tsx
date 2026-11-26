@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { usePreviousWhileFading } from "./surfacePresence";
 import { useTranslation } from "./i18n";
 import { IconButton } from "./ds/IconButton/IconButton";
+import { Widget } from "./ds/Widget/Widget";
 import type { SidebarId } from "./surfaces";
 import "./sidebar-shell.css";
 
@@ -28,15 +29,9 @@ export function SidebarShell({ id, expanded, focusN = 0, onExpand, onClose, cont
     return () => cancelAnimationFrame(frame);
   }, [focusN]);
   const expandLabel = t(expanded ? "sidebar.collapse_panel" : "sidebar.expand_panel", { title });
-  return <section className="sidebar-shell" data-sidebar={id} aria-label={title}>
-    <header className="sidebar-shell-header">
-      <h2 key={id} ref={heading} tabIndex={-1}>{title}</h2>
-      <IconButton size="sm" className="sidebar-shell-expand" icon={expanded ? "chevron-right" : "chevron-left"} label={expandLabel} aria-pressed={expanded} onClick={onExpand} />
-      <IconButton size="sm" icon="close" label={t("sidebar.close_panel", { title })} onClick={onClose} />
-    </header>
-    <div className="sidebar-shell-body">
-      {fading && <div key={`out-${fading}`} className="sidebar-layer" data-leaving="" aria-hidden="true" inert>{content(fading)}</div>}
-      <div key={id} className={`sidebar-layer${id === "terminal" ? " is-fill" : ""}`}>{content(id)}</div>
-    </div>
-  </section>;
+  return <Widget form="sidebar" title={title} data-sidebar={id} headingRef={heading} onClose={onClose} closeLabel={t("sidebar.close_panel", { title })}
+    actions={<IconButton size="sm" className="sidebar-shell-expand" icon={expanded ? "chevron-right" : "chevron-left"} label={expandLabel} aria-pressed={expanded} onClick={onExpand} />}>
+    {fading && <div key={`out-${fading}`} className="sidebar-layer" data-leaving="" aria-hidden="true" inert>{content(fading)}</div>}
+    <div key={id} className={`sidebar-layer${id === "terminal" ? " is-fill" : ""}`}>{content(id)}</div>
+  </Widget>;
 }

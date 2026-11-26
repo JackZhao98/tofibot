@@ -1,0 +1,35 @@
+/* A widget is a filled surface with a soft elevation and no outline: the fill is the edge. The column form folds and closes;
+   the sidebar form is the one floating panel at the window edge. Everything reads skin roles. */
+.tb-widget { min-width: 0; min-height: 0; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); overflow: clip; }
+.tb-widget-head { display: flex; align-items: center; gap: 2px; min-height: 40px; padding: 4px 6px 4px 14px; }
+.tb-widget-title { flex: 0 1 auto; min-width: 0; margin: 0; outline: none; font: inherit; }
+/* The title is a quiet section label; the chevron follows the words and turns as the card folds. */
+.tb-widget-fold { display: inline-flex; align-items: center; gap: 3px; min-height: 28px; margin-left: -6px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 500 12.5px/1.3 var(--font-body); letter-spacing: 0; transition: color var(--m-press) var(--ease-out); }
+.tb-widget-fold span { white-space: nowrap; }
+.tb-widget-fold:hover { color: var(--ink); }
+.tb-widget-fold:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+.tb-widget-fold svg { flex: none; transition: rotate var(--m-base) var(--ease-out); }
+.tb-widget.is-folded .tb-widget-fold svg { rotate: -90deg; }
+@media (pointer: coarse) { .tb-widget-fold { min-height: 44px; } }
+/* Close shows while the card is hovered or has keyboard focus (always on a touch screen). */
+.tb-widget-ctl { display: flex; align-items: center; gap: 2px; flex: none; margin-left: auto; opacity: 0; transition: opacity var(--m-quick) var(--ease-out); }
+.tb-widget:is(:hover, :has(:focus-visible)) .tb-widget-ctl { opacity: 1; }
+@media (pointer: coarse) { .tb-widget-ctl { opacity: 1; } }
+.tb-widget-inner { min-height: 0; min-width: 0; overflow: clip; }
+/* Bare: the body is the widget (the computer's monitor draws its own surface). */
+.tb-widget.is-bare { background: transparent; box-shadow: none; overflow: visible; }
+.tb-widget.is-bare .tb-widget-body { overflow: visible; }
+.tb-widget.is-bare:not(.is-folded) .tb-widget-inner { overflow: visible; }
+
+/* The sidebar: a floating rounded rectangle, 15px/600 title, expand and close in the head. */
+.tb-widget--sidebar { display: flex; flex-direction: column; height: 100%; border-radius: 16px; overflow: hidden; }
+.tb-widget--sidebar .tb-widget-head { flex: none; min-height: 48px; padding: 6px 10px 6px 20px; }
+.tb-widget--sidebar .tb-widget-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font: 600 15px/1.3 var(--font-display); animation: tb-widget-title-in var(--m-quick) var(--ease-out) backwards; }
+.tb-widget--sidebar .tb-widget-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.tb-widget--sidebar [aria-pressed] svg { transition: rotate var(--m-base) var(--ease-out); }
+@keyframes tb-widget-title-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .tb-widget-fold, .tb-widget-fold svg, .tb-widget-ctl, .tb-widget--sidebar [aria-pressed] svg { transition: none; }
+  .tb-widget--sidebar .tb-widget-title { animation: none; }
+}
+@media (forced-colors: active) { .tb-widget { outline: 1px solid CanvasText; } }
